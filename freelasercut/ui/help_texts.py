@@ -94,6 +94,10 @@ HELP = {
     "dist_vc": (tr("Distribuisci centri verticali"), tr("Centri a distanza uguale in verticale."), None),
     "same_w": (tr("Stessa larghezza"), tr("Dà a tutte la larghezza dell'ultima forma selezionata."), None),
     "same_h": (tr("Stessa altezza"), tr("Dà a tutte l'altezza dell'ultima forma selezionata."), None),
+    "nest": (tr("Ottimizza lo spazio (nesting)"), tr("Sistema i pezzi sul materiale con il minimo spreco, usando la loro sagoma "
+             "vera. Materiale: piano intero, rettangolo su misura o un contorno disegnato sul livello T1 (anche un avanzo "
+             "irregolare). Si scelgono distanza tra i pezzi, margine e rotazioni; le forme che si toccano restano unite."),
+             [(tr("Distanza tra i pezzi"), tr("almeno lo spessore del taglio")), (tr("Rotazioni"), tr("nessuna con venature o foto"))]),
     "grid_array": (tr("Serie a griglia"), tr("Copie in righe e colonne, con spaziatura, sfalsamento e numerazione automatica "
                    "dei testi variabili."), None),
     "circ_array": (tr("Serie circolare"), "Copie disposte in cerchio, ruotate o no.", None),

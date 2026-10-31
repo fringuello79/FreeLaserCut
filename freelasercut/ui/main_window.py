@@ -108,6 +108,14 @@ class MainWindow(QMainWindow):
                         d.show()
             except TypeError:
                 pass
+        from .banco import ui_mode
+
+        self.ui_mode = ui_mode(self.qs)
+        self.banco = None
+        if self.ui_mode == "banco":  # interfaccia «Banco»: stessa logica, disposizione diversa
+            from .banco import Banco
+
+            self.banco = Banco(self)
 
     # ================================================================ azioni
     def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
@@ -138,7 +146,7 @@ class MainWindow(QMainWindow):
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
-            "undo": A(tr("Annulla"), e.undo, "Ctrl+Z", "undo"),
+            "undo": A(tr("Annulla {0}", "").strip(), e.undo, "Ctrl+Z", "undo"),
             "redo": A(tr("Ripeti"), e.redo, ["Ctrl+Y", "Ctrl+Shift+Z"], "redo"),
             "cut": A(tr("Taglia"), e.cut, "Ctrl+X", "cut"),
             "copy": A(tr("Copia"), e.copy, "Ctrl+C", "copy"),
@@ -189,6 +197,8 @@ class MainWindow(QMainWindow):
             "grid_array": A(tr("Serie a griglia…"), self.grid_array_dialog, "Alt+A", "grid_array"),
             "circ_array": A(tr("Serie circolare…"), self.circ_array_dialog, None, "circ_array"),
             "along_path": A(tr("Copia lungo un tracciato…"), self.along_path_dialog),
+            "nest": A(tr("Ottimizza lo spazio (nesting)…"), self.nest_dialog, "Alt+N", "nest",
+                      tr("Sistema i pezzi sul materiale sprecandone il meno possibile")),
             "front": A(tr("Porta in primo piano"), lambda: e.order("front"), "Ctrl+Shift+Up", "front"),
             "back": A(tr("Porta in fondo"), lambda: e.order("back"), "Ctrl+Shift+Down", "back"),
             "zoom_in": A(tr("Ingrandisci"), lambda: c.zoom_by(1.25), ["Ctrl++", "Ctrl+="], "zoom_in"),
@@ -338,7 +348,7 @@ class MainWindow(QMainWindow):
                           (tr("Distribuisci"), ["dist_h", "dist_v", "dist_hc", "dist_vc"]),
                           (tr("Stessa misura"), ["same_w", "same_h"]),
                           (tr("Sposta sul piano"), [anchors_move]), (tr("Porta la testa sulla selezione"), [anchors_head]), "-",
-                          "grid_array", "circ_array", "along_path", "-", "front", "back"])
+                          "grid_array", "circ_array", "along_path", "-", "nest", "-", "front", "back"])
         m = mb.addMenu(tr("&Strumenti"))
         for name in ("select", "nodes", "line", "rect", "ellipse", "polygon", "star", "special", "text", "measure",
                      "position"):
@@ -357,7 +367,55 @@ class MainWindow(QMainWindow):
         self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
+        self._build_settings_menu(mb)
         menu(tr("&Aiuto"), ["help_mode", "-", "claude", "-", "shortcuts", "about", "-", "support"])
+
+    def _build_settings_menu(self, mb):
+        """Impostazioni: interfaccia (Banco / Classica), secondo monitor, lingua, vista."""
+        from .banco import ui_mode
+
+        m = mb.addMenu(tr("&Impostazioni"))
+        self.m_settings = m
+        sub = m.addMenu(tr("Interfaccia"))
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        cur = ui_mode(self.qs)
+        self.ui_actions = {}
+        for code, label in (("banco", tr("Banco (piano a tutto schermo)")), ("classica", tr("Classica (menu e pannelli)"))):
+            act = sub.addAction(label)
+            act.setCheckable(True)
+            act.setChecked(code == cur)
+            grp.addAction(act)
+            act.triggered.connect(lambda _=False, c=code: self.choose_interface(c))
+            self.ui_actions[code] = act
+        sec = m.addAction(tr("Officina sul secondo monitor, se c'è"))
+        sec.setCheckable(True)
+        sec.setChecked(self.qs.value("officina_second_screen", "true") in (True, "true"))
+        sec.toggled.connect(self._toggle_second_screen)
+        self.act_second_screen = sec
+        m.addSeparator()
+        m.addMenu(self.m_language)  # lo stesso sottomenu di Visualizza: una sola lista di lingue
+        m.addSeparator()
+        for k in ("light_bed", "snap_obj", "snap_grid", "dither_prev"):
+            m.addAction(self.acts[k])
+
+    def _toggle_second_screen(self, on):
+        self.qs.setValue("officina_second_screen", bool(on))
+        if getattr(self, "banco", None) is not None:
+            self.banco.check_screens()
+
+    def choose_interface(self, code):
+        from .banco import save_mode
+
+        save_mode(code, self.qs)
+        if code == getattr(self, "ui_mode", code):  # è già quella in uso
+            return
+        r = QMessageBox.question(self, tr("Interfaccia"), tr("La nuova interfaccia sarà usata dal prossimo avvio di "
+                                                              "FreeLaserCut. Riavviare adesso?"))
+        if r == QMessageBox.Yes:
+            self._restart = True
+            if not self.close():
+                self._restart = False
 
     def _build_toolbars(self):
         a = self.acts
@@ -532,6 +590,8 @@ class MainWindow(QMainWindow):
                     tb.hide()
 
     def _balance_docks(self):
+        if getattr(self, "banco", None) is not None:  # nel Banco i pannelli stanno nell'Officina
+            return
         if self.qs.value("win_state_v5") is None:
             h = max(self.height() - 160, 600)
             self.resizeDocks([self.docks["layers"], self.docks["laser"]], [int(h * 0.58), int(h * 0.42)], Qt.Vertical)
@@ -670,8 +730,8 @@ class MainWindow(QMainWindow):
         e = self.editor
         self.acts["undo"].setEnabled(bool(e.undo_stack))
         self.acts["redo"].setEnabled(bool(e.redo_stack))
-        self.acts["undo"].setText(f"Annulla {e.undo_label()}".strip())
-        self.acts["redo"].setText(f"Ripeti {e.redo_label()}".strip())
+        self.acts["undo"].setText(tr("Annulla {0}", e.undo_label()).strip())
+        self.acts["redo"].setText(tr("Ripeti {0}", e.redo_label()).strip())
 
     def _update_sel_actions(self):
         n = len(self.editor.selection)
@@ -940,6 +1000,11 @@ class MainWindow(QMainWindow):
         if dlg.exec() == QDialog.Accepted:
             count, center, start, end, rot, group = dlg.values()
             self.editor.circular_array(count, center, start, end, rot, group)
+
+    def nest_dialog(self):
+        from .dialogs_nest import NestDialog
+
+        NestDialog(self).exec()
 
     def along_path_dialog(self):
         n, ok = QInputDialog.getInt(self, tr("Copia lungo un tracciato"), tr("Numero di copie:"), 10, 1, 1000)
@@ -1609,7 +1674,10 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             e.ignore()
             return
-        self.qs.setValue("win_state_v5", self.saveState(5))
+        if getattr(self, "banco", None) is None:
+            self.qs.setValue("win_state_v5", self.saveState(5))
+        else:
+            self.banco.shutdown()
         self.qs.setValue("win_geom", self.saveGeometry())
         self.qs.setValue("autosave_pending", False)
         self.camera.shutdown()
@@ -1666,7 +1734,10 @@ Ctrl+Invio avvia · Ctrl+Spazio pausa · Ctrl+Pausa stop · Ctrl+Maiusc+F contor
 Laser → Riconosci la macchina: porte USB, driver e profilo adattato alla scheda collegata
 
 ANTEPRIMA
-Rotella zoom verso il cursore · trascina per spostare · doppio clic o 0 adatta alla finestra""")
+Rotella zoom verso il cursore · trascina per spostare · doppio clic o 0 adatta alla finestra""") + "\n\n" + tr("""DISPONI
+Alt+N ottimizza lo spazio (nesting): i pezzi si sistemano sul materiale con il minimo spreco""") + "\n\n" + tr("""INTERFACCIA BANCO
+Ctrl+F o F3 cerca un comando · Ctrl+Maiusc+W apre/chiude l'Officina · tasto destro sul piano: menu radiale
+Durante l'incisione: Pausa e Stop restano sempre nello stesso posto, in basso al centro""")
 
 
 def main(app=None, splash=None):
@@ -1704,6 +1775,14 @@ def main(app=None, splash=None):
         imaging.warmup()
     except Exception:  # noqa: BLE001
         pass
+    from .banco import ChoiceDialog, needs_choice
+
+    if needs_choice(migrate_qsettings()) and QGuiApplication.platformName() not in ("offscreen", "minimal"):
+        if splash is not None:
+            splash.hide()
+        ChoiceDialog().exec()
+        if splash is not None:
+            splash.show()
     say(tr("Apro il piano di lavoro…"))
     win = MainWindow()
     win.show()

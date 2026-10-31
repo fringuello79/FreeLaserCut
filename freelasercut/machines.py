@@ -55,6 +55,49 @@ VENDORS = (
 
 _BAUDS = (115200, 250000, 230400, 57600, 38400, 9600)
 
+# Incisori a diodo GRBL più diffusi: valori di targa per partire subito, anche senza la macchina collegata.
+# Quando la colleghi, area di lavoro, scala di potenza, velocità e buffer si rileggono dalla scheda ($$, $I).
+# (nome, produttore, area X, area Y mm, potenza ottica indicativa, velocità massima mm/min)
+CATALOG = (
+    ("Longer B1 40W", "Longer", 450, 440, "44–48 W", 36000),
+    ("Longer B1 20W / 30W", "Longer", 450, 440, "20–30 W", 36000),
+    ("Longer Ray5 10W / 20W", "Longer", 400, 400, "10–20 W", 20000),
+    ("Ortur Laser Master 3 (10W)", "Ortur", 400, 400, "10 W", 20000),
+    ("Ortur Laser Master 3 (20W / 40W)", "Ortur", 400, 380, "20–40 W", 20000),
+    ("Ortur Laser Master 2 Pro S2", "Ortur", 400, 430, "5–10 W", 10000),
+    ("xTool D1 Pro", "xTool", 430, 390, "10–40 W", 24000),
+    ("Atomstack A10 Pro V2", "Atomstack", 410, 380, "10 W", 24000),
+    ("Atomstack X20 Pro / S20 Pro / A20 Pro", "Atomstack", 400, 400, "20 W", 20000),
+    ("Atomstack X40 Pro / S40 Pro / A40 Pro", "Atomstack", 400, 400, "40 W", 20000),
+    ("Sculpfun S9", "Sculpfun", 410, 420, "5,5 W", 10000),
+    ("Sculpfun S10", "Sculpfun", 410, 400, "10 W", 10000),
+    ("Sculpfun S30 / S30 Pro / S30 Pro Max", "Sculpfun", 410, 400, "5–20 W", 25000),
+    ("Creality Falcon 10W", "Creality", 400, 415, "10 W", 10000),
+    ("Creality Falcon2 22W / 40W", "Creality", 400, 415, "22–40 W", 25000),
+    ("Two Trees TS2", "Two Trees", 450, 450, "10–20 W", 10000),
+    ("Two Trees TTS-55 Pro", "Two Trees", 300, 300, "5,5 W", 6000),
+    ("Comgrow Z1", "Comgrow", 400, 410, "5–10 W", 10000),
+)
+GENERIC = tr("Altro laser GRBL (si legge dalla macchina)")
+
+
+def catalog_names():
+    return [c[0] for c in CATALOG] + [GENERIC]
+
+
+def preset_profile(name):
+    """Profilo pronto per un modello del catalogo (o generico): area, velocità e potenza indicativa."""
+    if name == "Longer B1 40W":
+        return MachineProfile()
+    for n, vendor, bx, by, power, rate in CATALOG:
+        if n == name:
+            return MachineProfile(name=n, model=n, source=tr("valori di targa"), bed_x=float(bx), bed_y=float(by),
+                                  optical_power=power, max_rate_x=float(rate), max_rate_y=float(rate),
+                                  accel_x=1500.0, accel_y=1500.0, spot_x_mm=0.08, spot_y_mm=0.10, rx_buffer=128)
+    return MachineProfile(name=tr("Laser GRBL"), model=tr("Laser GRBL"), source=tr("valori di targa"), bed_x=400.0,
+                          bed_y=400.0, optical_power="", max_rate_x=10000.0, max_rate_y=10000.0, accel_x=1000.0,
+                          accel_y=1000.0, spot_x_mm=0.10, spot_y_mm=0.10)
+
 
 @dataclass
 class PortInfo:
@@ -205,6 +248,10 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
         ident.model = "Longer B1 40W"
         ident.notes.append(("info", tr("Longer B1 riconosciuto da firmware e area di lavoro. La potenza del modulo non si "
                                     "legge dalla scheda: confermala nel nome (20, 30 o 40 W).")))
+    if ident.vendor and not ident.model and bx and by:
+        same = [n for n, v, cx, cy, *_ in CATALOG if v == ident.vendor and abs(bx - cx) <= 15 and abs(by - cy) <= 15]
+        if len(same) == 1:
+            ident.model = same[0]
     # affidabilità
     score = (2 if ident.vendor else 0) + (1 if ident.family else 0) + (1 if bx and by else 0) + (1 if ident.board else 0)
     ident.confidence = "alta" if score >= 4 else "media" if score >= 2 else "bassa"
@@ -234,6 +281,9 @@ def base_profile(ident):
     """Profilo di partenza per la macchina riconosciuta (poi from_machine ci scrive i valori letti)."""
     if ident.model == "Longer B1 40W":
         p = MachineProfile()
+    elif ident.model in catalog_names():
+        p = preset_profile(ident.model)
+        p.vendor_fw = ident.vendor_fw
     else:
         p = MachineProfile(name=ident.name(), model=ident.name(), optical_power="", spot_x_mm=0.10, spot_y_mm=0.10)
         p.vendor_fw = ident.vendor_fw

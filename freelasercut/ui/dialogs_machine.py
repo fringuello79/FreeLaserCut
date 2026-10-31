@@ -37,6 +37,25 @@ def saved_profiles():
     return out
 
 
+def use_preset(qs, name):
+    """Crea (o riprende) il profilo di un modello del catalogo e lo rende quello attivo al prossimo avvio."""
+    p = machines.preset_profile(name)
+    path = p.path()
+    if os.path.exists(path):
+        try:
+            p = MachineProfile.load(path)  # già usato: tiene i valori letti dalla macchina
+        except (OSError, ValueError, TypeError):
+            pass
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if not os.path.exists(path):
+            p.save()
+    except OSError:
+        return None
+    qs.setValue("profile_path", path)
+    return p
+
+
 class MachineWizard(QDialog):
     """Riconoscimento e adattamento il più automatico possibile del laser collegato."""
 
@@ -65,6 +84,18 @@ class MachineWizard(QDialog):
         pr.addWidget(b)
         v.addLayout(pr)
         self._fill_profiles()
+        # ---- modelli pronti (anche senza la macchina collegata)
+        mr = QHBoxLayout()
+        mr.addWidget(QLabel(tr("Oppure il tuo modello")))
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(machines.catalog_names())
+        self.model_combo.setToolTip(tr("Incisori GRBL più diffusi: area di lavoro e velocità di targa. Collegando la macchina "
+                                       "i valori veri si rileggono dalla scheda."))
+        mr.addWidget(self.model_combo, 1)
+        b = QPushButton(tr("Usa questo modello"))
+        b.clicked.connect(self._use_model)
+        mr.addWidget(b)
+        v.addLayout(mr)
         # ---- porte
         v.addWidget(section(tr("Porte USB del computer")))
         self.table = QTableWidget(0, 5)
@@ -168,6 +199,15 @@ class MachineWizard(QDialog):
             return
         self.main.set_active_profile(p)
         self.log.appendPlainText(f"Profilo attivo: {p.name}")
+
+    def _use_model(self):
+        p = use_preset(self.main.qs, self.model_combo.currentText())
+        if p is None:
+            QMessageBox.warning(self, tr("Profilo"), tr("Impossibile salvare il profilo."))
+            return
+        self.main.set_active_profile(p)
+        self._fill_profiles()
+        self.log.appendPlainText(tr("Profilo attivo: {0} ({1:g} × {2:g} mm)", p.name, p.bed_x, p.bed_y))
 
     # ------------------------------------------------------------------ porte e driver
     def refresh(self):

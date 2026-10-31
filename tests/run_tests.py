@@ -9,6 +9,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["APPDATA"] = tempfile.mkdtemp(prefix="flc_test_")
 os.environ["FLC_NO_FIRST_RUN"] = "1"
+os.environ.setdefault("FLC_UI", "classica")  # le suite storiche provano la finestra classica; il Banco ha test_v07
 
 import numpy as np  # noqa: E402
 from PySide6.QtCore import QCoreApplication  # noqa: E402
@@ -218,6 +219,8 @@ if __name__ == "__main__":
     run_suite("test_v04.py", "Progetti LightBurn, galleria forme, comandi da Claude (MCP)")
     run_suite("test_v05.py", "Barra numerica, livelli in tabella, guida ?, riconoscimento macchina, anteprima")
     run_suite("test_v06.py", "Lingue: inglese, italiano, spagnolo, francese, portoghese")
+    run_suite("test_v07.py", "Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina")
+    run_suite("test_v08.py", "Ottimizza lo spazio (nesting) e modelli di laser pronti")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

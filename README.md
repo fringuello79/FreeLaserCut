@@ -2,14 +2,16 @@
 
 # FreeLaserCut (FLC)
 
-> **Interface languages:** English · Italiano · Español · Français · Português — *View → Language*.
+> **Interface languages:** English · Italiano · Español · Français · Português — *Settings → Language*.
+> **Website:** https://fringuello79.github.io/FreeLaserCut/ · **Nesting** (Arrange → Optimize space, Alt+N) · ready-made profiles for Longer, Ortur, xTool, Atomstack, Sculpfun, Creality Falcon, Two Trees, Comgrow and any GRBL laser.
+> **Two interfaces:** *Workbench* (full-screen bed, command search, radial menu, second-monitor aware) or *Classic* — *Settings → Interface*.
 > Free (GPL-3.0) laser engraving and cutting software for GRBL machines, native profile for the Longer B1 40W.
 > Windows installer in **Releases**. Documentation below is in Italian.
 
 Software **libero** di incisione e taglio laser per macchine GRBL, con profilo nativo per il **Longer B1 40W**.
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 
-Versione **0.6.0** — interfaccia in inglese, italiano, spagnolo, francese e portoghese (Visualizza → Lingua). Dalla 0.5.2: schermata d'avvio con il logo mentre il programma si carica e pulsante **Sostieni FreeLaserCut** in alto a destra. Dalla 0.5.1: nuovo nome (prima si chiamava *Freeburn*) e nuovo logo. I progetti `.fbrn` si aprono ancora; i nuovi si salvano come `.flcut`. Al primo avvio profili, materiali, camera e preferenze di Freeburn vengono copiati da soli in FreeLaserCut.
+Versione **0.8.0** — nuovo comando **Ottimizza lo spazio (nesting)** per sprecare meno materiale e **modelli pronti** per i laser GRBL più diffusi. Dalla 0.7.0: nuova interfaccia **Banco** (predefinita) con il piano a tutto schermo, ricerca di tutti i comandi, menu radiale e adattamento automatico al secondo monitor; l'interfaccia di prima resta come **Classica** (Impostazioni → Interfaccia). Dalla 0.6.0: interfaccia in inglese, italiano, spagnolo, francese e portoghese (Impostazioni → Lingua). Dalla 0.5.2: schermata d'avvio con il logo e pulsante **Sostieni FreeLaserCut** in alto a destra. Dalla 0.5.1: nuovo nome (prima si chiamava *Freeburn*) e nuovo logo. I progetti `.fbrn` si aprono ancora; i nuovi si salvano come `.flcut`. Al primo avvio profili, materiali, camera e preferenze di Freeburn vengono copiati da soli in FreeLaserCut.
 
 ## Installazione (Windows)
 
@@ -20,7 +22,7 @@ Per verificare il file scaricato confrontalo con `SHA256SUMS.txt` della stessa r
 
 ## Lingua
 
-Al primo avvio FreeLaserCut usa la lingua di Windows se è tra inglese, italiano, spagnolo, francese e portoghese, altrimenti l'inglese. Si cambia da **Visualizza → Lingua / Language**: la nuova lingua vale dal riavvio, che il programma propone subito. I testi sono in `freelasercut/locale/<lingua>.json` (chiave = testo italiano nel codice): correzioni e nuove lingue sono benvenute. La guida "?" dei comandi per ora è solo in italiano.
+Al primo avvio FreeLaserCut usa la lingua di Windows se è tra inglese, italiano, spagnolo, francese e portoghese, altrimenti l'inglese. Si cambia da **Impostazioni → Lingua / Language** (anche Visualizza → Lingua nella Classica): la nuova lingua vale dal riavvio, che il programma propone subito. I testi sono in `freelasercut/locale/<lingua>.json` (chiave = testo italiano nel codice): correzioni e nuove lingue sono benvenute. La guida "?" dei comandi per ora è solo in italiano.
 
 ## Avvio dal codice sorgente (Windows)
 
@@ -29,7 +31,29 @@ La prima volta, e dopo ogni aggiornamento, installa da solo le librerie nuove: c
 
 > Chiudi LightBurn o LaserGRBL prima di connetterti: la porta USB la può usare un solo programma alla volta.
 
-## L'interfaccia in breve
+## Le due interfacce
+
+Al primo avvio FreeLaserCut chiede quale usare; si cambia quando vuoi da **Impostazioni → Interfaccia** (vale dal riavvio, che il programma propone). I comandi sono gli stessi: cambia solo la disposizione.
+
+### Banco (predefinita)
+
+<p align="center"><img src="docs/screenshot/banco.png" alt="Interfaccia Banco" width="820"></p>
+
+Progettata partendo dagli studi sull'usabilità delle interfacce: bersagli grandi e vicini a dove si lavora (legge di Fitts), poche scelte per volta (Hick-Hyman), comandi che compaiono quando servono (*progressive disclosure*), menu radiali (Callahan, Kurtenbach e Buxton) e uso del secondo monitor come spazio di lavoro (Czerwinski e altri).
+
+| Zona | Cosa c'è |
+| --- | --- |
+| Barra in alto | Progetto, **ricerca comandi** (Ctrl+F / F3), stato della macchina (clic = connetti), **Officina**, **⚙ Impostazioni**, guida "?", **Sostieni** |
+| Sinistra | **Strati** nell'ordine di lavoro: clic su una scheda per velocità, potenza, passate, modalità, aria, incisione. « riduce gli strati a una colonna di colori |
+| Destra | **Dal disegno al pezzo**: i quattro passi con il loro stato, materiali, test, anteprima, verifica, contorno, camera, origine, conferme di sicurezza e avvio (tieni premuto). Con una selezione, sopra compaiono le **Proprietà** |
+| Vicino alla selezione | **Barra contestuale**: X/Y/larghezza/altezza/rotazione, livello, allinea, combina, serie, altro |
+| In basso | **Isola degli strumenti** (annulla/ripeti, disegno, importa, vettorizza, misure esatte, testo variabile, misura, posiziona laser) e zoom |
+| Tasto destro sul piano | **Menu radiale** con 8 comandi sulla forma sotto il cursore (o sul piano vuoto) |
+| Durante l'incisione | **Cabina**: tempo rimanente, ora di fine, velocità e potenza ±10%, aria, **Pausa** e **Stop** grandi |
+| Officina (Ctrl+Shift+W) | Laser, Movimento, Camera, Macchina, Console, tabella completa dei livelli. **Con due monitor va da sola sul secondo** (Impostazioni → Officina sul secondo monitor) |
+
+### Classica
+
 
 | Zona | Cosa c'è |
 | --- | --- |
@@ -39,7 +63,25 @@ La prima volta, e dopo ogni aggiornamento, installa da solo le librerie nuove: c
 | Tavolozza (in basso) | 30 livelli colore + **T1** (livello strumenti, mai inciso): clic = assegna il colore alla selezione |
 | Pannelli (destra) | **Livelli**, **Proprietà** · **Laser**, **Movimento**, **Camera**, **Macchina**, **Console**. Si spostano, si staccano e si richiudono (menu Visualizza → Pannelli) |
 
-Premi **F1** per l'elenco completo delle scorciatoie.
+Premi **F1** per l'elenco completo delle scorciatoie (valgono in entrambe le interfacce).
+
+## Ottimizza lo spazio (nesting)
+
+**Disponi → Ottimizza lo spazio** (Alt+N; nel Banco anche dalla barra contestuale e dal menu radiale) sistema i pezzi sul materiale sprecandone il meno possibile.
+
+- Usa la **sagoma vera** di ogni pezzo: un cerchio può entrare nell'angolo di una L, una forma irregolare accanto a un'altra.
+- **Pezzi**: la selezione oppure, se non selezioni niente, tutte le forme. Le forme bloccate e quelle non selezionate restano ferme e vengono evitate. Le forme una dentro l'altra (un'incisione nel suo contorno di taglio) si spostano insieme anche senza raggrupparle; le copie sovrapposte invece vengono distribuite.
+- **Materiale**: il piano intero, un rettangolo su misura oppure un contorno disegnato sul **livello T1**, anche un avanzo irregolare. Selezionalo insieme ai pezzi.
+- **Distanza tra i pezzi** (almeno lo spessore del taglio), **margine dal bordo**, **rotazioni** (nessuna, 180°, 90°, 45°, 15°: con le venature del legno o le foto conviene nessuna o 180°), **precisione** normale o alta.
+- Il risultato indica quanti pezzi sono stati sistemati, il materiale usato e la resa in %. I pezzi che non entrano restano dove erano e vengono selezionati. **Ctrl+Z** annulla tutto in un colpo.
+
+## Macchine supportate
+
+FreeLaserCut lavora con qualsiasi laser a diodo con firmware **GRBL 1.1**, **grblHAL**, **Grbl_ESP32** o **FluidNC** collegato via USB.
+
+- Al primo avvio (o da *Laser → Riconosci la macchina*, anche senza la macchina collegata) si sceglie il modello tra quelli pronti: Longer B1 / Ray5, Ortur Laser Master 2 Pro S2 / 3, xTool D1 Pro, Atomstack A10 / X20 / X40, Sculpfun S9 / S10 / S30, Creality Falcon / Falcon2, Two Trees TS2 / TTS-55, Comgrow Z1 oppure "Altro laser GRBL".
+- Collegando la macchina, area di lavoro, scala di potenza, velocità e buffer si rileggono dalla scheda (`$$`, `$I`). Il produttore viene riconosciuto dal firmware.
+- La **libreria materiali** contiene i valori del Longer B1 40W. Con un altro laser parti dal **Test materiale** (Laser → Test materiale) e salva i tuoi valori nella libreria.
 
 ## Progetti LightBurn
 

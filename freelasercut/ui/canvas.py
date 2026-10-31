@@ -317,16 +317,17 @@ class Canvas(QGraphicsView):
     def fit_rect(self, r, margin=40):
         if r.isNull() or r.width() <= 0 and r.height() <= 0:
             return
-        vw = max(self.viewport().width() - RULER - 2 * margin, 50)
-        vh = max(self.viewport().height() - RULER - 2 * margin, 50)
+        il, it, ir, ib = getattr(self, "fit_insets", (0, 0, 0, 0))  # pannelli sovrapposti (interfaccia Banco)
+        vw = max(self.viewport().width() - RULER - 2 * margin - il - ir, 50)
+        vh = max(self.viewport().height() - RULER - 2 * margin - it - ib, 50)
         k = min(vw / max(r.width(), 1e-3), vh / max(r.height(), 1e-3))
         k = max(0.05, min(k, 400))
         self.resetTransform()
         self.scale(k, k)
         c = r.center()
         self.centerOn(QPointF(c.x(), -c.y()))
-        # i righelli occupano spazio in alto a sinistra: compenso
-        self.translate_view(RULER / 2, RULER / 2)
+        # i righelli occupano spazio in alto a sinistra (e i pannelli del Banco ai lati): compenso
+        self.translate_view(RULER / 2 + (il - ir) / 2, RULER / 2 + (it - ib) / 2)
         self.zoom_changed.emit(k)
         self.viewport().update()
 

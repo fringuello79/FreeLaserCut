@@ -1,6 +1,6 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """0.6: lingue dell'interfaccia (inglese predefinito, italiano, spagnolo, francese, portoghese)."""
-import ast
+import re, ast
 import json
 import os
 import subprocess
@@ -49,7 +49,8 @@ for root, _, fs in os.walk(pkg):
 for lang in ("en", "es", "fr", "pt"):
     cat = json.load(open(os.path.join(pkg, "locale", f"{lang}.json"), encoding="utf-8"))
     i18n.set_language(lang)
-    missing = [s for s in src if s not in cat and any(c.isalpha() and c.islower() for c in s)
+    missing = [s for s in src if s not in cat and (any(c.isalpha() and c.islower() for c in s)
+                                                    or re.search(r"[A-ZÀ-Ü]{4}", s))
                and s not in ("FreeLaserCut", "Atkinson", "Jarvis", "Stucki", "AutoCam", "Homing")]
     check(f"{lang}: catalogo completo", len(missing) == 0, f"{len(cat)} voci, mancano {len(missing)}")
     check(f"{lang}: nessuna voce scartata dal controllo", len(i18n._catalog) == len(cat), f"{len(i18n._catalog)}/{len(cat)}")

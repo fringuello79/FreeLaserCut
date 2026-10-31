@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeLaserCut — free laser engraving software</title>
+<meta name="description" content="FreeLaserCut (FLC): free and open-source (GPL-3.0) software to design, nest and send engraving and cutting jobs to GRBL diode lasers. Windows installer, 5 languages.">
+<meta property="og:title" content="FreeLaserCut — free laser engraving software">
+<meta property="og:description" content="Design, nest and engrave with your GRBL diode laser. Free, open source, Windows installer.">
+<meta property="og:image" content="https://fringuello79.github.io/FreeLaserCut/screenshot/banco.png">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="logo/logo.svg">
+<link rel="icon" type="image/png" href="logo/logo_1024.png">
+<style>
+:root{
+  --bg:#070A11; --bg2:#0B0F18; --card:#10151F; --card2:#141B28; --line:#1D2536; --line2:#2A3550;
+  --text:#E8EDF7; --muted:#94A0B8; --dim:#6F7C96;
+  --blue:#4FB4FF; --violet:#8B7CFF; --orange:#FF7A2E; --amber:#FFB347; --green:#3DD68C; --red:#E5484D;
+  --radius:16px; --wrap:1120px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 "Inter","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+html[lang="en"] .it, html[lang="it"] .en{display:none !important}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+img{max-width:100%;height:auto;display:block}
+code,kbd{font-family:"JetBrains Mono","Cascadia Mono",Consolas,monospace;font-size:.88em}
+kbd{background:var(--card2);border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;padding:1px 6px;color:var(--text);white-space:nowrap}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 20px}
+section{padding:72px 0;border-top:1px solid var(--line)}
+h1,h2,h3{line-height:1.2;margin:0 0 12px}
+h2{font-size:clamp(26px,3.4vw,36px);letter-spacing:-.02em}
+h3{font-size:18px}
+p{margin:0 0 12px}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin-bottom:10px}
+.lead{font-size:18px;color:#C9D3E6;max-width:760px}
+.muted{color:var(--muted)}
+
+/* barra in alto */
+header{position:sticky;top:0;z-index:10;background:rgba(7,10,17,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:18px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:800;letter-spacing:-.01em}
+.brand img{width:32px;height:32px;border-radius:8px}
+.brand:hover{text-decoration:none}
+.links{display:flex;gap:18px;margin-left:auto;font-size:14px}
+.links a{color:var(--muted)}
+.links a:hover{color:var(--text);text-decoration:none}
+.lang{display:flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
+.lang button{background:none;border:0;color:var(--muted);font:600 13px/1 inherit;padding:7px 11px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--card2);color:var(--text)}
+@media (max-width:860px){.links{display:none}.nav{justify-content:space-between}}
+
+/* apertura */
+.hero{padding:64px 0 40px;border-top:0;background:radial-gradient(900px 420px at 70% -10%,rgba(139,124,255,.18),transparent 60%),radial-gradient(700px 380px at 10% 0%,rgba(79,180,255,.12),transparent 60%)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+@media (max-width:920px){.hero-grid{grid-template-columns:1fr}}
+.wordmark{font-size:clamp(40px,6.4vw,68px);font-weight:900;letter-spacing:-.035em;line-height:1;margin:0 0 14px}
+.wordmark .l{background:linear-gradient(90deg,var(--blue),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.wordmark .c{background:linear-gradient(90deg,var(--amber),var(--orange));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-logo{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.hero-logo img{width:76px;height:76px;border-radius:18px;box-shadow:0 10px 40px rgba(79,180,255,.18)}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 26px}
+.badge{font-size:12px;font-weight:600;color:#C9D3E6;border:1px solid var(--line2);background:var(--card);border-radius:999px;padding:4px 10px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:10px;border-radius:14px;padding:14px 22px;font-weight:800;font-size:16px;border:1px solid transparent;cursor:pointer}
+.btn:hover{text-decoration:none;filter:brightness(1.06)}
+.btn-main{background:var(--orange);color:#1A0E05}
+.btn-ghost{background:var(--card);color:var(--text);border-color:var(--line2)}
+.btn svg{width:20px;height:20px}
+.dlmeta{font-size:13px;color:var(--muted);margin-top:12px}
+.dlmeta code{color:#C9D3E6;word-break:break-all}
+.shot{border-radius:14px;overflow:hidden;border:1px solid var(--line2);box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.shot figcaption{font-size:13px;color:var(--muted);padding:10px 14px;background:var(--card);border-top:1px solid var(--line)}
+
+/* schede */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:28px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+.card h3{display:flex;align-items:center;gap:10px}
+.card .ico{width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;background:var(--card2);border:1px solid var(--line2);color:var(--blue)}
+.card .ico svg{width:18px;height:18px}
+.card p{color:#B8C3D8;font-size:15px;margin:0}
+.card.new{border-color:rgba(255,122,46,.55);background:linear-gradient(180deg,rgba(255,122,46,.08),var(--card) 60%)}
+.tag{font-size:11px;font-weight:800;letter-spacing:.08em;color:#1A0E05;background:var(--orange);border-radius:6px;padding:2px 6px;margin-left:auto}
+
+/* prima / dopo */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:26px}
+@media (max-width:760px){.ba{grid-template-columns:1fr}}
+.ba figure{margin:0}
+.ba .label{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.points{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 24px;margin:26px 0 0;padding:0;list-style:none}
+.points li{padding-left:22px;position:relative;color:#C9D3E6;font-size:15px}
+.points li:before{content:"";position:absolute;left:0;top:.62em;width:10px;height:10px;border-radius:3px;background:var(--orange)}
+
+/* macchine */
+.machines{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:24px}
+.m{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.m b{display:block}
+.m span{font-size:13px;color:var(--muted)}
+.fw{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+
+/* guida */
+.guide{display:grid;grid-template-columns:240px 1fr;gap:36px;margin-top:28px}
+@media (max-width:860px){.guide{grid-template-columns:1fr}.toc{position:static !important}}
+.toc{position:sticky;top:84px;align-self:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.toc ol{margin:0;padding-left:20px;font-size:14px}
+.toc li{margin:4px 0}
+.toc a{color:#C9D3E6}
+.step{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin-bottom:14px;scroll-margin-top:80px}
+.step h3{display:flex;gap:12px;align-items:center;font-size:19px}
+.num{width:30px;height:30px;flex:none;border-radius:50%;background:var(--orange);color:#1A0E05;display:grid;place-items:center;font-weight:900;font-size:14px}
+.step ul{margin:8px 0 0;padding-left:20px;color:#C9D3E6}
+.step li{margin:5px 0}
+.warn{border-color:rgba(229,72,77,.5);background:linear-gradient(180deg,rgba(229,72,77,.08),var(--card) 60%)}
+.warn .num{background:var(--red);color:#fff}
+
+/* futuro e sostegno */
+.road{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:26px}
+.road .card h3{font-size:16px}
+.state{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:2px 7px;margin-left:auto;white-space:nowrap}
+.s-next{background:rgba(79,180,255,.15);color:var(--blue)}
+.s-idea{background:rgba(139,124,255,.15);color:#B9AFFF}
+.s-help{background:rgba(61,214,140,.14);color:var(--green)}
+.support{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:center}
+@media (max-width:860px){.support{grid-template-columns:1fr}}
+.btn-white{background:#fff;color:#0E1734}
+.btn-white .heart{color:var(--red)}
+
+footer{border-top:1px solid var(--line);padding:36px 0 50px;color:var(--dim);font-size:13px}
+footer p{margin:0 0 8px}
+.foot{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="logo/logo_1024.png" alt="">FreeLaserCut</a>
+    <nav class="links" aria-label="Sections">
+      <a href="#features"><span class="en">Features</span><span class="it">Funzioni</span></a>
+      <a href="#nesting">Nesting</a>
+      <a href="#machines"><span class="en">Machines</span><span class="it">Macchine</span></a>
+      <a href="#guide"><span class="en">Guide</span><span class="it">Guida</span></a>
+      <a href="#future"><span class="en">Roadmap</span><span class="it">Sviluppi</span></a>
+      <a href="#support"><span class="en">Support</span><span class="it">Sostieni</span></a>
+      <a href="https://github.com/fringuello79/FreeLaserCut">GitHub</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / Lingua">
+      <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-set-lang="it" aria-pressed="false">IT</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<!-- ================================================================ apertura -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="hero-logo"><img src="logo/logo_1024.png" alt="FreeLaserCut logo"></div>
+      <h1 class="wordmark">Free<span class="l">Laser</span><span class="c">Cut</span></h1>
+      <p class="lead en">Free, open-source software to <b>design, nest and engrave</b> with your GRBL diode laser. No subscription, no account, no tracking: download it and start engraving.</p>
+      <p class="lead it">Software <b>libero e gratuito</b> per <b>disegnare, disporre e incidere</b> con il tuo laser a diodo GRBL. Niente abbonamenti, niente account, niente tracciamenti: lo scarichi e incidi.</p>
+      <div class="badges">
+        <span class="badge">GPL-3.0</span>
+        <span class="badge">Windows 10 / 11</span>
+        <span class="badge">GRBL · grblHAL · FluidNC</span>
+        <span class="badge">EN · IT · ES · FR · PT</span>
+        <span class="badge"><span class="en">Opens LightBurn files</span><span class="it">Apre i file LightBurn</span></span>
+      </div>
+      <div class="cta">
+        <a class="btn btn-main" id="download" href="https://github.com/fringuello79/FreeLaserCut/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          <span class="en">Download free for Windows</span><span class="it">Scarica gratis per Windows</span>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/fringuello79/FreeLaserCut">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+          <span class="en">Source code</span><span class="it">Codice sorgente</span>
+        </a>
+      </div>
+      <p class="dlmeta">
+        <span class="en">Version <b data-cfg="version"></b> · <span data-cfg="size"></span> · Python and all libraries included, no administrator rights needed.</span>
+        <span class="it">Versione <b data-cfg="version"></b> · <span data-cfg="size"></span> · Python e librerie inclusi, non servono permessi da amministratore.</span>
+        <br>SHA-256: <code data-cfg="sha256"></code>
+      </p>
+    </div>
+    <figure class="shot" style="margin:0">
+      <img src="screenshot/banco.png" alt="FreeLaserCut Workbench interface: layers on the left, the bed in the centre, the guided job panel on the right" width="1440" height="900">
+      <figcaption><span class="en">The <b>Workbench</b> interface: the bed fills the screen, layers are cards, the job is guided step by step.</span><span class="it">L'interfaccia <b>Banco</b>: il piano occupa lo schermo, gli strati sono schede, il lavoro è guidato passo per passo.</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================================================================ funzioni -->
+<section id="features">
+  <div class="wrap">
+    <div class="kicker"><span class="en">Features</span><span class="it">Funzioni</span></div>
+    <h2><span class="en">Everything from the drawing to the finished piece</span><span class="it">Tutto, dal disegno al pezzo finito</span></h2>
+    <p class="lead en">A complete engraving and cutting workflow, designed around the job instead of around menus.</p>
+    <p class="lead it">Un flusso completo di incisione e taglio, pensato attorno al lavoro invece che attorno ai menu.</p>
+    <div class="grid">
+      <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="2.5"/><path d="M13 6h4v4h-4zM6.5 13.5 10 17.5H6.5zM13.5 13h3.5v4h-3.5z"/></svg></span><span class="en">Nesting</span><span class="it">Nesting</span><span class="tag">0.8</span></h3>
+        <p class="en">Arranges your parts on the material with minimum waste, using their real shape. Works on irregular offcuts too.</p>
+        <p class="it">Sistema i pezzi sul materiale con il minimo spreco, usando la loro sagoma vera. Funziona anche sugli avanzi irregolari.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><span class="en">Two interfaces</span><span class="it">Due interfacce</span></h3>
+        <p class="en"><b>Workbench</b>: full-screen bed, command search (<kbd>Ctrl</kbd>+<kbd>F</kbd>), radial menu, a cockpit while engraving, and laser/camera panels that move to a second monitor by themselves. Or <b>Classic</b>, with menus and side panels.</p>
+        <p class="it"><b>Banco</b>: piano a tutto schermo, ricerca di tutti i comandi (<kbd>Ctrl</kbd>+<kbd>F</kbd>), menu radiale, cabina durante l'incisione, pannelli laser e camera che vanno da soli sul secondo monitor. Oppure <b>Classica</b>, con menu e pannelli laterali.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span><span class="en">Your files</span><span class="it">I tuoi file</span></h3>
+        <p class="en">Opens LightBurn projects (<code>.lbrn2</code>, <code>.lbrn</code>), imports SVG, DXF, PNG, JPG and BMP, exports SVG and G-code.</p>
+        <p class="it">Apre i progetti LightBurn (<code>.lbrn2</code>, <code>.lbrn</code>), importa SVG, DXF, PNG, JPG e BMP, esporta SVG e G-code.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></svg></span><span class="en">Layers that make sense</span><span class="it">Livelli chiari</span></h3>
+        <p class="en">Line, fill, offset fill and image modes; speed, power, passes, kerf, tabs, air assist. Images with dithering and halftone.</p>
+        <p class="it">Modalità linea, riempimento, riempimento offset e immagine; velocità, potenza, passate, kerf, ponticelli, aria. Immagini con dithering e retino.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span><span class="en">Material library and test</span><span class="it">Libreria e test materiali</span></h3>
+        <p class="en">Ready values for wood, MDF, bamboo, leather, acrylic, cardboard, anodized aluminium, stone and more, plus a material test grid generator to find your own.</p>
+        <p class="it">Valori pronti per legno, MDF, bambù, pelle, acrilico, cartone, alluminio anodizzato, pietra e altro, più un generatore di griglie di test per trovare i tuoi.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h.01M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg></span><span class="en">Image tracing</span><span class="it">Vettorizzazione</span></h3>
+        <p class="en">Turns photos and drawings into vector outlines, or into a single centre line for handwriting and line art.</p>
+        <p class="it">Trasforma foto e disegni in contorni vettoriali, oppure in una linea centrale per scritte a mano e disegni al tratto.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg></span><span class="en">Variable and curved text</span><span class="it">Testo variabile e curvo</span></h3>
+        <p class="en">Dates, serial numbers and lists from CSV for batches of tags; text along an arc; single-line fonts for fast engraving.</p>
+        <p class="it">Date, numerazioni ed elenchi da CSV per le serie di targhette; testo ad arco; font a linea singola per incisioni veloci.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg></span><span class="en">Camera alignment</span><span class="it">Camera sul piano</span></h3>
+        <p class="en">Calibrated photo of the bed under your design (about ±0.5 mm), to place work exactly on the material.</p>
+        <p class="it">Foto calibrata del piano sotto il disegno (circa ±0,5 mm), per posizionare il lavoro esattamente sul materiale.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span><span class="en">Safe, checked jobs</span><span class="it">Lavori controllati</span></h3>
+        <p class="en">Preview with path simulation and time, G-code check by the controller, frame, live speed/power overrides, pause, and resume after a power loss.</p>
+        <p class="it">Anteprima con simulazione del percorso e del tempo, verifica del G-code sulla scheda, contorno, regolazioni dal vivo, pausa e ripresa dopo un'interruzione di corrente.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span class="en">Machine detection</span><span class="it">Riconosce la macchina</span></h3>
+        <p class="en">Finds the USB port, chip and driver, reads firmware and settings, and builds the right profile for your laser.</p>
+        <p class="it">Trova porta USB, chip e driver, legge firmware e impostazioni e prepara il profilo giusto per il tuo laser.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></span><span class="en">Five languages</span><span class="it">Cinque lingue</span></h3>
+        <p class="en">English, Italiano, Español, Français and Português. The first start follows your Windows language.</p>
+        <p class="it">English, Italiano, Español, Français e Português. Al primo avvio segue la lingua di Windows.</p></div>
+      <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="en">AI assistant, optional</span><span class="it">Assistente IA, facoltativo</span></h3>
+        <p class="en">Can be connected to Claude Desktop (MCP) to design and prepare jobs by chat. It never starts the laser on its own.</p>
+        <p class="it">Si può collegare a Claude Desktop (MCP) per disegnare e preparare i lavori in chat. Non avvia mai il laser da solo.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ nesting -->
+<section id="nesting">
+  <div class="wrap">
+    <div class="kicker"><span class="en">New in 0.8</span><span class="it">Novità della 0.8</span></div>
+    <h2><span class="en">Optimize space: less material, fewer offcuts</span><span class="it">Ottimizza lo spazio: meno materiale, meno scarti</span></h2>
+    <p class="lead en"><b>Arrange → Optimize space</b> (<kbd>Alt</kbd>+<kbd>N</kbd>) packs your parts as close as possible to the origin, keeping the spacing you choose.</p>
+    <p class="lead it"><b>Disponi → Ottimizza lo spazio</b> (<kbd>Alt</kbd>+<kbd>N</kbd>) avvicina i pezzi il più possibile all'origine, rispettando la distanza che scegli.</p>
+    <div class="ba">
+      <figure><p class="label"><span class="en">Before</span><span class="it">Prima</span></p><div class="shot"><img src="screenshot/nesting_prima.png" alt="Parts scattered on the bed before nesting" loading="lazy" width="1440" height="900"></div></figure>
+      <figure><p class="label"><span class="en">After — one click</span><span class="it">Dopo — un clic</span></p><div class="shot"><img src="screenshot/nesting_dopo.png" alt="The same parts packed inside a 320 × 270 mm sheet after nesting" loading="lazy" width="1440" height="900"></div></figure>
+    </div>
+    <ul class="points">
+      <li class="en">Uses each part's true outline, not its bounding box</li><li class="it">Usa la sagoma vera di ogni pezzo, non il rettangolo che lo contiene</li>
+      <li class="en">Rotations: none, 180°, 90°, 45° or 15° (none for wood grain and photos)</li><li class="it">Rotazioni: nessuna, 180°, 90°, 45° o 15° (nessuna con venature e foto)</li>
+      <li class="en">Material: whole bed, a custom rectangle, or any outline on layer T1, even an irregular offcut</li><li class="it">Materiale: piano intero, rettangolo su misura o qualsiasi contorno sul livello T1, anche un avanzo irregolare</li>
+      <li class="en">Engravings stay inside their cut outline; locked shapes are avoided</li><li class="it">Le incisioni restano dentro il loro contorno; le forme bloccate vengono evitate</li>
+      <li class="en">Shows material used and utilization %; one <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it all</li><li class="it">Mostra il materiale usato e la resa in %; un <kbd>Ctrl</kbd>+<kbd>Z</kbd> annulla tutto</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================ macchine -->
+<section id="machines">
+  <div class="wrap">
+    <div class="kicker"><span class="en">Machines</span><span class="it">Macchine</span></div>
+    <h2><span class="en">Works with your diode laser</span><span class="it">Funziona con il tuo laser a diodo</span></h2>
+    <p class="lead en">Pick your model at first start, even before connecting it. When you connect, FreeLaserCut reads the real work area, power scale, speed and buffer from the controller.</p>
+    <p class="lead it">Scegli il modello al primo avvio, anche prima di collegarlo. Quando lo colleghi, FreeLaserCut legge dalla scheda area di lavoro, scala di potenza, velocità e buffer reali.</p>
+    <div class="machines">
+      <div class="m"><b>Longer</b><span>B1 20W · 30W · 40W · Ray5</span></div>
+      <div class="m"><b>Ortur</b><span>Laser Master 3 · Laser Master 2 Pro S2</span></div>
+      <div class="m"><b>xTool</b><span>D1 Pro</span></div>
+      <div class="m"><b>Atomstack</b><span>A10 Pro V2 · X20 / S20 / A20 Pro · X40 / S40 / A40 Pro</span></div>
+      <div class="m"><b>Sculpfun</b><span>S9 · S10 · S30 / S30 Pro / S30 Pro Max</span></div>
+      <div class="m"><b>Creality</b><span>Falcon 10W · Falcon2 22W / 40W</span></div>
+      <div class="m"><b>Two Trees</b><span>TS2 · TTS-55 Pro</span></div>
+      <div class="m"><b>Comgrow</b><span>Z1</span></div>
+      <div class="m"><b class="en">Any other GRBL laser</b><b class="it">Qualsiasi altro laser GRBL</b><span class="en">Detected from the firmware and its settings</span><span class="it">Riconosciuto dal firmware e dalle sue impostazioni</span></div>
+    </div>
+    <div class="fw">
+      <span class="badge">GRBL 1.1</span><span class="badge">grblHAL</span><span class="badge">Grbl_ESP32</span><span class="badge">FluidNC</span>
+      <span class="badge">USB: CH340 · CP210x · FTDI · native</span>
+    </div>
+    <p class="muted" style="margin-top:16px;font-size:14px">
+      <span class="en">The built-in material library is tuned on the Longer B1 40W; with other lasers start from <b>Laser → Material test</b> and save your own values. Galvo lasers and Ruida (CO₂) controllers are not supported.</span>
+      <span class="it">La libreria materiali inclusa è tarata sul Longer B1 40W; con altri laser parti da <b>Laser → Test materiale</b> e salva i tuoi valori. I laser galvo e i controller Ruida (CO₂) non sono supportati.</span>
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ guida -->
+<section id="guide">
+  <div class="wrap">
+    <div class="kicker"><span class="en">Quick guide</span><span class="it">Guida rapida</span></div>
+    <h2><span class="en">From download to the first engraving</span><span class="it">Dal download alla prima incisione</span></h2>
+    <p class="lead en">The essentials in nine steps. In the program, press <kbd>Shift</kbd>+<kbd>F1</kbd> (or the <b>?</b> button) and hover any command to read what it does; <kbd>F1</kbd> lists all shortcuts. The complete manual is in the <a href="https://github.com/fringuello79/FreeLaserCut#readme">README</a> (Italian).</p>
+    <p class="lead it">L'essenziale in nove passi. Nel programma premi <kbd>Maiusc</kbd>+<kbd>F1</kbd> (o il pulsante <b>?</b>) e passa il mouse su un comando per leggere cosa fa; <kbd>F1</kbd> elenca tutte le scorciatoie. Il manuale completo è nel <a href="https://github.com/fringuello79/FreeLaserCut#readme">README</a>.</p>
+    <div class="guide">
+      <nav class="toc" aria-label="Guide">
+        <ol>
+          <li><a href="#g1"><span class="en">Install</span><span class="it">Installa</span></a></li>
+          <li><a href="#g2"><span class="en">First start</span><span class="it">Primo avvio</span></a></li>
+          <li><a href="#g3"><span class="en">Connect the laser</span><span class="it">Collega il laser</span></a></li>
+          <li><a href="#g4"><span class="en">Design or import</span><span class="it">Disegna o importa</span></a></li>
+          <li><a href="#g5"><span class="en">Layers and material</span><span class="it">Strati e materiale</span></a></li>
+          <li><a href="#g6"><span class="en">Optimize space</span><span class="it">Ottimizza lo spazio</span></a></li>
+          <li><a href="#g7"><span class="en">Check and position</span><span class="it">Controlla e posiziona</span></a></li>
+          <li><a href="#g8"><span class="en">Engrave</span><span class="it">Incidi</span></a></li>
+          <li><a href="#g9"><span class="en">Safety</span><span class="it">Sicurezza</span></a></li>
+        </ol>
+      </nav>
+      <div>
+        <article class="step" id="g1"><h3><span class="num">1</span><span class="en">Install</span><span class="it">Installa</span></h3>
+          <ul class="en"><li>Download <code>FreeLaserCut-<span data-cfg="version"></span>-Setup.exe</code> and open it. It installs for your user only, with no administrator rights, and adds Start menu and desktop shortcuts.</li>
+            <li>The installer is not code-signed yet: if Windows shows <i>"Windows protected your PC"</i>, choose <b>More info → Run anyway</b>. You can check the file against the SHA-256 shown above.</li>
+            <li>To remove it: Windows Settings → Apps. Your projects and settings stay in <code>%APPDATA%\FreeLaserCut</code>.</li></ul>
+          <ul class="it"><li>Scarica <code>FreeLaserCut-<span data-cfg="version"></span>-Setup.exe</code> e aprilo. Si installa solo per il tuo utente, senza permessi da amministratore, con i collegamenti nel menu Start e sul desktop.</li>
+            <li>L'installatore non è ancora firmato digitalmente: se Windows mostra <i>"PC protetto da Windows"</i> scegli <b>Ulteriori informazioni → Esegui comunque</b>. Puoi confrontare il file con lo SHA-256 indicato sopra.</li>
+            <li>Per toglierlo: Impostazioni di Windows → App. Progetti e preferenze restano in <code>%APPDATA%\FreeLaserCut</code>.</li></ul></article>
+        <article class="step" id="g2"><h3><span class="num">2</span><span class="en">First start</span><span class="it">Primo avvio</span></h3>
+          <ul class="en"><li>Read the safety notice, then choose the interface (<b>Workbench</b> or <b>Classic</b>) and <b>your laser model</b>.</li>
+            <li>You can change interface, language and second-monitor behaviour any time from <b>Settings</b> (the ⚙ button in the Workbench).</li></ul>
+          <ul class="it"><li>Leggi l'avviso di sicurezza, poi scegli l'interfaccia (<b>Banco</b> o <b>Classica</b>) e <b>il modello del tuo laser</b>.</li>
+            <li>Interfaccia, lingua e uso del secondo monitor si cambiano quando vuoi da <b>Impostazioni</b> (il pulsante ⚙ nel Banco).</li></ul></article>
+        <article class="step" id="g3"><h3><span class="num">3</span><span class="en">Connect the laser</span><span class="it">Collega il laser</span></h3>
+          <ul class="en"><li>Close LightBurn, LaserGRBL or other programs that may hold the USB port.</li>
+            <li>Plug in the USB cable and click the machine status at the top (or <kbd>Ctrl</kbd>+<kbd>K</kbd>).</li>
+            <li>If it is not found, open <b>Laser → Detect machine</b>: it shows the USB chip, whether the driver is missing (with the official download), and adapts the profile to your controller.</li>
+            <li>Run <b>Homing</b> if your laser has limit switches.</li></ul>
+          <ul class="it"><li>Chiudi LightBurn, LaserGRBL o altri programmi che possono occupare la porta USB.</li>
+            <li>Collega il cavo USB e fai clic sullo stato della macchina in alto (o <kbd>Ctrl</kbd>+<kbd>K</kbd>).</li>
+            <li>Se non la trova, apri <b>Laser → Riconosci la macchina</b>: mostra il chip USB, se manca il driver (con il download ufficiale) e adatta il profilo alla tua scheda.</li>
+            <li>Esegui l'<b>Homing</b> se il laser ha i finecorsa.</li></ul></article>
+        <article class="step" id="g4"><h3><span class="num">4</span><span class="en">Design or import</span><span class="it">Disegna o importa</span></h3>
+          <ul class="en"><li>Tools: <kbd>V</kbd> select, <kbd>N</kbd> nodes, <kbd>L</kbd> lines, <kbd>R</kbd> rectangle, <kbd>E</kbd> ellipse, <kbd>P</kbd> polygon, <kbd>S</kbd> star, <kbd>F</kbd> shape gallery, <kbd>T</kbd> text.</li>
+            <li><kbd>Ctrl</kbd>+<kbd>I</kbd> imports SVG, DXF and images; <b>File → Open</b> also opens LightBurn projects.</li>
+            <li>Type exact sizes in the X / Y / W / H fields: they accept maths and units (<code>120/3</code>, <code>5cm</code>, <code>+10</code>).</li>
+            <li>In the Workbench: right-click the bed for the radial menu, <kbd>Ctrl</kbd>+<kbd>F</kbd> to find any command by name.</li></ul>
+          <ul class="it"><li>Strumenti: <kbd>V</kbd> selezione, <kbd>N</kbd> nodi, <kbd>L</kbd> linee, <kbd>R</kbd> rettangolo, <kbd>E</kbd> ellisse, <kbd>P</kbd> poligono, <kbd>S</kbd> stella, <kbd>F</kbd> galleria di forme, <kbd>T</kbd> testo.</li>
+            <li><kbd>Ctrl</kbd>+<kbd>I</kbd> importa SVG, DXF e immagini; <b>File → Apri</b> apre anche i progetti LightBurn.</li>
+            <li>Scrivi le misure esatte nei campi X / Y / L / A: accettano calcoli e unità (<code>120/3</code>, <code>5cm</code>, <code>+10</code>).</li>
+            <li>Nel Banco: tasto destro sul piano per il menu radiale, <kbd>Ctrl</kbd>+<kbd>F</kbd> per trovare qualsiasi comando per nome.</li></ul></article>
+        <article class="step" id="g5"><h3><span class="num">5</span><span class="en">Layers and material</span><span class="it">Strati e materiale</span></h3>
+          <ul class="en"><li>Every colour is a layer. Choose <b>line</b> (cut or score), <b>fill</b> (engrave areas) or <b>image</b>, then speed, power and passes.</li>
+            <li><b>Material library</b> (<kbd>Ctrl</kbd>+<kbd>M</kbd>) applies tested values; <b>Material test</b> engraves a grid to find the right ones for your laser.</li>
+            <li>Layer <b>T1</b> is never engraved: use it for guides and for the outline of your material.</li></ul>
+          <ul class="it"><li>Ogni colore è uno strato. Scegli <b>linea</b> (taglio o tracciatura), <b>riempimento</b> (incisione di aree) o <b>immagine</b>, poi velocità, potenza e passate.</li>
+            <li>La <b>libreria materiali</b> (<kbd>Ctrl</kbd>+<kbd>M</kbd>) applica valori collaudati; il <b>test materiale</b> incide una griglia per trovare quelli giusti per il tuo laser.</li>
+            <li>Lo strato <b>T1</b> non viene mai inciso: usalo per le guide e per il contorno del materiale.</li></ul></article>
+        <article class="step" id="g6"><h3><span class="num">6</span><span class="en">Optimize space</span><span class="it">Ottimizza lo spazio</span></h3>
+          <ul class="en"><li>Optionally draw the outline of your sheet on layer <b>T1</b>, then select it together with the parts (or select nothing to use all parts and the whole bed).</li>
+            <li>Press <kbd>Alt</kbd>+<kbd>N</kbd>, set spacing (at least the kerf), edge margin and rotations, and click <b>Arrange</b>.</li>
+            <li>Not happy? <kbd>Ctrl</kbd>+<kbd>Z</kbd> and try other options.</li></ul>
+          <ul class="it"><li>Se vuoi, disegna il contorno del pannello sullo strato <b>T1</b> e selezionalo insieme ai pezzi (oppure non selezionare niente: tutti i pezzi, tutto il piano).</li>
+            <li>Premi <kbd>Alt</kbd>+<kbd>N</kbd>, scegli distanza (almeno lo spessore del taglio), margine e rotazioni, poi <b>Disponi</b>.</li>
+            <li>Non ti convince? <kbd>Ctrl</kbd>+<kbd>Z</kbd> e prova altre opzioni.</li></ul></article>
+        <article class="step" id="g7"><h3><span class="num">7</span><span class="en">Check and position</span><span class="it">Controlla e posiziona</span></h3>
+          <ul class="en"><li><b>Preview</b> (<kbd>Alt</kbd>+<kbd>P</kbd>) simulates the path and estimates the time; <b>Check</b> lets the controller verify the whole G-code first.</li>
+            <li><b>Frame</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>) traces the job outline with the head; with a camera you can see the design on a photo of the bed.</li>
+            <li>Choose where the job starts: bed coordinates, current position or user origin.</li></ul>
+          <ul class="it"><li><b>Anteprima</b> (<kbd>Alt</kbd>+<kbd>P</kbd>) simula il percorso e stima il tempo; <b>Verifica</b> fa controllare prima tutto il G-code alla scheda.</li>
+            <li><b>Contorno</b> (<kbd>Ctrl</kbd>+<kbd>Maiusc</kbd>+<kbd>F</kbd>) fa percorrere alla testa il bordo del lavoro; con la camera vedi il disegno sulla foto del piano.</li>
+            <li>Scegli da dove parte il lavoro: coordinate del piano, posizione attuale o origine utente.</li></ul></article>
+        <article class="step" id="g8"><h3><span class="num">8</span><span class="en">Engrave</span><span class="it">Incidi</span></h3>
+          <ul class="en"><li>In the Workbench tick the two safety checks and <b>hold</b> the start button for a second (in Classic: <kbd>Ctrl</kbd>+<kbd>Enter</kbd>).</li>
+            <li>The cockpit shows time left and finish time; adjust speed and power ±10% without stopping. <b>Pause</b> and <b>Stop</b> are always in the same place (<kbd>Ctrl</kbd>+<kbd>Space</kbd> pauses).</li></ul>
+          <ul class="it"><li>Nel Banco spunta le due conferme di sicurezza e <b>tieni premuto</b> il pulsante di avvio per un secondo (nella Classica: <kbd>Ctrl</kbd>+<kbd>Invio</kbd>).</li>
+            <li>La cabina mostra tempo rimanente e ora di fine; regoli velocità e potenza ±10% senza fermarti. <b>Pausa</b> e <b>Stop</b> sono sempre nello stesso posto (<kbd>Ctrl</kbd>+<kbd>Spazio</kbd> mette in pausa).</li></ul></article>
+        <article class="step warn" id="g9"><h3><span class="num">!</span><span class="en">Safety</span><span class="it">Sicurezza</span></h3>
+          <ul class="en"><li>Always wear safety glasses rated for your laser's wavelength (blue diodes: 445–455 nm), including when using the low-power pointer.</li>
+            <li>Never leave the machine running unattended, keep a fire extinguisher nearby and extract the fumes.</li>
+            <li>Never engrave or cut PVC, vinyl or other chlorine-based plastics: they release corrosive, toxic gas.</li>
+            <li>The software is provided as is, without warranty: you are responsible for how you use your laser.</li></ul>
+          <ul class="it"><li>Indossa sempre occhiali protettivi adatti alla lunghezza d'onda del laser (diodi blu: 445–455 nm), anche quando usi il puntino a bassa potenza.</li>
+            <li>Non lasciare mai la macchina in funzione senza sorveglianza, tieni vicino un estintore e aspira i fumi.</li>
+            <li>Non incidere né tagliare PVC, vinile o altre plastiche al cloro: liberano gas tossici e corrosivi.</li>
+            <li>Il software è fornito così com'è, senza garanzia: dell'uso del laser rispondi tu.</li></ul></article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ sviluppi -->
+<section id="future">
+  <div class="wrap">
+    <div class="kicker"><span class="en">Roadmap</span><span class="it">Sviluppi</span></div>
+    <h2><span class="en">Where FreeLaserCut can go next</span><span class="it">Dove può arrivare FreeLaserCut</span></h2>
+    <p class="lead en">It is written in Python and Qt, open source and modular: every part below can grow with the community's help.</p>
+    <p class="lead it">È scritto in Python e Qt, è open source e modulare: ognuna di queste parti può crescere con l'aiuto della comunità.</p>
+    <div class="road">
+      <div class="card"><h3><span class="en">Signed installer</span><span class="it">Installatore firmato</span><span class="state s-next"><span class="en">Next</span><span class="it">Prossimo</span></span></h3>
+        <p class="en">No more SmartScreen warning on first install.</p><p class="it">Niente più avviso di SmartScreen alla prima installazione.</p></div>
+      <div class="card"><h3><span class="en">QR codes and barcodes</span><span class="it">QR e codici a barre</span><span class="state s-next"><span class="en">Next</span><span class="it">Prossimo</span></span></h3>
+        <p class="en">Generated directly on the bed, with variable data for series.</p><p class="it">Generati direttamente sul piano, con dati variabili per le serie.</p></div>
+      <div class="card"><h3><span class="en">Nesting on several sheets</span><span class="it">Nesting su più pannelli</span><span class="state s-next"><span class="en">Next</span><span class="it">Prossimo</span></span></h3>
+        <p class="en">Fill one sheet after another, and share common cut lines between parts.</p><p class="it">Riempire un pannello dopo l'altro e condividere le linee di taglio comuni tra pezzi.</p></div>
+      <div class="card"><h3><span class="en">Text on a path, rotary</span><span class="it">Testo su tracciato, rotativo</span><span class="state s-idea"><span class="en">Planned</span><span class="it">In programma</span></span></h3>
+        <p class="en">Text that follows any curve, and the rotary attachment for glasses, tumblers and cylinders.</p><p class="it">Testo che segue qualsiasi curva e l'accessorio rotativo per bicchieri, borracce e cilindri.</p></div>
+      <div class="card"><h3><span class="en">macOS and Linux packages</span><span class="it">Pacchetti macOS e Linux</span><span class="state s-idea"><span class="en">Planned</span><span class="it">In programma</span></span></h3>
+        <p class="en">It already runs from source on Linux; ready-made packages would bring it to everyone.</p><p class="it">Funziona già dal codice sorgente su Linux; dei pacchetti pronti lo porterebbero a tutti.</p></div>
+      <div class="card"><h3><span class="en">Job log and costs</span><span class="it">Registro lavori e costi</span><span class="state s-idea"><span class="en">Planned</span><span class="it">In programma</span></span></h3>
+        <p class="en">History of jobs with time and material used, for small workshops that sell their pieces.</p><p class="it">Storico dei lavori con tempo e materiale usato, per i piccoli laboratori che vendono i propri pezzi.</p></div>
+      <div class="card"><h3><span class="en">Shared material library</span><span class="it">Libreria materiali condivisa</span><span class="state s-help"><span class="en">Help wanted</span><span class="it">Cerco aiuto</span></span></h3>
+        <p class="en">Tested settings for more lasers, contributed by the people who own them.</p><p class="it">Valori collaudati per altri laser, condivisi da chi li possiede.</p></div>
+      <div class="card"><h3><span class="en">More languages</span><span class="it">Altre lingue</span><span class="state s-help"><span class="en">Help wanted</span><span class="it">Cerco aiuto</span></span></h3>
+        <p class="en">Translations are simple JSON files in <code>freelasercut/locale</code>: German, Polish, Dutch… are welcome.</p><p class="it">Le traduzioni sono semplici file JSON in <code>freelasercut/locale</code>: tedesco, polacco, olandese… sono benvenuti.</p></div>
+      <div class="card"><h3><span class="en">More controllers</span><span class="it">Altri controller</span><span class="state s-idea"><span class="en">Idea</span><span class="it">Idea</span></span></h3>
+        <p class="en">Ruida controllers for CO₂ lasers and galvo fiber lasers would need new drivers: a big but possible step.</p><p class="it">I controller Ruida dei laser CO₂ e i laser fibra galvo richiederebbero nuovi driver: un passo grande ma possibile.</p></div>
+    </div>
+    <p style="margin-top:22px">
+      <span class="en">Found a bug or have an idea? Open an <a href="https://github.com/fringuello79/FreeLaserCut/issues">issue on GitHub</a>. Code contributions are welcome under the GPL-3.0 licence.</span>
+      <span class="it">Hai trovato un errore o hai un'idea? Apri una <a href="https://github.com/fringuello79/FreeLaserCut/issues">segnalazione su GitHub</a>. I contributi al codice sono benvenuti con licenza GPL-3.0.</span>
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================ sostegno -->
+<section id="support">
+  <div class="wrap support">
+    <div>
+      <div class="kicker"><span class="en">Support</span><span class="it">Sostieni</span></div>
+      <h2><span class="en">Free today, free tomorrow</span><span class="it">Gratis oggi, gratis domani</span></h2>
+      <p class="lead en">FreeLaserCut is complete and free, and it will stay that way. If it saves you time or money, a voluntary donation helps it keep growing. A ⭐ on GitHub helps too.</p>
+      <p class="lead it">FreeLaserCut è completo e gratuito, e lo resterà. Se ti fa risparmiare tempo o denaro, una donazione volontaria lo aiuta a crescere. Anche una ⭐ su GitHub aiuta.</p>
+    </div>
+    <div class="cta">
+      <a class="btn btn-white" href="https://github.com/sponsors/fringuello79"><span class="heart">♥</span> <span class="en">Become a sponsor</span><span class="it">Diventa sponsor</span></a>
+      <a class="btn btn-ghost" href="https://paypal.me/alessandrofelli">PayPal</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <p><b style="color:var(--muted)">FreeLaserCut (FLC)</b> · © 2026 fringuello79 · <a href="https://github.com/fringuello79/FreeLaserCut/blob/main/LICENSE">GNU GPL 3.0</a></p>
+      <p class="en">Independent project, not affiliated with LightBurn Software or with any laser manufacturer. Product names are trademarks of their owners and are used only to describe compatibility.</p>
+      <p class="it">Progetto indipendente, non affiliato a LightBurn Software né ad alcun produttore di laser. I nomi dei prodotti sono marchi dei rispettivi titolari e sono citati solo per indicare la compatibilità.</p>
+    </div>
+    <div>
+      <p class="en">This page uses no cookies, no trackers and no external services.</p>
+      <p class="it">Questa pagina non usa cookie, tracciamenti né servizi esterni.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ---- dati del download: si aggiornano solo qui ---- */
+const CONFIG = {
+  version: "0.8.0",
+  size: "183 MB",
+  sha256: "a0388d457a58edcf6555988caff944e5a0f05aa95f6796b8f2317bc5546cbff1",
+  // collegamento di condivisione di Google Drive al file .exe; se vuoto si usa la pagina Releases di GitHub
+  download: ""
+};
+document.querySelectorAll("[data-cfg]").forEach(el => { el.textContent = CONFIG[el.dataset.cfg] || ""; });
+if (CONFIG.download) document.getElementById("download").href = CONFIG.download;
+
+/* ---- lingua: scelta salvata, altrimenti quella del browser ---- */
+function setLang(l) {
+  document.documentElement.lang = l;
+  document.querySelectorAll("[data-set-lang]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.setLang === l)));
+  document.title = l === "it" ? "FreeLaserCut — software libero per incisione laser" : "FreeLaserCut — free laser engraving software";
+  try { localStorage.setItem("flc-lang", l); } catch (e) {}
+}
+let saved = null;
+try { saved = localStorage.getItem("flc-lang"); } catch (e) {}
+setLang(saved || ((navigator.language || "en").toLowerCase().startsWith("it") ? "it" : "en"));
+document.querySelectorAll("[data-set-lang]").forEach(b => b.addEventListener("click", () => setLang(b.dataset.setLang)));
+</script>
+</body>
+</html>
