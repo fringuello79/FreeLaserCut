@@ -3,7 +3,7 @@
 ## 0.6.0 — 31/10/2026
 - **Interfaccia in 5 lingue**: English, Italiano, Español, Français, Português. Al primo avvio si usa la lingua di Windows (inglese se non è tra queste); si cambia da **Visualizza → Lingua / Language** e vale dal riavvio, che il programma propone subito.
 - Anche i pulsanti standard delle finestre (OK, Annulla, Salva…) seguono la lingua scelta.
-- Donazioni tramite **GitHub Sponsors**: nel programma e nel repository non compare più nessun indirizzo email.
+- Donazioni tramite **GitHub Sponsors** o **PayPal** (collegamento PayPal.Me): nel programma e nel repository non compare più nessun indirizzo email.
 - La guida "?" dei comandi per ora resta in italiano.
 
 ## 0.5.2 — 31/10/2026

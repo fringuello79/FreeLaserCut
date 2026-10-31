@@ -140,7 +140,7 @@ HELP = {
     "shortcuts": (tr("Scorciatoie da tastiera"), tr("Elenco completo dei tasti rapidi."), None),
     "about": (tr("Informazioni"), tr("Versione di FreeLaserCut, autore e licenze."), None),
     "support": (tr("Sostieni FreeLaserCut"), tr("Mostra come contribuire allo sviluppo con una donazione volontaria "
-                "tramite GitHub Sponsors. Il programma resta completo e gratuito: la donazione non sblocca niente."), None),
+                "tramite GitHub Sponsors o PayPal. Il programma resta completo e gratuito: la donazione non sblocca niente."), None),
     "claude": (tr("Collega a Claude"), tr("Installa l'estensione per Claude: potrai chiedere in chat di disegnare, impostare "
                "livelli e preparare lavori."), None),
     # ------------------------------------------------------------------ strumenti

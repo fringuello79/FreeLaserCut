@@ -227,7 +227,7 @@ class MainWindow(QMainWindow):
             "shortcuts": A(tr("Scorciatoie da tastiera"), self.show_shortcuts, "F1"),
             "about": A(tr("Informazioni su FreeLaserCut"), self.show_about),
             "support": A(tr("Sostieni FreeLaserCut…"), self.show_support, None, None,
-                         tr("Contributo volontario allo sviluppo (GitHub Sponsors)")),
+                         tr("Contributo volontario allo sviluppo (GitHub Sponsors o PayPal)")),
             "claude": A(tr("Collega a Claude (MCP)…"), self.claude_dialog, None, "connect",
                         tr("Detta a Claude cosa disegnare e preparare in FreeLaserCut")),
         }

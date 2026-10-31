@@ -4,7 +4,7 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
-from .. import DONATE_URL, PROJECT_URL
+from .. import DONATE_PAYPAL_URL, DONATE_URL, PROJECT_URL
 from freelasercut.i18n import tr  # noqa: E402
 
 
@@ -21,8 +21,8 @@ class SupportDialog(QDialog):
             "Non sblocca niente e non è richiesta: è solo un grazie."))
         intro.setWordWrap(True)
         lay.addWidget(intro)
-        how = QLabel(tr("Le donazioni passano da GitHub Sponsors, una volta sola o ogni mese. "
-                        "Si apre il sito di GitHub: il programma non vede né salva i tuoi dati di pagamento. "
+        how = QLabel(tr("Puoi donare con GitHub Sponsors (una volta sola o ogni mese) oppure con PayPal. "
+                        "Si apre il sito ufficiale: il programma non vede né salva i tuoi dati di pagamento. "
                         "Anche una stella al progetto su GitHub aiuta a farlo conoscere."))
         how.setWordWrap(True)
         how.setObjectName("muted")
@@ -32,6 +32,10 @@ class SupportDialog(QDialog):
         b_star.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(PROJECT_URL)))
         btns.addWidget(b_star)
         btns.addStretch(1)
+        b_paypal = QPushButton("PayPal")
+        b_paypal.setToolTip(tr("Dona con PayPal"))
+        b_paypal.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(DONATE_PAYPAL_URL)))
+        btns.addWidget(b_paypal)
         b_open = QPushButton(tr("♥ Diventa sponsor"))
         b_open.setObjectName("primary")
         b_open.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(DONATE_URL)))

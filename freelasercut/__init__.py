@@ -13,3 +13,4 @@ __license__ = "GPL-3.0-or-later"
 # contributo volontario allo sviluppo (Aiuto → Sostieni FreeLaserCut)
 PROJECT_URL = "https://github.com/fringuello79/FreeLaserCut"
 DONATE_URL = "https://github.com/sponsors/fringuello79"
+DONATE_PAYPAL_URL = "https://paypal.me/alessandrofelli"
