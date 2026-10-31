@@ -137,6 +137,7 @@ footer p{margin:0 0 8px}
   <div class="wrap nav">
     <a class="brand" href="#top"><img src="logo/logo_1024.png" alt="">FreeLaserCut</a>
     <nav class="links" aria-label="Sections">
+      <a href="#interfaces"><span class="en">Interfaces</span><span class="it">Interfacce</span></a>
       <a href="#features"><span class="en">Features</span><span class="it">Funzioni</span></a>
       <a href="#nesting">Nesting</a>
       <a href="#machines"><span class="en">Machines</span><span class="it">Macchine</span></a>
@@ -169,7 +170,7 @@ footer p{margin:0 0 8px}
         <span class="badge"><span class="en">Opens LightBurn files</span><span class="it">Apre i file LightBurn</span></span>
       </div>
       <div class="cta">
-        <a class="btn btn-main" id="download" href="https://github.com/fringuello79/FreeLaserCut/releases/latest">
+        <a class="btn btn-main" id="download" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
           <span class="en">Download free for Windows</span><span class="it">Scarica gratis per Windows</span>
         </a>
@@ -181,6 +182,8 @@ footer p{margin:0 0 8px}
       <p class="dlmeta">
         <span class="en">Version <b data-cfg="version"></b> · <span data-cfg="size"></span> · Python and all libraries included, no administrator rights needed.</span>
         <span class="it">Versione <b data-cfg="version"></b> · <span data-cfg="size"></span> · Python e librerie inclusi, non servono permessi da amministratore.</span>
+        <br><span class="en">Opens the file on Google Drive: click <b>Download</b> (Drive warns that it cannot scan large files for viruses: confirm with <b>Download anyway</b>). Also on <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>.</span>
+        <span class="it">Apre il file su Google Drive: fai clic su <b>Scarica</b> (Drive avvisa che non può controllare i virus nei file grandi: conferma con <b>Scarica comunque</b>). Anche su <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>.</span>
         <br>SHA-256: <code data-cfg="sha256"></code>
       </p>
     </div>
@@ -188,6 +191,22 @@ footer p{margin:0 0 8px}
       <img src="screenshot/banco.png" alt="FreeLaserCut Workbench interface: layers on the left, the bed in the centre, the guided job panel on the right" width="1440" height="900">
       <figcaption><span class="en">The <b>Workbench</b> interface: the bed fills the screen, layers are cards, the job is guided step by step.</span><span class="it">L'interfaccia <b>Banco</b>: il piano occupa lo schermo, gli strati sono schede, il lavoro è guidato passo per passo.</span></figcaption>
     </figure>
+  </div>
+</section>
+
+<!-- ================================================================ due interfacce -->
+<section id="interfaces">
+  <div class="wrap">
+    <div class="kicker"><span class="en">Two interfaces, same commands</span><span class="it">Due interfacce, stessi comandi</span></div>
+    <h2><span class="en">Work the way you are used to</span><span class="it">Lavora come sei abituato</span></h2>
+    <p class="lead en">Coming from other laser software? Choose <b>Classic</b>: menu bar, toolbars, layer table and side panels, exactly where you expect them. Prefer more room for the bed? Choose <b>Workbench</b>. You pick at first start and can switch any time from <b>Settings → Interface</b>.</p>
+    <p class="lead it">Arrivi da altri software laser? Scegli la <b>Classica</b>: barra dei menu, barre degli strumenti, tabella dei livelli e pannelli laterali, esattamente dove te li aspetti. Vuoi più spazio per il piano? Scegli il <b>Banco</b>. Si sceglie al primo avvio e si cambia quando vuoi da <b>Impostazioni → Interfaccia</b>.</p>
+    <div class="ba">
+      <figure><p class="label"><span class="en">Classic</span><span class="it">Classica</span></p><div class="shot"><img src="screenshot/classica.png" alt="FreeLaserCut Classic interface: menu bar, toolbars, tools on the left, layer table and laser panel on the right, colour palette at the bottom" loading="lazy" width="1440" height="900"></div>
+        <p class="muted" style="font-size:14px;margin-top:10px"><span class="en">Menus, toolbars, layer table with speed and power, laser panel always visible, colour palette.</span><span class="it">Menu, barre degli strumenti, tabella dei livelli con velocità e potenza, pannello laser sempre visibile, tavolozza dei colori.</span></p></figure>
+      <figure><p class="label"><span class="en">Workbench</span><span class="it">Banco</span></p><div class="shot"><img src="screenshot/banco.png" alt="FreeLaserCut Workbench interface: full-screen bed with layer cards and the guided job panel" loading="lazy" width="1440" height="900"></div>
+        <p class="muted" style="font-size:14px;margin-top:10px"><span class="en">Full-screen bed, layer cards, guided job panel, command search and radial menu.</span><span class="it">Piano a tutto schermo, schede degli strati, percorso guidato, ricerca comandi e menu radiale.</span></p></figure>
+    </div>
   </div>
 </section>
 
@@ -453,7 +472,7 @@ const CONFIG = {
   size: "183 MB",
   sha256: "a0388d457a58edcf6555988caff944e5a0f05aa95f6796b8f2317bc5546cbff1",
   // collegamento di condivisione di Google Drive al file .exe; se vuoto si usa la pagina Releases di GitHub
-  download: ""
+  download: "https://drive.google.com/file/d/154jjLnHaRuDMT8qijVE0UjYj6d1LSqxt/view?usp=sharing"
 };
 document.querySelectorAll("[data-cfg]").forEach(el => { el.textContent = CONFIG[el.dataset.cfg] || ""; });
 if (CONFIG.download) document.getElementById("download").href = CONFIG.download;

@@ -1147,6 +1147,7 @@ class MainWindow(QMainWindow):
         color = STATE_COLORS.get(state, "#4E5C7A")
         self.pill.setText(STATE_IT.get(state, state))
         self.pill.setStyleSheet(f"background:{color}; border-radius:9px; padding:1px 8px; font-weight:600; font-size:8pt; color:white;")
+        self.pill.setMinimumWidth(max(64, self.pill.sizeHint().width() + 4))  # «Disconnesso» e le traduzioni lunghe intere
         if hasattr(self, "sb_machine"):
             self.sb_machine.setText(("●  " + STATE_IT.get(state, state)) if state != "Disconnesso" else tr("○  Laser non connesso"))
             self.sb_machine.setStyleSheet(f"color:{color if state != 'Disconnesso' else C['muted']}; font-weight:600;")
