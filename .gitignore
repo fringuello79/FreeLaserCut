@@ -1,0 +1,16 @@
+# ambiente Python e file compilati
+.venv/
+__pycache__/
+*.pyc
+
+# risultati dei test
+tests/ultimo_test.log
+
+# costruzione dell'installatore (si rigenera con build/prepara_installer.py)
+build/stage/
+build/cache/
+build/*.exe
+
+# dati personali della macchina: non vanno mai nel repository
+dati_iniziali/
+*.mcpb

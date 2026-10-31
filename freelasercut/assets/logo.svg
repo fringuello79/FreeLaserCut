@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18285A"/>
+      <stop offset="0.55" stop-color="#0D1532"/>
+      <stop offset="1" stop-color="#22104A"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6E9BFF" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#8A5CFF" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="head" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#AFC0EC"/>
+    </linearGradient>
+    <linearGradient id="nozzle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C9D5F5"/>
+      <stop offset="1" stop-color="#8FA3DA"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8A6BFF"/>
+      <stop offset="0.55" stop-color="#4FD8FF"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <radialGradient id="beamglow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#5FA8FF" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#5FA8FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2A3E78"/>
+      <stop offset="1" stop-color="#1A2650"/>
+    </linearGradient>
+    <radialGradient id="ember" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.2" stop-color="#FFF0BE"/>
+      <stop offset="0.45" stop-color="#FF9A2E" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#FF5A1F" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="kerf" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FF6A2B" stop-opacity="0.05"/>
+      <stop offset="0.6" stop-color="#FF7A2E" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#FFD27A"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="9.5" y="9.5" width="237" height="237" rx="54.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
+
+  <!-- pannello da tagliare -->
+  <rect x="44" y="150" width="168" height="66" rx="12" fill="url(#plate)"/>
+  <rect x="44" y="150" width="168" height="5" rx="2.5" fill="#4A64B0" opacity="0.6"/>
+
+  <!-- taglio: un cerchio quasi chiuso che parte dal punto di lavoro -->
+  <path d="M128 162A23 23 0 1 0 151 185" fill="none" stroke="url(#kerf)" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- raggio con alone -->
+  <ellipse cx="128" cy="128" rx="22" ry="52" fill="url(#beamglow)"/>
+  <path d="M124.5 96H131.5L130 162H126Z" fill="url(#beam)"/>
+
+  <!-- testa laser: corpo con alette e ugello -->
+  <rect x="88" y="30" width="80" height="46" rx="11" fill="url(#head)"/>
+  <rect x="101" y="40" width="6" height="26" rx="3" fill="#22356B" opacity="0.3"/>
+  <rect x="113" y="40" width="6" height="26" rx="3" fill="#22356B" opacity="0.3"/>
+  <rect x="125" y="40" width="6" height="26" rx="3" fill="#22356B" opacity="0.3"/>
+  <rect x="137" y="40" width="6" height="26" rx="3" fill="#22356B" opacity="0.3"/>
+  <rect x="149" y="40" width="6" height="26" rx="3" fill="#22356B" opacity="0.3"/>
+  <path d="M110 76H146L136 94a5 5 0 0 1-4.4 2.6h-7.2A5 5 0 0 1 120 94Z" fill="url(#nozzle)"/>
+
+  <!-- punto di lavoro e scintille -->
+  <circle cx="128" cy="162" r="26" fill="url(#ember)"/>
+  <g stroke="#FFC46B" stroke-width="3.6" stroke-linecap="round">
+    <path d="M143 152l15-10"/>
+    <path d="M146 164l17 1"/>
+    <path d="M112 151l-12-9"/>
+  </g>
+  <circle cx="166" cy="137" r="2.8" fill="#FFB050"/>
+  <circle cx="94" cy="137" r="2.4" fill="#FFB050"/>
+</svg>

@@ -1,0 +1,1715 @@
+# FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
+"""Finestra principale di FreeLaserCut 0.2: editor completo + controllo macchina."""
+import os
+import sys
+import time
+
+from PySide6.QtCore import QPointF, QRectF, QSettings, QSize, Qt, QTimer
+from PySide6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QIcon, QKeySequence
+from PySide6.QtWidgets import (
+    QApplication, QComboBox, QDialog, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
+    QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QStatusBar, QToolBar, QToolButton, QVBoxLayout, QWidget,
+)
+
+from .. import __version__, gcode_preview
+from ..core import gcode, geom, io_formats, materials, ops, resume, variables
+from ..core.document import Document, ImageShape
+from ..grbl import SIM_PORT, GrblController, list_serial_ports
+from ..grbl_codes import STATE_COLORS
+from ..profile import MachineProfile, config_dir, migrate_qsettings
+from ..theme import C, QSS
+from . import style
+from .canvas import Canvas
+from .dialogs_materials import MaterialLibraryDialog, MaterialTestDialog
+from .dialogs import CheckResultDialog, CircularArrayDialog, GridArrayDialog, OffsetDialog, PreviewDialog
+from .editor import Editor
+from .help_mode import HelpMode
+from .panels_design import LayersPanel, NumericBar, PaletteBar, PropertiesPanel
+from .panels_machine import LaserPanel, MovePanel
+from freelasercut.i18n import tr  # noqa: E402
+
+ASSETS = style.ASSETS
+STATE_IT = {"Idle": tr("Pronta"), "Run": tr("In lavoro"), "Jog": "Jog", "Hold": tr("In pausa"), "Door": tr("Porta aperta"),
+            "Home": tr("Homing"), "Alarm": tr("Allarme"), "Check": tr("Verifica"), "Sleep": tr("Riposo"), "Disconnesso": tr("Disconnessa")}
+FILE_FILTER = tr("Progetto FreeLaserCut (*.flcut)")
+OPEN_FILTER = (tr("Progetti FreeLaserCut, Freeburn e LightBurn (*.flcut *.fbrn *.lbrn2 *.lbrn)") + ";;"
+               + tr("Progetto FreeLaserCut (*.flcut *.fbrn)") + ";;" + tr("Progetto LightBurn (*.lbrn2 *.lbrn)"))
+IMPORT_FILTER = (tr("Tutti i formati supportati (*.svg *.dxf *.lbrn2 *.lbrn *.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)")
+                 + ";;SVG (*.svg);;DXF (*.dxf);;" + tr("Immagini (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)"))
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.qs = migrate_qsettings()
+        self.ctl = GrblController()
+        self.profile = self._load_active_profile()
+        self.editor = Editor(Document())
+        self.canvas = Canvas(self.editor, (self.profile.bed_x, self.profile.bed_y))
+        self.bed = self.canvas  # compatibilità con il pannello Camera
+        self.job = None
+        self.job_preview = None
+        self._pending_start = None
+        self._interrupted = None  # (righe, riga raggiunta) per la ripresa
+        self.setWindowTitle(tr("FreeLaserCut"))
+        self.setWindowIcon(QIcon(os.path.join(ASSETS, "logo.svg")))
+        self.setDockNestingEnabled(True)
+        scr = QGuiApplication.primaryScreen().availableGeometry() if QGuiApplication.primaryScreen() else None
+        if scr is not None:  # mai più grande dello schermo (barra in basso e tavolozza resterebbero nascoste)
+            self.resize(min(1600, scr.width() - 40), min(980, scr.height() - 60))
+            self.move(scr.left() + 20, scr.top() + 10)
+        else:
+            self.resize(1600, 980)
+
+        central = QWidget()
+        cv = QVBoxLayout(central)
+        cv.setContentsMargins(0, 0, 0, 0)
+        cv.setSpacing(0)
+        self.banner = self._build_banner()
+        cv.addWidget(self.banner)
+        cv.addWidget(self.canvas, 1)
+        self.setCentralWidget(central)
+
+        self._build_actions()
+        self._build_menus()
+        self._build_toolbars()
+        self._build_docks()
+        self._build_statusbar()
+        self._wire()
+        self.refresh_ports()
+        self.on_connection(False, "")
+        self._update_title()
+        if self.qs.value("auto_connect", "true") in (True, "true"):
+            QTimer.singleShot(900, self._auto_connect)
+        self._autosave = QTimer(self)
+        self._autosave.timeout.connect(self.autosave)
+        self._autosave.start(90_000)
+        QTimer.singleShot(400, self._offer_recovery)
+        QTimer.singleShot(200, self._first_run_notice)
+        try:  # comandi da Claude (MCP): solo da questo PC
+            from ..remote import RemoteServer
+
+            self.remote = RemoteServer(self)
+        except Exception:  # noqa: BLE001
+            self.remote = None
+        geom = self.qs.value("win_geom")
+        if geom is not None:
+            try:
+                self.restoreGeometry(geom)  # posizione, misure ed eventuale "a tutto schermo" dell'ultima volta
+            except TypeError:
+                pass
+        self._default_state = self.saveState(5)  # disposizione iniziale, per "Ripristina la disposizione"
+        state = self.qs.value("win_state_v5")
+        if state is not None:
+            try:
+                self.restoreState(state, 5)
+                for d in self.docks.values():
+                    if not d.isVisible():
+                        d.show()
+            except TypeError:
+                pass
+
+    # ================================================================ azioni
+    def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
+        a = QAction(text, self)
+        if icon:
+            a.setIcon(style.icon(icon))
+        if shortcut:
+            a.setShortcuts([QKeySequence(s) for s in (shortcut if isinstance(shortcut, (list, tuple)) else [shortcut])])
+        if tip:
+            a.setStatusTip(tip)
+            a.setToolTip(f"{text}  ({a.shortcut().toString()})" if shortcut else text)
+        a.setCheckable(checkable)
+        if slot is not None:
+            a.triggered.connect(slot)
+        self.addAction(a)
+        return a
+
+    def _build_actions(self):
+        e, c = self.editor, self.canvas
+        A = self._a
+        self.acts = {
+            "new": A(tr("Nuovo"), self.file_new, "Ctrl+N", "new"),
+            "open": A(tr("Apri…"), self.file_open, "Ctrl+O", "open"),
+            "save": A(tr("Salva"), self.file_save, "Ctrl+S", "save"),
+            "save_as": A(tr("Salva con nome…"), self.file_save_as, "Ctrl+Shift+S"),
+            "import": A(tr("Importa…"), self.file_import, "Ctrl+I", "import", "SVG, DXF, PNG, JPG, BMP…"),
+            "export": A(tr("Esporta SVG…"), self.file_export, "Ctrl+Shift+E", "export"),
+            "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
+            "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
+            "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
+            "undo": A(tr("Annulla"), e.undo, "Ctrl+Z", "undo"),
+            "redo": A(tr("Ripeti"), e.redo, ["Ctrl+Y", "Ctrl+Shift+Z"], "redo"),
+            "cut": A(tr("Taglia"), e.cut, "Ctrl+X", "cut"),
+            "copy": A(tr("Copia"), e.copy, "Ctrl+C", "copy"),
+            "paste": A(tr("Incolla"), lambda: e.paste(at=self.canvas.cursor_bed), "Ctrl+V", "paste"),
+            "paste_in_place": A(tr("Incolla sul posto"), lambda: e.paste(in_place=True), "Ctrl+Shift+V"),
+            "duplicate": A(tr("Duplica"), e.duplicate, "Ctrl+D", "duplicate"),
+            "delete": A(tr("Elimina"), e.delete, None, "delete"),
+            "select_all": A(tr("Seleziona tutto"), e.select_all, "Ctrl+A", "select_all"),
+            "invert_sel": A(tr("Inverti selezione"), e.invert_selection, "Ctrl+Shift+I", "invert_sel"),
+            "sel_open": A(tr("Seleziona forme aperte"), e.select_open, None, "open_shapes"),
+            "sel_open_fill": A(tr("Seleziona forme aperte sui riempimenti"), lambda: e.select_open(True)),
+            "sel_contained": A(tr("Aggiungi le forme contenute"), e.select_contained),
+            "to_path": A(tr("Converti in tracciato"), e.convert_to_path, "Ctrl+Shift+C", "to_path"),
+            "trace": A(tr("Vettorizza immagine…"), self.trace_dialog, "Alt+T", "trace",
+                       tr("Trasforma una foto o un disegno in tracciati (contorno o linea centrale)")),
+            "close_paths": A(tr("Chiudi tracciati…"), self.close_paths_dialog, None, "close_path"),
+            "join": A(tr("Unisci estremi"), e.auto_join, "Alt+J", "join"),
+            "break": A(tr("Scomponi"), e.break_apart, "Alt+B", "break"),
+            "reverse": A(tr("Inverti direzione di taglio"), e.reverse),
+            "duplicates": A(tr("Elimina duplicati"), e.delete_duplicates, "Alt+D", "duplicates"),
+            "offset": A(tr("Offset forme…"), self.offset_dialog, "Alt+O", "offset"),
+            "lock": A(tr("Blocca"), lambda: e.lock(True), "Ctrl+L", "lock"),
+            "unlock": A(tr("Sblocca"), lambda: e.lock(False), "Ctrl+Shift+L", "unlock"),
+            "group": A(tr("Raggruppa"), e.group, "Ctrl+G", "group"),
+            "ungroup": A(tr("Separa"), e.ungroup, "Ctrl+U", "ungroup"),
+            "weld": A(tr("Salda"), e.weld, "Ctrl+W", "weld"),
+            "union": A(tr("Unione"), lambda: e.boolean("union"), None, "union"),
+            "difference": A(tr("Differenza (la prima meno la seconda)"), lambda: e.boolean("difference"), None, "subtract"),
+            "intersection": A(tr("Intersezione"), lambda: e.boolean("intersection"), None, "intersect"),
+            "xor": A(tr("Esclusione"), lambda: e.boolean("xor"), None, "exclude"),
+            "flip_h": A(tr("Rifletti orizzontalmente"), lambda: e.flip(True), "Ctrl+Shift+H", "flip_h"),
+            "flip_v": A(tr("Rifletti verticalmente"), lambda: e.flip(False), "Ctrl+Alt+V", "flip_v"),
+            "rot_cw": A(tr("Ruota di 90° in senso orario"), lambda: e.rotate(-90), ".", "rot_cw"),
+            "rot_ccw": A(tr("Ruota di 90° in senso antiorario"), lambda: e.rotate(90), ",", "rot_ccw"),
+            "align_left": A(tr("Allinea a sinistra"), lambda: e.align("left"), "Alt+Left", "align_left"),
+            "align_right": A(tr("Allinea a destra"), lambda: e.align("right"), "Alt+Right", "align_right"),
+            "align_top": A(tr("Allinea in alto"), lambda: e.align("top"), "Alt+Up", "align_top"),
+            "align_bottom": A(tr("Allinea in basso"), lambda: e.align("bottom"), "Alt+Down", "align_bottom"),
+            "align_hcenter": A(tr("Centra in orizzontale"), lambda: e.align("hcenter"), None, "align_hcenter"),
+            "align_vcenter": A(tr("Centra in verticale"), lambda: e.align("vcenter"), None, "align_vcenter"),
+            "align_center": A(tr("Centra i centri"), lambda: e.align("center"), "Alt+C"),
+            "dist_h": A(tr("Distribuisci spazi orizzontali"), lambda: e.distribute("h", "gap"), None, "dist_h"),
+            "dist_v": A(tr("Distribuisci spazi verticali"), lambda: e.distribute("v", "gap"), None, "dist_v"),
+            "dist_hc": A(tr("Distribuisci centri orizzontali"), lambda: e.distribute("h", "center")),
+            "dist_vc": A(tr("Distribuisci centri verticali"), lambda: e.distribute("v", "center")),
+            "same_w": A(tr("Stessa larghezza dell'ultima selezionata"), lambda: e.same_size("w")),
+            "same_h": A(tr("Stessa altezza dell'ultima selezionata"), lambda: e.same_size("h")),
+            "grid_array": A(tr("Serie a griglia…"), self.grid_array_dialog, "Alt+A", "grid_array"),
+            "circ_array": A(tr("Serie circolare…"), self.circ_array_dialog, None, "circ_array"),
+            "along_path": A(tr("Copia lungo un tracciato…"), self.along_path_dialog),
+            "front": A(tr("Porta in primo piano"), lambda: e.order("front"), "Ctrl+Shift+Up", "front"),
+            "back": A(tr("Porta in fondo"), lambda: e.order("back"), "Ctrl+Shift+Down", "back"),
+            "zoom_in": A(tr("Ingrandisci"), lambda: c.zoom_by(1.25), ["Ctrl++", "Ctrl+="], "zoom_in"),
+            "zoom_out": A(tr("Riduci"), lambda: c.zoom_by(0.8), "Ctrl+-", "zoom_out"),
+            "fit": A(tr("Adatta al piano"), c.fit_bed, "Ctrl+0", "fit"),
+            "fit_sel": A(tr("Adatta alla selezione"), c.fit_selection, "Ctrl+Shift+0"),
+            "filled": A(tr("Vista riempita"), self._toggle_filled, "Alt+W", checkable=True),
+            "grid": A(tr("Griglia"), self._toggle_grid, "Ctrl+'", "grid", checkable=True),
+            "snap_grid": A(tr("Aggancia alla griglia"), lambda x: self._set_snap("snap_grid", x), "Shift+F9", "grid",
+                           checkable=True),
+            "snap_obj": A(tr("Aggancia agli oggetti"), lambda x: self._set_snap("snap_objects", x), "F9", "magnet",
+                          checkable=True),
+            "light_bed": A(tr("Piano chiaro"), self._toggle_light_bed, None, checkable=True),
+            "dither_prev": A(tr("Mostra il dithering delle immagini"), self._toggle_dither, checkable=True),
+            "connect": A(tr("Connetti / disconnetti la macchina"), lambda: self.toggle_connection(), "Ctrl+K", "connect"),
+            "home": A(tr("Homing"), self.ctl.home, "Ctrl+H", "home"),
+            "unlock_m": A(tr("Sblocca macchina ($X)"), self.ctl.unlock, None, "unlock"),
+            "frame": A(tr("Contorno"), lambda: self.frame_job("box"), "Ctrl+Shift+F", "frame"),
+            "verify": A(tr("Verifica il lavoro"), self.verify_job, "Ctrl+Shift+K", "verify"),
+            "start": A(tr("Avvia il lavoro"), self.start_job, "Ctrl+Return", "play"),
+            "pause": A(tr("Pausa / riprendi"), self._toggle_pause, "Ctrl+Space", "pause"),
+            "stop": A(tr("Stop"), self.ctl.stop_job, "Ctrl+Break", "stop"),
+            "preview": A(tr("Anteprima…"), self.preview_job, "Alt+P", "preview"),
+            "exact_shape": A(tr("Crea forma con misure esatte…"), self.exact_shape_dialog, "Ctrl+Alt+N", "ruler_add",
+                             tr("Rettangolo, cerchio, poligono o forma della galleria con larghezza, altezza e posizione precise")),
+            "variables": A(tr("Testo variabile…"), self.variables_dialog, None, "variable",
+                           tr("Numeri di serie, data e campi da CSV nei testi")),
+            "materials": A(tr("Libreria materiali…"), self.material_library, "Ctrl+M", "library"),
+            "material_test": A(tr("Test materiale…"), self.material_test, None, "grid",
+                               tr("Griglia potenza × velocità per trovare i valori giusti di un materiale")),
+            "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
+                          tr("Porte USB, chip e driver, lettura della scheda e profilo adattato in automatico")),
+            "help_mode": A(tr("Che cos'è?"), None, None, "help",
+                           tr("Guida: passa il mouse su un comando per leggerne descrizione e opzioni (Maiusc+F1)"),
+                           checkable=True),
+            "shortcuts": A(tr("Scorciatoie da tastiera"), self.show_shortcuts, "F1"),
+            "about": A(tr("Informazioni su FreeLaserCut"), self.show_about),
+            "support": A(tr("Sostieni FreeLaserCut…"), self.show_support, None, None,
+                         tr("Contributo volontario allo sviluppo (GitHub Sponsors)")),
+            "claude": A(tr("Collega a Claude (MCP)…"), self.claude_dialog, None, "connect",
+                        tr("Detta a Claude cosa disegnare e preparare in FreeLaserCut")),
+        }
+        for k in ("filled", "grid"):
+            self.acts[k].setChecked(True)
+        on = lambda key, d: self.qs.value(key, d) in (True, "true")  # noqa: E731
+        self.acts["light_bed"].setChecked(on("light_bed", True))
+        c.light_bed = self.acts["light_bed"].isChecked()
+        self.acts["snap_obj"].setChecked(on("snap_objects", True))
+        self.acts["snap_grid"].setChecked(on("snap_grid", False))
+        c.snap_objects = self.acts["snap_obj"].isChecked()
+        c.snap_grid = self.acts["snap_grid"].isChecked()
+        self.tool_actions = {}
+        grp = QActionGroup(self)
+        for name, label, icon, key in (("select", tr("Selezione"), "select", "V"), ("nodes", tr("Modifica nodi"), "nodes", "N"),
+                                       ("line", tr("Linee e curve"), "line", "L"), ("rect", tr("Rettangolo"), "rect", "R"),
+                                       ("ellipse", tr("Ellisse e cerchio"), "ellipse", "E"),
+                                       ("polygon", tr("Poligono"), "polygon", "P"), ("star", tr("Stella"), "star", "S"),
+                                       ("special", "Forme: frecce, cuore, scudo, medaglia, ingranaggio…", "shapes", "F"),
+                                       ("text", tr("Testo"), "text", "T"), ("measure", tr("Misura"), "measure", "M"),
+                                       ("position", tr("Posiziona laser (clic = la testa va lì)"), "position", "Q")):
+            a = QAction(style.icon(icon), label, self)
+            a.setShortcut(QKeySequence(key))
+            a.setToolTip(f"{label}  ({key})")
+            a.setCheckable(True)
+            a.triggered.connect(lambda _=False, n=name: self.canvas.set_tool(n))
+            grp.addAction(a)
+            self.addAction(a)
+            self.tool_actions[name] = a
+        self.tool_actions["select"].setChecked(True)
+        # guida contestuale: ogni comando sa qual è la sua scheda descrittiva
+        for k, act in self.acts.items():
+            act.setProperty("help_key", k)
+        for n, act in self.tool_actions.items():
+            act.setProperty("help_key", f"tool:{n}")
+        self.canvas.setProperty("help_key", "canvas")
+        self.help = HelpMode(self)
+        self.acts["help_mode"].setToolTip(tr("Che cos'è?  (Maiusc+F1) — passa il mouse su un comando per leggerne la "
+                                          "descrizione e le opzioni"))
+        self.acts["help_mode"].toggled.connect(self.help.set_active)
+        self.help.toggled.connect(lambda on: self.acts["help_mode"].setChecked(on))
+
+    def _build_menus(self):
+        mb = self.menuBar()
+        a = self.acts
+        # in alto a destra, sempre visibile: contributo volontario allo sviluppo
+        a["support"].setIcon(style.icon("heart", color="#E5484D", active="#E5484D"))
+        a["support"].setIconText(tr("Sostieni FreeLaserCut"))
+        sb = QToolButton()
+        sb.setObjectName("supportbtn")
+        sb.setDefaultAction(a["support"])
+        sb.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        sb.setIconSize(QSize(14, 14))
+        sb.setCursor(Qt.PointingHandCursor)
+        sb.setToolTip(tr("Sostieni FreeLaserCut: contributo volontario allo sviluppo"))
+        corner = QWidget()
+        cl = QHBoxLayout(corner)
+        cl.setContentsMargins(0, 1, 6, 1)
+        cl.addWidget(sb)
+        mb.setNativeMenuBar(False)  # l'angolo con il pulsante esiste solo nella barra dei menu di Qt
+        mb.setCornerWidget(corner, Qt.TopRightCorner)
+        self.support_button = sb
+        self._support_corner = corner  # PySide non ne prende la proprietà: senza riferimento verrebbe distrutto
+
+        def menu(title, keys):
+            m = mb.addMenu(title)
+            for k in keys:
+                if k == "-":
+                    m.addSeparator()
+                elif isinstance(k, tuple):
+                    sub = m.addMenu(k[0])
+                    for kk in k[1]:
+                        if kk == "-":
+                            sub.addSeparator()
+                        elif callable(kk):
+                            kk(sub)
+                        else:
+                            sub.addAction(a[kk])
+                else:
+                    m.addAction(a[k])
+            return m
+
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "export", "-", "save_gcode",
+                                     "run_file", "-", "quit"])
+        self.m_recent = QMenu(tr("File recenti"), self)
+        self.m_file.insertMenu(a["save"], self.m_recent)
+        self.m_file.insertSeparator(a["save"])
+        self._refresh_recent()
+        menu(tr("&Modifica"), ["undo", "redo", "-", "cut", "copy", "paste", "paste_in_place", "duplicate", "delete", "-",
+                           "select_all", "invert_sel", (tr("Seleziona speciale"), ["sel_open", "sel_open_fill", "sel_contained"]),
+                           "-", "to_path", "trace", "close_paths", "join", "break", "reverse", "duplicates", "offset", "-",
+                           "lock", "unlock"])
+
+        def anchors_move(sub):
+            for i, n in enumerate(gcode.ANCHOR_NAMES):
+                act = sub.addAction(n.capitalize())
+                act.triggered.connect(lambda _=False, i=i: self.editor.move_to(i, QRectF(0, 0, self.profile.bed_x, self.profile.bed_y)))
+
+        def anchors_head(sub):
+            for i, n in enumerate(gcode.ANCHOR_NAMES):
+                act = sub.addAction(n.capitalize())
+                act.triggered.connect(lambda _=False, i=i: self.head_to_selection(i))
+
+        menu(tr("&Disponi"), ["group", "ungroup", "-", "weld", (tr("Operazioni booleane"), ["union", "difference", "intersection", "xor"]),
+                          "-", "flip_h", "flip_v", "rot_cw", "rot_ccw", "-",
+                          (tr("Allinea"), ["align_left", "align_hcenter", "align_right", "-", "align_top", "align_vcenter",
+                                       "align_bottom", "-", "align_center"]),
+                          (tr("Distribuisci"), ["dist_h", "dist_v", "dist_hc", "dist_vc"]),
+                          (tr("Stessa misura"), ["same_w", "same_h"]),
+                          (tr("Sposta sul piano"), [anchors_move]), (tr("Porta la testa sulla selezione"), [anchors_head]), "-",
+                          "grid_array", "circ_array", "along_path", "-", "front", "back"])
+        m = mb.addMenu(tr("&Strumenti"))
+        for name in ("select", "nodes", "line", "rect", "ellipse", "polygon", "star", "special", "text", "measure",
+                     "position"):
+            m.addAction(self.tool_actions[name])
+        m.addSeparator()
+        m.addAction(a["exact_shape"])
+        m.addSeparator()
+        m.addAction(a["variables"])
+        m.addAction(a["trace"])
+        menu(tr("&Laser"), ["connect", "identify", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
+                        "materials", "material_test", "-", "save_gcode", "run_file"])
+        self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
+                                           "snap_grid", "snap_obj", "dither_prev"])
+        self.m_view.addSeparator()
+        self.m_panels = self.m_view.addMenu(tr("Pannelli"))
+        self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
+        self.m_view.addSeparator()
+        self._build_language_menu(self.m_view)
+        menu(tr("&Aiuto"), ["help_mode", "-", "claude", "-", "shortcuts", "about", "-", "support"])
+
+    def _build_toolbars(self):
+        a = self.acts
+        tb = QToolBar(tr("Principale"))
+        tb.setObjectName("main")
+        tb.setIconSize(QSize(18, 18))
+        tb.setMovable(False)
+        for k in ("new", "open", "save", "-", "import", "-", "undo", "redo", "-", "cut", "copy", "paste", "delete",
+                  "-", "group", "ungroup", "weld", "union", "difference", "intersection", "-", "flip_h", "flip_v",
+                  "rot_ccw", "rot_cw", "-", "align_left", "align_hcenter", "align_right", "align_top", "align_vcenter",
+                  "align_bottom", "dist_h", "dist_v", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
+                  "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "materials", "material_test"):
+            if k == "-":
+                tb.addSeparator()
+            else:
+                tb.addAction(a[k])
+        # a destra, nello spazio libero: riconoscimento macchina e guida "?"
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        tb.addWidget(spacer)
+        tb.addAction(a["identify"])
+        tb.addAction(a["help_mode"])
+        hb = tb.widgetForAction(a["help_mode"])
+        hb.setObjectName("helpbtn")
+        hb.setProperty("help_toggle", True)
+        self.addToolBar(Qt.TopToolBarArea, tb)
+        # connessione: sempre visibile in cima al pannello Laser (e nella barra di stato)
+        self.port_combo = QComboBox()
+        self.port_combo.setToolTip(tr("Porta USB della macchina (★ = probabilmente il laser)"))
+        rb = QToolButton()
+        rb.setIcon(style.icon("refresh"))
+        rb.setToolTip(tr("Cerca di nuovo le porte USB"))
+        rb.clicked.connect(self.refresh_ports)
+        self.btn_refresh = rb
+        self.btn_connect = QPushButton(tr("Connetti"))
+        self.btn_connect.setObjectName("primary")
+        self.btn_connect.setIcon(style.icon("connect", "#FFFFFF"))
+        self.btn_connect.setToolTip(tr("Collega FreeLaserCut al laser (Ctrl+K)"))
+        self.btn_connect.clicked.connect(self.toggle_connection)
+        self.pill = QLabel()
+        self.pill.setObjectName("pill")
+        self.pill.setFixedHeight(20)
+        self.pill.setMinimumWidth(64)
+        self.pill.setAlignment(Qt.AlignCenter)
+        self.addToolBarBreak()
+        self.numeric = NumericBar(self.editor, self.canvas)
+        self.addToolBar(Qt.TopToolBarArea, self.numeric)
+        tools = QToolBar(tr("Strumenti"))
+        tools.setObjectName("tools")
+        tools.setOrientation(Qt.Vertical)
+        tools.setIconSize(QSize(20, 20))
+        tools.setMovable(False)
+        for name in ("select", "nodes", "-", "line", "rect", "ellipse", "polygon", "star", "special", "text", "-",
+                     "measure", "position"):
+            if name == "-":
+                tools.addSeparator()
+            else:
+                tools.addAction(self.tool_actions[name])
+        self.addToolBar(Qt.LeftToolBarArea, tools)
+        self.palette = PaletteBar(self.editor)
+        self.addToolBar(Qt.BottomToolBarArea, self.palette)
+
+    def _dock(self, title, widget, area=Qt.RightDockWidgetArea, name=None):
+        d = QDockWidget(title, self)
+        d.setObjectName(name or title)
+        from .widgets import shrinkable
+
+        shrinkable(widget)
+        if not isinstance(widget, QScrollArea):  # se lo spazio non basta il pannello scorre, non si schiaccia
+            sa = QScrollArea()
+            sa.setWidgetResizable(True)
+            sa.setFrameShape(QFrame.NoFrame)
+            sa.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            sa.setWidget(widget)
+            widget = sa
+        d.setWidget(widget)
+        # niente "X": i pannelli non si perdono più (si scelgono dalle schede o da Visualizza → Pannelli)
+        d.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        d.setTitleBarWidget(QWidget())  # il titolo è già sulla scheda: niente barra doppia
+        d.setMinimumWidth(300)
+        icons = {"dock_layers": "layers", "dock_props": "settings", "dock_laser": "laser", "dock_move": "move",
+                 "dock_camera": "camera", "dock_machine": "machine", "dock_console": "console"}
+        act = QAction(style.icon(icons.get(name, "settings")), title, self)
+        act.triggered.connect(lambda _=False, d=d: self.show_panel(d))
+        self.m_panels.addAction(act)
+        return d
+
+    def show_panel(self, d):
+        d.show()
+        d.raise_()
+        d.widget().setFocus()
+
+    def reset_layout(self):
+        """Torna alla disposizione iniziale dei pannelli (quella registrata all'avvio)."""
+        if getattr(self, "_default_state", None) is not None:
+            for d in self.docks.values():
+                d.setFloating(False)
+                d.show()
+            self.restoreState(self._default_state, 5)
+            self.docks["layers"].raise_()
+            self.docks["laser"].raise_()
+            QTimer.singleShot(0, self._clean_tabbars)
+            h = max(self.height() - 160, 600)
+            QTimer.singleShot(50, lambda: (self.resizeDocks([self.docks["layers"], self.docks["laser"]],
+                                                             [int(h * 0.55), int(h * 0.45)], Qt.Vertical),
+                                           self.resizeDocks([self.docks["layers"]],
+                                                            [max(420, min(480, self.width() // 3))], Qt.Horizontal)))
+
+    def _build_docks(self):
+        from ..app import ConsolePanel, MachinePanel
+        from ..camera_panel import CameraPanel
+
+        self.layers = LayersPanel(self.editor, lambda: self.profile)
+        self.props = PropertiesPanel(self.editor, self.canvas)
+        self.laser = LaserPanel(self.ctl, self.qs)
+        self.move = MovePanel(self.ctl, self.qs, lambda: self.profile, self.canvas.head_pos)
+        self.machine = MachinePanel(self.ctl, self.profile, self.on_profile)
+        self.camera = CameraPanel(self.ctl, self)
+        self.console = ConsolePanel(self.ctl)
+        d1 = self._dock(tr("Livelli"), self.layers, name="dock_layers")
+        d2 = self._dock(tr("Proprietà"), self.props, name="dock_props")
+        d3 = self._dock(tr("Laser"), self.laser, name="dock_laser")
+        d4 = self._dock(tr("Movimento"), self.move, name="dock_move")
+        d5 = self._dock(tr("Camera"), self.camera, name="dock_camera")
+        d6 = self._dock(tr("Macchina"), self.machine, name="dock_machine")
+        d7 = self._dock(tr("Console"), self.console, name="dock_console")
+        # due gruppi a destra: progettazione (sopra) e macchina (sotto)
+        from PySide6.QtWidgets import QTabWidget
+
+        self.setTabPosition(Qt.RightDockWidgetArea, QTabWidget.North)
+        self.addDockWidget(Qt.RightDockWidgetArea, d1, Qt.Vertical)
+        self.addDockWidget(Qt.RightDockWidgetArea, d3, Qt.Vertical)
+        self.tabifyDockWidget(d1, d2)
+        prev = d3
+        for d in (d4, d5, d6, d7):  # ognuno sull'ultimo aggiunto: evita la barra intermedia di Qt
+            self.tabifyDockWidget(prev, d)
+            prev = d
+        d1.raise_()
+        d3.raise_()
+        self.resizeDocks([d1, d3], [420, 520], Qt.Vertical)
+        self.resizeDocks([d1], [430], Qt.Horizontal)
+        self.docks = {"layers": d1, "props": d2, "laser": d3, "move": d4, "camera": d5, "machine": d6, "console": d7}
+        conn = QFrame()
+        conn.setObjectName("connbar")
+        hl = QHBoxLayout(conn)
+        hl.setContentsMargins(6, 4, 6, 4)
+        hl.setSpacing(4)
+        hl.addWidget(self.port_combo, 1)
+        hl.addWidget(self.btn_refresh)
+        ib = QToolButton()
+        ib.setDefaultAction(self.acts["identify"])
+        hl.addWidget(ib)
+        hl.addWidget(self.btn_connect)
+        hl.addWidget(self.pill)
+        self.laser.layout().insertWidget(0, conn)
+        QTimer.singleShot(0, self._clean_tabbars)
+        QTimer.singleShot(250, self._balance_docks)
+
+    def _clean_tabbars(self):
+        """Nasconde eventuali barre di schede rimaste orfane (difetto noto di Qt con tabifyDockWidget)."""
+        from PySide6.QtWidgets import QTabBar
+
+        groups = []
+        for d in self.docks.values():
+            g = {d.windowTitle()} | {x.windowTitle() for x in self.tabifiedDockWidgets(d)}
+            if g not in groups:
+                groups.append(g)
+        for tb in self.findChildren(QTabBar):
+            if tb.parent() is self and tb.isVisible():
+                tabs = {tb.tabText(i) for i in range(tb.count())}
+                if tabs and tabs not in groups:
+                    tb.hide()
+
+    def _balance_docks(self):
+        if self.qs.value("win_state_v5") is None:
+            h = max(self.height() - 160, 600)
+            self.resizeDocks([self.docks["layers"], self.docks["laser"]], [int(h * 0.58), int(h * 0.42)], Qt.Vertical)
+            self.resizeDocks([self.docks["layers"]], [max(420, min(480, self.width() // 3))], Qt.Horizontal)
+
+    def _build_banner(self):
+        f = QFrame()
+        f.setObjectName("alarm")
+        h = QHBoxLayout(f)
+        h.setContentsMargins(14, 8, 14, 8)
+        self.banner_text = QLabel()
+        self.banner_text.setWordWrap(True)
+        h.addWidget(self.banner_text, 1)
+        self.banner_buttons = QHBoxLayout()
+        h.addLayout(self.banner_buttons)
+        x = QToolButton()
+        x.setIcon(style.icon("x"))
+        x.clicked.connect(self._dismiss_banner)
+        h.addWidget(x)
+        f.hide()
+        self._banner_kind = None
+        self._alarm_dismissed = False
+        return f
+
+    def show_banner(self, text, kind="alarm", buttons=()):
+        self._banner_kind = kind
+        col = {"alarm": (C["danger"], "#3A1418", "#FFD9DA"), "info": (C["accent"], "#10264D", "#D6E6FF"),
+               "warn": (C["warn"], "#3A2A0A", "#FFE8B8")}[kind]
+        self.banner.setStyleSheet(f"QFrame#alarm {{ background:{col[1]}; border-bottom:1px solid {col[0]}; }}")
+        self.banner_text.setStyleSheet(f"color:{col[2]}; font-weight:600;")
+        self.banner_text.setText(text)
+        while self.banner_buttons.count():
+            w = self.banner_buttons.takeAt(0).widget()
+            if w:
+                w.setParent(None)
+        for label, fn in buttons:
+            b = QPushButton(label)
+            b.clicked.connect(fn)
+            self.banner_buttons.addWidget(b)
+        self.banner.show()
+
+    def _dismiss_banner(self):
+        if self._banner_kind == "alarm":
+            self._alarm_dismissed = True
+        self.banner.hide()
+
+    def _build_statusbar(self):
+        sb = QStatusBar()
+        self.setStatusBar(sb)
+        from PySide6.QtGui import QFontMetrics
+
+        mono = f"font-family: '{style.MONO_FONT}', Consolas, monospace; font-size: 8.5pt;"
+        fm = QFontMetrics(style.mono_font(8.5))
+
+        def fixed(sample):  # larghezza fissa: i numeri che cambiano non spostano il resto della barra
+            lab = QLabel("")
+            lab.setStyleSheet(mono)
+            lab.setFixedWidth(fm.horizontalAdvance(sample) + 14)
+            lab.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            return lab
+
+        self.lbl_cursor = fixed(tr("X -0000.00  Y -0000.00 mm"))
+        self.lbl_cursor.setText("X —  Y —")
+        self.lbl_zoom = fixed("00000%")
+        self.lbl_head = fixed("testa -000.00, -000.00  ·  lavoro -000.00, -000.00")
+        self.lbl_fs = fixed("F 00000 mm/min · potenza 000%")
+        self.lbl_fs.setObjectName("muted")
+        self.sb_machine = QPushButton(tr("○  Laser non connesso"))
+        self.sb_machine.setFlat(True)
+        self.sb_machine.setCursor(Qt.PointingHandCursor)
+        self.sb_machine.setToolTip(tr("Clic: connetti / disconnetti il laser"))
+        self.sb_machine.clicked.connect(lambda: self.toggle_connection())
+        sb.addWidget(self.sb_machine)
+        snaps = QWidget()
+        sl = QHBoxLayout(snaps)
+        sl.setContentsMargins(0, 0, 8, 0)
+        sl.setSpacing(4)
+        for key, text in (("snap_obj", tr("Aggancio oggetti")), ("snap_grid", tr("Griglia"))):
+            b = QToolButton()
+            b.setDefaultAction(self.acts[key])
+            b.setText(text)
+            b.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            b.setObjectName("snapbtn")
+            b.setIconSize(QSize(14, 14))
+            sl.addWidget(b)
+        sb.addPermanentWidget(snaps)
+        for w in (self.lbl_fs, self.lbl_head, self.lbl_cursor, self.lbl_zoom):
+            sb.addPermanentWidget(w)
+
+    def _wire(self):
+        e, c, ctl = self.editor, self.canvas, self.ctl
+        c.cursor_moved.connect(lambda x, y: self.lbl_cursor.setText(tr("X {0:8.2f}  Y {1:8.2f} mm", x, y)))
+        c.zoom_changed.connect(lambda k: self.lbl_zoom.setText(f"{k / 3.78 * 100:5.0f}%"))
+        c.status.connect(lambda t: self.statusBar().showMessage(t, 4000))
+        c.tool_changed.connect(lambda n: self.tool_actions[n].setChecked(True))
+        c.tool_changed.connect(self._tool_changed)
+        c.edit_text.connect(self._edit_text)
+        c.goto_requested.connect(self.goto_bed)
+        c.jog_requested.connect(lambda dx, dy: ctl.jog(dx * self.move.step(), dy * self.move.step(), self.move.feed.value()))
+        e.message.connect(lambda t: self.statusBar().showMessage(t, 5000))
+        e.history_changed.connect(self._update_title)
+        e.history_changed.connect(self._update_undo)
+        e.selection_changed.connect(self._update_sel_actions)
+        e.changed.connect(self._doc_changed)
+        self.move.goto_bed.connect(self.goto_bed)
+        self.laser.start_requested.connect(self.start_job)
+        self.layers.material_requested.connect(self.material_library)
+        self.props.trace_requested.connect(self.trace_dialog)
+        self.props.variables_requested.connect(self.variables_dialog)
+        variables.on_change(self._vars_changed)
+        self.laser.verify_requested.connect(self.verify_job)
+        self.laser.frame_requested.connect(self.frame_job)
+        self.laser.preview_requested.connect(self.preview_job)
+        self.laser.save_requested.connect(self.save_gcode)
+        self.laser.run_file_requested.connect(self.run_gcode_file)
+        ctl.connection_changed.connect(self.on_connection)
+        ctl.status_changed.connect(self.on_status)
+        ctl.alarm_raised.connect(lambda code, t: self.show_banner(f"⚠  Allarme {code}: {t}", "alarm",
+                                                                  [(tr("Sblocca"), ctl.unlock), (tr("Homing"), ctl.home)]))
+        ctl.message.connect(lambda m: self.statusBar().showMessage(m, 5000))
+        ctl.homed_changed.connect(self.on_homed)
+        ctl.settings_ready.connect(self._auto_identify)
+        ctl.check_finished.connect(self._check_done)
+        ctl.job_error.connect(self._job_error)
+        ctl.job_finished.connect(self._job_finished)
+        self._update_undo()
+        self._update_sel_actions()
+
+    # ================================================================ titolo / stato documento
+    def _update_title(self):
+        d = self.editor.doc
+        name = os.path.basename(d.path) if d.path else d.name
+        self.setWindowTitle(tr("{0}{1} — FreeLaserCut {2}", '● ' if self.editor.dirty else '', name, __version__))
+
+    def _update_undo(self):
+        e = self.editor
+        self.acts["undo"].setEnabled(bool(e.undo_stack))
+        self.acts["redo"].setEnabled(bool(e.redo_stack))
+        self.acts["undo"].setText(f"Annulla {e.undo_label()}".strip())
+        self.acts["redo"].setText(f"Ripeti {e.redo_label()}".strip())
+
+    def _update_sel_actions(self):
+        n = len(self.editor.selection)
+        for k in ("cut", "copy", "duplicate", "delete", "to_path", "break", "reverse", "offset", "flip_h", "flip_v",
+                  "rot_cw", "rot_ccw", "grid_array", "circ_array", "front", "back", "lock", "unlock", "close_paths", "join"):
+            self.acts[k].setEnabled(n >= 1)
+        for k in ("group", "align_left", "align_right", "align_top", "align_bottom", "align_hcenter", "align_vcenter",
+                  "align_center", "same_w", "same_h", "along_path"):
+            self.acts[k].setEnabled(n >= 2)
+        for k in ("union", "difference", "intersection", "xor"):
+            self.acts[k].setEnabled(n == 2)
+        for k in ("dist_h", "dist_v", "dist_hc", "dist_vc"):
+            self.acts[k].setEnabled(n >= 3)
+        self.acts["weld"].setEnabled(n >= 1)
+        self.acts["trace"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
+
+    def _doc_changed(self):
+        self._update_title()
+        self.job = None  # il lavoro va rigenerato
+        if not (self.ctl.job_active or self.ctl.checking):
+            self.canvas.clear_preview()
+
+    def _tool_changed(self, name):
+        if not self.editor.selection:
+            self.props.rebuild()
+        if name == "special":
+            self.docks["props"].show()
+            self.docks["props"].raise_()
+
+    def _edit_text(self, shape):
+        self.docks["props"].show()
+        self.docks["props"].raise_()
+        QTimer.singleShot(0, self.props.focus_text)
+
+    def _set_snap(self, attr, on):
+        setattr(self.canvas, attr, on)
+        self.qs.setValue(attr, on)
+        self.statusBar().showMessage((tr("Aggancio agli oggetti ") if attr == "snap_objects" else tr("Aggancio alla griglia "))
+                                     + (tr("attivo") if on else tr("disattivato")) + tr("  (Alt lo sospende mentre trascini)"), 3000)
+
+    def _toggle_light_bed(self, on):
+        self.canvas.light_bed = on
+        self.qs.setValue("light_bed", on)
+        self.canvas.resetCachedContent()
+        self.canvas.viewport().update()
+
+    def _toggle_filled(self, on):
+        self.canvas.filled_view = on
+        self.canvas.sync()
+
+    def _toggle_grid(self, on):
+        self.canvas.show_grid = on
+        self.canvas.viewport().update()
+
+    def _toggle_dither(self, on):
+        self.canvas.dither_preview = on
+        self.canvas.sync()
+
+    # ================================================================ file
+    def _confirm_discard(self):
+        if not self.editor.dirty or not self.editor.doc.shapes:
+            return True
+        r = QMessageBox.question(self, tr("Modifiche non salvate"), tr("Il progetto ha modifiche non salvate. Salvarle?"),
+                                 QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+        if r == QMessageBox.Save:
+            return self.file_save()
+        return r == QMessageBox.Discard
+
+    def file_new(self):
+        if self._confirm_discard():
+            variables.from_dict(None)
+            self.editor.set_document(Document())
+            self._update_title()
+
+    def file_open(self, path=None):
+        if not self._confirm_discard():
+            return
+        if not path:
+            path, _ = QFileDialog.getOpenFileName(self, tr("Apri progetto"), self.qs.value("last_dir", os.path.expanduser("~")),
+                                                  OPEN_FILTER + ";;" + tr("Tutti i file (*)"))
+        if not path:
+            return
+        warnings = None
+        try:
+            if path.lower().endswith((".lbrn2", ".lbrn")):
+                from ..core import lbrn
+
+                doc, warnings = lbrn.load(path)
+            else:
+                doc = Document.load(path)
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, tr("Apri progetto"), tr("Impossibile aprire il file:\n{0}", exc))
+            return
+        self.qs.setValue("last_dir", os.path.dirname(path))
+        self.editor.set_document(doc)
+        self._add_recent(path)
+        self._update_title()
+        self.canvas.fit_bed()
+        if warnings is not None:  # progetto LightBurn: si salva come nuovo progetto FreeLaserCut
+            n = len(doc.used_layers())
+            msg = (tr("Progetto LightBurn aperto: {0} oggetti, {1} livelli con le loro impostazioni (velocità convertite da mm/s a mm/min). Salvandolo diventa un progetto FreeLaserCut.", len(doc.shapes), n))
+            if warnings:
+                msg += tr("  Avvisi: ") + "; ".join(sorted(set(warnings)))
+            self.statusBar().showMessage(msg, 15000)
+            self.editor.doc.path = None
+            self.editor.dirty = True
+            self._update_title()
+
+    def file_save(self):
+        d = self.editor.doc
+        if not d.path:
+            return self.file_save_as()
+        try:
+            d.save(d.path)
+        except OSError as exc:
+            QMessageBox.warning(self, tr("Salva"), tr("Impossibile salvare:\n{0}", exc))
+            return False
+        self.editor.dirty = False
+        self._update_title()
+        self.statusBar().showMessage(tr("Salvato: {0}", d.path), 4000)
+        return True
+
+    def file_save_as(self):
+        start = os.path.join(self.qs.value("last_dir", os.path.expanduser("~")), (self.editor.doc.name or "progetto") + ".flcut")
+        path, _ = QFileDialog.getSaveFileName(self, tr("Salva progetto"), start, FILE_FILTER)
+        if not path:
+            return False
+        if not path.lower().endswith(".flcut"):
+            path = (path[:-5] if path.lower().endswith(".fbrn") else path) + ".flcut"
+        self.qs.setValue("last_dir", os.path.dirname(path))
+        self.editor.doc.path = path
+        self.editor.doc.name = os.path.splitext(os.path.basename(path))[0]
+        ok = self.file_save()
+        if ok:
+            self._add_recent(path)
+        return ok
+
+    def _add_recent(self, path):
+        rec = [p for p in (self.qs.value("recent", []) or []) if p != path]
+        rec.insert(0, path)
+        self.qs.setValue("recent", rec[:10])
+        self._refresh_recent()
+
+    def _refresh_recent(self):
+        self.m_recent.clear()
+        rec = self.qs.value("recent", []) or []
+        if isinstance(rec, str):
+            rec = [rec]
+        for p in rec:
+            if os.path.exists(p):
+                a = self.m_recent.addAction(os.path.basename(p))
+                a.setToolTip(p)
+                a.triggered.connect(lambda _=False, p=p: self.file_open(p))
+        self.m_recent.setEnabled(bool(self.m_recent.actions()))
+
+    def file_import(self):
+        paths, _ = QFileDialog.getOpenFileNames(self, tr("Importa"), self.qs.value("import_dir", os.path.expanduser("~")),
+                                                IMPORT_FILTER)
+        if paths:
+            self.qs.setValue("import_dir", os.path.dirname(paths[0]))
+            self.import_files(paths)
+
+    def import_files(self, paths, at=None):
+        doc = self.editor.doc
+        added = []
+        for p in paths:
+            ext = os.path.splitext(p)[1].lower()
+            if ext in (".flcut", ".fbrn"):
+                self.file_open(p)
+                return
+            if ext in (".lbrn2", ".lbrn"):
+                if not doc.shapes:
+                    self.file_open(p)
+                    return
+                from ..core import lbrn
+
+                try:
+                    shapes = lbrn.import_shapes(p, doc)
+                except Exception as exc:  # noqa: BLE001
+                    QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}", os.path.basename(p), exc))
+                    continue
+                self.editor.add(shapes, tr("Importa da LightBurn"))  # posizioni originali, come in LightBurn
+                continue
+            if ext in (".gcode", ".nc", ".gc", ".ngc"):
+                self.run_gcode_file(p)
+                return
+            try:
+                shapes = io_formats.import_file(p, doc, max_size=(self.profile.bed_x * 0.8, self.profile.bed_y * 0.8))
+            except Exception as exc:  # noqa: BLE001
+                QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}", os.path.basename(p), exc))
+                continue
+            added += shapes
+        if not added:
+            return
+        b = ops.union_bounds(added)
+        target = at if at is not None else QPointF(self.profile.bed_x / 2, self.profile.bed_y / 2)
+        from PySide6.QtGui import QTransform
+
+        ops.transform_all(added, QTransform.fromTranslate(target.x() - b.center().x(), target.y() - b.center().y()))
+        self.editor.add(added, tr("Importa"))
+        for s in added:
+            for leaf, _ in s.leaves():
+                if isinstance(leaf, ImageShape):
+                    doc.layer(leaf.layer).mode = "image"
+        self.statusBar().showMessage(tr("Importati {0} oggetti", len(added)), 4000)
+
+    def file_export(self):
+        shapes = self.editor.selection or self.editor.doc.shapes
+        if not shapes:
+            return
+        path, _ = QFileDialog.getSaveFileName(self, tr("Esporta SVG"), os.path.join(self.qs.value("last_dir", os.path.expanduser("~")),
+                                                                            "disegno.svg"), tr("SVG (*.svg)"))
+        if path:
+            io_formats.export_svg(shapes, self.editor.doc, path)
+            self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)
+
+    def autosave(self):
+        if not self.editor.dirty or not self.editor.doc.shapes:
+            return
+        try:
+            d = self.editor.doc
+            path0, name0 = d.path, d.name
+            d.save(os.path.join(config_dir(), "autosave.flcut"))
+            d.path, d.name = path0, name0
+            self.qs.setValue("autosave_pending", True)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _offer_recovery(self):
+        p = os.path.join(config_dir(), "autosave.flcut")
+        if self.qs.value("autosave_pending", False) in (True, "true") and os.path.exists(p):
+            r = QMessageBox.question(self, tr("Ripristino"), tr("FreeLaserCut non è stato chiuso correttamente l'ultima volta.\n"
+                                     "Vuoi recuperare il progetto salvato in automatico?"))
+            self.qs.setValue("autosave_pending", False)
+            if r == QMessageBox.Yes:
+                doc = Document.load(p)
+                doc.path = None
+                doc.name = tr("Progetto recuperato")
+                self.editor.set_document(doc)
+                self.editor.dirty = True
+                self._update_title()
+
+    # ================================================================ dialoghi di modifica
+    def offset_dialog(self):
+        if not self.editor.selection:
+            return
+        dlg = OffsetDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            d, direction, corner, keep, outer = dlg.values()
+            self.editor.offset(d, direction, corner, keep, outer)
+
+    def grid_array_dialog(self):
+        if not self.editor.selection:
+            return
+        b = self.editor.selection_bounds()
+        dlg = GridArrayDialog((b.width(), b.height()), self)
+        if dlg.exec() == QDialog.Accepted:
+            cols, rows, dx, dy, mode, shift, mirror, group = dlg.values()
+            self.editor.grid_array(cols, rows, dx, dy, mode, shift, mirror, group)
+
+    def circ_array_dialog(self):
+        if not self.editor.selection:
+            return
+        b = self.editor.selection_bounds()
+        dlg = CircularArrayDialog((b.center().x(), b.top() - 30), self)
+        if dlg.exec() == QDialog.Accepted:
+            count, center, start, end, rot, group = dlg.values()
+            self.editor.circular_array(count, center, start, end, rot, group)
+
+    def along_path_dialog(self):
+        n, ok = QInputDialog.getInt(self, tr("Copia lungo un tracciato"), tr("Numero di copie:"), 10, 1, 1000)
+        if ok:
+            self.editor.copy_along_path(n, True)
+
+    def trace_dialog(self):
+        sel = self.editor.selection
+        if len(sel) != 1 or not isinstance(sel[0], ImageShape):
+            self.statusBar().showMessage(tr("Seleziona un'immagine da vettorizzare"), 4000)
+            return
+        img = sel[0]
+        pil = self.editor.doc.images.get(img.image_id)
+        if pil is None:
+            return
+        from .dialogs_trace import TraceDialog
+        from ..core.document import PathShape
+
+        cur = self.layers._current_cs()
+        dlg = TraceDialog(img, pil, cur.index if cur is not None and cur.mode != "image" else 1, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        path, layer, keep = dlg.values()
+        if path is None or path.isEmpty():
+            self.statusBar().showMessage(tr("Nessun tracciato trovato: prova a cambiare la soglia"), 5000)
+            return
+        ps = PathShape(path, layer)
+        ps.set_transform(img.tf)
+        if keep:
+            self.editor.add(ps, tr("Vettorizza immagine"))
+        else:
+            self.editor.replace([img], [ps], "Vettorizza immagine")
+
+    def exact_shape_dialog(self, *_):
+        from .dialogs_shapes import ExactShapeDialog
+
+        head = self.canvas.head_pos()
+        c = (head.x(), head.y()) if head is not None else (self.profile.bed_x / 2, self.profile.bed_y / 2)
+        dlg = ExactShapeDialog(c, self.editor.current_layer, self)
+        if dlg.exec() == QDialog.Accepted:
+            s = dlg.shape()
+            self.editor.add([s], f"Crea {s.describe().lower()}")
+
+    def close_paths_dialog(self):
+        tol, ok = QInputDialog.getDouble(self, tr("Chiudi tracciati"), tr("Chiudi se gli estremi distano al massimo (mm):"), 0.5, 0.01, 50, 2)
+        if ok:
+            self.editor.close_paths(tol)
+
+    # ================================================================ connessione
+    def refresh_ports(self):
+        last = self.qs.value("port", "")
+        self.port_combo.clear()
+        best = None
+        from .. import machines
+
+        ports = [(p.device, p.label(), p.likely) for p in machines.describe_ports()]
+        ports.append((SIM_PORT, tr("Simulatore (senza macchina)"), False))
+        for dev, label, likely in ports:
+            self.port_combo.addItem(("★  " if likely else "") + label, dev)
+            if dev == last:
+                best = self.port_combo.count() - 1
+            elif likely and best is None:
+                best = self.port_combo.count() - 1
+        if best is not None:
+            self.port_combo.setCurrentIndex(best)
+
+    def _auto_connect(self):
+        """All'avvio si collega da solo alla porta usata l'ultima volta (se c'è ancora)."""
+        if self.ctl.connected:
+            return
+        last = self.qs.value("port", "")
+        if last and self.port_combo.findData(last) >= 0 and last != SIM_PORT:
+            self.port_combo.setCurrentIndex(self.port_combo.findData(last))
+            self.statusBar().showMessage(tr("Mi collego al laser su {0}…", last), 4000)
+            self.toggle_connection(quiet=True)
+
+    def toggle_connection(self, quiet=False):
+        if self.ctl.connected:
+            if self.ctl.job_active:
+                if QMessageBox.question(self, tr("Lavoro in corso"), tr("C'è un lavoro in corso. Fermarlo e disconnettere?")) != QMessageBox.Yes:
+                    return
+                self.ctl.stop_job()
+            self.ctl.disconnect_port()
+            return
+        port = self.port_combo.currentData()
+        if not port:
+            return
+        self.btn_connect.setEnabled(False)
+        self.btn_connect.setText(tr("Connessione…"))
+        QApplication.processEvents()
+        self._quiet_connect = quiet
+        if self.ctl.connect_port(port, self.profile.baud):
+            self.qs.setValue("port", port)
+        self.btn_connect.setEnabled(True)
+
+    def on_connection(self, ok, msg):
+        if not ok and self.ctl.job_active is False and self.ctl.job_lines and 0 < self.ctl.job_acked < len(self.ctl.job_lines):
+            self._interrupted = (list(self.ctl.job_lines), self.ctl.job_acked)
+        self.btn_connect.setText(tr("Disconnetti") if ok else tr("Connetti"))
+        self.btn_connect.setObjectName("danger" if ok else "primary")
+        self.btn_connect.setIcon(style.icon("disconnect" if ok else "connect", "#FFFFFF"))
+        self.btn_connect.style().unpolish(self.btn_connect)
+        self.btn_connect.style().polish(self.btn_connect)
+        self.port_combo.setEnabled(not ok)
+        self.btn_refresh.setEnabled(not ok)
+        self.laser.set_connected(ok)
+        self.move.set_connected(ok)
+        self.machine.set_connected(ok)
+        self.machine.refresh_profile()
+        self.console.set_connected(ok)
+        self.camera.update_state()
+        for k in ("home", "unlock_m", "frame", "verify", "start", "pause", "stop"):
+            self.acts[k].setEnabled(ok)
+        if not ok:
+            self.set_pill("Disconnesso")
+            self.canvas.hide_head()
+            self.lbl_head.setText("")
+            self.lbl_fs.setText("")
+            if msg and msg.startswith(("Impossibile", "Connessione persa", "Errore")) and not getattr(self, "_quiet_connect", False):
+                QMessageBox.warning(self, tr("Connessione"), msg + tr("\n\nControlla il cavo USB, che la macchina sia accesa "
+                                    "e che nessun altro programma (LightBurn, LaserGRBL) usi la porta."))
+        else:
+            self._quiet_connect = False
+            self.set_pill("Idle")
+            self.statusBar().showMessage(msg, 4000)
+            QTimer.singleShot(2500, self._after_connect)
+
+    def _after_connect(self):
+        if not self.ctl.connected:
+            return
+        if self._interrupted:
+            lines, at = self._interrupted
+            self.show_banner(tr("Un lavoro si è interrotto alla riga {0} di {1}. Fai l'homing, poi puoi riprenderlo da dove si era fermato.", at, len(lines)), "warn", [(tr("Homing"), self.ctl.home), (tr("Riprendi"), self.resume_job),
+                                                                 (tr("Scarta"), self._drop_interrupted)])
+        elif not self.ctl.homed and not self.banner.isVisible():
+            self.show_banner(tr("Fai l'homing: così testa, piano di lavoro e camera usano le stesse coordinate."), "info",
+                             [(tr("Homing"), self.ctl.home)])
+
+    def set_pill(self, state):
+        color = STATE_COLORS.get(state, "#4E5C7A")
+        self.pill.setText(STATE_IT.get(state, state))
+        self.pill.setStyleSheet(f"background:{color}; border-radius:9px; padding:1px 8px; font-weight:600; font-size:8pt; color:white;")
+        if hasattr(self, "sb_machine"):
+            self.sb_machine.setText(("●  " + STATE_IT.get(state, state)) if state != "Disconnesso" else tr("○  Laser non connesso"))
+            self.sb_machine.setStyleSheet(f"color:{color if state != 'Disconnesso' else C['muted']}; font-weight:600;")
+
+    def on_status(self, st):
+        state = st.get("state", "")
+        self.set_pill(state)
+        m = st.get("MPos", [0, 0, 0])
+        w = st.get("WPos", [0, 0, 0])
+        bx, by = self.profile.to_bed(m[0], m[1])
+        self.canvas.set_head(bx, by, state, st.get("power", 0))
+        self.lbl_head.setText(tr("testa {0:7.2f}, {1:7.2f}  ·  lavoro {2:.2f}, {3:.2f}", bx, by, w[0], w[1]))
+        pw = st.get("power", 0) / max(self.profile.s_max, 1) * 100
+        self.lbl_fs.setText(tr("F {0:.0f} mm/min · potenza {1:.0f}%", st.get('feed', 0), pw))
+        if state == "Alarm" and not self.banner.isVisible() and not self._alarm_dismissed:
+            self.show_banner(tr("⚠  La macchina è bloccata (allarme): fai l'homing oppure sblocca."), "alarm",
+                             [(tr("Sblocca"), self.ctl.unlock), (tr("Homing"), self.ctl.home)])
+        elif state != "Alarm":
+            self._alarm_dismissed = False
+            if self._banner_kind == "alarm" and self.banner.isVisible() and state in ("Idle", "Run", "Jog"):
+                self.banner.hide()
+
+    def on_homed(self, homed, negative):
+        if homed:
+            if self.profile.negative_space != negative:
+                self.profile.negative_space = negative
+                try:
+                    self.profile.save()
+                except OSError:
+                    pass
+            if self._banner_kind == "info":
+                self.banner.hide()
+            self.machine.refresh_profile()
+            self.statusBar().showMessage(tr("Homing completato: piano e macchina allineati"), 5000)
+        self.camera.update_state()
+
+    def _load_active_profile(self):
+        """Il profilo scelto l'ultima volta (Riconosci la macchina), altrimenti il Longer B1 40W."""
+        path = self.qs.value("profile_path", "")
+        if path and os.path.exists(path):
+            try:
+                return MachineProfile.load(path)
+            except (OSError, ValueError, TypeError):
+                pass
+        return MachineProfile.load_default()
+
+    def set_active_profile(self, p):
+        self.qs.setValue("profile_path", p.path())
+        self.on_profile(p)
+        self.machine.profile = p
+        self.machine.refresh_profile()
+        self.statusBar().showMessage(tr("Profilo macchina: {0}", p.name), 5000)
+
+    def identify_machine(self, *_):
+        from .dialogs_machine import MachineWizard
+
+        MachineWizard(self).exec()
+
+    def _auto_identify(self, settings):
+        """Dopo ogni lettura di $$: se la scheda collegata non corrisponde al profilo attivo, lo dice e propone
+        il riconoscimento (una sola volta per firmware)."""
+        from .. import machines
+
+        port = next((p for p in machines.describe_ports() if p.device == self.ctl.port), None)
+        ident = machines.identify((), self.machine.info, settings, port, self.profile.baud)
+        if not ident.vendor and not ident.family:
+            return
+        same = (ident.model and ident.model == self.profile.model) or (
+            ident.vendor and ident.vendor.lower() in self.profile.name.lower())
+        bx, by = ident.bed
+        size_ok = not (bx and by) or (abs(bx - self.profile.bed_x) < 5 and abs(by - self.profile.bed_y) < 5)
+        if same and size_ok:
+            return
+        tag = f"{ident.vendor_fw}|{ident.version}|{bx:g}x{by:g}"
+        if self.qs.value("ident_dismissed", "") == tag or self.banner.isVisible():
+            return
+        self.show_banner(tr("Collegata: {0} ({1}). Il profilo attivo è «{2}».", ident.name(), ident.summary(), self.profile.name),
+                         "info", [(tr("Riconosci e adatta"), self.identify_machine),
+                                  (tr("Ignora"), lambda: (self.qs.setValue("ident_dismissed", tag), self.banner.hide()))])
+
+    def on_profile(self, p):
+        self.profile = p
+        self.laser.s_max = p.s_max
+        if (self.canvas.bed_x, self.canvas.bed_y) != (p.bed_x, p.bed_y):
+            self.canvas.set_bed(p.bed_x, p.bed_y)
+
+    def work_origin_on_bed(self):
+        wx, wy = self.ctl.wco
+        return self.profile.to_bed(wx, wy)
+
+    def goto_bed(self, x, y):
+        if not self.ctl.connected:
+            self.statusBar().showMessage(tr("Connetti la macchina per muovere la testa"), 3000)
+            return
+        if self.ctl.job_active or self.ctl.checking:
+            return
+        x = min(max(x, 0.0), self.profile.bed_x)
+        y = min(max(y, 0.0), self.profile.bed_y)
+        mx, my = self.profile.to_machine(x, y)
+        self.ctl.goto_machine(mx, my, max(self.move.feed.value(), 3000))
+
+    def head_to_selection(self, anchor):
+        b = self.editor.selection_bounds()
+        if b.isNull():
+            return
+        p = geom.rect_anchor(b, anchor)
+        self.goto_bed(p.x(), p.y())
+
+    # ================================================================ lavoro
+    def job_options(self):
+        lp = self.laser
+        mode = lp.start_from.currentData()
+        head = self.canvas.head_pos()
+        opts = gcode.JobOptions(start_from=mode, anchor=lp.anchor.value,
+                                current_pos=(head.x(), head.y()) if head is not None else (0.0, 0.0),
+                                work_origin=self.work_origin_on_bed(), laser_cmd="M4",
+                                finish="origin" if lp.finish_origin.isChecked() else "stay",
+                                optimize=lp.optimize.isChecked(), inner_first=lp.optimize.isChecked(),
+                                only_ids={s.id for s in self.editor.selection} if lp.only_sel.isChecked() else None,
+                                name=self.editor.doc.name)
+        return opts
+
+    def build_job(self, show=True):
+        """Genera il G-code; se show mostra l'anteprima sul piano e il riepilogo."""
+        opts = self.job_options()
+        if opts.start_from == "current" and self.canvas.head_pos() is None:
+            QMessageBox.information(self, tr("Posizione attuale"), tr("Per partire dalla posizione attuale la macchina deve "
+                                    "essere connessa (FreeLaserCut deve sapere dov'è la testa)."))
+            return None
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            job = gcode.generate(self.editor.doc, self.profile, opts)
+            pv = gcode_preview.parse(job.lines, profile=self.profile)
+        finally:
+            QApplication.restoreOverrideCursor()
+        self.job, self.job_preview = job, pv
+        if show:
+            self.canvas.set_preview(pv, job.out_to_bed)
+            self.laser.show_job(job, self.profile)
+        return job
+
+    def preflight(self, job):
+        """Controlli prima di partire. Ritorna (bloccanti, avvisi)."""
+        block, warn = [], []
+        st = self.ctl.last_status.get("state")
+        if not self.ctl.connected:
+            block.append(tr("La macchina non è connessa."))
+        if st == "Alarm":
+            block.append(tr("La macchina è in allarme: sblocca o fai l'homing."))
+        if job is None or not job.lines or job.bounds is None:
+            block.append(tr("Il lavoro è vuoto: nessuna forma su livelli con uscita attiva."))
+        else:
+            for w in job.warnings:
+                (block if "esce dall'area" in w else warn).append(w)
+        if job is not None and self.laser.start_from.currentData() == "absolute" and not self.ctl.homed and self.profile.homing:
+            warn.append(tr("Non hai fatto l'homing in questa sessione: la posizione sul piano potrebbe non corrispondere."))
+        if not self.profile.laser_mode:
+            warn.append(tr("La modalità laser della scheda è disattivata ($32=0): attivala nella scheda Macchina."))
+        return block, warn
+
+    def start_job(self, job=None):
+        if self.ctl.job_active or self.ctl.checking:
+            return
+        if not isinstance(job, gcode.GcodeJob):
+            self._job_is_external = False
+        job = job if isinstance(job, gcode.GcodeJob) else self.build_job()
+        if job is None:
+            return
+        block, warn = self.preflight(job)
+        if block:
+            QMessageBox.warning(self, tr("Non posso avviare il lavoro"), "\n".join("• " + b for b in block))
+            return
+        b = job.bounds
+        txt = (f"<b>Tempo stimato {_hms(job.seconds)}</b> · {b.width():.1f} × {b.height():.1f} mm · {len(job.lines)} righe<br><br>"
+               + ("".join(f"⚠ {w}<br>" for w in warn) + "<br>" if warn else "")
+               + tr("Prima di partire:<br>• occhiali protettivi per 450 nm indossati da chi è vicino<br>"
+                 "• materiale fissato e a fuoco (lente 50 mm)<br>• air assist e aspirazione fumi attivi<br>"
+                 "• non lasciare la macchina incustodita"))
+        box = QMessageBox(self)
+        box.setWindowTitle(tr("Avvio del lavoro"))
+        box.setTextFormat(Qt.RichText)
+        box.setText(txt)
+        verify = self.laser.verify_first.isChecked() and len(job.lines) <= 40000
+        go = box.addButton(tr("Verifica e avvia") if verify else tr("Avvia"), QMessageBox.AcceptRole)
+        box.addButton(tr("Annulla"), QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is not go:
+            return
+        if verify:
+            self._pending_start = job
+            self.laser.start_progress("check")
+            self.ctl.check_job(job.lines)
+        else:
+            self._run(job.lines)
+
+    def _run(self, lines):
+        self.canvas.clear_trail()
+        self.laser.start_progress("job")
+        self.ctl.stream_job(lines)
+        self.laser.update_running()
+
+    def verify_job(self):
+        if not self.ctl.connected or self.ctl.job_active:
+            return
+        job = self.build_job()
+        if job is None or not job.lines:
+            return
+        self._pending_start = None
+        self.laser.start_progress("check")
+        self.ctl.check_job(job.lines)
+
+    def _check_done(self, errors):
+        self.laser.update_running()
+        job = self._pending_start
+        self._pending_start = None
+        if job is not None and not errors:
+            self.statusBar().showMessage(tr("Verifica superata: avvio il lavoro"), 4000)
+            QTimer.singleShot(1200, lambda: self._run(job.lines))  # la scheda ha appena fatto il reset del check mode
+            return
+        n = len(self.job.lines) if self.job else 0
+        self.laser.eta.setText(tr("Verifica superata") if not errors else tr("Verifica: {0} errori", len(errors)))
+        CheckResultDialog(errors, n, self).exec()
+
+    def _job_error(self, index, line, code, text):
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle(tr("Lavoro in pausa"))
+        box.setText(tr("<b>La scheda ha rifiutato la riga {0}</b>: <code>{1}</code><br>error:{2} — {3}<br><br>Il lavoro è stato messo in pausa per sicurezza.", index + 1, line, code, text))
+        stop = box.addButton(tr("Ferma il lavoro"), QMessageBox.RejectRole)
+        box.addButton(tr("Continua comunque"), QMessageBox.AcceptRole)
+        box.exec()
+        if box.clickedButton() is stop:
+            self.ctl.stop_job()
+        else:
+            self.ctl.resume()
+
+    def _job_finished(self, ok, msg):
+        self.laser.update_running()
+        if ok:
+            self._interrupted = None
+            self.statusBar().showMessage(msg, 8000)
+            QApplication.beep()
+            self._advance_variables()
+        elif self.ctl.job_lines and 0 < self.ctl.job_acked < len(self.ctl.job_lines):
+            self._interrupted = (list(self.ctl.job_lines), self.ctl.job_acked)
+
+    def resume_job(self):
+        if not self._interrupted or not self.ctl.connected:
+            return
+        lines, at = self._interrupted
+        ok, why = resume.can_resume(lines, at)
+        if not ok:
+            QMessageBox.information(self, tr("Ripresa"), why)
+            return
+        if not self.ctl.homed:
+            QMessageBox.information(self, tr("Ripresa"), tr("Prima fai l'homing: serve a ritrovare la posizione esatta della testa."))
+            return
+        back = max(0, min(at, 40))  # rifà qualche riga per sicurezza (sovrapposizione minima)
+        r = QMessageBox.question(self, tr("Ripresa del lavoro"), tr("Riprendo dalla riga {0} di {1}.\nIl materiale NON deve essere stato spostato. Procedo?", at - back + 1, len(lines)))
+        if r != QMessageBox.Yes:
+            return
+        prog = resume.resume_program(lines, at, back)
+        self.banner.hide()
+        self._interrupted = None
+        self._run(prog)
+
+    def _drop_interrupted(self):
+        self._interrupted = None
+        self.banner.hide()
+
+    def _toggle_pause(self):
+        self.laser.b_pause.toggle()
+
+    def frame_job(self, kind="box", job=None):
+        if not self.ctl.connected or self.ctl.job_active:
+            return
+        if isinstance(job, gcode.GcodeJob):
+            self.show_external_job(job)
+        else:
+            job = self.build_job()
+        if job is None or job.bounds is None:
+            return
+        pv = self.job_preview
+        ox, oy = job.out_to_bed
+        if kind.startswith("hull"):
+            import cv2
+            import numpy as np
+
+            pts = np.array([(s[0] + ox, s[1] + oy) for s in pv.segs if s[5]] + [(s[2] + ox, s[3] + oy) for s in pv.segs if s[5]],
+                           np.float32)
+            if len(pts) < 3:
+                return
+            hull = cv2.convexHull(pts).reshape(-1, 2)
+            bed_pts = [(float(x), float(y)) for x, y in hull] + [(float(hull[0][0]), float(hull[0][1]))]
+        else:
+            b = job.bounds
+            bed_pts = [(b.left(), b.top()), (b.right(), b.top()), (b.right(), b.bottom()), (b.left(), b.bottom()),
+                       (b.left(), b.top())]
+        bed_pts = [(min(max(x, 0.0), self.profile.bed_x), min(max(y, 0.0), self.profile.bed_y)) for x, y in bed_pts]
+        bed_pts = bed_pts + bed_pts[1:] * (self.laser.frame_repeats() - 1)
+        mpts = [self.profile.to_machine(x, y) for x, y in bed_pts]
+        laser = self.laser.fire_pct.value() if kind.endswith("_laser") else 0.0
+        self.ctl.frame_path(mpts, max(self.move.feed.value(), 3000), laser, self.profile.s_max)
+        self.statusBar().showMessage(tr("Contorno con il puntino al %g%%: Stop per interrompere") % laser if laser
+                                     else tr("Contorno a laser spento"), 5000)
+
+    def preview_job(self, job=None):
+        job = job if isinstance(job, gcode.GcodeJob) else self.build_job()
+        if job is None or not job.lines:
+            return
+        pv = gcode_preview.parse(job.lines, profile=self.profile)
+        ox, oy = job.out_to_bed
+        if ox or oy:  # anteprima in coordinate piano
+            pv.segs = [(a + ox, b + oy, c + ox, d + oy, p, f_, g) for a, b, c, d, p, f_, g in pv.segs]
+            pv.min_x += ox
+            pv.max_x += ox
+            pv.min_y += oy
+            pv.max_y += oy
+        PreviewDialog(pv, job, self.profile, (self.profile.bed_x, self.profile.bed_y), self).exec()
+
+    def save_gcode(self, job=None, name=None):
+        job = job if isinstance(job, gcode.GcodeJob) else self.build_job()
+        if job is None or not job.lines:
+            return
+        start = os.path.join(self.qs.value("gcode_dir", os.path.expanduser("~")), (name or self.editor.doc.name or "lavoro") + ".gcode")
+        path, _ = QFileDialog.getSaveFileName(self, tr("Salva G-code"), start, tr("G-code (*.gcode *.nc)"))
+        if not path:
+            return
+        self.qs.setValue("gcode_dir", os.path.dirname(path))
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("\n".join(job.lines) + "\n")
+        self.statusBar().showMessage(tr("G-code salvato: {0} ({1} righe, ~{2})", path, len(job.lines), _hms(job.seconds)), 6000)
+
+    def run_gcode_file(self, path=None):
+        if not path:
+            path, _ = QFileDialog.getOpenFileName(self, tr("Esegui file G-code"), self.qs.value("gcode_dir", os.path.expanduser("~")),
+                                                  tr("G-code (*.gcode *.nc *.gc *.ngc *.txt);;Tutti i file (*)"))
+        if not path:
+            return
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+        pv = gcode_preview.parse(lines, profile=self.profile)
+        off = self.work_origin_on_bed()
+        self.canvas.set_preview(pv, off)
+        if not self.ctl.connected:
+            self.statusBar().showMessage(tr("Anteprima di {0}: connetti la macchina per eseguirlo", os.path.basename(path)), 6000)
+            return
+        r = QMessageBox.question(self, tr("Esegui file G-code"), tr("{0}\n{1} righe · tempo stimato {2}\n\nOcchiali indossati, materiale fissato e a fuoco?\nAvvio?", os.path.basename(path), len(lines), _hms(pv.seconds)))
+        if r == QMessageBox.Yes:
+            self._run(lines)
+
+    def show_external_job(self, job):
+        """Un lavoro generato fuori dal documento (test materiale): anteprima sul piano e riepilogo."""
+        pv = gcode_preview.parse(job.lines, profile=self.profile)
+        self.job, self.job_preview = job, pv
+        self.canvas.set_preview(pv, job.out_to_bed)
+        self.laser.show_job(job, self.profile)
+        return pv
+
+    # ================================================================ testo variabile
+    def _variable_texts(self, output_only=False):
+        out = []
+        for s in self.editor.doc.shapes:
+            cs = self.editor.doc.layers.get(s.layer)
+            if output_only and (s.hidden or cs is None or not cs.output):
+                continue
+            out.extend(ops.variable_texts(s))
+        return out
+
+    def _vars_changed(self):
+        for t in self._variable_texts():
+            t.invalidate()
+        for s in self.editor.doc.shapes:
+            if any(True for _ in ops.variable_texts(s)):
+                s.invalidate()
+        self.editor.preview_changed()
+
+    def _advance_variables(self):
+        if not variables.STATE.get("auto") or getattr(self, "_job_is_external", False):
+            return
+        texts = self._variable_texts(output_only=True)
+        if not texts:
+            return
+        copies = max(t.var_offset for t in texts) + 1
+        variables.advance(copies)
+        self.statusBar().showMessage(tr("Testo variabile: prossimo numero {0}", variables.STATE['serial'])
+                                     + (tr(", riga CSV {0}", variables.STATE['row'] + 1) if variables.STATE.get("rows") else ""),
+                                     10000)
+
+    def variables_dialog(self, *_):
+        from .dialogs_vars import VariablesDialog
+
+        dlg = VariablesDialog(self._variable_texts(), self)
+        if dlg.exec() == QDialog.Accepted:
+            dlg.apply()
+
+    # ================================================================ materiali
+    def material_library(self, *_):
+        cs = self.layers._current_cs()
+        dlg = MaterialLibraryDialog(cs, self)
+        dlg.apply_requested.connect(lambda m: self.apply_material(cs, m))
+        dlg.test_requested.connect(lambda m: QTimer.singleShot(0, lambda: self.material_test(m)))
+        dlg.exec()
+
+    def apply_material(self, cs, m):
+        if cs is None:
+            return
+        self.editor.run(f"Materiale: {m.name}", materials.apply_to_layer, m, cs)
+        msg = f"{cs.label()}: {m.summary()}"
+        if m.defocus:
+            msg += tr(" — ricordati di abbassare il fuoco di {0:g} mm", m.defocus)
+        self.statusBar().showMessage(msg, 10000)
+
+    def material_test(self, seed=None):
+        if getattr(self, "_mt_dlg", None) is not None:
+            self._mt_dlg.raise_()
+            self._mt_dlg.activateWindow()
+            if isinstance(seed, materials.Material):
+                self._mt_dlg.seed(seed)
+            return
+        head = self.canvas.head_pos()
+        dlg = MaterialTestDialog(self.profile, (head.x(), head.y()) if head is not None else None,
+                                 seed if isinstance(seed, materials.Material) else None, self)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+
+        def act(kind, job):
+            if kind == "preview":
+                self.preview_job(job)
+            elif kind == "frame":
+                if not self.ctl.connected:
+                    self.show_external_job(job)
+                    self.statusBar().showMessage(tr("Connetti la macchina per il contorno: intanto il test è mostrato sul piano"), 5000)
+                else:
+                    self.frame_job("box", job)
+            elif kind == "save":
+                self.save_gcode(job, "test-materiale")
+            elif kind == "start":
+                self.show_external_job(job)
+                self._job_is_external = True
+                self.start_job(job)
+
+        dlg.action.connect(act)
+        dlg.destroyed.connect(lambda *_: setattr(self, "_mt_dlg", None))
+        self._mt_dlg = dlg
+        dlg.show()
+
+    # ================================================================ aiuto
+    def claude_dialog(self, *_):
+        from .dialogs_claude import ClaudeDialog
+
+        ClaudeDialog(self.remote.port if self.remote else None, self).exec()
+
+    def _first_run_notice(self):
+        """Una volta sola, su un PC nuovo: le regole di base per usare un laser in sicurezza."""
+        from ..profile import FIRST_RUN_FLAG
+
+        flag = os.path.join(config_dir(), FIRST_RUN_FLAG)
+        if os.path.exists(flag) or os.environ.get("FLC_NO_FIRST_RUN") \
+                or QGuiApplication.platformName() in ("offscreen", "minimal"):
+            return
+        QMessageBox.warning(
+            self, tr("Sicurezza laser"),
+            tr("<b>FreeLaserCut comanda un laser: usalo in sicurezza.</b><ul>"
+            "<li>Indossa sempre gli occhiali di protezione adatti alla lunghezza d'onda del tuo laser "
+            "(per i diodi blu 445–455 nm), anche chi ti sta vicino.</li>"
+            "<li>Non lasciare mai la macchina accesa senza sorveglianza: il materiale può prendere fuoco. "
+            "Tieni a portata di mano un estintore adatto.</li>"
+            "<li>Lavora in un ambiente aerato o con aspirazione: i fumi di legno, cartone e plastiche sono nocivi. "
+            "Non incidere PVC, vinile o materiali che contengono cloro.</li>"
+            "<li>Prima di ogni lavoro controlla il contorno, la messa a fuoco e che il piano sia sgombro.</li></ul>"
+            "Il programma è fornito così com'è, senza garanzie: la responsabilità dell'uso della macchina è tua."))
+        try:
+            with open(flag, "w", encoding="utf-8") as fh:
+                fh.write("avviso letto\n")
+        except OSError:
+            pass
+
+    def show_support(self):
+        from .dialogs_support import SupportDialog
+
+        SupportDialog(self).exec()
+
+    def show_shortcuts(self):
+        QMessageBox.information(self, tr("Scorciatoie da tastiera"), SHORTCUTS)
+
+    def show_about(self):
+        QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", __version__))
+
+    def _build_language_menu(self, parent):
+        """Visualizza → Lingua: la scelta vale dal riavvio (il titolo resta riconoscibile anche in inglese)."""
+        from .. import i18n
+
+        title = tr("Lingua") if i18n.language() == "en" else tr("Lingua") + " / Language"
+        sub = parent.addMenu(title)
+        self.m_language = sub
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        for code, name in i18n.LANGUAGES.items():
+            act = sub.addAction(name)
+            act.setCheckable(True)
+            act.setChecked(code == i18n.language())
+            grp.addAction(act)
+            act.triggered.connect(lambda _=False, c=code: self.choose_language(c))
+
+    def choose_language(self, code):
+        from .. import i18n
+
+        i18n.save_language(code)
+        if code == i18n.language():
+            return
+        r = QMessageBox.question(self, tr("Lingua"), tr("La nuova lingua sarà usata dal prossimo avvio di FreeLaserCut. "
+                                                         "Riavviare adesso?"))
+        if r == QMessageBox.Yes:
+            self._restart = True
+            if not self.close():
+                self._restart = False
+
+    def closeEvent(self, e):
+        if self.ctl.job_active:
+            if QMessageBox.question(self, tr("Lavoro in corso"), tr("C'è un lavoro in corso. Fermarlo e uscire?")) != QMessageBox.Yes:
+                e.ignore()
+                return
+            self.ctl.stop_job()
+        if not self._confirm_discard():
+            e.ignore()
+            return
+        self.qs.setValue("win_state_v5", self.saveState(5))
+        self.qs.setValue("win_geom", self.saveGeometry())
+        self.qs.setValue("autosave_pending", False)
+        self.camera.shutdown()
+        self.ctl.disconnect_port()
+        if self.remote is not None:
+            from .. import remote
+
+            remote.stop(self.remote)
+        super().closeEvent(e)
+        if getattr(self, "_restart", False):
+            from PySide6.QtCore import QProcess
+
+            QProcess.startDetached(sys.executable, ["-m", "freelasercut"])
+
+
+def _hms(sec):
+    sec = int(round(sec))
+    h, r = divmod(sec, 3600)
+    m, s = divmod(r, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+SHORTCUTS = tr("""STRUMENTI
+V selezione · N nodi · L linee/curve · R rettangolo · E ellisse · P poligono · S stella · F forme (galleria) · T testo
+M misura · Q posiziona laser · Ctrl+Alt+N forma con misure esatte · Esc torna alla selezione
+F9 aggancio agli oggetti sì/no · Maiusc+F9 aggancio alla griglia · Alt (tenuto premuto) lo sospende
+
+SULLA TELA
+Rotella zoom · Spazio+trascina o tasto centrale: sposta la vista · Ctrl+0 adatta al piano
+Frecce: sposta di 1 mm (Maiusc 10, Ctrl 0,1) · senza selezione: jog della testa
+Maiusc: proporzioni / angoli a 15° / asse · Ctrl: dal centro · Alt: niente aggancio
+Trascina da sinistra a destra: seleziona ciò che è dentro · da destra a sinistra: anche ciò che tocca
+
+NODI
+Doppio clic su un segmento: nuovo nodo · D elimina · C angolo · S morbido · B spezza · I inserisci · M punto medio · L raddrizza
+Trascina un segmento dritto per curvarlo · rilascia un estremo su un altro per unirli
+
+MODIFICA
+Ctrl+Z / Ctrl+Y annulla/ripeti · Ctrl+D duplica · Ctrl+G raggruppa · Ctrl+U separa · Ctrl+W salda
+Alt+O offset · Alt+A serie a griglia · Alt+B scomponi · Alt+J unisci estremi · . , ruota di 90°
+Alt+T vettorizza l'immagine selezionata
+
+MATERIALI
+Ctrl+M libreria materiali (applica al livello selezionato) · Laser → Test materiale
+
+LIVELLI
+Doppio clic su nome, modalità, velocità, potenza o passate per modificarli nella tabella · tasto destro: altre opzioni
+
+GUIDA
+Maiusc+F1 (o il pulsante ? in alto a destra): passa il mouse su un comando per leggerne descrizione e opzioni · Esc esce
+
+LASER
+Ctrl+Invio avvia · Ctrl+Spazio pausa · Ctrl+Pausa stop · Ctrl+Maiusc+F contorno · Ctrl+Maiusc+K verifica · Alt+P anteprima
+Laser → Riconosci la macchina: porte USB, driver e profilo adattato alla scheda collegata
+
+ANTEPRIMA
+Rotella zoom verso il cursore · trascina per spostare · doppio clic o 0 adatta alla finestra""")
+
+
+def main(app=None, splash=None):
+    from ..app import _install_crash_log
+
+    _install_crash_log()
+
+    def say(text):
+        if splash is not None:
+            try:
+                splash.say(text)
+            except Exception:  # noqa: BLE001
+                pass
+
+    if app is None:
+        QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("fringuello79.FreeLaserCut")
+            except Exception:  # noqa: BLE001
+                pass
+        app = QApplication(sys.argv)
+    app.setApplicationName("FreeLaserCut")
+    app.setStyle("Fusion")
+    style.load_fonts()
+    app.setFont(style.ui_font(9))
+    app.setStyleSheet(QSS.replace("'Segoe UI', 'Inter'", f"'{style.UI_FONT}', 'Segoe UI'") + style.QSS_EXTRA)
+    app.setWindowIcon(QIcon(os.path.join(ASSETS, "logo.svg")))
+    say(tr("Preparo il motore delle immagini…"))
+    try:
+        from ..core import imaging
+
+        imaging.warmup()
+    except Exception:  # noqa: BLE001
+        pass
+    say(tr("Apro il piano di lavoro…"))
+    win = MainWindow()
+    win.show()
+    if splash is not None:
+        splash.finish(win)
+    for p in sys.argv[1:]:
+        if os.path.exists(p):
+            win.import_files([p]) if not p.lower().endswith((".flcut", ".fbrn")) else win.file_open(p)
+    sys.exit(app.exec())
