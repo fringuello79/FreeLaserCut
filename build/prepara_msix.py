@@ -48,9 +48,10 @@ def assets(dest):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--identity", default="fringuello79.FreeLaserCut")
-    ap.add_argument("--publisher", default="CN=fringuello79")
+    ap.add_argument("--identity", default="fringuello79.FreeLaserCut")  # Partner Center → Product identity
+    ap.add_argument("--publisher", default="CN=8996ADD5-BD72-4563-B3A0-3BBBF2AF8C40")
     ap.add_argument("--display", default="fringuello79")
+    ap.add_argument("--name", default="Free Laser Cut")  # nome riservato in Partner Center
     a = ap.parse_args()
     if not os.path.isdir(os.path.join(STAGE, "python")):
         sys.exit("Manca build/stage: esegui prima python build/prepara_installer.py")
@@ -58,7 +59,7 @@ def main():
     shutil.copytree(STAGE, LAYOUT, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     assets(os.path.join(LAYOUT, "Assets"))
     man = open(os.path.join(BUILD, "msix", "AppxManifest.xml"), encoding="utf-8").read()
-    for k, v in (("{IDENTITY_NAME}", a.identity), ("{PUBLISHER}", a.publisher), ("{PUBLISHER_DISPLAY}", a.display),
+    for k, v in (("{IDENTITY_NAME}", a.identity), ("{PUBLISHER}", a.publisher), ("{PUBLISHER_DISPLAY}", a.display), ("{DISPLAY_NAME}", a.name),
                  ("{VERSION}", version())):
         man = man.replace(k, v)
     open(os.path.join(LAYOUT, "AppxManifest.xml"), "w", encoding="utf-8").write(man)
