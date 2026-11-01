@@ -1,5 +1,17 @@
 # Novità di FreeLaserCut
 
+## 0.10.1 — 01/11/2026
+Avvio più robusto, dalle segnalazioni di chi lo ha provato:
+- **Corretto:** se qualcosa andava storto all'avvio, il messaggio d'errore poteva restare nascosto dietro la schermata con il logo, che rimaneva sempre in primo piano. Ora la schermata d'avvio si chiude prima di ogni messaggio d'errore e non sta più sopra le altre finestre; se la finestra principale non si apre, FreeLaserCut mostra l'errore, lo scrive in `flc.log` ed esce in modo pulito.
+- **Istanza unica:** aprire FreeLaserCut quando è già aperto porta in primo piano la finestra esistente (anche se era ridotta a icona) invece di aprirne un'altra copia. Un progetto aperto con doppio clic arriva nella finestra già aperta.
+- **Scelta dell'interfaccia** al primo avvio: il doppio clic su una scheda vale come *Inizia*; il pulsante dice quale interfaccia parte (*Inizia con Banco* / *Inizia con Classica*) ed è più evidente.
+- **Installatore:**
+  - controlla se FreeLaserCut è aperto, sia quando installa sia quando disinstalla, e chiede di chiuderlo;
+  - messaggi chiari se i file della versione precedente non si possono togliere o scrivere (programma aperto, antivirus);
+  - la pagina della cartella spiega dove si installa e perché non va scelto «Programmi»; se la cartella scelta non è scrivibile lo dice subito.
+- Nuovo collegamento **FreeLaserCut (diagnostica)** nel menu Start: avvia il programma con una console che resta aperta e mostra gli eventuali errori.
+- Nuova prova automatica `tests/test_v101.py` (30 controlli).
+
 ## 0.10.0 — 01/11/2026
 - **Prepara foto** (*Strumenti → Prepara foto…*, Ctrl+Alt+F, oppure il pulsante nel pannello Proprietà di un'immagine):
   - ritaglio trascinando sull'anteprima, rotazione e specchio;

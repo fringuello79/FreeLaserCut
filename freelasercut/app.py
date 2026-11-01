@@ -896,6 +896,18 @@ def _main(widget):
     return w
 
 
+def _hide_splash():
+    """Chiude la schermata d'avvio, se c'è ancora: altrimenti potrebbe coprire un messaggio d'errore."""
+    from PySide6.QtWidgets import QSplashScreen
+
+    for w in QApplication.topLevelWidgets():
+        if isinstance(w, QSplashScreen) and w.isVisible():
+            try:
+                w.close()
+            except RuntimeError:
+                pass
+
+
 def _install_crash_log():
     """Errori imprevisti: scritti in %APPDATA%\\FreeLaserCut\\flc.log e mostrati a schermo."""
     import traceback
@@ -914,6 +926,7 @@ def _install_crash_log():
         except OSError:
             pass
         if QApplication.instance() is not None:
+            _hide_splash()
             QMessageBox.critical(None, tr("FreeLaserCut — errore"),
                                  tr("Si è verificato un errore imprevisto:\n\n{0}\n\nDettagli salvati in:\n{1}", exc, log_path))
 

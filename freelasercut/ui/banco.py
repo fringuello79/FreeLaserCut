@@ -133,6 +133,9 @@ class ChoiceDialog(QDialog):
                                        "di incisione tradizionali. Comoda se arrivi da altri software."))
         self.b_banco._fn = lambda: self._pick("banco")
         self.b_classic._fn = lambda: self._pick("classica")
+        # doppio clic su una scheda: la sceglie e parte subito, come «Inizia»
+        self.b_banco._dbl = lambda: self._start("banco")
+        self.b_classic._dbl = lambda: self._start("classica")
         self.setStyleSheet("QFrame#bcChoice { border-radius: 14px; border: 1px solid #2A3550; background: #121826; }"
                            "QFrame#bcChoice:focus { border-color: #4FB4FF; }"
                            "QFrame#bcChoice[on=\"true\"] { border: 2px solid " + ORANGE + "; background: #1A1410; }")
@@ -159,11 +162,20 @@ class ChoiceDialog(QDialog):
         note.setWordWrap(True)
         note.setObjectName("muted")
         v.addWidget(note)
+        hint = QLabel(tr("Doppio clic su una scheda per iniziare subito."))
+        hint.setObjectName("muted")
         ok = QPushButton(tr("Inizia"))
         ok.setObjectName("primary")
         ok.setDefault(True)
+        ok.setMinimumHeight(38)
+        ok.setMinimumWidth(220)
+        f = ok.font()
+        f.setBold(True)
+        ok.setFont(f)
         ok.clicked.connect(self.accept)
+        self.ok = ok
         h = QHBoxLayout()
+        h.addWidget(hint)
         h.addStretch(1)
         h.addWidget(ok)
         v.addLayout(h)
@@ -192,6 +204,12 @@ class ChoiceDialog(QDialog):
             b.setProperty("on", m == mode)
             b.style().unpolish(b)
             b.style().polish(b)
+        if hasattr(self, "ok"):
+            self.ok.setText(tr("Inizia con {0}  ▶", tr("Banco") if mode == "banco" else tr("Classica")))
+
+    def _start(self, mode):
+        self._pick(mode)
+        self.accept()
 
     def _save_machine(self):
         if self.machine is not None:
@@ -560,6 +578,13 @@ class _ClickFrame(QFrame):
             QTimer.singleShot(0, self._fn)
             return
         super().keyPressEvent(e)
+
+    def mouseDoubleClickEvent(self, e):
+        fn = getattr(self, "_dbl", None)
+        if fn is not None and e.button() == Qt.LeftButton:
+            QTimer.singleShot(0, fn)
+            return
+        super().mouseDoubleClickEvent(e)
 
 
 class LayerRail(QWidget):

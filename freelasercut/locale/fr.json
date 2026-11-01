@@ -1362,5 +1362,8 @@
  "Seleziona una foto (immagine) da preparare": "Sélectionnez une photo (image) à préparer",
  "Servono {0} livelli liberi: liberane qualcuno e riprova.": "Il faut {0} calques libres : libérez-en et réessayez.",
  "Foto preparata: riaprendo la finestra riparti dall'originale": "Photo préparée : en rouvrant la fenêtre vous repartez de l'original",
- "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Recadrage, réglages, fond, forme et méthode de gravure avec l'aperçu des vrais points ; ou la photo devient lignes et remplissages  Ctrl+Alt+F"
+ "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Recadrage, réglages, fond, forme et méthode de gravure avec l'aperçu des vrais points ; ou la photo devient lignes et remplissages  Ctrl+Alt+F",
+ "FreeLaserCut è già aperto: porto in primo piano la sua finestra.": "FreeLaserCut est déjà ouvert : sa fenêtre passe au premier plan.",
+ "Doppio clic su una scheda per iniziare subito.": "Double-cliquez sur une carte pour commencer tout de suite.",
+ "Inizia con {0}  ▶": "Commencer avec {0}  ▶"
 }

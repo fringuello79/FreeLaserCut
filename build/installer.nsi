@@ -6,7 +6,7 @@ SetCompressor /SOLID bzip2
 
 !define APP "FreeLaserCut"
 !ifndef VER
-  !define VER "0.10.0"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
+  !define VER "0.10.1"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
 !endif
 !define PUB "fringuello79"
 !define UNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
@@ -42,9 +42,14 @@ VIAddVersionKey "LegalCopyright" "© 2026 ${PUB} — GNU GPL 3.0 o successiva"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\python\pythonw.exe"
 !define MUI_FINISHPAGE_RUN_PARAMETERS "-m freelasercut"
 !define MUI_FINISHPAGE_RUN_TEXT "Avvia FreeLaserCut"
+!define MUI_DIRECTORYPAGE_TEXT_TOP "FreeLaserCut si installa solo per il tuo utente, nella cartella proposta qui sotto (dentro il tuo profilo, in AppData\Local\Programs): così non servono permessi da amministratore. Per aggiornare basta installare la nuova versione nella stessa cartella: progetti, profili e materiali restano.$\r$\n$\r$\nNon scegliere «Programmi» (C:\Program Files): senza permessi da amministratore lì non si può scrivere e l'installazione non riuscirebbe."
+
+; messaggio quando un file non si può scrivere ($0 = il file)
+FileErrorText "Non riesco a scrivere il file:$\r$\n$\r$\n$0$\r$\n$\r$\nDi solito succede perché FreeLaserCut è ancora aperto, oppure perché l'antivirus sta controllando i file. Chiudi FreeLaserCut, aspetta qualche secondo e premi «Riprova».$\r$\n«Interrompi» annulla l'installazione."
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "stage\LICENSE"
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirLeave
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -52,12 +57,99 @@ VIAddVersionKey "LegalCopyright" "© 2026 ${PUB} — GNU GPL 3.0 o successiva"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
 
+;--- FreeLaserCut è aperto? Su Windows una cartella con dentro un programma in esecuzione non si può
+;    rinominare: provo a rinominare "python" e lo rimetto subito a posto. $R0 = 1 se è in uso.
+!macro FLC_IN_USO_FN UN
+Function ${UN}FlcInUso
+  StrCpy $R0 0
+  IfFileExists "$INSTDIR\python\*.*" 0 flc_fine
+  ClearErrors
+  Rename "$INSTDIR\python" "$INSTDIR\python.flc-prova"
+  IfErrors flc_occupata
+  Rename "$INSTDIR\python.flc-prova" "$INSTDIR\python"
+  IfErrors 0 flc_fine
+  Sleep 800
+  Rename "$INSTDIR\python.flc-prova" "$INSTDIR\python"
+  Goto flc_fine
+  flc_occupata:
+  StrCpy $R0 1
+  flc_fine:
+FunctionEnd
+!macroend
+!insertmacro FLC_IN_USO_FN ""
+!insertmacro FLC_IN_USO_FN "un."
+
+; finché FreeLaserCut è aperto chiede di chiuderlo; con «Annulla» esegue ABORT
+!macro FLC_ASPETTA_CHIUSO UN ABORT
+  flc_riprova:
+  Call ${UN}FlcInUso
+  StrCmp $R0 1 0 flc_chiuso
+  MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL "FreeLaserCut è aperto (oppure un suo file è in uso).$\r$\n$\r$\nSalva il lavoro, chiudi FreeLaserCut e premi «Riprova»." /SD IDCANCEL IDRETRY flc_riprova
+  ${ABORT}
+  flc_chiuso:
+!macroend
+
+Function DirLeave
+  ; niente "Programmi": senza permessi da amministratore non si può scrivere
+  StrCmp "$INSTDIR" "$PROGRAMFILES64" flc_pf
+  StrLen $1 "$PROGRAMFILES64\"
+  StrCpy $2 "$INSTDIR" $1
+  StrCmp $2 "$PROGRAMFILES64\" flc_pf
+  StrCmp "$INSTDIR" "$PROGRAMFILES" flc_pf
+  StrLen $1 "$PROGRAMFILES\"
+  StrCpy $2 "$INSTDIR" $1
+  StrCmp $2 "$PROGRAMFILES\" flc_pf
+  Goto flc_scrivi
+  flc_pf:
+  MessageBox MB_ICONEXCLAMATION|MB_OK "Questa cartella è dentro «Programmi»: senza permessi da amministratore lì non si può scrivere.$\r$\n$\r$\nUsa la cartella proposta (AppData\Local\Programs\FreeLaserCut) o un'altra cartella del tuo profilo."
+  Abort
+  flc_scrivi:
+  ; provo davvero a scrivere nella cartella scelta
+  StrCpy $3 0
+  IfFileExists "$INSTDIR\*.*" flc_esiste
+  ClearErrors
+  CreateDirectory "$INSTDIR"
+  IfErrors flc_noperm
+  StrCpy $3 1
+  flc_esiste:
+  ClearErrors
+  FileOpen $0 "$INSTDIR\flc-prova-scrittura.tmp" w
+  IfErrors flc_noperm
+  FileClose $0
+  Delete "$INSTDIR\flc-prova-scrittura.tmp"
+  StrCmp $3 1 0 flc_inuso
+  RMDir "$INSTDIR"
+  Goto flc_inuso
+  flc_noperm:
+  StrCmp $3 1 0 +2
+  RMDir "$INSTDIR"
+  MessageBox MB_ICONEXCLAMATION|MB_OK "Non hai i permessi per scrivere in questa cartella:$\r$\n$INSTDIR$\r$\n$\r$\nScegline un'altra del tuo profilo, per esempio quella proposta."
+  Abort
+  flc_inuso:
+  !insertmacro FLC_ASPETTA_CHIUSO "" "Abort"
+FunctionEnd
+
+Function un.onInit
+  !insertmacro FLC_ASPETTA_CHIUSO "un." "Quit"
+FunctionEnd
+
 Section "FreeLaserCut" SecMain
   SectionIn RO
-  ; aggiornamento: tolgo il programma vecchio, i dati in %APPDATA%\FreeLaserCut restano
+  ; aggiornamento: FreeLaserCut deve essere chiuso (potrebbe essere stato aperto dopo la scelta della cartella)
+  !insertmacro FLC_ASPETTA_CHIUSO "" "Abort"
+  ; tolgo il programma vecchio, i dati in %APPDATA%\FreeLaserCut restano
+  flc_togli:
+  RMDir /r "$INSTDIR\python.flc-prova"
   RMDir /r "$INSTDIR\python"
   RMDir /r "$INSTDIR\app"
   RMDir /r "$INSTDIR\licenze-terze-parti"
+  IfFileExists "$INSTDIR\python\*.*" flc_togli_ko
+  IfFileExists "$INSTDIR\app\*.*" flc_togli_ko
+  Goto flc_togli_ok
+  flc_togli_ko:
+  MessageBox MB_ICONSTOP|MB_RETRYCANCEL "Non riesco a togliere i file della versione precedente in:$\r$\n$INSTDIR$\r$\n$\r$\nDi solito succede perché FreeLaserCut è ancora aperto, oppure perché l'antivirus sta controllando i file. Chiudi FreeLaserCut, aspetta qualche secondo e premi «Riprova»." /SD IDCANCEL IDRETRY flc_togli
+  Abort "Installazione annullata: i file della versione precedente sono in uso."
+  flc_togli_ok:
   SetOutPath "$INSTDIR"
   File "stage\LICENSE"
   File "stage\README.md"
@@ -72,6 +164,8 @@ Section "FreeLaserCut" SecMain
   CreateDirectory "$SMPROGRAMS\${APP}"
   CreateShortcut "$SMPROGRAMS\${APP}\${APP}.lnk" "$INSTDIR\python\pythonw.exe" "-m freelasercut" "$INSTDIR\app\freelasercut\assets\logo.ico" 0 SW_SHOWNORMAL "" "Software libero di incisione laser"
   CreateShortcut "$SMPROGRAMS\${APP}\Disinstalla ${APP}.lnk" "$INSTDIR\Disinstalla FreeLaserCut.exe"
+  ; avvio con la console visibile: se qualcosa va storto all'avvio, l'errore resta scritto nella finestra nera
+  CreateShortcut "$SMPROGRAMS\${APP}\${APP} (diagnostica).lnk" "$SYSDIR\cmd.exe" '/s /k ""$INSTDIR\python\python.exe" -X faulthandler -m freelasercut"' "$INSTDIR\app\freelasercut\assets\logo.ico" 0 SW_SHOWNORMAL "" "Avvia FreeLaserCut mostrando gli eventuali errori in una console"
   CreateShortcut "$DESKTOP\${APP}.lnk" "$INSTDIR\python\pythonw.exe" "-m freelasercut" "$INSTDIR\app\freelasercut\assets\logo.ico" 0 SW_SHOWNORMAL "" "Software libero di incisione laser"
 
   ; i progetti .flcut si aprono con un doppio clic
@@ -95,8 +189,17 @@ SectionEnd
 Section "Uninstall"
   Delete "$DESKTOP\${APP}.lnk"
   RMDir /r "$SMPROGRAMS\${APP}"
+  flc_togli:
+  RMDir /r "$INSTDIR\python.flc-prova"
   RMDir /r "$INSTDIR\python"
   RMDir /r "$INSTDIR\app"
+  IfFileExists "$INSTDIR\python\*.*" flc_togli_ko
+  IfFileExists "$INSTDIR\app\*.*" flc_togli_ko
+  Goto flc_togli_ok
+  flc_togli_ko:
+  MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL "Alcuni file di FreeLaserCut non si possono togliere: forse il programma è ancora aperto, oppure l'antivirus li sta controllando.$\r$\n$\r$\nChiudi FreeLaserCut e premi «Riprova». Con «Annulla» la disinstallazione finisce lo stesso e puoi cancellare a mano la cartella:$\r$\n$INSTDIR" /SD IDCANCEL IDRETRY flc_togli
+  DetailPrint "Restano dei file in $INSTDIR: si possono cancellare a mano."
+  flc_togli_ok:
   Delete "$INSTDIR\LICENSE"
   Delete "$INSTDIR\README.md"
   Delete "$INSTDIR\CHANGELOG.md"

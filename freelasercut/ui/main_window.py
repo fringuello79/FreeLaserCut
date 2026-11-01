@@ -2107,11 +2107,28 @@ def main(app=None, splash=None):
         if splash is not None:
             splash.show()
     say(tr("Apro il piano di lavoro…"))
-    win = MainWindow()
+    try:
+        win = MainWindow()
+    except Exception:  # noqa: BLE001 — prima chiudo lo splash, poi registro e mostro l'errore, poi esco
+        if splash is not None:
+            try:
+                splash.close()
+            except RuntimeError:
+                pass
+        sys.excepthook(*sys.exc_info())
+        sys.exit(1)
     win.show()
     if splash is not None:
         splash.finish(win)
-    for p in sys.argv[1:]:
+    listener = getattr(app, "_flc_single", None)
+    if listener is not None:  # istanza unica: d'ora in poi un secondo avvio porta qui
+        listener.attach(win)
+    open_paths(win, sys.argv[1:])
+    sys.exit(app.exec())
+
+
+def open_paths(win, paths):
+    """Apre i file passati all'avvio (o da un secondo avvio): progetti con Apri, il resto con Importa."""
+    for p in paths:
         if os.path.exists(p):
             win.import_files([p]) if not p.lower().endswith((".flcut", ".fbrn")) else win.file_open(p)
-    sys.exit(app.exec())

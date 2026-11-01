@@ -1362,5 +1362,8 @@
  "Seleziona una foto (immagine) da preparare": "Select a photo (image) to prepare",
  "Servono {0} livelli liberi: liberane qualcuno e riprova.": "{0} free layers are needed: free some and try again.",
  "Foto preparata: riaprendo la finestra riparti dall'originale": "Photo prepared: reopening the window starts again from the original",
- "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Crop, adjustments, background, shape and engraving method with a preview of the real dots; or the photo becomes lines and fills  Ctrl+Alt+F"
+ "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Crop, adjustments, background, shape and engraving method with a preview of the real dots; or the photo becomes lines and fills  Ctrl+Alt+F",
+ "FreeLaserCut è già aperto: porto in primo piano la sua finestra.": "FreeLaserCut is already open: bringing its window to the front.",
+ "Doppio clic su una scheda per iniziare subito.": "Double-click a card to start right away.",
+ "Inizia con {0}  ▶": "Start with {0}  ▶"
 }

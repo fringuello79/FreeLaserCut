@@ -16,7 +16,8 @@ W, H = 560, 300
 
 class Splash(QSplashScreen):
     def __init__(self, pixmap):
-        super().__init__(pixmap, Qt.WindowStaysOnTopHint)
+        # niente WindowStaysOnTopHint: coprirebbe la scelta dell'interfaccia e i messaggi d'errore
+        super().__init__(pixmap)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self._msg = tr("Avvio in corso…")
 

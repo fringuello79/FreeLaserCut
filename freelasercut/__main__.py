@@ -21,6 +21,16 @@ def boot():
             pass
     app = QApplication(sys.argv)
     app._flc_translators = i18n.install_qt_translations(app)  # pulsanti standard di Qt nella stessa lingua
+    # istanza unica: se FreeLaserCut è già aperto, lo porto in primo piano (con gli eventuali file) ed esco
+    try:
+        from . import single
+
+        if single.forward(sys.argv[1:]):
+            print(i18n.tr("FreeLaserCut è già aperto: porto in primo piano la sua finestra."))
+            return
+        app._flc_single = single.Listener(app)
+    except Exception:  # noqa: BLE001 — se il controllo non funziona si parte comunque
+        pass
     splash = None
     try:
         from .splash import show_splash
