@@ -1,5 +1,8 @@
 # Novità di FreeLaserCut
 
+## 0.9.1 — 01/11/2026
+- **Corretto:** con la macchina connessa la pastiglia di stato accanto a *Connetti* si allargava a ogni aggiornamento (più volte al secondo) e trascinava con sé il pannello Laser: i pulsanti *Avvia*, *Contorno* e *Anteprima* finivano fuori dalla finestra.
+
 ## 0.9.0 — 31/10/2026
 - **Codici QR e a barre** (*Strumenti → Codice QR o a barre…*, Ctrl+Alt+Q):
   - tipi: QR, Code 128, EAN-13, EAN-8, UPC-A e Code 39;

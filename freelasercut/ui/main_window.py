@@ -1245,10 +1245,17 @@ class MainWindow(QMainWindow):
                              [(tr("Homing"), self.ctl.home)])
 
     def set_pill(self, state):
+        if state == getattr(self, "_pill_state", None):  # lo stato arriva più volte al secondo: niente da rifare
+            return
+        self._pill_state = state
         color = STATE_COLORS.get(state, "#4E5C7A")
-        self.pill.setText(STATE_IT.get(state, state))
+        text = STATE_IT.get(state, state)
+        self.pill.setText(text)
         self.pill.setStyleSheet(f"background:{color}; border-radius:9px; padding:1px 8px; font-weight:600; font-size:8pt; color:white;")
-        self.pill.setMinimumWidth(max(64, self.pill.sizeHint().width() + 4))  # «Disconnesso» e le traduzioni lunghe intere
+        self.pill.ensurePolished()
+        # larghezza dal testo, non da sizeHint(): sizeHint() tiene conto della larghezza minima già impostata
+        # e a ogni stato la pastiglia (con tutto il pannello Laser) si allargava di qualche pixel
+        self.pill.setMinimumWidth(max(64, self.pill.fontMetrics().horizontalAdvance(text) + 24))
         if hasattr(self, "sb_machine"):
             self.sb_machine.setText(("●  " + STATE_IT.get(state, state)) if state != "Disconnesso" else tr("○  Laser non connesso"))
             self.sb_machine.setStyleSheet(f"color:{color if state != 'Disconnesso' else C['muted']}; font-weight:600;")
