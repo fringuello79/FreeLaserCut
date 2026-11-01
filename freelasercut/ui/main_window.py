@@ -38,6 +38,9 @@ IMPORT_FILTER = (tr("Tutti i formati supportati (*.svg *.dxf *.lbrn2 *.lbrn *.pn
                  + ";;SVG (*.svg);;DXF (*.dxf);;" + tr("Immagini (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)"))
 
 
+
+BIG_PHOTO_DOTS = 5_000_000  # oltre: chiede conferma prima di preparare il lavoro (tempo, memoria)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -163,6 +166,9 @@ class MainWindow(QMainWindow):
             "to_path": A(tr("Converti in tracciato"), e.convert_to_path, "Ctrl+Shift+C", "to_path"),
             "trace": A(tr("Vettorizza immagine…"), self.trace_dialog, "Alt+T", "trace",
                        tr("Trasforma una foto o un disegno in tracciati (contorno o linea centrale)")),
+            "photo": A(tr("Prepara foto…"), self.photo_dialog, "Ctrl+Alt+F", "photo_prep",
+                       tr("Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; "
+                          "oppure la foto diventa linee e riempimenti")),
             "close_paths": A(tr("Chiudi tracciati…"), self.close_paths_dialog, None, "close_path"),
             "join": A(tr("Unisci estremi"), e.auto_join, "Alt+J", "join"),
             "break": A(tr("Scomponi"), e.break_apart, "Alt+B", "break"),
@@ -368,6 +374,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["text_path"])
         m.addSeparator()
         m.addAction(a["variables"])
+        m.addAction(a["photo"])
         m.addAction(a["trace"])
         menu(tr("&Laser"), ["connect", "identify", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
                         "materials", "material_test", "-", "rotary", "-", "save_gcode", "run_file"])
@@ -719,6 +726,7 @@ class MainWindow(QMainWindow):
         self.laser.start_requested.connect(self.start_job)
         self.layers.material_requested.connect(self.material_library)
         self.props.trace_requested.connect(self.trace_dialog)
+        self.props.photo_requested.connect(self.photo_dialog)
         self.props.variables_requested.connect(self.variables_dialog)
         variables.on_change(self._vars_changed)
         self.laser.verify_requested.connect(self.verify_job)
@@ -766,10 +774,12 @@ class MainWindow(QMainWindow):
             self.acts[k].setEnabled(n >= 3)
         self.acts["weld"].setEnabled(n >= 1)
         self.acts["trace"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
+        self.acts["photo"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
 
     def _doc_changed(self):
         self._update_title()
         self.job = None  # il lavoro va rigenerato
+        self._big_photo_ok = False
         if not (self.ctl.job_active or self.ctl.checking):
             self.canvas.clear_preview()
             self.canvas.clear_trail()  # la traccia del lavoro finito non corrisponde più al disegno
@@ -939,7 +949,8 @@ class MainWindow(QMainWindow):
                 self.run_gcode_file(p)
                 return
             try:
-                shapes = io_formats.import_file(p, doc, max_size=(self.profile.bed_x * 0.8, self.profile.bed_y * 0.8))
+                shapes = io_formats.import_file(p, doc, max_size=(self.profile.bed_x * 0.8, self.profile.bed_y * 0.8),
+                                                photo_mm=io_formats.PHOTO_MM)
             except Exception as exc:  # noqa: BLE001
                 QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}", os.path.basename(p), exc))
                 continue
@@ -1065,6 +1076,150 @@ class MainWindow(QMainWindow):
         n, ok = QInputDialog.getInt(self, tr("Copia lungo un tracciato"), tr("Numero di copie:"), 10, 1, 1000)
         if ok:
             self.editor.copy_along_path(n, True)
+
+    def _free_layers(self, n):
+        """n livelli colorati liberi (nessuna forma sopra), dal più basso."""
+        used = {cs.index for cs in self.editor.doc.used_layers()}
+        free = [i for i in range(1, 30) if i not in used]
+        return free[:n]
+
+    def photo_dialog(self):
+        """«Prepara foto»: elaborazione della foto, oppure conversione in linee e riempimenti, oppure prova foto."""
+        import math
+        import uuid
+
+        from ..core import photo as photomod
+        from ..core.document import DITHER_LABELS, PathShape
+        from .dialogs_photo import PhotoDialog
+
+        sel = self.editor.selection
+        if len(sel) != 1 or not isinstance(sel[0], ImageShape):
+            self.statusBar().showMessage(tr("Seleziona una foto (immagine) da preparare"), 4000)
+            return
+        img, doc = sel[0], self.editor.doc
+        src_id = img.source_id or img.image_id
+        original = doc.images.get(src_id)
+        if original is None:
+            return
+        t = img.tf
+        sx = math.hypot(t.m11(), t.m12()) or 1.0
+        sy = math.hypot(t.m21(), t.m22()) or 1.0
+        cs = doc.layer(img.layer)
+        dlg = PhotoDialog(img, original, cs, (img.w * sx, img.h * sy), self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        st, adj, lay, mode = dlg.settings(), dlg.adjust(), dlg.layer_values(), dlg.mode()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            proc = original if st.is_identity() else photomod.process(original, st)
+            w_mm, h_mm = dlg.target_size(proc)
+            center = t.map(QPointF(img.w / 2, img.h / 2))
+            # orientamento della foto sul piano senza la scala (per mettere i nuovi oggetti al suo posto)
+            rot = QTransform(t.m11() / sx, t.m12() / sx, t.m21() / sy, t.m22() / sy, 0, 0)
+
+            def place(w, h, cx=center.x(), cy=center.y()):
+                return QTransform.fromTranslate(-w / 2, -h / 2) * rot * QTransform.fromTranslate(cx, cy)
+
+            if mode == "image":
+                new_id = src_id if st.is_identity() else uuid.uuid4().hex[:12]
+                doc.images[new_id] = proc if new_id != src_id else original
+
+                def do():
+                    img.image_id = new_id
+                    img.source_id = None if new_id == src_id else src_id
+                    img.photo = None if st.is_identity() else st.to_dict()
+                    img.brightness, img.contrast, img.gamma = adj["brightness"], adj["contrast"], adj["gamma"]
+                    img.w, img.h = w_mm / sx, h_mm / sy
+                    img.invalidate()
+                    c2 = img.tf.map(QPointF(img.w / 2, img.h / 2))
+                    img.set_transform(img.tf * QTransform.fromTranslate(center.x() - c2.x(), center.y() - c2.y()))
+                    c = doc.layer(img.layer)
+                    c.mode = "image"
+                    c.dither, c.dpi, c.negative = lay["dither"], lay["dpi"], lay["negative"]
+                self.editor.run(tr("Prepara foto"), do)
+                self.editor.select([img])
+                self.statusBar().showMessage(tr("Foto preparata: {0:.1f} × {1:.1f} mm, {2}", w_mm, h_mm,
+                                                DITHER_LABELS[lay["dither"]]), 6000)
+            elif mode == "vector":
+                p = dlg.vector_params()
+                r = photomod.to_vectors(proc, w_mm, h_mm, tones=p["tones"], detail=p["detail"], smooth=p["smooth"],
+                                        outlines=p["outlines"], edges=p["edges"], min_size_mm=p["min_size_mm"], **adj)
+                parts = [("fill", path, dark) for path, dark in r["fills"]]
+                if r["outline"] is not None:
+                    parts.append(("outline", r["outline"], 1.0))
+                if r["edges"] is not None:
+                    parts.append(("edges", r["edges"], 1.0))
+                if not parts:
+                    self.statusBar().showMessage(tr("Nessuna forma trovata: prova a cambiare dettaglio o contrasto"), 5000)
+                    return
+                free = self._free_layers(len(parts))
+                if len(free) < len(parts):
+                    QMessageBox.warning(self, tr("Prepara foto"), tr("Servono {0} livelli liberi: liberane qualcuno e riprova.",
+                                                                     len(parts)))
+                    return
+                tf = place(w_mm, h_mm)
+                n_fill = len(r["fills"])
+                shapes = []
+                self.editor.begin(tr("Foto in linee e riempimenti"))
+                for k, ((kind, path, dark), li) in enumerate(zip(parts, free)):
+                    c = doc.layer(li)
+                    if kind == "fill":
+                        c.mode = "fill"
+                        c.speed = cs.speed
+                        c.power_max = round(max(cs.power_max, 1.0) * (0.4 + 0.6 * (k + 1) / max(n_fill, 1)), 1)
+                        c.name = tr("Foto tono {0}", k + 1)
+                    else:
+                        c.mode = "line"
+                        c.name = tr("Foto contorno") if kind == "outline" else tr("Foto dettagli")
+                    ps = PathShape(path, li)
+                    ps.set_transform(tf)
+                    shapes.append(ps)
+                if p["keep"]:
+                    self.editor.add(shapes, tr("Foto in linee e riempimenti"))
+                else:
+                    self.editor.replace([img], shapes, tr("Foto in linee e riempimenti"))
+                self.editor.commit()
+                self.statusBar().showMessage(tr("Creati {0} oggetti su {0} livelli: controlla velocità e potenza dei livelli "
+                                                "nuovi prima di incidere", len(shapes)), 8000)
+            else:  # prova foto: 4 metodi a confronto sulla zona centrale
+                methods = [lay["dither"]] + [m for m in ("jarvis", "stucki", "floyd", "grayscale", "halftone")
+                                             if m != lay["dither"]]
+                methods = methods[:4]
+                free = self._free_layers(len(methods))
+                if len(free) < len(methods):
+                    QMessageBox.warning(self, tr("Prepara foto"), tr("Servono {0} livelli liberi: liberane qualcuno e riprova.",
+                                                                     len(methods)))
+                    return
+                side = min(30.0, w_mm, h_mm)
+                ppm = proc.width / max(w_mm, 1e-6)
+                half = side * ppm / 2
+                cx, cy = proc.width / 2, proc.height / 2
+                tile = proc.crop((int(cx - half), int(cy - half), int(cx + half), int(cy + half)))
+                tid = uuid.uuid4().hex[:12]
+                doc.images[tid] = tile
+                b = img.bounds()
+                x0, y0 = b.right() + 10.0, b.bottom() - side
+                if x0 + 4 * (side + 5) > self.profile.bed_x:  # a destra non ci sta: sotto la foto
+                    x0, y0 = b.left(), b.top() - side - 10.0
+                tiles = []
+                self.editor.begin(tr("Prova foto"))
+                for k, (m, li) in enumerate(zip(methods, free)):
+                    c = doc.layer(li)
+                    for f_ in ("speed", "power_max", "power_min", "passes", "air", "dpi", "negative", "dot_correction",
+                               "halftone_cell", "halftone_angle", "bidirectional", "overscan"):
+                        setattr(c, f_, getattr(cs, f_))
+                    c.mode, c.dither, c.dpi, c.negative = "image", m, lay["dpi"], lay["negative"]
+                    c.name = DITHER_LABELS[m]
+                    s = ImageShape(tid, side, side, layer=li)
+                    s.brightness, s.contrast, s.gamma = adj["brightness"], adj["contrast"], adj["gamma"]
+                    s.set_transform(QTransform.fromTranslate(x0 + k * (side + 5.0), y0))
+                    tiles.append(s)
+                self.editor.add(tiles, tr("Prova foto"))
+                self.editor.commit()
+                self.statusBar().showMessage(tr("Prova foto: da sinistra {0}. Incidila e scegli il metodo migliore.",
+                                                ", ".join(DITHER_LABELS[m] for m in methods)), 10000)
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def trace_dialog(self):
         sel = self.editor.selection
@@ -1410,6 +1565,15 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, tr("Posizione attuale"), tr("Per partire dalla posizione attuale la macchina deve "
                                     "essere connessa (FreeLaserCut deve sapere dov'è la testa)."))
             return None
+        dots = self._photo_dots()
+        if dots > BIG_PHOTO_DOTS and not getattr(self, "_big_photo_ok", False):
+            r = QMessageBox.question(self, tr("Foto molto grande"), tr(
+                "Le foto da incidere sono {0:.1f} milioni di punti: preparare il lavoro richiede tempo e molta memoria, "
+                "e l'incisione dura ore.\n\nDi solito conviene rimpicciolire la foto o abbassare la risoluzione "
+                "(punti per pollice) nel livello. Preparare comunque il lavoro?", dots / 1e6))
+            if r != QMessageBox.Yes:
+                return None
+            self._big_photo_ok = True  # fino alla prossima modifica del disegno
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             job = gcode.generate(self.editor.doc, self.profile, opts)
@@ -1417,9 +1581,9 @@ class MainWindow(QMainWindow):
                 from dataclasses import replace as _dc_replace
 
                 flat = gcode.generate(self.editor.doc, self.profile, _dc_replace(opts, rotary=None))
-                pv = gcode_preview.parse(flat.lines, profile=self.profile)
+                pv = flat.preview
             else:
-                pv = gcode_preview.parse(job.lines, profile=self.profile)
+                pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
         finally:
             QApplication.restoreOverrideCursor()
         self.job, self.job_preview = job, pv
@@ -1427,6 +1591,24 @@ class MainWindow(QMainWindow):
             self.canvas.set_preview(pv, job.out_to_bed)
             self.laser.show_job(job, self.profile)
         return job
+
+    def _photo_dots(self):
+        """Punti che il laser farà sulle foto (livelli Immagine con uscita attiva)."""
+        doc = self.editor.doc
+        n = 0.0
+        for s in doc.shapes:
+            if s.hidden:
+                continue
+            for leaf, tf in s.leaves():
+                if not isinstance(leaf, ImageShape) or leaf.hidden:
+                    continue
+                cs = doc.layer(leaf.layer)
+                if cs.mode != "image" or not cs.output:
+                    continue
+                step = 25.4 / max(cs.dpi, 10.0)
+                r = tf.map(leaf.local_path()).boundingRect()
+                n += (r.width() / step) * (r.height() / step)
+        return n
 
     def preflight(self, job):
         """Controlli prima di partire. Ritorna (bloccanti, avvisi)."""
@@ -1575,8 +1757,8 @@ class MainWindow(QMainWindow):
             import cv2
             import numpy as np
 
-            pts = np.array([(s[0] + ox, s[1] + oy) for s in pv.segs if s[5]] + [(s[2] + ox, s[3] + oy) for s in pv.segs if s[5]],
-                           np.float32)
+            b = pv.segs[pv.segs[:, 5] > 0] if pv is not None and len(pv.segs) else np.zeros((0, 7))
+            pts = np.concatenate([b[:, 0:2], b[:, 2:4]]).astype(np.float32) + np.float32([ox, oy])
             if len(pts) < 3:
                 return
             hull = cv2.convexHull(pts).reshape(-1, 2)
@@ -1600,14 +1782,12 @@ class MainWindow(QMainWindow):
         job = job if isinstance(job, gcode.GcodeJob) else self.build_job()
         if job is None or not job.lines:
             return
-        pv = gcode_preview.parse(job.lines, profile=self.profile)
+        if job is self.job and self.job_preview is not None:
+            pv = self.job_preview  # già letta da build_job (per il rotativo è il disegno com'è sul piano)
+        else:
+            pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
         ox, oy = job.out_to_bed
-        if ox or oy:  # anteprima in coordinate piano
-            pv.segs = [(a + ox, b + oy, c + ox, d + oy, p, f_, g) for a, b, c, d, p, f_, g in pv.segs]
-            pv.min_x += ox
-            pv.max_x += ox
-            pv.min_y += oy
-            pv.max_y += oy
+        pv = gcode_preview.shifted(pv, ox, oy)  # anteprima in coordinate piano; l'originale resta per il piano
         PreviewDialog(pv, job, self.profile, (self.profile.bed_x, self.profile.bed_y), self).exec()
 
     def save_gcode(self, job=None, name=None):

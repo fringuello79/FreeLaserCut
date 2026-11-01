@@ -858,6 +858,7 @@ class LayersPanel(QWidget):
 # ======================================================================= proprietà
 class PropertiesPanel(QScrollArea):
     trace_requested = Signal()
+    photo_requested = Signal()
     variables_requested = Signal()
 
     def __init__(self, editor, canvas):
@@ -1297,6 +1298,16 @@ class PropertiesPanel(QScrollArea):
         dp.setChecked(self.cv.dither_preview)
         dp.toggled.connect(lambda v: (setattr(self.cv, "dither_preview", v), self.cv.sync()))
         self.lay.addWidget(dp)
+        pb = QPushButton(style.icon("photo_prep"), tr("Prepara foto…"))
+        pb.setToolTip(tr("Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; "
+                         "oppure la foto diventa linee e riempimenti  Ctrl+Alt+F"))
+        pb.clicked.connect(self.photo_requested.emit)
+        self.lay.addWidget(pb)
+        if s.photo:
+            pl = QLabel(tr("Foto preparata: riaprendo la finestra riparti dall'originale"))
+            pl.setObjectName("muted")
+            pl.setWordWrap(True)
+            self.lay.addWidget(pl)
         tb = QPushButton(style.icon("trace"), tr("Vettorizza…"))
         tb.setToolTip(tr("Trasforma l'immagine in tracciati (contorno o linea centrale)  Alt+T"))
         tb.clicked.connect(self.trace_requested.emit)

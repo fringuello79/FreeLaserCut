@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QSlider, QSpinBox, QVBoxLayout, QWidget,
 )
 
+from .. import gcode_preview
 from ..core import render as renderer
 from ..theme import C
 from . import style
@@ -324,7 +325,7 @@ class PreviewDialog(QDialog):
         bottom.addWidget(self.slider, 1)
         bottom.addWidget(self.time)
         v.addLayout(bottom)
-        self.cum = np.cumsum(np.asarray(pv.seg_times, float)) if pv.seg_times else np.zeros(n)
+        self.cum = np.cumsum(np.asarray(pv.seg_times, float)) if len(pv.seg_times) == n and n else np.zeros(n)
         self._build_paths()
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -367,6 +368,10 @@ class PreviewDialog(QDialog):
         self.scene.addItem(bed)
         s_max = max(self.profile.s_max, 1)
         self.cut_items, self.travel_items = [], []
+        self._rast = None
+        if n > gcode_preview.BIG:
+            self._build_raster(s_max)
+            n = 0  # nessun tratto vettoriale
         for k in range(0, n, self.chunk):
             cut = QPainterPath()
             trav = QPainterPath()
@@ -404,10 +409,47 @@ class PreviewDialog(QDialog):
         self.head.setFlag(self.head.GraphicsItemFlag.ItemIgnoresTransformations)
         self.head.setZValue(100)
 
+    def _build_raster(self, s_max):
+        """Lavori enormi (foto): i percorsi diventano un'immagine; il cursore del tempo mostra i pixel
+        bruciati fino al tratto scelto. Con milioni di tratti vettoriali la finestra si bloccava."""
+        r = gcode_preview.rasterize(self.pv.segs, px_per_mm=8.0, max_px=2400, s_max=s_max)
+        self.travel.setChecked(False)
+        self.travel.setEnabled(False)
+        self.travel.setToolTip(tr("Con lavori molto grandi (foto) i trasferimenti non si mostrano"))
+        if r is None:
+            return
+        power, index, (x0, y0, w, h) = r
+        v = (0.35 + 0.65 * power)[..., None] * np.float32([255, 142, 38])  # stessa tinta dei percorsi
+        ny, nx = power.shape
+        self._rast = {"rgb": v.astype(np.uint8), "index": index, "k": None, "nx": nx, "ny": ny}
+        it = QGraphicsPixmapItem()
+        it.setTransformationMode(Qt.SmoothTransformation)
+        it.setScale(w / nx)
+        it.setPos(x0, -(y0 + h))
+        it.setZValue(5)
+        self.scene.addItem(it)
+        self._rast["item"] = it
+
+    def _show_raster(self, k, visible):
+        R = self._rast
+        if R is None:
+            return
+        R["item"].setVisible(visible)
+        if not visible or R["k"] == k:
+            return
+        R["k"] = k
+        idx = R["index"]
+        rgba = np.empty((R["ny"], R["nx"], 4), np.uint8)
+        rgba[..., :3] = R["rgb"]
+        rgba[..., 3] = np.where((idx >= 0) & (idx < k), 255, 0).astype(np.uint8)
+        qi = QImage(rgba.data, R["nx"], R["ny"], 4 * R["nx"], QImage.Format_RGBA8888).copy()
+        R["item"].setPixmap(QPixmap.fromImage(qi))
+
     def _seek(self, k):
         n = len(self.pv.segs)
         c_upto = k // self.chunk
         real = self.r_real.isChecked()
+        self._show_raster(k, not real)
         for i, items in enumerate(self.cut_items):
             vis = i <= c_upto and not real
             for it in items:

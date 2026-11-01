@@ -65,6 +65,7 @@ class GcodeJob:
     gen_ms: float = 0.0
     rotary_k: float = 1.0  # rotativo: Y macchina = riferimento + (Y piano - riferimento) × k
     rotary_ref: tuple = (0.0, 0.0)  # punto di riferimento sul piano (ancoraggio del disegno)
+    preview: object = None  # gcode_preview.Preview delle righe generate (coordinate di uscita)
 
 
 def rotary_scale(r):
@@ -132,28 +133,50 @@ class _Writer:
         self.pb = (bx, by)
 
     def feed(self, bx, by, power_pct, speed):
+        # chiamata milioni di volte per le foto: stesso risultato della versione "leggibile", con meno passaggi
         ox, oy = self.map(bx, by)
-        xy = self._xy(ox, oy)
-        if not xy:
-            return
-        s = round(max(0.0, power_pct) / 100.0 * self.s_max, 1)
-        parts = ([] if self.mode == 1 else ["G1"]) + xy
+        x, y = self.x, self.y
+        parts = [] if self.mode == 1 else ["G1"]
+        if x is None or abs(ox - x) >= 1e-4:
+            parts.append("X" + _fmt(ox))
+        if y is None or abs(oy - y) >= 1e-4:
+            parts.append("Y" + _fmt(oy))
+        if len(parts) == (0 if self.mode == 1 else 1):
+            return  # nessun movimento
+        s = round((power_pct if power_pct > 0.0 else 0.0) / 100.0 * self.s_max, 1)
         if s != self.s:
             parts.append("S" + _fmt(s))
             self.s = s
-        if self.rot_k != 1.0 and self.pb is not None and self.x is not None:
+        if self.rot_k != 1.0 and self.pb is not None and x is not None:
             ld = math.dist(self.pb, (bx, by))
             if ld > 1e-9:
-                speed = round(speed * math.dist((self.x, self.y), (ox, oy)) / ld)
+                speed = round(speed * math.dist((x, y), (ox, oy)) / ld)
         if speed != self.f:
             parts.append("F" + _fmt(speed))
             self.f = speed
         self.lines.append(" ".join(parts))
-        if s > 0 and self.pb is not None:
-            self.cut += math.dist(self.pb, (bx, by))
-            self._grow(self.burn, *self.pb)
-            self._grow(self.burn, bx, by)
-        self._grow(self.motion, bx, by)
+        pb = self.pb
+        if s > 0 and pb is not None:
+            self.cut += math.dist(pb, (bx, by))
+            b = self.burn
+            for px, py in (pb, (bx, by)):
+                if px < b[0]:
+                    b[0] = px
+                if py < b[1]:
+                    b[1] = py
+                if px > b[2]:
+                    b[2] = px
+                if py > b[3]:
+                    b[3] = py
+        m = self.motion
+        if bx < m[0]:
+            m[0] = bx
+        if by < m[1]:
+            m[1] = by
+        if bx > m[2]:
+            m[2] = bx
+        if by > m[3]:
+            m[3] = by
         self.mode = 1
         self.x, self.y = ox, oy
         self.pb = (bx, by)
@@ -394,7 +417,9 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None):
             bxx, byy = back(xb, y)
             if k > 0:
                 gap = abs(xa - segs[k - 1][1])
-                if gap <= gap_g1:
+                if gap < 1e-9:
+                    pass  # pixel attaccato al precedente: il movimento a S0 sarebbe lungo zero (feed non scrive nulla)
+                elif gap <= gap_g1:
                     w.feed(ax, ay, 0.0, cs.speed)
                 else:
                     ex, ey = _clamp_dir(*back(segs[k - 1][1], y), ddx, ddy, cs.overscan, bed)
@@ -731,5 +756,6 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     job.gen_ms = (time.time() - t0) * 1000
     from .. import gcode_preview
 
-    job.seconds = gcode_preview.parse(job.lines, profile=profile).seconds
+    job.preview = gcode_preview.parse(job.lines, profile=profile)  # riusata dall'interfaccia: una sola lettura
+    job.seconds = job.preview.seconds
     return job

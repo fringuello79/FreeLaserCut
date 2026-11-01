@@ -155,7 +155,7 @@ class BedView(QGraphicsView):
     # ---------------------------------------------------------------- anteprima
     def set_preview(self, pv, offset=(0.0, 0.0)):
         self.clear_preview()
-        if pv is None or not pv.has_bounds and not pv.travel:
+        if pv is None or not pv.has_bounds and len(pv.travel) == 0:
             return
         travel = QPainterPath()
         for x1, y1, x2, y2 in pv.travel:

@@ -1478,7 +1478,7 @@ class Banco(QObject):
         for name in ("select", "nodes", "line", "rect", "ellipse", "polygon", "star", "special", "text"):
             h.addWidget(_act_button(win.tool_actions[name]))
         h.addWidget(_sep())
-        for k in ("import", "trace", "exact_shape", "code", "text_path", "variables"):
+        for k in ("import", "photo", "trace", "exact_shape", "code", "text_path", "variables"):
             h.addWidget(_act_button(win.acts[k]))
         h.addWidget(_sep())
         for name in ("measure", "position"):

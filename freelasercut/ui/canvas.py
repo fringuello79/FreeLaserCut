@@ -15,6 +15,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
 
+from .. import gcode_preview
 from ..core import geom, imaging
 from ..core.document import LAYER_COLORS, GroupShape, ImageShape, TextShape
 from ..theme import C
@@ -741,6 +742,9 @@ class Canvas(QGraphicsView):
         self.clear_preview()
         if pv is None:
             return
+        if len(pv.segs) > gcode_preview.BIG:
+            self._set_preview_raster(pv, offset)
+            return
         travel = QPainterPath()
         for x1, y1, x2, y2 in pv.travel:
             travel.moveTo(x1, -y1)
@@ -762,9 +766,36 @@ class Canvas(QGraphicsView):
         self._preview_items = [t, c]
         self.set_preview_offset(offset)
 
+    def _set_preview_raster(self, pv, offset):
+        """Lavori enormi (foto): l'anteprima è un'immagine. Centinaia di migliaia di tratti vettoriali
+        rendevano lentissimo ogni ridisegno del piano, fino a sembrare bloccato."""
+        r = gcode_preview.rasterize(pv.segs, px_per_mm=6.0, max_px=2400)
+        if r is None:
+            return
+        power, _idx, (x0, y0, w, h) = r
+        ny, nx = power.shape
+        rgba = np.zeros((ny, nx, 4), np.uint8)
+        col = QColor("#FF8A3D")
+        on = power > 0
+        rgba[..., 0], rgba[..., 1], rgba[..., 2] = col.red(), col.green(), col.blue()
+        rgba[..., 3] = np.where(on, (90 + 150 * power).astype(np.uint8), 0)
+        qi = QImage(rgba.data, nx, ny, 4 * nx, QImage.Format_RGBA8888).copy()
+        it = QGraphicsPixmapItem(QPixmap.fromImage(qi))
+        it.setTransformationMode(Qt.SmoothTransformation)
+        it.setScale(w / nx)
+        it.setData(0, (x0, y0 + h))  # angolo in alto a sinistra in coordinate piano (prima dello spostamento)
+        it.setZValue(800)
+        self.scene().addItem(it)
+        self._preview_items = [it]
+        self.set_preview_offset(offset)
+
     def set_preview_offset(self, off):
         for it in self._preview_items:
-            it.setPos(off[0], -off[1])
+            corner = it.data(0)
+            if corner:  # immagine: la posizione è il suo angolo in alto a sinistra
+                it.setPos(corner[0] + off[0], -(corner[1] + off[1]))
+            else:
+                it.setPos(off[0], -off[1])
 
     def clear_preview(self):
         for it in self._preview_items:

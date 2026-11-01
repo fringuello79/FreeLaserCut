@@ -26,7 +26,7 @@ MATERIALS = {
 def render(pv, s_max=1000.0, material="betulla", px_per_mm=4.0, spot=0.15, upto=None, max_px=2400, grain=True):
     """Restituisce (immagine RGB uint8, rettangolo (x0, y0, w, h) in mm del piano)."""
     segs = pv.segs if upto is None else pv.segs[:upto]
-    if not segs:
+    if len(segs) == 0:
         return None, None
     a = np.asarray(segs, dtype=np.float64)
     burn = a[a[:, 5] > 0]

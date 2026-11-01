@@ -188,16 +188,26 @@ def import_dxf(path, doc):
 
 
 # ======================================================================= immagini
-def import_image(path_or_pil, doc, max_size=None):
+PHOTO_MM = 100.0  # lato lungo delle foto importate senza una risoluzione vera (si ridimensionano dopo)
+
+
+def import_image(path_or_pil, doc, max_size=None, photo_mm=None):
+    """photo_mm: le foto grandi senza risoluzione vera (fotocamere e telefoni dichiarano 72-96 dpi o nulla)
+    arrivano con questo lato lungo invece che grandi quanto il piano: a 10 punti/mm una foto da 36 cm sono
+    quasi 10 milioni di punti, ore di incisione e minuti solo per preparare il lavoro."""
     from PIL import Image
 
     img = Image.open(path_or_pil) if isinstance(path_or_pil, str) else path_or_pil
     img.load()
     dpi = img.info.get("dpi", (0, 0))[0] or 0
+    no_dpi = not dpi or dpi <= 96
     if not dpi or dpi < 30:
         dpi = 254.0  # 10 pixel/mm se l'immagine non dichiara la risoluzione
     w = img.width / dpi * 25.4
     h = img.height / dpi * 25.4
+    if photo_mm and no_dpi and max(img.width, img.height) >= 1200 and max(w, h) > photo_mm:
+        f = photo_mm / max(w, h)
+        w, h = w * f, h * f
     if max_size:
         mw, mh = max_size
         f = min(1.0, mw / w, mh / h)
@@ -208,14 +218,14 @@ def import_image(path_or_pil, doc, max_size=None):
     return [ImageShape(iid, w, h, layer=0)]
 
 
-def import_file(path, doc, max_size=None):
+def import_file(path, doc, max_size=None, photo_mm=None):
     ext = os.path.splitext(path)[1].lower()
     if ext == ".svg":
         return import_svg(path, doc)
     if ext == ".dxf":
         return import_dxf(path, doc)
     if ext in IMAGE_EXT:
-        return import_image(path, doc, max_size)
+        return import_image(path, doc, max_size, photo_mm)
     raise ValueError(tr("formato non supportato: {0}", ext))
 
 

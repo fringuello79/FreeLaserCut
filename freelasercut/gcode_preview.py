@@ -6,15 +6,23 @@ Non esegue nulla: serve solo a mostrare cosa farà la macchina.
 """
 import math
 import re
+from array import array
+
+import numpy as np
 
 _WORD = re.compile(r"([A-Za-z])\s*([-+]?\d*\.?\d+)")
+# righe di scansione delle foto, il caso di gran lunga più frequente: "X12.3 S45", "G1 X0.1 S119 F3000"
+_FAST = re.compile(r"(?:G([01]) )?X([-+]?\d*\.?\d+)(?: S([-+]?\d*\.?\d+))?(?: F([-+]?\d*\.?\d+))?")
 MAX_SEGMENTS = 600_000
 
 
 class Preview:
+    """Risultato della lettura. I tratti stanno in array numpy compatti (un milione di tratti ≈ 56 MB invece
+    di qualche centinaio con le tuple Python): le foto generano facilmente milioni di movimenti."""
+
     def __init__(self):
-        self.cut = []  # (x1, y1, x2, y2, power)
-        self.travel = []  # (x1, y1, x2, y2)
+        self.cut = np.zeros((0, 5))  # (x1, y1, x2, y2, potenza) — eventualmente diradati, solo per disegnare
+        self.travel = np.zeros((0, 4))  # (x1, y1, x2, y2)
         self.min_x = self.min_y = math.inf
         self.max_x = self.max_y = -math.inf
         self.cut_len = 0.0
@@ -23,8 +31,8 @@ class Preview:
         self.lines = 0
         self.max_power = 0.0
         self.decimated = False
-        self.segs = []  # tutti i movimenti in ordine: (x0, y0, x1, y1, potenza S, brucia 0/1, feed mm/min)
-        self.seg_times = None  # durata di ogni movimento (s), stessa lunghezza di segs
+        self.segs = np.zeros((0, 7))  # tutti i movimenti in ordine: (x0, y0, x1, y1, potenza S, brucia 0/1, feed mm/min)
+        self.seg_times = np.zeros(0)  # durata di ogni movimento (s), stessa lunghezza di segs
 
     @property
     def has_bounds(self):
@@ -44,6 +52,32 @@ class Preview:
         self.min_y = min(self.min_y, y)
         self.max_y = max(self.max_y, y)
 
+    def shift(self, dx, dy):
+        """Sposta tutta l'anteprima (es. da coordinate di uscita a coordinate piano)."""
+        if not (dx or dy):
+            return
+        for a, cols in ((self.segs, (0, 2)), (self.cut, (0, 2)), (self.travel, (0, 2))):
+            if len(a):
+                a[:, cols[0]] += dx
+                a[:, cols[1]] += dx
+                a[:, cols[0] + 1] += dy
+                a[:, cols[1] + 1] += dy
+        if self.has_bounds:
+            self.min_x += dx
+            self.max_x += dx
+            self.min_y += dy
+            self.max_y += dy
+
+
+def shifted(pv, dx, dy):
+    """Copia dell'anteprima spostata: l'originale (usato anche dal piano) resta com'è."""
+    import copy
+
+    q = copy.copy(pv)
+    q.segs, q.cut, q.travel = pv.segs.copy(), pv.cut.copy(), pv.travel.copy()
+    q.shift(dx, dy)
+    return q
+
 
 def parse(lines, travel_rate=6000.0, profile=None):
     """profile: MachineProfile (accelerazioni, velocità massime, $11) per una stima dei tempi realistica."""
@@ -55,7 +89,7 @@ def parse(lines, travel_rate=6000.0, profile=None):
         ax = ay = 1000.0
         rx = ry = travel_rate
         jd = 0.01
-    moves = []  # (dx, dy, lunghezza, feed mm/min, rapido?)
+    seg = array("d")  # 7 valori per movimento, vedi Preview.segs
     pv = Preview()
     x = y = 0.0
     absolute = True
@@ -64,37 +98,65 @@ def parse(lines, travel_rate=6000.0, profile=None):
     power = 0.0
     laser_on = False
     motion = 0
+    n_lines = 0
+    max_power = 0.0
+    fast = _FAST.fullmatch
     for raw in lines:
+        m = fast(raw)
+        if m is not None:  # corsia veloce: stesso risultato del caso generale, senza dizionari né regex multiple
+            n_lines += 1
+            g, xs, ss, fs = m.groups()
+            if g is not None:
+                motion = int(g)
+            if ss is not None:
+                power = float(ss)
+                if power > max_power:
+                    max_power = power
+            if fs is not None:
+                feed = float(fs) * scale
+            nx = float(xs) * scale
+            if not absolute:
+                nx += x
+            d = abs(nx - x)
+            if d > 1e-9:
+                burning = laser_on and power > 0 and motion != 0
+                seg.extend((x, y, nx, y, power if burning else 0.0, 1.0 if burning else 0.0,
+                            (feed if feed > 1.0 else 1.0) if motion != 0 else 0.0))
+            x = nx
+            continue
         line = raw.split(";")[0]
-        line = re.sub(r"\(.*?\)", "", line).strip().upper()
+        if "(" in line:
+            line = re.sub(r"\(.*?\)", "", line)
+        line = line.strip().upper()
         if not line or line.startswith("$") or line.startswith("%"):
             continue
-        pv.lines += 1
+        n_lines += 1
         words = _WORD.findall(line)
         vals = {}
         for letter, num in words:
             v = float(num)
             if letter == "G":
-                g = round(v, 1)
-                if g in (0, 1, 2, 3):
-                    motion = int(g)
-                elif g == 90:
+                gg = round(v, 1)
+                if gg in (0, 1, 2, 3):
+                    motion = int(gg)
+                elif gg == 90:
                     absolute = True
-                elif g == 91:
+                elif gg == 91:
                     absolute = False
-                elif g == 20:
+                elif gg == 20:
                     scale = 25.4
-                elif g == 21:
+                elif gg == 21:
                     scale = 1.0
             elif letter == "M":
-                m = int(v)
-                if m in (3, 4):
+                mm = int(v)
+                if mm in (3, 4):
                     laser_on = True
-                elif m == 5:
+                elif mm == 5:
                     laser_on = False
             elif letter == "S":
                 power = v
-                pv.max_power = max(pv.max_power, v)
+                if v > max_power:
+                    max_power = v
             elif letter == "F":
                 feed = v * scale
             else:
@@ -112,34 +174,143 @@ def parse(lines, travel_rate=6000.0, profile=None):
         else:
             pts = [(nx, ny)]
         px, py = x, y
+        fv = (feed if feed > 1.0 else 1.0) if motion != 0 else 0.0
         for qx, qy in pts:
-            d = math.hypot(qx - px, qy - py)
-            if d > 1e-9:
-                moves.append((qx - px, qy - py, d, max(feed, 1.0), motion == 0))
-                pv.segs.append((px, py, qx, qy, power if burning else 0.0, 1 if burning else 0,
-                                max(feed, 1.0) if motion != 0 else 0.0))
-            if burning:
-                pv.cut.append((px, py, qx, qy, power))
-                pv.cut_len += d
-                pv._grow(px, py)
-                pv._grow(qx, qy)
-            else:
-                pv.travel.append((px, py, qx, qy))
-                pv.travel_len += d
+            if math.hypot(qx - px, qy - py) > 1e-9:
+                seg.extend((px, py, qx, qy, power if burning else 0.0, 1.0 if burning else 0.0, fv))
             px, py = qx, qy
         x, y = nx, ny
-    times = []
-    pv.seconds = plan_time(moves, ax, ay, rx, ry, jd, times)
-    pv.seg_times = times
-    if len(pv.cut) > MAX_SEGMENTS:
-        step = math.ceil(len(pv.cut) / MAX_SEGMENTS)
-        pv.cut = pv.cut[::step]
-        pv.decimated = True
-    if len(pv.travel) > MAX_SEGMENTS // 4:
-        step = math.ceil(len(pv.travel) / (MAX_SEGMENTS // 4))
-        pv.travel = pv.travel[::step]
-        pv.decimated = True
+    pv.lines = n_lines
+    pv.max_power = max_power
+    S = np.frombuffer(seg, dtype=np.float64).reshape(-1, 7).copy() if len(seg) else np.zeros((0, 7))
+    del seg
+    pv.segs = S
+    if len(S):
+        dx = S[:, 2] - S[:, 0]
+        dy = S[:, 3] - S[:, 1]
+        L = np.hypot(dx, dy)
+        burn = S[:, 5] > 0
+        pv.cut_len = float(L[burn].sum())
+        pv.travel_len = float(L[~burn].sum())
+        if burn.any():
+            B = S[burn]
+            pv.min_x = float(min(B[:, 0].min(), B[:, 2].min()))
+            pv.max_x = float(max(B[:, 0].max(), B[:, 2].max()))
+            pv.min_y = float(min(B[:, 1].min(), B[:, 3].min()))
+            pv.max_y = float(max(B[:, 1].max(), B[:, 3].max()))
+        # feed dei movimenti per la stima: i rapidi usano la velocità massima, gli altri il loro F
+        rapid = S[:, 6] == 0
+        feed_col = np.where(rapid, 1.0, S[:, 6])
+        times = []
+        pv.seconds = plan_time_arrays(dx, dy, L, feed_col, rapid, ax, ay, rx, ry, jd, times)
+        pv.seg_times = times[0] if times else np.zeros(len(S))
+        del dx, dy, L, feed_col, rapid, times
+        cut = S[burn][:, :5]
+        trav = S[~burn][:, :4]
+        if len(cut) > MAX_SEGMENTS:
+            cut = cut[::math.ceil(len(cut) / MAX_SEGMENTS)]
+            pv.decimated = True
+        if len(trav) > MAX_SEGMENTS // 4:
+            trav = trav[::math.ceil(len(trav) / (MAX_SEGMENTS // 4))]
+            pv.decimated = True
+        pv.cut, pv.travel = cut, trav
     return pv
+
+
+BIG = 60_000  # oltre questi movimenti l'anteprima si disegna come immagine, non tratto per tratto
+
+
+def rasterize(segs, px_per_mm=8.0, max_px=2400, max_samples=12_000_000, s_max=None):
+    """Tratti accesi -> immagini per disegnare anteprime enormi (foto) senza milioni di linee.
+
+    Ritorna (potenza 0..1 float32, indice del tratto int32 con -1 dove non brucia, (x0, y0, w, h) in mm:
+    il rettangolo del piano coperto dall'immagine)
+    oppure None. La riga 0 delle immagini è in alto (Y massima). L'indice serve al cursore del tempo:
+    si mostrano i pixel con indice <= k."""
+    S = np.asarray(segs)
+    if len(S) == 0:
+        return None
+    idx = np.nonzero(S[:, 5] > 0)[0]
+    if not len(idx):
+        return None
+    B = S[idx]
+    x0 = float(min(B[:, 0].min(), B[:, 2].min()))
+    x1 = float(max(B[:, 0].max(), B[:, 2].max()))
+    y0 = float(min(B[:, 1].min(), B[:, 3].min()))
+    y1 = float(max(B[:, 1].max(), B[:, 3].max()))
+    W, H = max(x1 - x0, 1e-3), max(y1 - y0, 1e-3)
+    L = np.hypot(B[:, 2] - B[:, 0], B[:, 3] - B[:, 1])
+    # risoluzione: quella chiesta, ma senza superare max_px né troppi campioni (2 per pixel lungo i tratti)
+    ppm = max(min(px_per_mm, max_px / max(W, H), max_samples / (2.0 * max(float(L.sum()), 1e-6))), 0.5)
+    nx, ny = int(math.ceil(W * ppm)) + 1, int(math.ceil(H * ppm)) + 1
+    step = 0.5 / ppm
+    n = np.maximum(np.ceil(L / step).astype(np.int64), 1) + 1
+    rep = np.repeat(np.arange(len(B)), n)
+    start = np.repeat(np.cumsum(n) - n, n)
+    t = (np.arange(len(rep)) - start) / np.repeat(n - 1, n).clip(1)
+    px = np.rint((B[rep, 0] + (B[rep, 2] - B[rep, 0]) * t - x0) * ppm).astype(np.int64).clip(0, nx - 1)
+    py = np.rint((y1 - (B[rep, 1] + (B[rep, 3] - B[rep, 1]) * t)) * ppm).astype(np.int64).clip(0, ny - 1)
+    flat = py * nx + px
+    smax = float(s_max) if s_max else max(float(B[:, 4].max()), 1e-9)
+    power = np.zeros(nx * ny, np.float32)
+    index = np.full(nx * ny, -1, np.int32)
+    power[flat] = (B[rep, 4] / smax).astype(np.float32)  # con più tratti sullo stesso pixel vince l'ultimo
+    index[flat] = idx[rep].astype(np.int32)
+    # rettangolo coperto esattamente dai pixel (ogni pixel è largo 1/ppm ed è centrato sul suo punto)
+    h = 0.5 / ppm
+    return power.reshape(ny, nx).clip(0, 1), index.reshape(ny, nx), (x0 - h, y1 + h - ny / ppm, nx / ppm, ny / ppm)
+
+
+def plan_time_arrays(dx, dy, L, feed, rapid, ax, ay, rx, ry, jd, per_move=None):
+    """Come plan_time (stesso modello e stessi numeri), ma con numpy dove si può: con le foto i movimenti
+    sono milioni. Restano in Python solo le due passate sequenziali sulle velocità di ingresso."""
+    keep = L > 1e-9
+    if not keep.all():
+        dx, dy, L, feed, rapid = dx[keep], dy[keep], L[keep], feed[keep], rapid[keep]
+    m = len(L)
+    if m == 0:
+        return 0.0
+    inf = np.inf
+    cx, cy = np.abs(dx) / L, np.abs(dy) / L
+    with np.errstate(divide="ignore", invalid="ignore"):
+        acc = np.minimum(np.where(cx > 1e-9, ax / cx, inf), np.where(cy > 1e-9, ay / cy, inf))
+        rate = np.minimum(np.where(cx > 1e-9, rx / cx, inf), np.where(cy > 1e-9, ry / cy, inf))
+    vmax = np.where(rapid, rate, np.minimum(feed, rate)) / 60.0
+    ux, uy = dx / L, dy / L
+    ventry = np.zeros(m)
+    if m > 1:
+        cos_t = -(ux[:-1] * ux[1:] + uy[:-1] * uy[1:])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            sd2 = np.sqrt(0.5 * (1.0 - cos_t))
+            vj = np.sqrt(np.minimum(acc[:-1], acc[1:]) * jd * sd2 / (1.0 - sd2))
+        vj = np.where(cos_t > 0.999999, 0.0, np.where(cos_t < -0.999999, inf, vj))
+        ventry[1:] = np.minimum(np.minimum(vj, vmax[1:]), vmax[:-1])
+    ve = ventry.tolist()
+    two_al = (2.0 * acc * L).tolist()
+    sqrt = math.sqrt
+    nxt = 0.0  # alla fine si ferma
+    for i in range(m - 1, -1, -1):
+        lim = sqrt(nxt * nxt + two_al[i])
+        if ve[i] > lim:
+            ve[i] = lim
+        nxt = ve[i]
+    for i in range(m - 1):
+        lim = sqrt(ve[i] * ve[i] + two_al[i])
+        if ve[i + 1] > lim:
+            ve[i + 1] = lim
+    v0 = np.asarray(ve)
+    v1 = np.append(v0[1:], 0.0)
+    da = (vmax * vmax - v0 * v0) / (2.0 * acc)
+    dd = (vmax * vmax - v1 * v1) / (2.0 * acc)
+    cruise = da + dd <= L
+    with np.errstate(invalid="ignore", divide="ignore"):
+        t_c = (vmax - v0) / acc + (vmax - v1) / acc + (L - da - dd) / vmax
+        peak = np.maximum(np.maximum(np.sqrt(np.maximum((2.0 * acc * L + v0 * v0 + v1 * v1) / 2.0, 0.0)), v0), v1)
+        t_p = (peak - v0) / acc + (peak - v1) / acc
+    dt = np.where(cruise, t_c, t_p)
+    if per_move is not None:
+        per_move.append(dt)  # un solo array numpy (niente milioni di float Python)
+    return float(dt.sum())
 
 
 def plan_time(moves, ax, ay, rx, ry, jd, per_move=None):

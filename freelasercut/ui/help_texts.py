@@ -59,6 +59,13 @@ HELP = {
     "trace": (tr("Vettorizza immagine"), tr("Trasforma una foto o un disegno in tracciati."),
               [(tr("Contorno"), tr("i bordi delle zone scure diventano forme chiuse")),
                (tr("Linea centrale"), tr("scritte a mano e disegni al tratto diventano una linea sola"))]),
+    "photo": (tr("Prepara foto"), tr("Una finestra per preparare una foto all'incisione, con l'originale accanto ai punti veri che "
+              "farà il laser. La foto originale resta nel progetto: riaprendo la finestra riparti da lì."),
+              [(tr("Foto"), tr("ritaglio, rotazione, regolazioni, livelli automatici, nitidezza, rumore, sfondo, forma, "
+                               "metodo e risoluzione; preset per materiale")),
+               (tr("Linee e riempimento"), tr("la foto diventa vettoriale: fasce di tono come riempimenti, contorno e linee "
+                                              "dei dettagli, ognuno sul suo livello")),
+               (tr("Prova foto"), tr("4 quadrati della zona centrale con metodi diversi, per scegliere il migliore"))]),
     "close_paths": (tr("Chiudi tracciati"), tr("Chiude i tracciati i cui estremi sono vicini, entro la tolleranza scelta."), None),
     "join": (tr("Unisci estremi"), tr("Unisce in un solo tracciato i segmenti che si toccano."), None),
     "break": (tr("Scomponi"), tr("Divide un tracciato nelle sue parti separate."), None),

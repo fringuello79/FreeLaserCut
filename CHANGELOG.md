@@ -1,5 +1,25 @@
 # Novità di FreeLaserCut
 
+## 0.10.0 — 01/11/2026
+- **Prepara foto** (*Strumenti → Prepara foto…*, Ctrl+Alt+F, oppure il pulsante nel pannello Proprietà di un'immagine):
+  - ritaglio trascinando sull'anteprima, rotazione e specchio;
+  - **sfondo rimosso** in automatico (con tolleranza regolabile), riduzione del rumore, livelli automatici, contrasto locale, nitidezza;
+  - maschera a ovale o a rettangolo arrotondato, con bordo sfumato;
+  - **materiali pronti** (legno chiaro e scuro, ardesia, cuoio, carta, alluminio anodizzato, scala di grigi) che impostano retinatura, DPI, negativo, luminosità e contrasto;
+  - anteprima di come verrà l'incisione, con i punti della retinatura;
+  - **Prova foto**: 4 tasselli da 30 mm della parte centrale con retinature diverse, accanto alla foto, per scegliere sul materiale vero;
+  - la foto originale resta nel progetto: si può riaprire *Prepara foto* e cambiare tutto.
+- **Foto → linee e riempimento** (scheda *Linee e riempimento* di Prepara foto): la foto diventa vettoriale e si adatta da sola ai suoi toni:
+  - da 1 a 4 fasce di tono in riempimento, ognuna su un livello con potenza crescente dalla più chiara alla più scura;
+  - in più, a scelta, il contorno delle zone scure e le linee dei dettagli (bordi netti della foto);
+  - dettaglio regolabile, anteprima prima di confermare.
+- **Corretto (issue #2):** con una foto grande l'anteprima e la preparazione del lavoro duravano decine di secondi e FreeLaserCut sembrava bloccato. Ora:
+  - il G-code si legge una volta sola e l'anteprima si prepara circa 4 volte più in fretta e si disegna sul piano oltre 20 volte più in fretta;
+  - le anteprime con moltissimi punti si disegnano come immagine e il piano resta fluido;
+  - una foto senza dimensioni reali si importa larga 100 mm invece che alla misura in pixel;
+  - prima di preparare un lavoro con oltre 5 milioni di punti, FreeLaserCut chiede conferma e suggerisce di ridurre i DPI.
+- Nuova prova automatica `tests/test_v10.py` (velocità, anteprime, Prepara foto, salvataggio, annulla); il G-code di linee e riempimenti è identico alla 0.9.
+
 ## 0.9.2 — 01/11/2026
 - **Corretto (sicurezza):** il lavoro risultava finito appena la scheda aveva ricevuto l'ultima riga, mentre eseguiva ancora gli ultimi movimenti dal suo buffer: per qualche secondo il laser tagliava con *Stop* e *Pausa* già spenti. Ora il lavoro finisce solo quando la macchina è davvero ferma; se nel frattempo scatta un allarme, il lavoro risulta interrotto.
 - **Corretto:** dopo un lavoro, eliminando le forme restava sul piano la traccia arancione del laser. Ora la traccia e l'anteprima si cancellano a ogni modifica del disegno.

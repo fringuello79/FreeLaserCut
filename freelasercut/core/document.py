@@ -381,6 +381,11 @@ class ImageShape(Shape):
         self.brightness = 0.0  # -100..100
         self.contrast = 0.0  # -100..100
         self.gamma = 1.0
+        self.source_id = None  # «Prepara foto»: immagine originale (image_id è quella preparata)
+        self.photo = None  # «Prepara foto»: impostazioni usate (dict), per riaprire la finestra da dove eri
+
+    def image_ids(self):
+        return [i for i in (self.image_id, self.source_id) if i]
 
     def local_path(self):
         p = QPainterPath()
@@ -391,8 +396,13 @@ class ImageShape(Shape):
         return True
 
     def params(self):
-        return {"image_id": self.image_id, "w": self.w, "h": self.h, "brightness": self.brightness,
-                "contrast": self.contrast, "gamma": self.gamma}
+        d = {"image_id": self.image_id, "w": self.w, "h": self.h, "brightness": self.brightness,
+             "contrast": self.contrast, "gamma": self.gamma}
+        if self.source_id:
+            d["source_id"] = self.source_id
+        if self.photo:
+            d["photo"] = dict(self.photo)
+        return d
 
     def describe(self):
         return tr("Immagine")
@@ -536,6 +546,8 @@ def shape_from_dict(d, images=None):
         s.brightness = p.get("brightness", 0.0)
         s.contrast = p.get("contrast", 0.0)
         s.gamma = p.get("gamma", 1.0)
+        s.source_id = p.get("source_id")
+        s.photo = p.get("photo")
     elif kind == "group":
         s = GroupShape([shape_from_dict(c, images) for c in p.get("children", [])])
     elif kind == "special":
@@ -608,7 +620,7 @@ class Document:
                 "variables": variables.to_dict()}
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr("project.json", json.dumps(meta, indent=1))
-            used = {leaf.image_id for s in self.shapes for leaf, _ in s.leaves() if isinstance(leaf, ImageShape)}
+            used = {i for s in self.shapes for leaf, _ in s.leaves() if isinstance(leaf, ImageShape) for i in leaf.image_ids()}
             for iid in used:
                 img = self.images.get(iid)
                 if img is None:

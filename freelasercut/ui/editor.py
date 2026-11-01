@@ -260,8 +260,8 @@ class Editor(QObject):
         sel = self.selection
         if not sel:
             return
-        data = {"shapes": [s.to_dict() for s in sel], "images": list({l.image_id for s in sel for l, _ in s.leaves()
-                                                                       if isinstance(l, ImageShape)})}
+        data = {"shapes": [s.to_dict() for s in sel], "images": list({i for s in sel for l, _ in s.leaves()
+                                                                       if isinstance(l, ImageShape) for i in l.image_ids()})}
         self.clipboard = (data, {iid: self.doc.images.get(iid) for iid in data["images"]})
         md = QMimeData()
         md.setData(MIME, json.dumps(data).encode())
