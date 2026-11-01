@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.10.2 — 02/11/2026
+Dalle segnalazioni di chi lo usa:
+- **Corretto:** chiusa la finestra *Anteprima*, la foto restava coperta dall'arancione del percorso finché non la si spostava. Ora il percorso sparisce alla chiusura (resta solo durante un lavoro in corso).
+- **Zoom in *Prepara foto***: sull'anteprima *Come verrà incisa* si ingrandisce con la rotella, con i pulsanti − / + / *Tutta la foto* o con un doppio clic, e ci si sposta trascinando.
+  - Ingrandendo, la zona visibile si ricalcola con i **punti veri** alla risoluzione del livello, e i punti restano netti: così si confrontano bene i metodi di incisione (Jarvis, Floyd–Steinberg, Stucki, mezzetinte…).
+  - Lo zoom resta cambiando metodo o regolazioni, e funziona anche nella scheda *Linee e riempimento*.
+- Nuova prova automatica `tests/test_v102.py` (27 controlli).
+
 ## 0.10.1 — 01/11/2026
 Avvio più robusto, dalle segnalazioni di chi lo ha provato:
 - **Corretto:** se qualcosa andava storto all'avvio, il messaggio d'errore poteva restare nascosto dietro la schermata con il logo, che rimaneva sempre in primo piano. Ora la schermata d'avvio si chiude prima di ogni messaggio d'errore e non sta più sopra le altre finestre; se la finestra principale non si apre, FreeLaserCut mostra l'errore, lo scrive in `flc.log` ed esce in modo pulito.

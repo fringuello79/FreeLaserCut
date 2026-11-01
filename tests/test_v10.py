@@ -89,6 +89,8 @@ check("finestra Anteprima: percorsi come immagine, apertura rapida", times.get("
 check("finestra Anteprima: il cursore del tempo funziona", times.get("seek_ok"))
 check("finestra Anteprima: resa realistica e chiusura rapide", times.get("real", 99) < 5 and times.get("close", 99) < 1,
       f"{times.get('real', 0):.2f} s / {times.get('close', 0):.3f} s")
+check("chiusa l'anteprima, il piano non resta arancione (segnalazione utente)", len(cv._preview_items) == 0)
+cv.set_preview(w.job_preview, w.job.out_to_bed); spin(0.1)  # come all'avvio del lavoro
 check("sul piano l'anteprima della foto è un'immagine (niente milioni di linee)",
       len(cv._preview_items) == 1 and isinstance(cv._preview_items[0], QGraphicsPixmapItem))
 t0 = time.time()

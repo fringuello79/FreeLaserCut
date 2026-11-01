@@ -724,7 +724,7 @@
  "Riconosci la macchina": "Reconhecer a máquina",
  "Riconosci la macchina…": "Reconhecer a máquina…",
  "Ridimensiona": "Redimensionar",
- "Riduci": "Reduzir",
+ "Riduci": "Diminuir",
  "Riempie i campi con le impostazioni del livello corrente": "Preenche os campos com as configurações da camada atual",
  "Riempimento": "Preenchimento",
  "Riempimento (incisione)": "Preenchimento (gravação)",
@@ -1365,5 +1365,13 @@
  "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Recorte, ajustes, fundo, forma e método de gravação com a pré-visualização dos pontos reais; ou a foto vira linhas e preenchimentos  Ctrl+Alt+F",
  "FreeLaserCut è già aperto: porto in primo piano la sua finestra.": "O FreeLaserCut já está aberto: trago a janela dele para a frente.",
  "Doppio clic su una scheda per iniziare subito.": "Clique duplo num cartão para começar logo.",
- "Inizia con {0}  ▶": "Começar com {0}  ▶"
+ "Inizia con {0}  ▶": "Começar com {0}  ▶",
+ "Come verrà incisa · rotella per lo zoom": "Como será gravada · roda para o zoom",
+ "Linee e riempimenti · rotella per lo zoom": "Linhas e preenchimentos · roda para o zoom",
+ "Zoom": "Zoom",
+ "Tutta la foto": "Foto inteira",
+ "Ingrandisci: da vicino si vedono i punti veri del metodo scelto": "Ampliar: de perto se veem os pontos reais do método escolhido",
+ "Torna a vedere tutta la foto (anche doppio clic sull'anteprima)": "Voltar a ver a foto inteira (também com clique duplo na pré-visualização)",
+ "ridotta · ingrandisci ancora per i punti veri": "reduzida · amplie mais para ver os pontos reais",
+ "punti veri": "pontos reais"
 }

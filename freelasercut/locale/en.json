@@ -1365,5 +1365,13 @@
  "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Crop, adjustments, background, shape and engraving method with a preview of the real dots; or the photo becomes lines and fills  Ctrl+Alt+F",
  "FreeLaserCut è già aperto: porto in primo piano la sua finestra.": "FreeLaserCut is already open: bringing its window to the front.",
  "Doppio clic su una scheda per iniziare subito.": "Double-click a card to start right away.",
- "Inizia con {0}  ▶": "Start with {0}  ▶"
+ "Inizia con {0}  ▶": "Start with {0}  ▶",
+ "Come verrà incisa · rotella per lo zoom": "How it will be engraved · scroll to zoom",
+ "Linee e riempimenti · rotella per lo zoom": "Lines and fills · scroll to zoom",
+ "Zoom": "Zoom",
+ "Tutta la foto": "Whole photo",
+ "Ingrandisci: da vicino si vedono i punti veri del metodo scelto": "Zoom in: up close you see the real dots of the chosen method",
+ "Torna a vedere tutta la foto (anche doppio clic sull'anteprima)": "Back to the whole photo (or double-click the preview)",
+ "ridotta · ingrandisci ancora per i punti veri": "reduced · zoom in more for the real dots",
+ "punti veri": "real dots"
 }

@@ -10,7 +10,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QTransform
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel, QPushButton,
-    QScrollArea, QSlider, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
+    QScrollArea, QSlider, QSpinBox, QTabWidget, QToolButton, QVBoxLayout, QWidget,
 )
 
 from ..core import photo
@@ -35,34 +35,99 @@ def _qimage_rgb(arr):
 
 
 class _View(QWidget):
-    """Immagine adattata al riquadro; facoltativi: rettangolo di ritaglio trascinabile e tracciati sopra."""
+    """Immagine adattata al riquadro; facoltativi: rettangolo di ritaglio trascinabile, tracciati sopra,
+    zoom (rotella, pulsanti) con spostamento trascinando e un «dettaglio» a punti veri sopra la zona visibile."""
 
     crop_changed = Signal(tuple)
+    view_changed = Signal()  # zoom o spostamento cambiati
+    ZMAX = 32.0
 
-    def __init__(self, title, croppable=False):
+    def __init__(self, title, croppable=False, zoomable=False):
         super().__init__()
         self.setMinimumSize(280, 240)
         self.title = title
         self.qimg = None
         self.crop = None  # (x0, y0, x1, y1) frazioni
         self.croppable = croppable
+        self.zoomable = zoomable
+        self.zoom = 1.0
+        self.center = (0.5, 0.5)  # punto dell'immagine (frazioni) al centro del riquadro
+        self.detail = None  # (QImage, (x0, y0, x1, y1)): la zona visibile a punti veri, sopra l'immagine
         self._drag = None
+        self._pan = None
         self.paths = []  # [(QPainterPath in mm, QColor, riempito)]
         self.mm = None  # (w, h) dei tracciati
         self.faint = False
         self.note = ""
         if croppable:
             self.setCursor(Qt.CrossCursor)
+        elif zoomable:
+            self.setCursor(Qt.OpenHandCursor)
+
+    def _area(self):
+        m, top = 10, 22
+        return QRectF(m, top, max(1, self.width() - 2 * m), max(1, self.height() - top - m))
 
     def _target(self):
-        m = 10
-        top = 22
+        a = self._area()
         if self.qimg is None or self.qimg.width() == 0:
-            return QRectF(m, top, max(1, self.width() - 2 * m), max(1, self.height() - top - m))
+            return a
         iw, ih = self.qimg.width(), self.qimg.height()
-        k = min((self.width() - 2 * m) / iw, (self.height() - top - m) / ih)
+        k = min(a.width() / iw, a.height() / ih) * self.zoom
         w, h = iw * k, ih * k
-        return QRectF((self.width() - w) / 2, top + (self.height() - top - m - h) / 2, w, h)
+        cx, cy = self.center
+        if w > a.width():  # più grande del riquadro: niente bordi vuoti
+            left = min(a.left(), max(a.right() - w, a.center().x() - cx * w))
+        else:
+            left = a.center().x() - w / 2
+        if h > a.height():
+            top = min(a.top(), max(a.bottom() - h, a.center().y() - cy * h))
+        else:
+            top = a.center().y() - h / 2
+        return QRectF(left, top, w, h)
+
+    def _sync_center(self):
+        """Dopo i limiti ai bordi: il centro memorizzato è quello vero (così lo zoom non «salta»)."""
+        a, t = self._area(), self._target()
+        self.center = ((a.center().x() - t.left()) / max(t.width(), 1e-9), (a.center().y() - t.top()) / max(t.height(), 1e-9))
+
+    def visible_region(self):
+        """Parte dell'immagine visibile nel riquadro, in frazioni (x0, y0, x1, y1)."""
+        a, t = self._area(), self._target()
+        if t.width() <= 0 or t.height() <= 0:
+            return (0.0, 0.0, 1.0, 1.0)
+        x0 = min(max((a.left() - t.left()) / t.width(), 0.0), 1.0)
+        y0 = min(max((a.top() - t.top()) / t.height(), 0.0), 1.0)
+        x1 = min(max((a.right() - t.left()) / t.width(), 0.0), 1.0)
+        y1 = min(max((a.bottom() - t.top()) / t.height(), 0.0), 1.0)
+        return (x0, y0, x1, y1)
+
+    def set_zoom(self, z, anchor=None):
+        """Zoom tra 1 (tutta la foto) e ZMAX; il punto sotto `anchor` (o il centro) resta fermo."""
+        if not self.zoomable or self.qimg is None:
+            return
+        z = min(max(float(z), 1.0), self.ZMAX)
+        a, t = self._area(), self._target()
+        anchor = anchor if anchor is not None else a.center()
+        fx = min(max((anchor.x() - t.left()) / max(t.width(), 1e-9), 0.0), 1.0)
+        fy = min(max((anchor.y() - t.top()) / max(t.height(), 1e-9), 0.0), 1.0)
+        w, h = t.width() / self.zoom * z, t.height() / self.zoom * z
+        self.zoom = z
+        if z <= 1.0:
+            self.center = (0.5, 0.5)
+        else:
+            self.center = (fx - (anchor.x() - a.center().x()) / w, fy - (anchor.y() - a.center().y()) / h)
+            self._sync_center()
+        self.update()
+        self.view_changed.emit()
+
+    def wheelEvent(self, e):
+        if not self.zoomable or self.qimg is None:
+            return super().wheelEvent(e)
+        steps = e.angleDelta().y() / 120.0
+        if steps:
+            self.set_zoom(self.zoom * (1.25 ** steps), e.position())
+        e.accept()
 
     def paintEvent(self, e):
         p = QPainter(self)
@@ -75,12 +140,23 @@ class _View(QWidget):
         if self.note:
             p.drawText(QRectF(10, 2, self.width() - 20, 18), Qt.AlignRight | Qt.AlignVCenter, self.note)
         t = self._target()
+        area = self._area()
+        p.save()
+        p.setClipRect(area)
         if self.qimg is not None:
             if self.faint:
                 p.fillRect(t, QColor("white"))
                 p.setOpacity(0.3)
+            # ingrandendo, i punti restano netti (niente sfumatura tra un punto e l'altro)
+            p.setRenderHint(QPainter.SmoothPixmapTransform, t.width() / max(self.qimg.width(), 1) < 1.5)
             p.drawImage(t, self.qimg)
             p.setOpacity(1.0)
+            if self.detail is not None:
+                dimg, (x0, y0, x1, y1) = self.detail
+                r = QRectF(t.left() + x0 * t.width(), t.top() + y0 * t.height(), (x1 - x0) * t.width(), (y1 - y0) * t.height())
+                p.setRenderHint(QPainter.SmoothPixmapTransform, r.width() / max(dimg.width(), 1) < 1.5)
+                p.drawImage(r, dimg)
+            p.setRenderHint(QPainter.SmoothPixmapTransform, True)
         if self.paths and self.mm:
             w, h = self.mm
             k = min(t.width() / w, t.height() / h)
@@ -99,6 +175,17 @@ class _View(QWidget):
                     p.setBrush(Qt.NoBrush)
                 p.drawPath(path)
             p.restore()
+        p.restore()
+        if self.zoomable and self.zoom > 1.001:
+            txt = f"× {self.zoom:.1f}"
+            p.setFont(style.ui_font(8.5))
+            fm = p.fontMetrics()
+            r = QRectF(area.right() - fm.horizontalAdvance(txt) - 14, area.bottom() - 22, fm.horizontalAdvance(txt) + 10, 18)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, 150))
+            p.drawRoundedRect(r, 4, 4)
+            p.setPen(QColor("white"))
+            p.drawText(r, Qt.AlignCenter, txt)
         if self.croppable and self.crop is not None:
             x0, y0, x1, y1 = self.crop
             r = QRectF(t.left() + x0 * t.width(), t.top() + y0 * t.height(), (x1 - x0) * t.width(), (y1 - y0) * t.height())
@@ -121,16 +208,33 @@ class _View(QWidget):
                 min(max((pos.y() - t.top()) / max(t.height(), 1), 0.0), 1.0))
 
     def mousePressEvent(self, e):
+        pan_btn = e.button() in (Qt.MiddleButton, Qt.RightButton) or (e.button() == Qt.LeftButton and not self.croppable)
+        if self.zoomable and pan_btn and self.zoom > 1.001:
+            self._pan = (e.position(), self.center)
+            self.setCursor(Qt.ClosedHandCursor)
+            return
         if self.croppable and e.button() == Qt.LeftButton:
             self._drag = self._frac(e.position())
 
     def mouseMoveEvent(self, e):
+        if self._pan is not None:
+            (p0, (cx, cy)), t = self._pan, self._target()
+            d = e.position() - p0
+            self.center = (cx - d.x() / max(t.width(), 1e-9), cy - d.y() / max(t.height(), 1e-9))
+            self._sync_center()
+            self.update()
+            return
         if self._drag is not None:
             a, b = self._drag, self._frac(e.position())
             self.crop = (min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1]))
             self.update()
 
     def mouseReleaseEvent(self, e):
+        if self._pan is not None:
+            self._pan = None
+            self.setCursor(Qt.CrossCursor if self.croppable else Qt.OpenHandCursor)
+            self.view_changed.emit()
+            return
         if self._drag is not None:
             self._drag = None
             x0, y0, x1, y1 = self.crop or (0, 0, 1, 1)
@@ -140,6 +244,9 @@ class _View(QWidget):
             self.update()
 
     def mouseDoubleClickEvent(self, e):
+        if self.zoomable and not self.croppable:  # doppio clic: ingrandisce lì, oppure torna a tutta la foto
+            self.set_zoom(1.0 if self.zoom > 1.001 else 4.0, e.position())
+            return
         if self.croppable:
             self.crop = (0.0, 0.0, 1.0, 1.0)
             self.crop_changed.emit(self.crop)
@@ -366,10 +473,28 @@ class PhotoDialog(QDialog):
         right = QVBoxLayout()
         views = QHBoxLayout()
         self.v_orig = _View(tr("Originale · trascina per ritagliare, doppio clic per togliere"), croppable=True)
-        self.v_res = _View(tr("Come verrà incisa"))
+        self.v_res = _View(tr("Come verrà incisa · rotella per lo zoom"), zoomable=True)
         views.addWidget(self.v_orig, 1)
         views.addWidget(self.v_res, 1)
         right.addLayout(views, 1)
+        zr = QHBoxLayout()
+        zr.addStretch(1)
+        zl = QLabel(tr("Zoom"))
+        zl.setObjectName("muted")
+        zr.addWidget(zl)
+        self.z_out, self.z_in, self.z_fit = QToolButton(), QToolButton(), QToolButton()
+        self.z_out.setText("−")
+        self.z_in.setText("+")
+        self.z_fit.setText(tr("Tutta la foto"))
+        self.z_out.setToolTip(tr("Riduci"))
+        self.z_in.setToolTip(tr("Ingrandisci: da vicino si vedono i punti veri del metodo scelto"))
+        self.z_fit.setToolTip(tr("Torna a vedere tutta la foto (anche doppio clic sull'anteprima)"))
+        self.z_out.clicked.connect(lambda: self.v_res.set_zoom(self.v_res.zoom / 1.5))
+        self.z_in.clicked.connect(lambda: self.v_res.set_zoom(self.v_res.zoom * 1.5))
+        self.z_fit.clicked.connect(lambda: self.v_res.set_zoom(1.0))
+        for b in (self.z_out, self.z_in, self.z_fit):
+            zr.addWidget(b)
+        right.addLayout(zr)
         self.info = QLabel("")
         self.info.setObjectName("muted")
         self.info.setWordWrap(True)
@@ -383,6 +508,14 @@ class PhotoDialog(QDialog):
         self._timer.setSingleShot(True)
         self._timer.setInterval(180)
         self._timer.timeout.connect(self._refresh)
+        # zoom: dopo una breve pausa ricalcolo la zona visibile con i punti veri
+        self._res_ctx = None
+        self._full_cache = (None, None)
+        self._dtimer = QTimer(self)
+        self._dtimer.setSingleShot(True)
+        self._dtimer.setInterval(220)
+        self._dtimer.timeout.connect(self._refresh_detail)
+        self.v_res.view_changed.connect(self._dtimer.start)
         for w in (self.bri, self.con, self.gam, self.local, self.sharp, self.noise, self.bg_tol, self.fade,
                   self.v_detail, self.v_smooth, self.v_speck):
             w.valueChanged.connect(self._later)
@@ -441,7 +574,7 @@ class PhotoDialog(QDialog):
     def _tab(self, *_):
         vec = self.tabs.currentIndex() == 1
         self.ok_btn.setText(tr("Crea linee e riempimenti") if vec else tr("Applica alla foto"))
-        self.v_res.title = tr("Linee e riempimenti") if vec else tr("Come verrà incisa")
+        self.v_res.title = tr("Linee e riempimenti · rotella per lo zoom") if vec else tr("Come verrà incisa · rotella per lo zoom")
         self._later()
 
     def settings(self):
@@ -498,15 +631,18 @@ class PhotoDialog(QDialog):
         x0, y0, x1, y1 = st.crop
         self.crop_lab.setText(tr("nessuno") if st.crop == (0.0, 0.0, 1.0, 1.0) else
                               tr("{0:.0f}% × {1:.0f}%", (x1 - x0) * 100, (y1 - y0) * 100))
+        self.v_res.detail = None
+        self._res_ctx = None
         if self.tabs.currentIndex() == 1:
             self._refresh_vectors(proc, w_mm, h_mm, a)
             return
         self.v_res.paths = []
         self.v_res.faint = False
         lv = self.layer_values()
+        k = 1.0
         try:
             if self.real.isChecked():
-                full = photo.process(self.original, st)  # punti veri: serve la foto vera
+                full = self._full_proc(st)  # punti veri: serve la foto vera
                 dots_img, k = photo.engrave_preview(full, w_mm, h_mm, dpi, lv["dither"], negative=lv["negative"],
                                                     region=(0.4, 0.4, 0.6, 0.6), halftone_cell=self.cs.halftone_cell,
                                                     halftone_angle=self.cs.halftone_angle, **a)
@@ -519,12 +655,57 @@ class PhotoDialog(QDialog):
         except Exception as ex:  # noqa: BLE001
             self.info.setText(tr("Errore: {0}", ex))
             return
-        bg, ink = MATERIAL_TINT[lv["negative"]]
-        bg, ink = np.float32(bg), np.float32(ink)
-        rgb = bg + (ink - bg) * dots_img[..., None]
-        self.v_res.qimg = _qimage_rgb(rgb)
+        self.v_res.qimg = self._tint(dots_img, lv["negative"])
+        self._res_ctx = dict(st=st, w_mm=w_mm, h_mm=h_mm, dpi=dpi, lv=lv, a=a, k=k, real=self.real.isChecked(),
+                             note=self.v_res.note)
         self.v_res.update()
+        if self.v_res.zoom > 1.001:
+            self._dtimer.start()
         self.info.setText(tr("{0} · {1:.1f} × {2:.1f} mm · {3:.0f} dpi", DITHER_LABELS[lv["dither"]], w_mm, h_mm, dpi))
+
+    @staticmethod
+    def _tint(dots_img, negative):
+        bg, ink = MATERIAL_TINT[negative]
+        bg, ink = np.float32(bg), np.float32(ink)
+        return _qimage_rgb(bg + (ink - bg) * dots_img[..., None])
+
+    def _full_proc(self, st):
+        """La foto vera elaborata (serve per i punti veri); tenuta finché le regolazioni non cambiano."""
+        key = repr(sorted(st.to_dict().items()))
+        if self._full_cache[0] != key:
+            self._full_cache = (key, photo.process(self.original, st))
+        return self._full_cache[1]
+
+    DETAIL_MAX_DOTS = 2_500_000
+
+    def _refresh_detail(self):
+        """Zoom sull'anteprima ridotta: la zona visibile si ricalcola alla risoluzione vera del livello."""
+        v, ctx = self.v_res, self._res_ctx
+        if ctx is None or v.zoom <= 1.001 or ctx["real"] or ctx["k"] >= 0.999 or self.tabs.currentIndex() != 0:
+            v.detail = None
+            if ctx is not None:
+                v.note = ctx["note"]
+            v.update()
+            return
+        x0, y0, x1, y1 = v.visible_region()
+        mx, my = (x1 - x0) * 0.1, (y1 - y0) * 0.1  # un po' di margine: spostandosi di poco è già pronto
+        reg = (max(0.0, x0 - mx), max(0.0, y0 - my), min(1.0, x1 + mx), min(1.0, y1 + my))
+        n = photo.dots_count(ctx["w_mm"], ctx["h_mm"], ctx["dpi"]) * (reg[2] - reg[0]) * (reg[3] - reg[1])
+        if n > self.DETAIL_MAX_DOTS:  # ancora troppo lontano: resta l'anteprima ridotta
+            v.detail = None
+            v.note = tr("ridotta · ingrandisci ancora per i punti veri")
+            v.update()
+            return
+        lv, a = ctx["lv"], ctx["a"]
+        try:
+            dots, _k = photo.engrave_preview(self._full_proc(ctx["st"]), ctx["w_mm"], ctx["h_mm"], ctx["dpi"], lv["dither"],
+                                             negative=lv["negative"], region=reg, halftone_cell=self.cs.halftone_cell,
+                                             halftone_angle=self.cs.halftone_angle, **a)
+        except Exception:  # noqa: BLE001 — resta l'anteprima ridotta
+            return
+        v.detail = (self._tint(dots, lv["negative"]), reg)
+        v.note = tr("punti veri")
+        v.update()
 
     def _refresh_vectors(self, proc, w_mm, h_mm, a):
         p = self.vector_params()

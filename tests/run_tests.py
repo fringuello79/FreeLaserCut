@@ -225,6 +225,7 @@ if __name__ == "__main__":
     run_suite("test_v091.py", "Flusso completo sul simulatore: pannello Laser stabile, fine lavoro a testa ferma, piano pulito")
     run_suite("test_v10.py", "Foto veloci, Prepara foto, foto in linee e riempimento, prova foto")
     run_suite("test_v101.py", "Avvio robusto: errori visibili, istanza unica, scelta interfaccia, installatore")
+    run_suite("test_v102.py", "Anteprima che non copre la foto, zoom a punti veri in Prepara foto")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

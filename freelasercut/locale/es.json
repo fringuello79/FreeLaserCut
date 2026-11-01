@@ -1365,5 +1365,13 @@
  "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Recorte, ajustes, fondo, forma y método de grabado con la vista previa de los puntos reales; o la foto pasa a líneas y rellenos  Ctrl+Alt+F",
  "FreeLaserCut è già aperto: porto in primo piano la sua finestra.": "FreeLaserCut ya está abierto: pongo su ventana en primer plano.",
  "Doppio clic su una scheda per iniziare subito.": "Doble clic en una tarjeta para empezar enseguida.",
- "Inizia con {0}  ▶": "Empezar con {0}  ▶"
+ "Inizia con {0}  ▶": "Empezar con {0}  ▶",
+ "Come verrà incisa · rotella per lo zoom": "Cómo se grabará · rueda para el zoom",
+ "Linee e riempimenti · rotella per lo zoom": "Líneas y rellenos · rueda para el zoom",
+ "Zoom": "Zoom",
+ "Tutta la foto": "Foto completa",
+ "Ingrandisci: da vicino si vedono i punti veri del metodo scelto": "Acercar: de cerca se ven los puntos reales del método elegido",
+ "Torna a vedere tutta la foto (anche doppio clic sull'anteprima)": "Volver a ver la foto completa (también con doble clic en la vista previa)",
+ "ridotta · ingrandisci ancora per i punti veri": "reducida · acerca más para ver los puntos reales",
+ "punti veri": "puntos reales"
 }

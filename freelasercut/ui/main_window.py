@@ -1789,6 +1789,10 @@ class MainWindow(QMainWindow):
         ox, oy = job.out_to_bed
         pv = gcode_preview.shifted(pv, ox, oy)  # anteprima in coordinate piano; l'originale resta per il piano
         PreviewDialog(pv, job, self.profile, (self.profile.bed_x, self.profile.bed_y), self).exec()
+        # chiusa l'anteprima, il percorso arancione non resta sopra il disegno (con una foto la copriva tutta);
+        # riappare quando si avvia il lavoro
+        if not (self.ctl.job_active or self.ctl.checking):
+            self.canvas.clear_preview()
 
     def save_gcode(self, job=None, name=None):
         job = job if isinstance(job, gcode.GcodeJob) else self.build_job()

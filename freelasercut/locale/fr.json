@@ -724,7 +724,7 @@
  "Riconosci la macchina": "Reconnaître la machine",
  "Riconosci la macchina…": "Reconnaître la machine…",
  "Ridimensiona": "Redimensionner",
- "Riduci": "Zoom arrière",
+ "Riduci": "Dézoomer",
  "Riempie i campi con le impostazioni del livello corrente": "Remplit les champs avec les réglages du calque actuel",
  "Riempimento": "Remplissage",
  "Riempimento (incisione)": "Remplissage (gravure)",
@@ -1365,5 +1365,13 @@
  "Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; oppure la foto diventa linee e riempimenti  Ctrl+Alt+F": "Recadrage, réglages, fond, forme et méthode de gravure avec l'aperçu des vrais points ; ou la photo devient lignes et remplissages  Ctrl+Alt+F",
  "FreeLaserCut è già aperto: porto in primo piano la sua finestra.": "FreeLaserCut est déjà ouvert : sa fenêtre passe au premier plan.",
  "Doppio clic su una scheda per iniziare subito.": "Double-cliquez sur une carte pour commencer tout de suite.",
- "Inizia con {0}  ▶": "Commencer avec {0}  ▶"
+ "Inizia con {0}  ▶": "Commencer avec {0}  ▶",
+ "Come verrà incisa · rotella per lo zoom": "Rendu de la gravure · molette pour zoomer",
+ "Linee e riempimenti · rotella per lo zoom": "Lignes et remplissages · molette pour zoomer",
+ "Zoom": "Zoom",
+ "Tutta la foto": "Photo entière",
+ "Ingrandisci: da vicino si vedono i punti veri del metodo scelto": "Zoomer : de près, on voit les vrais points de la méthode choisie",
+ "Torna a vedere tutta la foto (anche doppio clic sull'anteprima)": "Revenir à la photo entière (ou double-clic sur l'aperçu)",
+ "ridotta · ingrandisci ancora per i punti veri": "réduite · zoomez encore pour les vrais points",
+ "punti veri": "vrais points"
 }
