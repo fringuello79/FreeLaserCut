@@ -1280,5 +1280,6 @@
  "Modifica codice…": "Edit code…",
  "Posizione sulla curva…": "Position on the curve…",
  "Variabili: {n} numero progressivo, {data}, colonne del CSV": "Variables: {n} serial number, {data} date, CSV columns",
- "Prima di incidere: metti a fuoco sul punto più alto dell'oggetto, in «Partenza» scegli la posizione attuale della testa e fai il contorno. Spegni il rotativo quando torni al piano normale.": "Before engraving: focus on the highest point of the object, set “Start from” to the current head position and run the frame. Turn the rotary off when you go back to the flat bed."
+ "Prima di incidere: metti a fuoco sul punto più alto dell'oggetto, in «Partenza» scegli la posizione attuale della testa e fai il contorno. Spegni il rotativo quando torni al piano normale.": "Before engraving: focus on the highest point of the object, set “Start from” to the current head position and run the frame. Turn the rotary off when you go back to the flat bed.",
+ "Lavoro interrotto da un allarme della macchina": "Job stopped by a machine alarm"
 }

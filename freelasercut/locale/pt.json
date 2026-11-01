@@ -1280,5 +1280,6 @@
  "Modifica codice…": "Editar código…",
  "Posizione sulla curva…": "Posição na curva…",
  "Variabili: {n} numero progressivo, {data}, colonne del CSV": "Variáveis: {n} número sequencial, {data} data, colunas do CSV",
- "Prima di incidere: metti a fuoco sul punto più alto dell'oggetto, in «Partenza» scegli la posizione attuale della testa e fai il contorno. Spegni il rotativo quando torni al piano normale.": "Antes de gravar: foque no ponto mais alto do objeto, em «Partida» escolha a posição atual da cabeça e faça o contorno. Desligue o rotativo ao voltar à área plana."
+ "Prima di incidere: metti a fuoco sul punto più alto dell'oggetto, in «Partenza» scegli la posizione attuale della testa e fai il contorno. Spegni il rotativo quando torni al piano normale.": "Antes de gravar: foque no ponto mais alto do objeto, em «Partida» escolha a posição atual da cabeça e faça o contorno. Desligue o rotativo ao voltar à área plana.",
+ "Lavoro interrotto da un allarme della macchina": "Trabalho interrompido por um alarme da máquina"
 }

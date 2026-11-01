@@ -772,6 +772,7 @@ class MainWindow(QMainWindow):
         self.job = None  # il lavoro va rigenerato
         if not (self.ctl.job_active or self.ctl.checking):
             self.canvas.clear_preview()
+            self.canvas.clear_trail()  # la traccia del lavoro finito non corrisponde più al disegno
 
     def _tool_changed(self, name):
         if not self.editor.selection:

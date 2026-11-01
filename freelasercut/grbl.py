@@ -130,6 +130,7 @@ class GrblController(QObject):
         self._job_total = 0
         self._job_done = 0
         self._job_active = False
+        self._job_idle = 0  # report "Idle" di fila dopo l'ultima riga confermata
         self.job_lines = []  # righe del lavoro in corso (per la ripresa)
         self.job_acked = 0  # righe confermate dalla scheda
         self.pause_on_error = True
@@ -309,6 +310,7 @@ class GrblController(QObject):
             return
         self._job_total = len(clean)
         self._job_done = 0
+        self._job_idle = 0
         self._job_active = True
         self.job_lines = clean
         self.job_acked = 0
@@ -458,6 +460,13 @@ class GrblController(QObject):
                 self.negative_space = mx < -1.0 or my < -1.0
                 self.homed = True
                 self.homed_changed.emit(True, self.negative_space)
+            if self._job_active and self._job_done >= self._job_total:
+                # tutte le righe sono nella scheda, ma gli ultimi movimenti sono ancora nel suo buffer:
+                # il lavoro è finito solo quando la macchina è ferma (due report Idle di fila)
+                self._job_idle = self._job_idle + 1 if st["state"] == "Idle" else 0
+                if self._job_idle >= 2:
+                    self._job_active = False
+                    self.job_finished.emit(True, f"Lavoro completato: {self._job_total} righe")
             self.status_changed.emit(st)
             return
 
@@ -491,6 +500,10 @@ class GrblController(QObject):
             if code in (1, 2, 3, 6, 7, 8, 9, 10) and self.homed:
                 self.homed = False  # posizione non più garantita
                 self.homed_changed.emit(False, self.negative_space)
+            if self._job_active and self._job_done >= self._job_total:
+                # allarme mentre la scheda finiva gli ultimi movimenti: il lavoro non è completo
+                self._job_active = False
+                self.job_finished.emit(False, tr("Lavoro interrotto da un allarme della macchina"))
             self.alarm_raised.emit(code, ALARMS.get(code, "Allarme sconosciuto"))
             return
         if line.lower().startswith("grbl"):
@@ -545,8 +558,7 @@ class GrblController(QObject):
             self._job_done += 1
             self.job_progress.emit(self._job_done, self._job_total)
             if self._job_done >= self._job_total:
-                self._job_active = False
-                self.job_finished.emit(True, f"Lavoro completato: {self._job_total} righe")
+                self._job_idle = 0  # la fine arriva dal report di stato, quando la testa si è fermata
 
 
 def _clean_lines(lines):
