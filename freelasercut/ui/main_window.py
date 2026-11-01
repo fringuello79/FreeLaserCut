@@ -5,7 +5,7 @@ import sys
 import time
 
 from PySide6.QtCore import QPointF, QRectF, QSettings, QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QIcon, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QIcon, QKeySequence, QTransform
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
     QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QStatusBar, QToolBar, QToolButton, QVBoxLayout, QWidget,
@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
             from .banco import Banco
 
             self.banco = Banco(self)
+        self.update_rotary_state()
 
     # ================================================================ azioni
     def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
@@ -199,6 +200,8 @@ class MainWindow(QMainWindow):
             "along_path": A(tr("Copia lungo un tracciato…"), self.along_path_dialog),
             "nest": A(tr("Ottimizza lo spazio (nesting)…"), self.nest_dialog, "Alt+N", "nest",
                       tr("Sistema i pezzi sul materiale sprecandone il meno possibile")),
+            "common_lines": A(tr("Unisci le linee di taglio comuni"), self.common_lines_cmd, None, "common_lines",
+                              tr("I lati che due pezzi hanno in comune si tagliano una volta sola")),
             "front": A(tr("Porta in primo piano"), lambda: e.order("front"), "Ctrl+Shift+Up", "front"),
             "back": A(tr("Porta in fondo"), lambda: e.order("back"), "Ctrl+Shift+Down", "back"),
             "zoom_in": A(tr("Ingrandisci"), lambda: c.zoom_by(1.25), ["Ctrl++", "Ctrl+="], "zoom_in"),
@@ -224,11 +227,17 @@ class MainWindow(QMainWindow):
             "preview": A(tr("Anteprima…"), self.preview_job, "Alt+P", "preview"),
             "exact_shape": A(tr("Crea forma con misure esatte…"), self.exact_shape_dialog, "Ctrl+Alt+N", "ruler_add",
                              tr("Rettangolo, cerchio, poligono o forma della galleria con larghezza, altezza e posizione precise")),
+            "code": A(tr("Codice QR o a barre…"), self.code_dialog, "Ctrl+Alt+Q", "qr",
+                      tr("QR, Code 128, EAN-13, EAN-8, UPC-A, Code 39, anche con numeri di serie")),
+            "text_path": A(tr("Testo su tracciato…"), self.text_path_dialog, "Ctrl+Alt+T", "text_path",
+                           tr("Seleziona un testo e una linea o forma: il testo ne segue la curva")),
             "variables": A(tr("Testo variabile…"), self.variables_dialog, None, "variable",
                            tr("Numeri di serie, data e campi da CSV nei testi")),
             "materials": A(tr("Libreria materiali…"), self.material_library, "Ctrl+M", "library"),
             "material_test": A(tr("Test materiale…"), self.material_test, None, "grid",
                                tr("Griglia potenza × velocità per trovare i valori giusti di un materiale")),
+            "rotary": A(tr("Rotativo (bicchieri, cilindri)…"), self.rotary_dialog, None, "rotary",
+                        tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
                           tr("Porte USB, chip e driver, lettura della scheda e profilo adattato in automatico")),
             "help_mode": A(tr("Che cos'è?"), None, None, "help",
@@ -348,18 +357,20 @@ class MainWindow(QMainWindow):
                           (tr("Distribuisci"), ["dist_h", "dist_v", "dist_hc", "dist_vc"]),
                           (tr("Stessa misura"), ["same_w", "same_h"]),
                           (tr("Sposta sul piano"), [anchors_move]), (tr("Porta la testa sulla selezione"), [anchors_head]), "-",
-                          "grid_array", "circ_array", "along_path", "-", "nest", "-", "front", "back"])
+                          "grid_array", "circ_array", "along_path", "-", "nest", "common_lines", "-", "front", "back"])
         m = mb.addMenu(tr("&Strumenti"))
         for name in ("select", "nodes", "line", "rect", "ellipse", "polygon", "star", "special", "text", "measure",
                      "position"):
             m.addAction(self.tool_actions[name])
         m.addSeparator()
         m.addAction(a["exact_shape"])
+        m.addAction(a["code"])
+        m.addAction(a["text_path"])
         m.addSeparator()
         m.addAction(a["variables"])
         m.addAction(a["trace"])
         menu(tr("&Laser"), ["connect", "identify", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-                        "materials", "material_test", "-", "save_gcode", "run_file"])
+                        "materials", "material_test", "-", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
         self.m_view.addSeparator()
@@ -427,7 +438,7 @@ class MainWindow(QMainWindow):
                   "-", "group", "ungroup", "weld", "union", "difference", "intersection", "-", "flip_h", "flip_v",
                   "rot_ccw", "rot_cw", "-", "align_left", "align_hcenter", "align_right", "align_top", "align_vcenter",
                   "align_bottom", "dist_h", "dist_v", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
-                  "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "materials", "material_test"):
+                  "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "code", "materials", "material_test"):
             if k == "-":
                 tb.addSeparator()
             else:
@@ -665,6 +676,14 @@ class MainWindow(QMainWindow):
         self.sb_machine.setToolTip(tr("Clic: connetti / disconnetti il laser"))
         self.sb_machine.clicked.connect(lambda: self.toggle_connection())
         sb.addWidget(self.sb_machine)
+        self.sb_rotary = QPushButton(tr("⟳ Rotativo attivo"))
+        self.sb_rotary.setFlat(True)
+        self.sb_rotary.setCursor(Qt.PointingHandCursor)
+        self.sb_rotary.setStyleSheet("color:#FFB347; font-weight:700;")
+        self.sb_rotary.setToolTip(tr("L'asse Y comanda il rotativo. Clic per le impostazioni"))
+        self.sb_rotary.clicked.connect(self.rotary_dialog)
+        sb.addWidget(self.sb_rotary)
+        self.sb_rotary.setVisible(self.rotary_settings() is not None)
         snaps = QWidget()
         sl = QHBoxLayout(snaps)
         sl.setContentsMargins(0, 0, 8, 0)
@@ -1001,6 +1020,41 @@ class MainWindow(QMainWindow):
             count, center, start, end, rot, group = dlg.values()
             self.editor.circular_array(count, center, start, end, rot, group)
 
+    def common_lines_cmd(self, *_):
+        """Le linee di taglio sovrapposte fra pezzi a contatto (es. serie a griglia con distanza 0) diventano una."""
+        from ..core import geom, nesting
+        from ..core.document import ImageShape, PathShape, TextShape
+
+        doc = self.editor.doc
+        line_layers = {cs.index for cs in doc.used_layers() if cs.mode == "line"}
+        sel = [s for s in self.editor.editable() if not isinstance(s, (TextShape, ImageShape)) and s.layer in line_layers]
+        if len(sel) < 2:
+            QMessageBox.information(self, tr("Linee di taglio comuni"), tr("Seleziona almeno due forme a contatto su un "
+                                    "livello in modalità Linea (per esempio una serie a griglia con distanza 0)."))
+            return 0.0
+        total = {"saved": 0.0}
+        new_shapes = []
+
+        def do():
+            for layer in sorted({s.layer for s in sel}):
+                cut = [s for s in sel if s.layer == layer]
+                merged, saved = nesting.merge_common_lines([p for s in cut for p in geom.flatten(s.path(), 0.01)])
+                if saved <= 0.01:
+                    continue
+                total["saved"] += saved
+                doc.remove(cut)
+                ps = PathShape(geom.polys_to_path(merged), layer=layer)
+                doc.add(ps)
+                new_shapes.append(ps)
+            self.editor.selection = list(new_shapes)
+        self.editor.run(tr("Unisci le linee di taglio comuni"), do)
+        self.editor.selection_changed.emit()
+        if total["saved"] > 0.01:
+            self.statusBar().showMessage(tr("Linee comuni unite: {0:.0f} mm di taglio in meno", total["saved"]), 8000)
+        else:
+            self.statusBar().showMessage(tr("Nessun lato in comune fra le forme selezionate"), 6000)
+        return total["saved"]
+
     def nest_dialog(self):
         from .dialogs_nest import NestDialog
 
@@ -1047,6 +1101,53 @@ class MainWindow(QMainWindow):
         if dlg.exec() == QDialog.Accepted:
             s = dlg.shape()
             self.editor.add([s], f"Crea {s.describe().lower()}")
+
+    def _fill_layer(self):
+        """Livello adatto ai codici (riempimento): quello attuale se va bene, altrimenti uno già in riempimento,
+        altrimenti il primo colore libero (che verrà messo in riempimento). -> (indice, da_impostare)"""
+        doc, cur = self.editor.doc, self.editor.current_layer
+        if cur != 30 and doc.layer(cur).mode in ("fill", "offset_fill"):
+            return cur, False
+        for cs in doc.used_layers():
+            if cs.index != 30 and cs.mode == "fill" and cs.output:
+                return cs.index, False
+        used = {cs.index for cs in doc.used_layers()}
+        for i in range(1, 30):
+            if i not in used:
+                return i, True
+        return cur, False
+
+    def code_dialog(self, *_):
+        from ..core.document import CodeShape
+        from .dialogs_code import CodeDialog
+
+        sel = self.editor.selection
+        shape = sel[0] if len(sel) == 1 and isinstance(sel[0], CodeShape) else None
+        dlg = CodeDialog(self, shape)
+        if dlg.exec() != QDialog.Accepted:
+            return None
+        v = dlg.values()
+        if shape is not None:
+            c = shape.bounds().center()
+            self.editor.modify(shape, tr("Modifica codice"), **v)
+            return shape
+        idx, set_fill = self._fill_layer()
+        if set_fill:
+            self.editor.run(tr("Livello in riempimento"), lambda: setattr(self.editor.doc.layer(idx), "mode", "fill"))
+        s = CodeShape(layer=idx, **v)
+        b = s.bounds()
+        vp = self.canvas.viewport().rect().center()
+        c = self.canvas.to_bed(QPointF(vp))
+        if not (0 <= c.x() <= self.profile.bed_x and 0 <= c.y() <= self.profile.bed_y):
+            c = QPointF(self.profile.bed_x / 2, self.profile.bed_y / 2)
+        s.apply(QTransform.fromTranslate(c.x() - b.center().x(), c.y() - b.center().y()))
+        self.editor.add([s], tr("Crea codice"))
+        return s
+
+    def text_path_dialog(self, *_):
+        from .dialogs_textpath import run_text_path
+
+        return run_text_path(self)
 
     def close_paths_dialog(self):
         tol, ok = QInputDialog.getDouble(self, tr("Chiudi tracciati"), tr("Chiudi se gli estremi distano al massimo (mm):"), 0.5, 0.01, 50, 2)
@@ -1267,8 +1368,32 @@ class MainWindow(QMainWindow):
                                 finish="origin" if lp.finish_origin.isChecked() else "stay",
                                 optimize=lp.optimize.isChecked(), inner_first=lp.optimize.isChecked(),
                                 only_ids={s.id for s in self.editor.selection} if lp.only_sel.isChecked() else None,
-                                name=self.editor.doc.name)
+                                name=self.editor.doc.name, rotary=self.rotary_settings())
         return opts
+
+    def rotary_settings(self):
+        """Impostazioni del rotativo (None se spento): restano nelle preferenze, non nel progetto."""
+        qs = self.qs
+        if qs.value("rotary_on", "false") not in (True, "true"):
+            return None
+        return {"kind": qs.value("rotary_kind", "roller"), "mm_per_rev": float(qs.value("rotary_mm_rev", 100.0)),
+                "roller_d": float(qs.value("rotary_roller_d", 25.0)), "object_d": float(qs.value("rotary_object_d", 70.0))}
+
+    def rotary_dialog(self, *_):
+        from .dialogs_rotary import RotaryDialog
+
+        RotaryDialog(self).exec()
+        self.update_rotary_state()
+
+    def update_rotary_state(self):
+        r = self.rotary_settings()
+        if hasattr(self, "sb_rotary"):
+            self.sb_rotary.setVisible(r is not None)
+        a = self.acts.get("rotary")
+        if a is not None:
+            a.setChecked(r is not None)
+        if getattr(self, "banco", None) is not None:
+            self.banco.flow.refresh()
 
     def build_job(self, show=True):
         """Genera il G-code; se show mostra l'anteprima sul piano e il riepilogo."""
@@ -1280,7 +1405,13 @@ class MainWindow(QMainWindow):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             job = gcode.generate(self.editor.doc, self.profile, opts)
-            pv = gcode_preview.parse(job.lines, profile=self.profile)
+            if opts.rotary:  # anteprima: il disegno com'è sul piano, non l'asse Y scalato del rotativo
+                from dataclasses import replace as _dc_replace
+
+                flat = gcode.generate(self.editor.doc, self.profile, _dc_replace(opts, rotary=None))
+                pv = gcode_preview.parse(flat.lines, profile=self.profile)
+            else:
+                pv = gcode_preview.parse(job.lines, profile=self.profile)
         finally:
             QApplication.restoreOverrideCursor()
         self.job, self.job_preview = job, pv
@@ -1449,6 +1580,9 @@ class MainWindow(QMainWindow):
         bed_pts = [(min(max(x, 0.0), self.profile.bed_x), min(max(y, 0.0), self.profile.bed_y)) for x, y in bed_pts]
         bed_pts = bed_pts + bed_pts[1:] * (self.laser.frame_repeats() - 1)
         mpts = [self.profile.to_machine(x, y) for x, y in bed_pts]
+        if getattr(job, "rotary_k", 1.0) != 1.0:  # rotativo: il contorno gira l'oggetto come farà il lavoro
+            _, ry = self.profile.to_machine(*job.rotary_ref)
+            mpts = [(mx, ry + (my - ry) * job.rotary_k) for mx, my in mpts]
         laser = self.laser.fire_pct.value() if kind.endswith("_laser") else 0.0
         self.ctl.frame_path(mpts, max(self.move.feed.value(), 3000), laser, self.profile.s_max)
         self.statusBar().showMessage(tr("Contorno con il puntino al %g%%: Stop per interrompere") % laser if laser

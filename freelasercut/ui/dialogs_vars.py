@@ -135,7 +135,7 @@ class VariablesDialog(QDialog):
             return
         shown = []
         for t in self.texts[:6]:
-            shown.append("«" + variables.expand(t.text, t.var_offset, st).replace("\n", " ⏎ ") + "»")
+            shown.append("«" + variables.expand(getattr(t, "text", None) or getattr(t, "data", ""), t.var_offset, st).replace("\n", " ⏎ ") + "»")
         more = f" … e altri {len(self.texts) - 6}" if len(self.texts) > 6 else ""
         self.preview.setText(tr("Anteprima: ") + "  ".join(shown) + more)
 

@@ -6,10 +6,18 @@ SetCompressor /SOLID bzip2
 
 !define APP "FreeLaserCut"
 !ifndef VER
-  !define VER "0.8.0"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
+  !define VER "0.9.0"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
 !endif
 !define PUB "fringuello79"
 !define UNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
+
+;--- Firma digitale (facoltativa). Esempio con un certificato nel computer (Certum, SignPath, ecc.):
+;    makensis -DVER=x.y.z "-DSIGN=signtool sign /fd sha256 /tr http://time.certum.pl /td sha256 /a" build\installer.nsi
+;    NSIS firma sia l'installatore sia il disinstallatore. Senza -DSIGN l'installatore esce non firmato.
+!ifdef SIGN
+  !finalize '${SIGN} "%1"' = 0
+  !uninstfinalize '${SIGN} "%1"' = 0
+!endif
 
 Name "${APP} ${VER}"
 OutFile "FreeLaserCut-${VER}-Setup.exe"

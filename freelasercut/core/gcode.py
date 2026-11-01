@@ -40,6 +40,7 @@ class JobOptions:
     gray_levels: int = 64
     set_g55: bool = True  # azzera G55 (sistema "assoluto" di FreeLaserCut) se non già fatto
     name: str = ""
+    rotary: object = None  # dict: kind (roller | chuck), mm_per_rev, roller_d, object_d — None = piano normale
 
 
 @dataclass
@@ -62,6 +63,20 @@ class GcodeJob:
     layers: list = field(default_factory=list)
     seconds: float = 0.0
     gen_ms: float = 0.0
+    rotary_k: float = 1.0  # rotativo: Y macchina = riferimento + (Y piano - riferimento) × k
+    rotary_ref: tuple = (0.0, 0.0)  # punto di riferimento sul piano (ancoraggio del disegno)
+
+
+def rotary_scale(r):
+    """Fattore dell'asse Y per il rotativo. A rulli conta il diametro del rullo (l'oggetto ruota alla stessa
+    velocità di superficie); a mandrino conta il diametro dell'oggetto."""
+    if not r:
+        return 1.0
+    d = float(r.get("roller_d", 0) if r.get("kind", "roller") == "roller" else r.get("object_d", 0))
+    mm = float(r.get("mm_per_rev", 0))
+    if d <= 0 or mm <= 0:
+        return 1.0
+    return mm / (math.pi * d)
 
 
 def _fmt(v):
@@ -82,6 +97,7 @@ class _Writer:
         self.f = None
         self.s = None
         self.mode = None
+        self.rot_k = 1.0  # rotativo: la F si corregge perché la velocità sulla superficie resti quella scelta
         self.cut = 0.0
         self.burn = [math.inf, math.inf, -math.inf, -math.inf]
         self.motion = [math.inf, math.inf, -math.inf, -math.inf]
@@ -125,6 +141,10 @@ class _Writer:
         if s != self.s:
             parts.append("S" + _fmt(s))
             self.s = s
+        if self.rot_k != 1.0 and self.pb is not None and self.x is not None:
+            ld = math.dist(self.pb, (bx, by))
+            if ld > 1e-9:
+                speed = round(speed * math.dist((self.x, self.y), (ox, oy)) / ld)
         if speed != self.f:
             parts.append("F" + _fmt(speed))
             self.f = speed
@@ -585,7 +605,19 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     def placed_map(bx, by):
         return out_map(bx - place[0], by - place[1])
 
+    rot_k = rotary_scale(opts.rotary)
+    if rot_k != 1.0:  # rotativo: l'asse Y gira l'oggetto, si scala attorno all'ancoraggio del disegno
+        ref = (anchor.x() + place[0], anchor.y() + place[1])
+        _, ref_oy = placed_map(*ref)
+        flat_map = placed_map
+
+        def placed_map(bx, by):
+            ox, oy = flat_map(bx, by)
+            return ox, ref_oy + (oy - ref_oy) * rot_k
+        job.rotary_k, job.rotary_ref = rot_k, ref
+        job.warnings.append(tr("Rotativo attivo: asse Y × {0:.4f} (in anteprima il disegno resta com'è sul piano)", rot_k))
     w = _Writer(placed_map, profile.s_max)
+    w.rot_k = rot_k
     title = opts.name or doc.name
     w.raw(f"; FreeLaserCut — {title}")
     w.raw(f"; macchina: {profile.name} · {profile.bed_x:g}×{profile.bed_y:g} mm · S max {profile.s_max:g}")

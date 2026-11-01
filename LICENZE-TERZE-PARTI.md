@@ -35,6 +35,8 @@ I testi completi sono nella cartella `licenze-terze-parti/` (e, nell'installazio
 | Hershey-Fonts (font a linea singola Hershey) | MIT | `Hershey-Fonts-MIT.txt` |
 | pyparsing | MIT | `pyparsing-MIT.txt` |
 | typing_extensions | PSF License 2.0 | `typing_extensions-PSF.txt` |
+| segno (codici QR) | BSD 3-Clause | `segno-BSD-3-Clause.txt` |
+| python-barcode (codici a barre) | MIT | `python-barcode-MIT.txt` |
 
 ### Qt e PySide6 (LGPL 3.0)
 

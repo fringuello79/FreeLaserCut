@@ -124,6 +124,8 @@ for i in range(10):
 ed.add(shapes, select=False); spin()
 before = [s.bounds() for s in shapes]
 from freelasercut.ui.dialogs_nest import NestDialog
+for k_ in ("nest_multi", "nest_common"):  # preferenze lasciate da altre prove
+    w.qs.setValue(k_, False)
 dlg = NestDialog(w)
 check("senza selezione: tutti i pezzi del progetto", len(dlg.parts) == 10)
 res = dlg.run(); spin(0.1)

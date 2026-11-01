@@ -335,6 +335,40 @@ class TextShape(Shape):
         return tr("Testo variabile") if self.variable else tr("Testo")
 
 
+class TextPathShape(TextShape):
+    """Testo che segue una curva qualsiasi (copia della curva al momento della creazione)."""
+
+    kind = "textpath"
+
+    def __init__(self, text=tr("Testo"), family="Arial", size=10.0, layer=1, **kw):
+        kw = dict(kw)
+        self.curve = kw.pop("curve", [])  # elementi del percorso (formato di PathShape)
+        self.start = float(kw.pop("start", 0.5))
+        self.offset = float(kw.pop("offset", 0.0))
+        self.reverse = bool(kw.pop("reverse", False))
+        kw["arc"] = 0.0
+        kw.setdefault("align", "center")
+        super().__init__(text, family, size, layer, **kw)
+
+    def curve_path(self):
+        return PathShape.path_from_elements(self.curve)
+
+    def local_path(self):
+        p = textmod.text_path(self.shown_text(), self.family, self.size, self.bold, self.italic, "left",
+                              self.letter_spacing, self.line_spacing, self.upper)
+        if self.weld and not self.single_line:
+            p = geom.polys_to_path(geom.union_all(geom.flatten(p, 0.02)))
+        return textmod.follow_path(p, self.curve_path(), self.start, self.align, self.offset, self.reverse)
+
+    def params(self):
+        d = super().params()
+        d.update({"curve": self.curve, "start": self.start, "offset": self.offset, "reverse": self.reverse})
+        return d
+
+    def describe(self):
+        return tr("Testo su tracciato")
+
+
 class ImageShape(Shape):
     """Immagine raster. Pixel conservati nel documento (doc.images), qui solo il riferimento."""
 
@@ -396,6 +430,60 @@ class SpecialShape(Shape):
         return shapes_lib.SHAPES.get(self.form, ("Forma",))[0]
 
 
+class CodeShape(Shape):
+    """Codice QR o a barre, parametrico. I dati possono contenere variabili ({n}, {data}, colonne CSV):
+    nelle serie ogni copia ha il suo codice."""
+
+    kind = "code"
+
+    def __init__(self, code="qr", data="https://", w=30.0, h=0.0, ecc="M", quiet=2, invert=False, text=True,
+                 layer=1, var_offset=0):
+        super().__init__(layer)
+        self.code, self.data = code, data
+        self.w, self.h = float(w), float(h)
+        self.ecc, self.quiet = ecc, int(quiet)
+        self.invert, self.text = bool(invert), bool(text)
+        self.var_offset = int(var_offset)
+        self.error = ""
+
+    @property
+    def variable(self):
+        return variables.has_vars(self.data)
+
+    def shown_data(self):
+        return variables.expand(self.data, self.var_offset) if self.variable else self.data
+
+    def local_path(self):
+        from . import codes
+
+        try:
+            p = codes.code_path(self.code, self.shown_data(), self.w, self.h or None, self.ecc, self.quiet,
+                                self.invert, self.text)
+            self.error = ""
+            return p
+        except codes.CodeError as exc:
+            self.error = str(exc)
+            p = QPainterPath()  # segnaposto visibile: un riquadro barrato
+            side = max(self.w, 5.0)
+            hh = side if self.code == "qr" else max(self.h, 8.0)
+            p.addRect(0, 0, side, hh)
+            p.moveTo(0, 0)
+            p.lineTo(side, hh)
+            return p
+
+    def closed(self):
+        return True
+
+    def params(self):
+        return {"code": self.code, "data": self.data, "w": self.w, "h": self.h, "ecc": self.ecc, "quiet": self.quiet,
+                "invert": self.invert, "text": self.text, "var_offset": self.var_offset}
+
+    def describe(self):
+        from . import codes
+
+        return tr("Codice {0}", codes.KINDS.get(self.code, ("?",))[0])
+
+
 class GroupShape(Shape):
     kind = "group"
 
@@ -425,7 +513,7 @@ class GroupShape(Shape):
 
 
 _KINDS = {c.kind: c for c in (RectShape, EllipseShape, PolygonShape, PathShape, TextShape, ImageShape, GroupShape,
-                               SpecialShape)}
+                               SpecialShape, CodeShape, TextPathShape)}
 
 
 def shape_from_dict(d, images=None):
@@ -439,9 +527,10 @@ def shape_from_dict(d, images=None):
         s = PolygonShape(p.get("w", 10), p.get("h", 10), p.get("sides", 6), p.get("star", 0))
     elif kind == "path":
         s = PathShape(PathShape.path_from_elements(p.get("elements", [])))
-    elif kind == "text":
+    elif kind in ("text", "textpath"):
         q = dict(p)
-        s = TextShape(q.pop("text", ""), q.pop("family", "Arial"), q.pop("size", 10), **q)
+        cls = TextPathShape if kind == "textpath" else TextShape
+        s = cls(q.pop("text", ""), q.pop("family", "Arial"), q.pop("size", 10), **q)
     elif kind == "image":
         s = ImageShape(p.get("image_id"), p.get("w", 50), p.get("h", 50))
         s.brightness = p.get("brightness", 0.0)
@@ -451,6 +540,9 @@ def shape_from_dict(d, images=None):
         s = GroupShape([shape_from_dict(c, images) for c in p.get("children", [])])
     elif kind == "special":
         s = SpecialShape(p.get("form", "arrow"), p.get("w", 20), p.get("h", 20), p.get("param"))
+    elif kind == "code":
+        s = CodeShape(**{k: v for k, v in p.items() if k in ("code", "data", "w", "h", "ecc", "quiet", "invert", "text",
+                                                               "var_offset")})
     else:
         raise ValueError(tr("tipo di forma sconosciuto: {0}", kind))
     s._load_common(d)

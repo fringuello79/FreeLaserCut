@@ -1,7 +1,7 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """Disponi → Ottimizza lo spazio: i pezzi si sistemano sul materiale sprecandone il meno possibile."""
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QTransform
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel, QPushButton,
     QVBoxLayout, QWidget,
@@ -100,6 +100,19 @@ class NestDialog(QDialog):
         self.holes = QCheckBox(tr("Usa anche i fori interni dei pezzi (solo se sono tagliati da parte a parte)"))
         self.holes.setChecked(False)
         v.addWidget(self.holes)
+        self.multi = QCheckBox(tr("Se non entrano, continua su altri pannelli uguali (affiancati a destra)"))
+        self.multi.setChecked(qs.value("nest_multi", "false") in (True, "true"))
+        self.multi.setToolTip(tr("Ogni pannello in più ha il suo contorno sul livello T1 e il suo numero: incidi un "
+                                 "pannello alla volta selezionandolo, con «Solo gli oggetti selezionati»"))
+        v.addWidget(self.multi)
+        self.common = QCheckBox(tr("Linee di taglio comuni: i pezzi si toccano e i lati in comune si tagliano una volta sola"))
+        self.common.setChecked(qs.value("nest_common", "false") in (True, "true"))
+        self.common.setToolTip(tr("Meno tempo e meno materiale. Funziona con i lati dritti (rettangoli, poligoni). "
+                                  "I contorni di taglio diventano un unico tracciato per livello; il kerf non si applica "
+                                  "ai lati condivisi."))
+        self.common.toggled.connect(lambda on: self.gap.setEnabled(not on))
+        self.gap.setEnabled(not self.common.isChecked())
+        v.addWidget(self.common)
         self.result = QLabel()
         self.result.setWordWrap(True)
         self.result.setTextFormat(Qt.RichText)
@@ -151,31 +164,103 @@ class NestDialog(QDialog):
         qs.setValue("nest_margin", self.margin.value())
         qs.setValue("nest_rot", self.rot.currentData())
         qs.setValue("nest_keep", self.keep.isChecked())
+        qs.setValue("nest_multi", self.multi.isChecked())
+        qs.setValue("nest_common", self.common.isChecked())
         moving = set(self.parts)
         obstacles = [s for s in self.ed.doc.shapes if s not in moving and s is not self.sheet and not s.hidden
                      and s.layer != TOOL_LAYER]
+        common = self.common.isChecked()
+        kw = dict(keep_touching=self.keep.isChecked(), spacing=0.0 if common else self.gap.value(),
+                  margin=self.margin.value(), rotations=self.rot.currentData(), fill_holes=not self.holes.isChecked(),
+                  precision=self.prec.currentData(), tick=lambda: (QApplication.processEvents(), False)[1])
+        area = self.area_polys()
         QGuiApplication.setOverrideCursor(Qt.WaitCursor)
         self.result.setText(tr("Calcolo in corso…"))
         QApplication.processEvents()
         try:
-            res = nesting.nest_shapes(self.parts, self.area_polys(), obstacles, keep_touching=self.keep.isChecked(),
-                                      spacing=self.gap.value(), margin=self.margin.value(),
-                                      rotations=self.rot.currentData(), fill_holes=not self.holes.isChecked(),
-                                      precision=self.prec.currentData(),
-                                      tick=lambda: (QApplication.processEvents(), False)[1])
+            if self.multi.isChecked():
+                results, shifts = nesting.nest_sheets(self.parts, area, obstacles, **kw)
+            else:
+                results, shifts = [nesting.nest_shapes(self.parts, area, obstacles, **kw)], [0.0]
         finally:
             QGuiApplication.restoreOverrideCursor()
-        if res.placements:
-            self.ed.run(tr("Ottimizza lo spazio"), nesting.apply, res)
-        placed = [s for g in res.placements for s in g]
-        left = [s for g in res.unplaced for s in g]
-        self.ed.select(left if left else placed)
+        results = [r for r in results if r is not None]
+        placed_groups = [g for r in results for g in r.placements]
+        placed = {s for g in placed_groups for s in g}
+        left = [s for s in self.parts if s not in placed]
+        info = {"saved": 0.0}
+        if placed_groups:
+            self.ed.run(tr("Ottimizza lo spazio"), self._apply, results, shifts, area, obstacles, common, info)
+        new_sel = [s for s in self.ed.doc.shapes if s in placed or getattr(s, "_nest_new", False)]
+        for s in self.ed.doc.shapes:
+            if hasattr(s, "_nest_new"):
+                del s._nest_new
+        self.ed.select(left if left else new_sel)
+        used_w = max((r.used_w for r in results), default=0.0)
+        used_h = max((r.used_h for r in results), default=0.0)
+        area_parts = sum(r.parts_area for r in results)
+        eff = area_parts / max(1e-9, sum(r.used_w * r.used_h for r in results)) if results else 0.0
         msg = tr("<b>Pezzi sistemati: {0}</b> · materiale usato {1:.0f} × {2:.0f} mm · utilizzo {3:.0f}%",
-                 len(res.placements), res.used_w, res.used_h, res.efficiency * 100)
-        if res.unplaced:
+                 len(placed_groups), used_w, used_h, min(1.0, eff) * 100)
+        if len(results) > 1:
+            msg += "<br>" + tr("Pannelli usati: {0} (contorni e numeri sul livello T1)", len(results))
+        if common:
+            msg += "<br>" + tr("Taglio in comune: {0:.0f} mm in meno da percorrere", info["saved"])
+        if left:
             msg += "<br>" + tr("<span style='color:#E5484D'>Pezzi che non entrano: {0}. Restano dove erano e sono "
-                               "selezionati.</span>", len(res.unplaced))
+                               "selezionati.</span>", len(left))
         self.result.setText(msg)
-        self.main.statusBar().showMessage(self.result.text().replace("<b>", "").replace("</b>", "").split("<br>")[0], 8000)
-        self.last = res
-        return res
+        self.main.statusBar().showMessage(msg.replace("<b>", "").replace("</b>", "").split("<br>")[0], 8000)
+        self.last = results[0] if results else None
+        self.results = results
+        return self.last
+
+    def _apply(self, results, shifts, area, obstacles, common, info):
+        from ..core.document import PathShape, RectShape, TextShape
+
+        doc = self.ed.doc
+        for res in results:
+            nesting.apply(res)
+        x0, y0, x1, y1 = nesting._bounds(area)
+        if len(results) > 1:  # contorni e numeri dei pannelli sul livello strumenti (mai incisi)
+            for k, dx in enumerate(shifts):
+                if k:
+                    if self.sheet is not None and self.area.currentData() == "sheet":
+                        out = self.sheet.clone()
+                        out.apply(QTransform.fromTranslate(dx, 0))
+                    else:
+                        out = RectShape(x1 - x0, y1 - y0, layer=TOOL_LAYER)
+                        out.apply(QTransform.fromTranslate(x0 + dx, y0))
+                    out.layer = TOOL_LAYER
+                    out._nest_new = True
+                    doc.add(out)
+                lab = TextShape(tr("Pannello {0}", k + 1), "Arial", max(4.0, min(10.0, (x1 - x0) / 30)), layer=TOOL_LAYER)
+                lab.apply(QTransform.fromTranslate(x0 + dx, y1 + 3))
+                doc.add(lab)
+        if not common:
+            return
+        line_layers = {cs.index for cs in doc.used_layers() if cs.mode == "line"}
+        for res, dx in zip(results, shifts):
+            groups = list(res.placements)
+            parts = [[p for s in g for p in nesting.shape_polys(s, 0.05)] for g in groups]
+            shrunk = geom.offset([geom.Poly([(x + dx, y) for x, y in p.pts], p.closed) for p in area if p.closed],
+                                 -self.margin.value(), "miter") if self.margin.value() > 0 else \
+                [geom.Poly([(x + dx, y) for x, y in p.pts], p.closed) for p in area]
+            static = shrunk + ([p for s in obstacles for p in nesting.shape_polys(s, 0.1)] if dx == 0 else [])
+            for g, (mx, my) in zip(groups, nesting.compact(parts, static)):
+                if mx or my:
+                    for s in g:
+                        s.apply(QTransform.fromTranslate(mx, my))
+            for layer in sorted(line_layers):
+                cut = [s for g in groups for s in g if s.layer == layer and not isinstance(s, TextShape)]
+                if len(cut) < 2:
+                    continue
+                polys = [p for s in cut for p in geom.flatten(s.path(), 0.01)]
+                merged, saved = nesting.merge_common_lines(polys)
+                if saved <= 0.01:
+                    continue
+                info["saved"] += saved
+                doc.remove(cut)
+                ps = PathShape(geom.polys_to_path(merged), layer=layer)
+                ps._nest_new = True
+                doc.add(ps)

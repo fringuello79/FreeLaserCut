@@ -6,7 +6,7 @@ from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QTransform
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGridLayout,
-    QHBoxLayout, QHeaderView, QLabel, QPlainTextEdit, QPushButton, QScrollArea, QSlider, QSpinBox, QStyledItemDelegate, QTabWidget,
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSlider, QSpinBox, QStyledItemDelegate, QTabWidget,
     QToolBar, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -14,7 +14,7 @@ from ..core import ops, text as textmod
 from ..core import shapes_lib
 from ..core.document import (
     DITHER_LABELS, DITHERS, LAYER_COLORS, MODE_LABELS, MODES, EllipseShape, GroupShape, ImageShape, PathShape,
-    PolygonShape, RectShape, SpecialShape, TextShape,
+    CodeShape, PolygonShape, RectShape, SpecialShape, TextPathShape, TextShape,
 )
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -922,6 +922,8 @@ class PropertiesPanel(QScrollArea):
             self._image(s)
         elif isinstance(s, SpecialShape):
             self._special(s)
+        elif isinstance(s, CodeShape):
+            self._code(s)
         else:
             self._generic(s)
         if s is not None:
@@ -1049,6 +1051,30 @@ class PropertiesPanel(QScrollArea):
             sp.valueChanged.connect(lambda v: self._mod(spec[1], param=v))
             f.addRow(spec[1], sp)
         lab = QLabel(tr("{0:.2f} × {1:.2f} mm (forma originale). Converti in tracciato (Ctrl+Maiusc+C) per modificarne i nodi.", s.w, s.h))
+        lab.setObjectName("muted")
+        lab.setWordWrap(True)
+        self.lay.addWidget(lab)
+
+    def _code(self, s):
+        from ..core import codes
+
+        self.lay.addWidget(section(s.describe()))
+        f = self._form()
+        ed = QLineEdit(s.data)
+        ed.setToolTip(tr("Variabili: {n} numero progressivo, {data}, colonne del CSV"))
+        ed.editingFinished.connect(lambda: ed.text() != s.data and self._mod(tr("Contenuto del codice"), data=ed.text()))
+        f.addRow(tr("Contenuto"), ed)
+        if s.variable:
+            f.addRow("", QLabel(tr("Ora mostra: «{0}»", s.shown_data())))
+        if s.error:
+            err = QLabel(s.error)
+            err.setStyleSheet("color:#E5484D;")
+            err.setWordWrap(True)
+            f.addRow("", err)
+        b = QPushButton(tr("Modifica codice…"))
+        b.clicked.connect(lambda: self.window().code_dialog())
+        f.addRow("", b)
+        lab = QLabel(tr("Incidi i codici in riempimento e prova la lettura col telefono prima di una serie."))
         lab.setObjectName("muted")
         lab.setWordWrap(True)
         self.lay.addWidget(lab)
@@ -1196,6 +1222,10 @@ class PropertiesPanel(QScrollArea):
             hint.setObjectName("muted")
             self.lay.addWidget(hint)
 
+        if isinstance(s, TextPathShape):
+            b = QPushButton(tr("Posizione sulla curva…"))
+            b.clicked.connect(lambda: self.window().text_path_dialog())
+            self.lay.addWidget(b)
     def _typed(self, txt):
         s = self.shape
         if s is None:

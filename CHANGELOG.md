@@ -1,5 +1,32 @@
 # Novità di FreeLaserCut
 
+## 0.9.0 — 31/10/2026
+- **Codici QR e a barre** (*Strumenti → Codice QR o a barre…*, Ctrl+Alt+Q):
+  - tipi: QR, Code 128, EAN-13, EAN-8, UPC-A e Code 39;
+  - come forme vettoriali pulite da incidere in riempimento: FreeLaserCut sceglie da solo un livello in riempimento;
+  - opzioni: zona di rispetto, correzione d'errore del QR, numero leggibile sotto le barre, versione **in negativo** per i materiali che il laser schiarisce;
+  - con le variabili (`{n}`, `{data}`, colonne CSV) ogni copia di una serie ha il suo codice;
+  - restano modificabili (pannello Proprietà → *Modifica codice…*).
+- **Testo su tracciato** (*Strumenti → Testo su tracciato…*, Ctrl+Alt+T):
+  - seleziona un testo e una linea o una forma: il testo ne segue la curva;
+  - si regolano posizione, allineamento, distanza dalla curva e verso;
+  - il testo resta modificabile.
+- **Rotativo** (*Laser → Rotativo…*) per bicchieri, borracce e cilindri, a rulli o a mandrino:
+  - FreeLaserCut scala l'asse Y e corregge la velocità sulla superficie;
+  - c'è la prova "un giro" per la taratura;
+  - il contorno segue il rotativo;
+  - quando è attivo, un avviso resta nella barra di stato.
+- **Nesting su più pannelli**: i pezzi che non entrano continuano su altri pannelli uguali, affiancati, ognuno col suo contorno e il suo numero sul livello T1.
+- **Linee di taglio comuni**:
+  - nel nesting i pezzi vengono accostati e i lati in comune si tagliano una volta sola;
+  - il nuovo comando *Disponi → Unisci le linee di taglio comuni* fa lo stesso su qualsiasi selezione, per esempio una serie a griglia con distanza 0.
+- **Firma dell'installatore e Microsoft Store** (preparazione):
+  - firma facoltativa nell'installatore NSIS;
+  - workflow GitHub Actions che costruisce l'installatore dal codice pubblico (richiesto da SignPath Foundation);
+  - pacchetto MSIX per il Microsoft Store (`build/prepara_msix.py`);
+  - guida in `build/FIRMA-E-STORE.md`.
+- Pannello Laser: l'etichetta "Disconnesso" non si taglia più.
+
 ## 0.8.0 — 31/10/2026
 - **Ottimizza lo spazio (nesting)** — *Disponi → Ottimizza lo spazio*, **Alt+N**, nel Banco anche dalla barra contestuale e dal menu radiale. Sistema pezzi e gruppi sul materiale sprecandone il meno possibile:
   - usa la **sagoma vera** di ogni pezzo, non il rettangolo che lo contiene, e lo ruota se lo permetti (nessuna rotazione, solo 180°, 90°, 45° o 15°);

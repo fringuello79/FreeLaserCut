@@ -937,10 +937,12 @@ class JobFlow(QFrame):
             self._set(2, "ok", tr("Controllo"), tr("Lavoro pronto · tempo stimato {0}", _hms(job.seconds)))
         else:
             self._set(2, "todo", tr("Controllo"), tr("Guarda l'anteprima: calcola percorso e tempo"))
+        rot = win.rotary_settings() if hasattr(win, "rotary_settings") else None
+        rot_txt = tr(" · rotativo attivo") if rot else ""
         if win.ctl.connected:
-            self._set(3, "todo", tr("Posiziona sul materiale"), tr("Fai il contorno o guarda la foto del piano"))
+            self._set(3, "todo", tr("Posiziona sul materiale"), tr("Fai il contorno o guarda la foto del piano") + rot_txt)
         else:
-            self._set(3, "warn", tr("Posiziona sul materiale"), tr("Laser non connesso"))
+            self._set(3, "warn", tr("Posiziona sul materiale"), tr("Laser non connesso") + rot_txt)
         connected = win.ctl.connected
         self.b_verify.setEnabled(connected)
         self.b_frame.setEnabled(connected)
@@ -1476,7 +1478,7 @@ class Banco(QObject):
         for name in ("select", "nodes", "line", "rect", "ellipse", "polygon", "star", "special", "text"):
             h.addWidget(_act_button(win.tool_actions[name]))
         h.addWidget(_sep())
-        for k in ("import", "trace", "exact_shape", "variables"):
+        for k in ("import", "trace", "exact_shape", "code", "text_path", "variables"):
             h.addWidget(_act_button(win.acts[k]))
         h.addWidget(_sep())
         for name in ("measure", "position"):

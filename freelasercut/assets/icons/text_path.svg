@@ -1,0 +1,10 @@
+<!-- FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later (icona originale nello stile delle icone Lucide) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 18c4-7 14-7 18 0" stroke-dasharray="2 3" />
+  <path d="M7 12.5 8.5 6.5 10.5 11.5" />
+  <path d="M7.6 10h2.3" />
+  <path d="M13 6.5v5.5" />
+  <path d="M13 6.5h2.2a1.4 1.4 0 0 1 0 2.8H13" />
+  <path d="M13 9.3h2.6a1.4 1.4 0 0 1 0 2.8H13" />
+</svg>

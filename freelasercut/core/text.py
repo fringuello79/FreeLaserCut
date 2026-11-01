@@ -197,3 +197,73 @@ def system_families():
 
     fams = [f for f in QFontDatabase.families() if not QFontDatabase.isPrivateFamily(f)]
     return sorted(set(fams), key=str.lower)
+
+
+def follow_path(path, curve, start=0.5, align="center", offset=0.0, reverse=False):
+    """Fa seguire al testo (baseline y=0, da x=0) una curva qualsiasi.
+    start: punto della curva (0…1 della lunghezza) a cui si aggancia il testo; align: left | center | right
+    (quale punto del testo va lì); offset: distanza dalla curva in mm (+ verso sinistra rispetto al verso di
+    percorrenza, cioè «sopra» se la curva va da sinistra a destra); reverse: percorre la curva al contrario."""
+    from . import geom
+
+    if path.isEmpty() or curve.isEmpty():
+        return path
+    cpolys = [p for p in geom.flatten(curve, 0.02) if len(p.pts) >= 2]
+    if not cpolys:
+        return path
+    cp = max(cpolys, key=lambda p: p.length())
+    pts = list(cp.pts)
+    if cp.closed:
+        pts.append(pts[0])
+    if reverse:
+        pts.reverse()
+    cum = [0.0]
+    for i in range(1, len(pts)):
+        cum.append(cum[-1] + math.dist(pts[i - 1], pts[i]))
+    total = cum[-1]
+    if total <= 1e-9:
+        return path
+    b = path.boundingRect()
+    width = max(b.right(), 0.0)
+    s0 = start * total - {"left": 0.0, "center": width / 2.0, "right": width}.get(align, width / 2.0)
+    import bisect
+
+    def at(s):
+        if cp.closed:
+            s %= total
+        if s <= 0:
+            i = 1
+        elif s >= total:
+            i = len(pts) - 1
+        else:
+            i = max(1, bisect.bisect_left(cum, s))
+        (x1, y1), (x2, y2) = pts[i - 1], pts[i]
+        seg = max(cum[i] - cum[i - 1], 1e-12)
+        t = (s - cum[i - 1]) / seg
+        tx, ty = (x2 - x1) / seg, (y2 - y1) / seg
+        return x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, tx, ty
+
+    step = max(0.05, min(0.4, (b.height() or 5.0) / 25.0))
+    out = []
+    for pl in geom.flatten(path, 0.01):
+        src = list(pl.pts)
+        if pl.closed and src and src[0] != src[-1]:
+            src.append(src[0])
+        dense = []
+        for i in range(len(src) - 1):
+            (x1, y1), (x2, y2) = src[i], src[i + 1]
+            n = max(1, int(math.dist((x1, y1), (x2, y2)) / step))
+            for k in range(n):
+                t = k / n
+                dense.append((x1 + (x2 - x1) * t, y1 + (y2 - y1) * t))
+        if src:
+            dense.append(src[-1])
+        warped = []
+        for x, y in dense:
+            px, py, tx, ty = at(s0 + x)
+            d = y + offset
+            warped.append((px - ty * d, py + tx * d))
+        if pl.closed and len(warped) > 1:
+            warped = warped[:-1]
+        out.append(geom.Poly(warped, pl.closed))
+    return geom.polys_to_path(out)

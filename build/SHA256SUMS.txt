@@ -1,1 +1,1 @@
-a0388d457a58edcf6555988caff944e5a0f05aa95f6796b8f2317bc5546cbff1  FreeLaserCut-0.8.0-Setup.exe
+1e5b4a03dbdf31e0cd4fd95ba411d7ae4f59c5929455b83ebcdd23a9718bdeb5  FreeLaserCut-0.9.0-Setup.exe

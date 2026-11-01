@@ -10,6 +10,9 @@ tests/ultimo_test.log
 build/stage/
 build/cache/
 build/*.exe
+build/*.msix
+build/msix_layout/
+build/firmato/
 
 # dati personali della macchina: non vanno mai nel repository
 dati_iniziali/

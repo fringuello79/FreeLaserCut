@@ -302,3 +302,197 @@ def apply(result):
     for group, tf in result.placements.items():
         for s in group:
             s.apply(tf)
+
+
+# ------------------------------------------------------------------ più pannelli
+def nest_sheets(shapes, area_polys, obstacle_shapes=(), max_sheets=20, sheet_gap=20.0, keep_touching=True, **kw):
+    """Come nest_shapes, ma i pezzi che non entrano vanno su altri pannelli uguali, affiancati a destra del primo.
+    Ritorna (risultati, spostamenti_x): un Result per pannello usato e lo spostamento in X di ciascun pannello."""
+    x0, _, x1, _ = _bounds(area_polys)
+    pitch = (x1 - x0) + sheet_gap
+    remaining = list(shapes)
+    results, shifts = [], []
+    for k in range(max_sheets):
+        if not remaining:
+            break
+        dx = k * pitch
+        area = [geom.Poly([(x + dx, y) for x, y in p.pts], p.closed) for p in area_polys]
+        res = nest_shapes(remaining, area, obstacle_shapes if k == 0 else (), keep_touching=keep_touching, **kw)
+        if not res.placements:
+            break
+        results.append(res)
+        shifts.append(dx)
+        placed = {s for g in res.placements for s in g}
+        remaining = [s for s in remaining if s not in placed]
+    return results, shifts
+
+
+# ------------------------------------------------------------------ linee di taglio comuni
+def _slide(a_pts, a_edges, b_pts, b_edges, axis):
+    """Quanto può scorrere A verso il basso dell'asse (0 = X, 1 = Y) prima di toccare B. inf = mai."""
+    best = math.inf
+    o = 1 - axis
+    for pts, edges, sign in ((a_pts, b_edges, 1.0), (b_pts, a_edges, -1.0)):
+        if not len(pts) or not len(edges):
+            continue
+        p1, p2 = edges[:, 0, :], edges[:, 1, :]
+        lo = np.minimum(p1[:, o], p2[:, o])
+        hi = np.maximum(p1[:, o], p2[:, o])
+        d = p2[:, o] - p1[:, o]
+        valid = np.abs(d) > 1e-12
+        po = pts[:, o][:, None]
+        inside = (po >= lo[None, :] - 1e-9) & (po <= hi[None, :] + 1e-9) & valid[None, :]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            hit = p1[:, axis][None, :] + (po - p1[:, o][None, :]) * (p2[:, axis] - p1[:, axis])[None, :] / d[None, :]
+        t = (pts[:, axis][:, None] - hit) * sign  # A scende verso -asse: distanza fino al bordo di B sotto
+        t = np.where(inside & (t >= -1e-6), t, np.inf)
+        best = min(best, float(t.min()) if t.size else math.inf)
+    return max(best, 0.0)
+
+
+def _arr(polys):
+    pts, edges = [], []
+    for p in polys:
+        q = p.pts
+        if len(q) < 2:
+            continue
+        pts.extend(q)
+        n = len(q)
+        for i in range(n if p.closed else n - 1):
+            edges.append((q[i], q[(i + 1) % n]))
+    return np.asarray(pts, float).reshape(-1, 2), np.asarray(edges, float).reshape(-1, 2, 2)
+
+
+def compact(parts, static, passes=3):
+    """parts: [[Poly]] già sistemati; static: [Poly] (bordo del materiale, ostacoli). Fa scivolare ogni pezzo
+    verso sinistra e verso il basso finché tocca davvero qualcosa: le linee vicine diventano coincidenti.
+    Ritorna gli spostamenti [(dx, dy)] di ogni pezzo."""
+    arrs = [list(_arr(p)) for p in parts]
+    st = _arr(static)
+    moves = [[0.0, 0.0] for _ in parts]
+    for _ in range(passes):
+        moved = False
+        for i in range(len(parts)):
+            for axis in (0, 1):
+                a_pts, a_edges = arrs[i]
+                if not len(a_pts):
+                    continue
+                d = _slide(a_pts, a_edges, st[0], st[1], axis)
+                for j in range(len(parts)):
+                    if j != i and len(arrs[j][0]):
+                        d = min(d, _slide(a_pts, a_edges, arrs[j][0], arrs[j][1], axis))
+                if 1e-6 < d < math.inf:
+                    a_pts = a_pts.copy()
+                    a_edges = a_edges.copy()
+                    a_pts[:, axis] -= d
+                    a_edges[:, :, axis] -= d
+                    arrs[i] = [a_pts, a_edges]
+                    moves[i][axis] -= d
+                    moved = True
+        if not moved:
+            break
+    return [tuple(m) for m in moves]
+
+
+def merge_common_lines(polys, tol=0.05):
+    """Contorni di taglio -> polilinee senza tratti percorsi due volte (i lati in comune fra pezzi vicini si
+    tagliano una volta sola). Ritorna (polilinee, mm risparmiati)."""
+    segs = []
+    for p in polys:
+        q = p.pts
+        n = len(q)
+        for i in range(n if p.closed else n - 1):
+            a, b = q[i], q[(i + 1) % n]
+            if math.dist(a, b) > 1e-9:
+                segs.append((a, b))
+    keep = [[(0.0, 1.0)] for _ in segs]  # intervalli rimasti di ogni segmento
+    saved = 0.0
+    cell = 5.0
+    grid = {}
+    for i, (a, b) in enumerate(segs):
+        for gx in range(int(min(a[0], b[0]) // cell), int(max(a[0], b[0]) // cell) + 1):
+            for gy in range(int(min(a[1], b[1]) // cell), int(max(a[1], b[1]) // cell) + 1):
+                grid.setdefault((gx, gy), []).append(i)
+    seen = set()
+    for idx in grid.values():
+        for ii in range(len(idx)):
+            for jj in range(ii + 1, len(idx)):
+                i, j = idx[ii], idx[jj]
+                if (i, j) in seen:
+                    continue
+                seen.add((i, j))
+                (a1, a2), (b1, b2) = segs[i], segs[j]
+                L = math.dist(a1, a2)
+                ux, uy = (a2[0] - a1[0]) / L, (a2[1] - a1[1]) / L
+
+                def dist_line(p):
+                    return abs((p[0] - a1[0]) * uy - (p[1] - a1[1]) * ux)
+                if dist_line(b1) > tol or dist_line(b2) > tol:
+                    continue
+                # j sulla stessa retta di i: tolgo da j la parte che si sovrappone a i
+                tb1 = ((b1[0] - a1[0]) * ux + (b1[1] - a1[1]) * uy)
+                tb2 = ((b2[0] - a1[0]) * ux + (b2[1] - a1[1]) * uy)
+                lo, hi = max(0.0, min(tb1, tb2)), min(L, max(tb1, tb2))
+                if hi - lo <= tol:
+                    continue
+                Lb = abs(tb2 - tb1)
+                # intervallo sovrapposto nella parametrizzazione di j
+                s_lo, s_hi = sorted(((lo - tb1) / (tb2 - tb1), (hi - tb1) / (tb2 - tb1)))
+                new = []
+                for u0, u1 in keep[j]:
+                    if u1 <= s_lo or u0 >= s_hi:
+                        new.append((u0, u1))
+                        continue
+                    saved += (min(u1, s_hi) - max(u0, s_lo)) * Lb
+                    if u0 < s_lo:
+                        new.append((u0, s_lo))
+                    if u1 > s_hi:
+                        new.append((s_hi, u1))
+                keep[j] = new
+    pieces = []
+    for (a, b), ivs in zip(segs, keep):
+        for u0, u1 in ivs:
+            if (u1 - u0) * math.dist(a, b) > 1e-6:
+                pieces.append(((a[0] + (b[0] - a[0]) * u0, a[1] + (b[1] - a[1]) * u0),
+                               (a[0] + (b[0] - a[0]) * u1, a[1] + (b[1] - a[1]) * u1)))
+    return _chain(pieces, tol), saved
+
+
+def _chain(pieces, tol):
+    """Segmenti -> polilinee unendo gli estremi che coincidono."""
+    def key(p):
+        return (round(p[0] / tol), round(p[1] / tol))
+
+    ends = {}
+    for i, (a, b) in enumerate(pieces):
+        ends.setdefault(key(a), []).append((i, 0))
+        ends.setdefault(key(b), []).append((i, 1))
+    used = [False] * len(pieces)
+    out = []
+    for i in range(len(pieces)):
+        if used[i]:
+            continue
+        used[i] = True
+        line = [pieces[i][0], pieces[i][1]]
+        for direction in (1, 0):  # prolungo dalla fine, poi dall'inizio
+            while True:
+                tip = line[-1] if direction else line[0]
+                nxt = None
+                for j, end in ends.get(key(tip), []):
+                    if not used[j]:
+                        nxt = (j, end)
+                        break
+                if nxt is None:
+                    break
+                j, end = nxt
+                used[j] = True
+                other = pieces[j][1 - end]
+                if direction:
+                    line.append(other)
+                else:
+                    line.insert(0, other)
+        closed = len(line) > 3 and math.dist(line[0], line[-1]) <= tol
+        if closed:
+            line = line[:-1]
+        out.append(geom.Poly(line, closed))
+    return out

@@ -98,6 +98,20 @@ HELP = {
              "vera. Materiale: piano intero, rettangolo su misura o un contorno disegnato sul livello T1 (anche un avanzo "
              "irregolare). Si scelgono distanza tra i pezzi, margine e rotazioni; le forme che si toccano restano unite."),
              [(tr("Distanza tra i pezzi"), tr("almeno lo spessore del taglio")), (tr("Rotazioni"), tr("nessuna con venature o foto"))]),
+    "common_lines": (tr("Unisci le linee di taglio comuni"), tr("Quando due pezzi si toccano lungo un lato (serie a griglia "
+                     "con distanza 0, nesting con linee comuni) il lato in comune si taglia una volta sola: meno tempo, "
+                     "meno bruciature. Lavora sulle forme selezionate dei livelli in modalità Linea."),
+                     [(tr("Kerf"), tr("non si applica ai lati condivisi"))]),
+    "code": (tr("Codice QR o a barre"), tr("QR, Code 128, EAN-13, EAN-8, UPC-A e Code 39 come forme da incidere in "
+             "riempimento. I dati possono contenere variabili ({n}, {data}, colonne CSV): nelle serie ogni copia ha il suo "
+             "codice."), [(tr("In negativo"), tr("per i materiali in cui il laser schiarisce")),
+                          (tr("Zona di rispetto"), tr("margine vuoto che serve ai lettori"))]),
+    "text_path": (tr("Testo su tracciato"), tr("Seleziona un testo e una linea o forma: il testo ne segue la curva. Restano "
+                  "modificabili testo, carattere, posizione sulla curva, distanza e verso."), None),
+    "rotary": (tr("Rotativo"), tr("Accessorio a rulli o a mandrino collegato al posto dell'asse Y, per bicchieri, borracce e "
+               "cilindri. FreeLaserCut scala l'asse Y e corregge la velocità: si disegna come su un foglio."),
+               [(tr("Asse Y per un giro"), tr("si trova con la prova di un giro")),
+                (tr("Diametro"), tr("del rullo (rulli) o dell'oggetto (mandrino)"))]),
     "grid_array": (tr("Serie a griglia"), tr("Copie in righe e colonne, con spaziatura, sfalsamento e numerazione automatica "
                    "dei testi variabili."), None),
     "circ_array": (tr("Serie circolare"), "Copie disposte in cerchio, ruotate o no.", None),

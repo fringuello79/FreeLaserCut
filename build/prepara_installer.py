@@ -37,6 +37,8 @@ PACKAGES = [
     "pillow==13.0.0",
     "opencv-python==5.0.0.93",
     "pyclipper==1.4.0",
+    "segno==1.6.6",
+    "python-barcode==0.16.1",
     "svgelements==1.9.6",
     "ezdxf==1.4.5",
     "Hershey-Fonts==2.1.0",

@@ -235,9 +235,9 @@ def rotate(shapes, degrees, center=None):
 # ------------------------------------------------------------------ serie
 def variable_texts(shape):
     """Testi variabili dentro una forma (anche nei gruppi)."""
-    from .document import GroupShape, TextShape
+    from .document import CodeShape, GroupShape, TextShape
 
-    if isinstance(shape, TextShape):
+    if isinstance(shape, (TextShape, CodeShape)):
         if shape.variable:
             yield shape
     elif isinstance(shape, GroupShape):

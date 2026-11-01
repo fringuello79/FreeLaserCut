@@ -1,0 +1,58 @@
+# FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
+# Costruisce l'installatore per Windows sui server di GitHub, partendo dal codice pubblico: è quello che
+# chiedono i servizi di firma per progetti open source (SignPath Foundation). Si avvia a mano
+# (Actions → Installatore Windows → Run workflow) o pubblicando un tag vX.Y.Z.
+name: Installatore Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: NSIS
+        run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Prepara Python per Windows, librerie e programma
+        run: python build/prepara_installer.py
+      - name: Versione
+        id: ver
+        run: echo "ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
+      - name: Installatore
+        run: makensis -V2 -DVER=${{ steps.ver.outputs.ver }} build/installer.nsi
+      - name: SHA-256
+        run: cd build && sha256sum FreeLaserCut-*-Setup.exe | tee SHA256SUMS.txt
+      - name: Carica l'installatore (non firmato)
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeLaserCut-${{ steps.ver.outputs.ver }}-Setup
+          path: |
+            build/FreeLaserCut-*-Setup.exe
+            build/SHA256SUMS.txt
+      # --- Firma con SignPath Foundation (gratuita per i progetti open source).
+      # Si attiva dopo l'approvazione del progetto: togli il commento e aggiungi il segreto SIGNPATH_API_TOKEN
+      # (Settings → Secrets and variables → Actions). Ogni firma va poi approvata a mano sul sito di SignPath.
+      # - name: Firma (SignPath)
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: "ID-ORGANIZZAZIONE-SIGNPATH"
+      #     project-slug: "FreeLaserCut"
+      #     signing-policy-slug: "release-signing"
+      #     github-artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      #     wait-for-completion: true
+      #     output-artifact-directory: build/firmato
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: FreeLaserCut-${{ steps.ver.outputs.ver }}-Setup-firmato
+      #     path: build/firmato

@@ -221,6 +221,7 @@ if __name__ == "__main__":
     run_suite("test_v06.py", "Lingue: inglese, italiano, spagnolo, francese, portoghese")
     run_suite("test_v07.py", "Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina")
     run_suite("test_v08.py", "Ottimizza lo spazio (nesting) e modelli di laser pronti")
+    run_suite("test_v09.py", "QR e codici a barre, testo su tracciato, rotativo, più pannelli e linee comuni")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

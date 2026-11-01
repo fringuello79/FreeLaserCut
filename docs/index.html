@@ -49,7 +49,7 @@ header{position:sticky;top:0;z-index:10;background:rgba(7,10,17,.86);backdrop-fi
 .lang{display:flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
 .lang button{background:none;border:0;color:var(--muted);font:600 13px/1 inherit;padding:7px 11px;cursor:pointer}
 .lang button[aria-pressed="true"]{background:var(--card2);color:var(--text)}
-@media (max-width:860px){.links{display:none}.nav{justify-content:space-between}}
+@media (max-width:1080px){.links{display:none}.nav{justify-content:space-between}}
 
 /* apertura */
 .hero{padding:64px 0 40px;border-top:0;background:radial-gradient(900px 420px at 70% -10%,rgba(139,124,255,.18),transparent 60%),radial-gradient(700px 380px at 10% 0%,rgba(79,180,255,.12),transparent 60%)}
@@ -121,6 +121,7 @@ header{position:sticky;top:0;z-index:10;background:rgba(7,10,17,.86);backdrop-fi
 .s-next{background:rgba(79,180,255,.15);color:var(--blue)}
 .s-idea{background:rgba(139,124,255,.15);color:#B9AFFF}
 .s-help{background:rgba(61,214,140,.14);color:var(--green)}
+.s-done{background:rgba(255,122,46,.16);color:var(--orange)}
 .support{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:center}
 @media (max-width:860px){.support{grid-template-columns:1fr}}
 .btn-white{background:#fff;color:#0E1734}
@@ -140,6 +141,7 @@ footer p{margin:0 0 8px}
       <a href="#interfaces"><span class="en">Interfaces</span><span class="it">Interfacce</span></a>
       <a href="#features"><span class="en">Features</span><span class="it">Funzioni</span></a>
       <a href="#nesting">Nesting</a>
+      <a href="#codes"><span class="en">Codes</span><span class="it">Codici</span></a>
       <a href="#machines"><span class="en">Machines</span><span class="it">Macchine</span></a>
       <a href="#guide"><span class="en">Guide</span><span class="it">Guida</span></a>
       <a href="#future"><span class="en">Roadmap</span><span class="it">Sviluppi</span></a>
@@ -217,9 +219,18 @@ footer p{margin:0 0 8px}
     <p class="lead en">A complete engraving and cutting workflow, designed around the job instead of around menus.</p>
     <p class="lead it">Un flusso completo di incisione e taglio, pensato attorno al lavoro invece che attorno ai menu.</p>
     <div class="grid">
-      <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="2.5"/><path d="M13 6h4v4h-4zM6.5 13.5 10 17.5H6.5zM13.5 13h3.5v4h-3.5z"/></svg></span><span class="en">Nesting</span><span class="it">Nesting</span><span class="tag">0.8</span></h3>
-        <p class="en">Arranges your parts on the material with minimum waste, using their real shape. Works on irregular offcuts too.</p>
-        <p class="it">Sistema i pezzi sul materiale con il minimo spreco, usando la loro sagoma vera. Funziona anche sugli avanzi irregolari.</p></div>
+      <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="2.5"/><path d="M13 6h4v4h-4zM6.5 13.5 10 17.5H6.5zM13.5 13h3.5v4h-3.5z"/></svg></span><span class="en">Nesting</span><span class="it">Nesting</span><span class="tag">0.9</span></h3>
+        <p class="en">Arranges your parts on the material with minimum waste, using their real shape, on irregular offcuts and across several sheets. Shared edges can be cut only once.</p>
+        <p class="it">Sistema i pezzi sul materiale con il minimo spreco, usando la loro sagoma vera, anche sugli avanzi irregolari e su più pannelli. I lati in comune si possono tagliare una volta sola.</p></div>
+      <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M12 7v3a2 2 0 0 1-2 2H7M16 12h1M12 16v5"/></svg></span><span class="en">QR codes and barcodes</span><span class="it">QR e codici a barre</span><span class="tag">0.9</span></h3>
+        <p class="en">QR, Code 128, EAN-13, EAN-8, UPC-A and Code 39 as clean vector shapes, with serial numbers for batches and a negative version for anodized metal and slate.</p>
+        <p class="it">QR, Code 128, EAN-13, EAN-8, UPC-A e Code 39 come forme vettoriali pulite, con numeri di serie per le serie e versione in negativo per anodizzato e ardesia.</p></div>
+      <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18c4-7 14-7 18 0" stroke-dasharray="2 3"/><path d="M7 12.5 8.5 6.5 10.5 11.5M7.6 10h2.3M13 6.5v5.5M13 6.5h2.2a1.4 1.4 0 0 1 0 2.8H13M13 9.3h2.6a1.4 1.4 0 0 1 0 2.8H13"/></svg></span><span class="en">Text on a path</span><span class="it">Testo su tracciato</span><span class="tag">0.9</span></h3>
+        <p class="en">Text that follows any line or outline, still editable: position, alignment, distance and direction.</p>
+        <p class="it">Testo che segue qualsiasi linea o contorno e resta modificabile: posizione, allineamento, distanza e verso.</p></div>
+      <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="6" cy="12" rx="3" ry="6"/><path d="M6 6h11a3 6 0 0 1 0 12H6M19 3.5 21 6l-2.5 1.5M12 9v6"/></svg></span><span class="en">Rotary</span><span class="it">Rotativo</span><span class="tag">0.9</span></h3>
+        <p class="en">Glasses, tumblers, bottles and cylinders with a roller or chuck rotary: design as on a flat sheet, FreeLaserCut scales the Y axis and the speed.</p>
+        <p class="it">Bicchieri, borracce, bottiglie e cilindri con un rotativo a rulli o a mandrino: disegni come su un foglio, FreeLaserCut scala l'asse Y e la velocità.</p></div>
       <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><span class="en">Two interfaces</span><span class="it">Due interfacce</span></h3>
         <p class="en"><b>Workbench</b>: full-screen bed, command search (<kbd>Ctrl</kbd>+<kbd>F</kbd>), radial menu, a cockpit while engraving, and laser/camera panels that move to a second monitor by themselves. Or <b>Classic</b>, with menus and side panels.</p>
         <p class="it"><b>Banco</b>: piano a tutto schermo, ricerca di tutti i comandi (<kbd>Ctrl</kbd>+<kbd>F</kbd>), menu radiale, cabina durante l'incisione, pannelli laser e camera che vanno da soli sul secondo monitor. Oppure <b>Classica</b>, con menu e pannelli laterali.</p></div>
@@ -260,7 +271,7 @@ footer p{margin:0 0 8px}
 <!-- ================================================================ nesting -->
 <section id="nesting">
   <div class="wrap">
-    <div class="kicker"><span class="en">New in 0.8</span><span class="it">Novità della 0.8</span></div>
+    <div class="kicker"><span class="en">Nesting</span><span class="it">Nesting</span></div>
     <h2><span class="en">Optimize space: less material, fewer offcuts</span><span class="it">Ottimizza lo spazio: meno materiale, meno scarti</span></h2>
     <p class="lead en"><b>Arrange → Optimize space</b> (<kbd>Alt</kbd>+<kbd>N</kbd>) packs your parts as close as possible to the origin, keeping the spacing you choose.</p>
     <p class="lead it"><b>Disponi → Ottimizza lo spazio</b> (<kbd>Alt</kbd>+<kbd>N</kbd>) avvicina i pezzi il più possibile all'origine, rispettando la distanza che scegli.</p>
@@ -274,6 +285,25 @@ footer p{margin:0 0 8px}
       <li class="en">Material: whole bed, a custom rectangle, or any outline on layer T1, even an irregular offcut</li><li class="it">Materiale: piano intero, rettangolo su misura o qualsiasi contorno sul livello T1, anche un avanzo irregolare</li>
       <li class="en">Engravings stay inside their cut outline; locked shapes are avoided</li><li class="it">Le incisioni restano dentro il loro contorno; le forme bloccate vengono evitate</li>
       <li class="en">Shows material used and utilization %; one <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes it all</li><li class="it">Mostra il materiale usato e la resa in %; un <kbd>Ctrl</kbd>+<kbd>Z</kbd> annulla tutto</li>
+      <li class="en">Parts that don't fit continue on more identical sheets, each numbered on layer T1</li><li class="it">I pezzi che non entrano continuano su altri pannelli uguali, ognuno numerato sul livello T1</li>
+      <li class="en">Common cut lines: parts are pushed together and shared edges are cut only once</li><li class="it">Linee di taglio comuni: i pezzi si accostano e i lati in comune si tagliano una volta sola</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================ codici -->
+<section id="codes">
+  <div class="wrap">
+    <div class="kicker"><span class="en">New in 0.9</span><span class="it">Novità della 0.9</span></div>
+    <h2><span class="en">Codes, curved text and cylinders</span><span class="it">Codici, testo curvo e cilindri</span></h2>
+    <p class="lead en">A QR code on a coaster, numbered barcodes on a batch of tags, text bent along a curve, a logo wrapped around a tumbler: all made in FreeLaserCut, without other programs.</p>
+    <p class="lead it">Un QR su un sottobicchiere, codici a barre numerati su una serie di targhette, una scritta lungo una curva, un logo attorno a una borraccia: tutto dentro FreeLaserCut, senza altri programmi.</p>
+    <figure class="shot" style="margin:26px 0 0"><img src="screenshot/codici.png" alt="A coaster with a QR code and curved text, and three tags with numbered Code 128 barcodes and QR codes" loading="lazy" width="1440" height="900">
+      <figcaption><span class="en">QR code and text on a curve on a coaster; three tags with serial numbers (FLC-0001, 0002, 0003) as Code 128 and QR; an EAN-13.</span><span class="it">QR e testo su curva su un sottobicchiere; tre targhette numerate (FLC-0001, 0002, 0003) con Code 128 e QR; un EAN-13.</span></figcaption></figure>
+    <ul class="points">
+      <li class="en"><b>Tools → QR code or barcode</b> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd>): put <code>{n}</code> in the content and every copy of a grid array gets its own number</li><li class="it"><b>Strumenti → Codice QR o a barre</b> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd>): metti <code>{n}</code> nel contenuto e ogni copia di una serie a griglia ha il suo numero</li>
+      <li class="en"><b>Tools → Text on path</b> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>): select a text and a line or shape</li><li class="it"><b>Strumenti → Testo su tracciato</b> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd>): seleziona un testo e una linea o forma</li>
+      <li class="en"><b>Laser → Rotary</b>: roller or chuck, with a one-turn test for calibration</li><li class="it"><b>Laser → Rotativo</b>: a rulli o a mandrino, con la prova di un giro per la taratura</li>
     </ul>
   </div>
 </section>
@@ -407,13 +437,13 @@ footer p{margin:0 0 8px}
     <p class="lead en">It is written in Python and Qt, open source and modular: every part below can grow with the community's help.</p>
     <p class="lead it">È scritto in Python e Qt, è open source e modulare: ognuna di queste parti può crescere con l'aiuto della comunità.</p>
     <div class="road">
-      <div class="card"><h3><span class="en">Signed installer</span><span class="it">Installatore firmato</span><span class="state s-next"><span class="en">Next</span><span class="it">Prossimo</span></span></h3>
-        <p class="en">No more SmartScreen warning on first install.</p><p class="it">Niente più avviso di SmartScreen alla prima installazione.</p></div>
-      <div class="card"><h3><span class="en">QR codes and barcodes</span><span class="it">QR e codici a barre</span><span class="state s-next"><span class="en">Next</span><span class="it">Prossimo</span></span></h3>
+      <div class="card"><h3><span class="en">Signed installer, Microsoft Store</span><span class="it">Installatore firmato, Microsoft Store</span><span class="state s-next"><span class="en">In progress</span><span class="it">In corso</span></span></h3>
+        <p class="en">Build from public code and packaging are ready; the signature removes the SmartScreen warning.</p><p class="it">Costruzione dal codice pubblico e pacchetto pronti; la firma toglie l'avviso di SmartScreen.</p></div>
+      <div class="card"><h3><span class="en">QR codes and barcodes</span><span class="it">QR e codici a barre</span><span class="state s-done"><span class="en">Done · 0.9</span><span class="it">Fatto · 0.9</span></span></h3>
         <p class="en">Generated directly on the bed, with variable data for series.</p><p class="it">Generati direttamente sul piano, con dati variabili per le serie.</p></div>
-      <div class="card"><h3><span class="en">Nesting on several sheets</span><span class="it">Nesting su più pannelli</span><span class="state s-next"><span class="en">Next</span><span class="it">Prossimo</span></span></h3>
+      <div class="card"><h3><span class="en">Nesting on several sheets</span><span class="it">Nesting su più pannelli</span><span class="state s-done"><span class="en">Done · 0.9</span><span class="it">Fatto · 0.9</span></span></h3>
         <p class="en">Fill one sheet after another, and share common cut lines between parts.</p><p class="it">Riempire un pannello dopo l'altro e condividere le linee di taglio comuni tra pezzi.</p></div>
-      <div class="card"><h3><span class="en">Text on a path, rotary</span><span class="it">Testo su tracciato, rotativo</span><span class="state s-idea"><span class="en">Planned</span><span class="it">In programma</span></span></h3>
+      <div class="card"><h3><span class="en">Text on a path, rotary</span><span class="it">Testo su tracciato, rotativo</span><span class="state s-done"><span class="en">Done · 0.9</span><span class="it">Fatto · 0.9</span></span></h3>
         <p class="en">Text that follows any curve, and the rotary attachment for glasses, tumblers and cylinders.</p><p class="it">Testo che segue qualsiasi curva e l'accessorio rotativo per bicchieri, borracce e cilindri.</p></div>
       <div class="card"><h3><span class="en">macOS and Linux packages</span><span class="it">Pacchetti macOS e Linux</span><span class="state s-idea"><span class="en">Planned</span><span class="it">In programma</span></span></h3>
         <p class="en">It already runs from source on Linux; ready-made packages would bring it to everyone.</p><p class="it">Funziona già dal codice sorgente su Linux; dei pacchetti pronti lo porterebbero a tutti.</p></div>
@@ -467,9 +497,9 @@ footer p{margin:0 0 8px}
 <script>
 /* ---- dati del download: si aggiornano solo qui ---- */
 const CONFIG = {
-  version: "0.8.0",
+  version: "0.9.0",
   size: "183 MB",
-  sha256: "a0388d457a58edcf6555988caff944e5a0f05aa95f6796b8f2317bc5546cbff1",
+  sha256: "1e5b4a03dbdf31e0cd4fd95ba411d7ae4f59c5929455b83ebcdd23a9718bdeb5",
   // collegamento di condivisione di Google Drive al file .exe; se vuoto si usa la pagina Releases di GitHub
   download: "https://drive.google.com/file/d/154jjLnHaRuDMT8qijVE0UjYj6d1LSqxt/view?usp=sharing"
 };

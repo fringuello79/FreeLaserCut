@@ -11,7 +11,7 @@
 Software **libero** di incisione e taglio laser per macchine GRBL, con profilo nativo per il **Longer B1 40W**.
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 
-Versione **0.8.0** — nuovo comando **Ottimizza lo spazio (nesting)** per sprecare meno materiale e **modelli pronti** per i laser GRBL più diffusi. Dalla 0.7.0: nuova interfaccia **Banco** (predefinita) con il piano a tutto schermo, ricerca di tutti i comandi, menu radiale e adattamento automatico al secondo monitor; l'interfaccia di prima resta come **Classica** (Impostazioni → Interfaccia). Dalla 0.6.0: interfaccia in inglese, italiano, spagnolo, francese e portoghese (Impostazioni → Lingua). Dalla 0.5.2: schermata d'avvio con il logo e pulsante **Sostieni FreeLaserCut** in alto a destra. Dalla 0.5.1: nuovo nome (prima si chiamava *Freeburn*) e nuovo logo. I progetti `.fbrn` si aprono ancora; i nuovi si salvano come `.flcut`. Al primo avvio profili, materiali, camera e preferenze di Freeburn vengono copiati da soli in FreeLaserCut.
+Versione **0.9.0** — **codici QR e a barre** con numeri di serie, **testo su tracciato**, **rotativo** per bicchieri e cilindri, **nesting su più pannelli** con **linee di taglio comuni**. Dalla 0.8.0: nesting e modelli pronti per i laser più diffusi. Dalla 0.7.0: nuova interfaccia **Banco** (predefinita) con il piano a tutto schermo, ricerca di tutti i comandi, menu radiale e adattamento automatico al secondo monitor; l'interfaccia di prima resta come **Classica** (Impostazioni → Interfaccia). Dalla 0.6.0: interfaccia in inglese, italiano, spagnolo, francese e portoghese (Impostazioni → Lingua). Dalla 0.5.2: schermata d'avvio con il logo e pulsante **Sostieni FreeLaserCut** in alto a destra. Dalla 0.5.1: nuovo nome (prima si chiamava *Freeburn*) e nuovo logo. I progetti `.fbrn` si aprono ancora; i nuovi si salvano come `.flcut`. Al primo avvio profili, materiali, camera e preferenze di Freeburn vengono copiati da soli in FreeLaserCut.
 
 ## Installazione (Windows)
 
@@ -74,6 +74,35 @@ Premi **F1** per l'elenco completo delle scorciatoie (valgono in entrambe le int
 - **Materiale**: il piano intero, un rettangolo su misura oppure un contorno disegnato sul **livello T1**, anche un avanzo irregolare. Selezionalo insieme ai pezzi.
 - **Distanza tra i pezzi** (almeno lo spessore del taglio), **margine dal bordo**, **rotazioni** (nessuna, 180°, 90°, 45°, 15°: con le venature del legno o le foto conviene nessuna o 180°), **precisione** normale o alta.
 - Il risultato indica quanti pezzi sono stati sistemati, il materiale usato e la resa in %. I pezzi che non entrano restano dove erano e vengono selezionati. **Ctrl+Z** annulla tutto in un colpo.
+- **Più pannelli**: se i pezzi non entrano, continuano su altri pannelli uguali affiancati a destra, ognuno col suo contorno e il suo numero sul livello T1. Si incide un pannello alla volta, selezionandolo e usando "Solo gli oggetti selezionati".
+- **Linee di taglio comuni**: i pezzi vengono accostati e i lati in comune si tagliano una volta sola, con meno tempo e meno bruciature. Lo stesso fa *Disponi → Unisci le linee di taglio comuni* su qualsiasi selezione, per esempio una serie a griglia con distanza 0. Funziona sui lati dritti; il kerf non si applica ai lati condivisi.
+
+## Codici QR e a barre
+
+*Strumenti → Codice QR o a barre…* (Ctrl+Alt+Q).
+
+- **Tipi**: QR, Code 128, EAN-13, EAN-8, UPC-A, Code 39. Il codice diventa una forma vettoriale con i moduli uniti, da incidere in **riempimento**: FreeLaserCut lo mette da solo su un livello in riempimento.
+- **Opzioni**: larghezza, altezza delle barre, zona di rispetto, correzione d'errore del QR (L, M, Q, H) e numero leggibile sotto le barre.
+- **In negativo**: si incide il fondo e restano chiari i moduli. Serve per anodizzato, ardesia e vernici scure, dove il laser schiarisce.
+- **Serie**: nel contenuto puoi usare `{n}` (numero progressivo, `{n:4}` = 0001), `{data}`, `{anno}` e le colonne del CSV di *Testo variabile*. Con una serie a griglia ogni copia ha il suo codice.
+- Il codice resta modificabile: pannello Proprietà oppure di nuovo Ctrl+Alt+Q con il codice selezionato. Prova sempre la lettura col telefono prima di incidere una serie.
+
+## Testo su tracciato
+
+*Strumenti → Testo su tracciato…* (Ctrl+Alt+T): seleziona un testo e una linea (o una forma) e il testo ne segue la curva.
+
+- Si regolano la posizione sulla curva, l'allineamento, la distanza dalla curva e il verso.
+- Testo, carattere e dimensione restano modificabili come in un testo normale.
+- La curva resta dov'è: spostala sul livello T1 se non va incisa.
+
+## Rotativo
+
+*Laser → Rotativo…* serve per bicchieri, borracce, bottiglie e cilindri, con un accessorio a **rulli** o a **mandrino** collegato al posto del motore dell'asse Y.
+
+- Indica quanti mm di asse Y fanno un giro (trovali con il pulsante **Prova: un giro**), il diametro del rullo (rulli) o dell'oggetto (mandrino).
+- Disegna come su un foglio. FreeLaserCut scala l'asse Y e corregge la velocità, così quella sulla superficie resta quella scelta; anche il contorno segue il rotativo.
+- Usa *Partenza → posizione attuale della testa* e metti a fuoco sul punto più alto dell'oggetto.
+- Quando il rotativo è attivo, nella barra di stato compare **⟳ Rotativo attivo**: ricordati di spegnerlo quando torni al piano.
 
 ## Macchine supportate
 
@@ -225,6 +254,15 @@ makensis -DVER=<versione> build/installer.nsi
 ```
 
 Serve Python 3.10 o più recente con internet (lo script scarica Python per Windows e le librerie ufficiali) e [NSIS 3](https://nsis.sourceforge.io). Il risultato è `build/FreeLaserCut-<versione>-Setup.exe`.
+
+Lo stesso lo fa GitHub da solo con il workflow **Installatore Windows** (`.github/workflows/installatore.yml`): Actions → Run workflow, oppure pubblicando un tag `vX.Y.Z`.
+
+**Firma e Microsoft Store**: le strade per togliere l'avviso di SmartScreen sono spiegate in [`build/FIRMA-E-STORE.md`](build/FIRMA-E-STORE.md):
+- il Microsoft Store, gratuito: lo Store firma il pacchetto MSIX preparato da `build/prepara_msix.py`;
+- SignPath Foundation, gratuito per l'open source;
+- un certificato personale Certum.
+
+L'installatore si firma con `makensis "-DSIGN=signtool sign …"`.
 
 ## Test
 
