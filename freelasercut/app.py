@@ -928,7 +928,8 @@ def _install_crash_log():
         if QApplication.instance() is not None:
             _hide_splash()
             QMessageBox.critical(None, tr("FreeLaserCut — errore"),
-                                 tr("Si è verificato un errore imprevisto:\n\n{0}\n\nDettagli salvati in:\n{1}", exc, log_path))
+                                 tr("Si è verificato un errore imprevisto:\n\n{0}\n\nDettagli salvati in:\n{1}", exc, log_path)
+                                 + "\n\n" + tr("Per farti aiutare: Aiuto → Crea rapporto per l'assistenza."))
 
     sys.excepthook = hook
     # crash "nativi" (Qt che si chiude di colpo, senza eccezione Python): faulthandler scrive comunque

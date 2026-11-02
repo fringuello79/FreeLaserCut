@@ -1,5 +1,6 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """Finestra principale di FreeLaserCut 0.2: editor completo + controllo macchina."""
+import html
 import os
 import sys
 import time
@@ -46,6 +47,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.qs = migrate_qsettings()
         self.ctl = GrblController()
+        from .. import diag
+
+        # registro della comunicazione con la scheda: si salva da solo quando qualcosa va storto
+        self.comm_log = diag.CommLog(self.ctl, self)
+        self.comm_log.on_stall = self._job_stalled
+        from .update_ui import UpdateManager
+
+        self.updates = UpdateManager(self)  # aggiornamento dal programma (Release di GitHub)
+        self._update_installer = None
         self.profile = self._load_active_profile()
         self.editor = Editor(Document())
         self.canvas = Canvas(self.editor, (self.profile.bed_x, self.profile.bed_y))
@@ -89,6 +99,7 @@ class MainWindow(QMainWindow):
         self._autosave.start(90_000)
         QTimer.singleShot(400, self._offer_recovery)
         QTimer.singleShot(200, self._first_run_notice)
+        QTimer.singleShot(4000, self.updates.startup)
         try:  # comandi da Claude (MCP): solo da questo PC
             from ..remote import RemoteServer
 
@@ -251,6 +262,15 @@ class MainWindow(QMainWindow):
                            checkable=True),
             "shortcuts": A(tr("Scorciatoie da tastiera"), self.show_shortcuts, "F1"),
             "about": A(tr("Informazioni su FreeLaserCut"), self.show_about),
+            "report": A(tr("Crea rapporto per l'assistenza…"), self.make_support_report, None, None,
+                        tr("Un file .zip con versione, sistema, profilo della macchina, registro errori e registro "
+                           "della comunicazione con la scheda, da allegare a una segnalazione. Niente progetti né dati personali.")),
+            "updates": A(tr("Cerca aggiornamenti…"), lambda: self.updates.check(manual=True), None, None,
+                         tr("Controlla su GitHub se c'è una versione più nuova di FreeLaserCut e, se vuoi, la scarica "
+                            "e la installa: FreeLaserCut si chiude e si riapre da solo.")),
+            "update_auto": A(tr("Controlla gli aggiornamenti ogni giorno"), lambda on: self.updates.set_enabled(on), None, None,
+                             tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede a GitHub qual è l'ultima "
+                                "versione. Non invia dati tuoi e non scarica niente senza chiedere."), checkable=True),
             "support": A(tr("Sostieni FreeLaserCut…"), self.show_support, None, None,
                          tr("Contributo volontario allo sviluppo (GitHub Sponsors o PayPal)")),
             "claude": A(tr("Collega a Claude (MCP)…"), self.claude_dialog, None, "connect",
@@ -386,7 +406,10 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
-        menu(tr("&Aiuto"), ["help_mode", "-", "claude", "-", "shortcuts", "about", "-", "support"])
+        menu(tr("&Aiuto"), ["help_mode", "-", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
+                            "-", "support"])
+        self.acts["update_auto"].setChecked(self.updates.enabled())
+        self.acts["update_auto"].setVisible(self.updates.mode == "installer")  # Store e git si aggiornano da sé
 
     def _build_settings_menu(self, mb):
         """Impostazioni: interfaccia (Banco / Classica), secondo monitor, lingua, vista."""
@@ -1623,11 +1646,48 @@ class MainWindow(QMainWindow):
         else:
             for w in job.warnings:
                 (block if "esce dall'area" in w else warn).append(w)
+            lim = self._soft_limit_problem(job)
+            if lim and not any("esce dall'area" in w for w in job.warnings):
+                block.append(lim)
         if job is not None and self.laser.start_from.currentData() == "absolute" and not self.ctl.homed and self.profile.homing:
             warn.append(tr("Non hai fatto l'homing in questa sessione: la posizione sul piano potrebbe non corrispondere."))
         if not self.profile.laser_mode:
             warn.append(tr("La modalità laser della scheda è disattivata ($32=0): attivala nella scheda Macchina."))
         return block, warn
+
+    def _soft_limit_problem(self, job):
+        """Con i limiti software attivi ($20=1) la scheda accetta solo la corsa $130×$131 letta da lei:
+        se il lavoro ci esce, GRBL va in allarme 2. Ritorna il messaggio, oppure None."""
+        lim = self.ctl.soft_limits() if self.ctl.connected else None
+        if lim is None or job is None:
+            return None
+        tx, ty = lim
+        box = None
+        pv = getattr(job, "preview", None)
+        segs = getattr(pv, "segs", None)
+        if segs is not None and len(segs):
+            ox, oy = job.out_to_bed
+            xs = (float(min(segs[:, 0].min(), segs[:, 2].min())) + ox, float(max(segs[:, 0].max(), segs[:, 2].max())) + ox)
+            ys = (float(min(segs[:, 1].min(), segs[:, 3].min())) + oy, float(max(segs[:, 1].max(), segs[:, 3].max())) + oy)
+            box = (xs[0], ys[0], xs[1], ys[1])
+        elif job.motion_bounds is not None:
+            m = job.motion_bounds
+            box = (m.left(), m.top(), m.right(), m.bottom())
+        if box is None:
+            return None
+        neg = self.profile.negative_space
+        if neg is None:
+            neg = self.ctl.negative_space
+        x0, y0, x1, y1 = box
+        lo, hi = (0.0, 0.0), (tx, ty)
+        if neg:  # coordinate macchina negative: piano = MPos + area del profilo; la scheda accetta -$130..0
+            x0, y0, x1, y1 = x0 - self.profile.bed_x, y0 - self.profile.bed_y, x1 - self.profile.bed_x, y1 - self.profile.bed_y
+            lo, hi = (-tx, -ty), (0.0, 0.0)
+        eps = 0.01
+        if x0 < lo[0] - eps or y0 < lo[1] - eps or x1 > hi[0] + eps or y1 > hi[1] + eps:
+            return tr("La scheda ha i limiti software attivi ($20=1) e accetta solo {0:g} × {1:g} mm ($130/$131): "
+                      "il lavoro ne esce e la macchina andrebbe in allarme. Sposta il disegno o l'origine.", tx, ty)
+        return None
 
     def start_job(self, job=None):
         if self.ctl.job_active or self.ctl.checking:
@@ -1684,6 +1744,10 @@ class MainWindow(QMainWindow):
         self.laser.update_running()
         job = self._pending_start
         self._pending_start = None
+        if errors is None:  # Stop, Disconnetti o reset della scheda a metà verifica
+            self.laser.eta.setText(tr("Verifica interrotta"))
+            self.statusBar().showMessage(tr("Verifica interrotta: il lavoro non è stato avviato"), 6000)
+            return
         if job is not None and not errors:
             self.statusBar().showMessage(tr("Verifica superata: avvio il lavoro"), 4000)
             QTimer.singleShot(1200, lambda: self._run(job.lines))  # la scheda ha appena fatto il reset del check mode
@@ -1952,6 +2016,44 @@ class MainWindow(QMainWindow):
         except OSError:
             pass
 
+    def make_support_report(self, path=None):
+        """Aiuto → Crea rapporto per l'assistenza: un .zip da allegare a una segnalazione."""
+        from .. import diag
+
+        if not path:
+            base = os.path.join(os.path.expanduser("~"), "Desktop")
+            if not os.path.isdir(base):
+                base = os.path.expanduser("~")
+            start = os.path.join(base, time.strftime("FreeLaserCut-rapporto-%Y%m%d-%H%M.zip"))
+            path, _ = QFileDialog.getSaveFileName(self, tr("Crea rapporto per l'assistenza"), start, tr("Archivio zip (*.zip)"))
+        if not path:
+            return None
+        try:
+            names = diag.make_report(path, self, self.comm_log)
+        except OSError as ex:
+            QMessageBox.warning(self, tr("Crea rapporto per l'assistenza"), tr("Non riesco a creare il file:\n{0}", ex))
+            return None
+        box = QMessageBox(self)
+        box.setWindowTitle(tr("Rapporto creato"))
+        box.setIcon(QMessageBox.Information)
+        box.setText(tr("<b>Rapporto pronto</b><br>{0}", html.escape(path)))
+        box.setInformativeText(tr("Allegalo a una segnalazione su GitHub (Issues) o mandalo a chi ti aiuta. "
+                                  "Contiene: {0}.\nNiente progetti, immagini o dati personali.", ", ".join(names)))
+        open_b = box.addButton(tr("Apri la cartella"), QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Ok)
+        box.exec()
+        if box.clickedButton() is open_b:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+
+            QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+        return path
+
+    def _job_stalled(self, msg, path):
+        """Il lavoro non avanza e la macchina è ferma: lo dico e salvo il registro (resta tutto com'è)."""
+        self.statusBar().showMessage(tr("Il lavoro sembra fermo ({0}). Registro salvato: per farti aiutare usa "
+                                        "Aiuto → Crea rapporto per l'assistenza.", msg), 20000)
+
     def show_support(self):
         from .dialogs_support import SupportDialog
 
@@ -2014,6 +2116,10 @@ class MainWindow(QMainWindow):
 
             remote.stop(self.remote)
         super().closeEvent(e)
+        if e.isAccepted():
+            from .update_ui import run_installer_on_exit
+
+            run_installer_on_exit(self)  # aggiornamento scaricato: l'installatore parte ora che FreeLaserCut si chiude
         if getattr(self, "_restart", False):
             from PySide6.QtCore import QProcess
 

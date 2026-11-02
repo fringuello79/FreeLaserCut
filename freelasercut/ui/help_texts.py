@@ -164,6 +164,12 @@ HELP = {
                   "descrizione e le opzioni. I clic non eseguono nulla. Esc o di nuovo \"?\" per uscire."), None),
     "shortcuts": (tr("Scorciatoie da tastiera"), tr("Elenco completo dei tasti rapidi."), None),
     "about": (tr("Informazioni"), tr("Versione di FreeLaserCut, autore e licenze."), None),
+    "updates": (tr("Cerca aggiornamenti…"), tr("Controlla su GitHub se c'è una versione più nuova di FreeLaserCut e, se vuoi, la scarica "
+                "e la installa: FreeLaserCut si chiude e si riapre da solo."), None),
+    "update_auto": (tr("Controlla gli aggiornamenti ogni giorno"), tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede "
+                    "a GitHub qual è l'ultima versione. Non invia dati tuoi e non scarica niente senza chiedere."), None),
+    "report": (tr("Crea rapporto per l'assistenza"), tr("Un file .zip con versione, sistema, profilo della macchina, registro errori "
+               "e registro della comunicazione con la scheda, da allegare a una segnalazione. Niente progetti né dati personali."), None),
     "support": (tr("Sostieni FreeLaserCut"), tr("Mostra come contribuire allo sviluppo con una donazione volontaria "
                 "tramite GitHub Sponsors o PayPal. Il programma resta completo e gratuito: la donazione non sblocca niente."), None),
     "claude": (tr("Collega a Claude"), tr("Installa l'estensione per Claude: potrai chiedere in chat di disegnare, impostare "

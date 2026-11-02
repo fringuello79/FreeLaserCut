@@ -6,7 +6,7 @@ SetCompressor /SOLID bzip2
 
 !define APP "FreeLaserCut"
 !ifndef VER
-  !define VER "0.10.3"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
+  !define VER "0.10.4"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
 !endif
 !define PUB "fringuello79"
 !define UNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
@@ -34,6 +34,12 @@ VIAddVersionKey "ProductVersion" "${VER}"
 VIAddVersionKey "LegalCopyright" "© 2026 ${PUB} — GNU GPL 3.0 o successiva"
 
 !include "MUI2.nsh"
+!include "FileFunc.nsh"
+
+; aggiornamento dal programma: FreeLaserCut avvia l'installatore con /AGGIORNA (e /D=cartella attuale).
+; Allora l'installatore aspetta che FreeLaserCut si chiuda, salta le pagine già viste alla prima installazione,
+; mostra solo l'avanzamento e alla fine riapre FreeLaserCut.
+Var Aggiorna
 !define MUI_ICON "stage\app\freelasercut\assets\logo.ico"
 !define MUI_UNICON "stage\app\freelasercut\assets\logo.ico"
 !define MUI_ABORTWARNING
@@ -47,29 +53,39 @@ VIAddVersionKey "LegalCopyright" "© 2026 ${PUB} — GNU GPL 3.0 o successiva"
 ; messaggio quando un file non si può scrivere ($0 = il file)
 FileErrorText "Non riesco a scrivere il file:$\r$\n$\r$\n$0$\r$\n$\r$\nDi solito succede perché FreeLaserCut è ancora aperto, oppure perché l'antivirus sta controllando i file. Chiudi FreeLaserCut, aspetta qualche secondo e premi «Riprova».$\r$\n«Interrompi» annulla l'installazione."
 
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SaltaSeAggiorna
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SaltaSeAggiorna
 !insertmacro MUI_PAGE_LICENSE "stage\LICENSE"
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SaltaSeAggiorna
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirLeave
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SaltaSeAggiorna
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
 
-;--- FreeLaserCut è aperto? Su Windows una cartella con dentro un programma in esecuzione non si può
-;    rinominare: provo a rinominare "python" e lo rimetto subito a posto. $R0 = 1 se è in uso.
+;--- FreeLaserCut è aperto? $R0 = 1 se è in uso.
 !macro FLC_IN_USO_FN UN
 Function ${UN}FlcInUso
+  ; Windows non lascia aprire in scrittura un programma in esecuzione: se pythonw.exe (FreeLaserCut)
+  ; o python.exe (collegamento di diagnostica, server MCP) non si aprono in scrittura, sono in uso.
+  ; Il file non viene modificato. (La prova con la rinomina della cartella non funziona: su Windows 10/11
+  ; una cartella con un programma in esecuzione si rinomina lo stesso.)
   StrCpy $R0 0
-  IfFileExists "$INSTDIR\python\*.*" 0 flc_fine
+  IfFileExists "$INSTDIR\python\pythonw.exe" 0 flc_p2
   ClearErrors
-  Rename "$INSTDIR\python" "$INSTDIR\python.flc-prova"
+  FileOpen $R1 "$INSTDIR\python\pythonw.exe" a
   IfErrors flc_occupata
-  Rename "$INSTDIR\python.flc-prova" "$INSTDIR\python"
-  IfErrors 0 flc_fine
-  Sleep 800
-  Rename "$INSTDIR\python.flc-prova" "$INSTDIR\python"
+  FileClose $R1
+  flc_p2:
+  IfFileExists "$INSTDIR\python\python.exe" 0 flc_fine
+  ClearErrors
+  FileOpen $R1 "$INSTDIR\python\python.exe" a
+  IfErrors flc_occupata
+  FileClose $R1
   Goto flc_fine
   flc_occupata:
   StrCpy $R0 1
@@ -79,11 +95,19 @@ FunctionEnd
 !insertmacro FLC_IN_USO_FN ""
 !insertmacro FLC_IN_USO_FN "un."
 
-; finché FreeLaserCut è aperto chiede di chiuderlo; con «Annulla» esegue ABORT
+; finché FreeLaserCut è aperto chiede di chiuderlo; con «Annulla» esegue ABORT.
+; Durante un aggiornamento dal programma prima aspetta fino a 30 secondi che FreeLaserCut finisca di chiudersi.
 !macro FLC_ASPETTA_CHIUSO UN ABORT
+  StrCpy $R2 0
   flc_riprova:
   Call ${UN}FlcInUso
   StrCmp $R0 1 0 flc_chiuso
+  StrCmp $Aggiorna 1 0 flc_chiedi
+  IntCmp $R2 60 flc_chiedi
+  IntOp $R2 $R2 + 1
+  Sleep 500
+  Goto flc_riprova
+  flc_chiedi:
   MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL "FreeLaserCut è aperto (oppure un suo file è in uso).$\r$\n$\r$\nSalva il lavoro, chiudi FreeLaserCut e premi «Riprova»." /SD IDCANCEL IDRETRY flc_riprova
   ${ABORT}
   flc_chiuso:
@@ -129,12 +153,35 @@ Function DirLeave
   !insertmacro FLC_ASPETTA_CHIUSO "" "Abort"
 FunctionEnd
 
+Function .onInit
+  StrCpy $Aggiorna 0
+  ${GetParameters} $R9
+  ClearErrors
+  ${GetOptions} $R9 "/AGGIORNA" $R8
+  IfErrors +2
+  StrCpy $Aggiorna 1
+FunctionEnd
+
+; pagine di benvenuto, licenza, cartella e fine: già viste alla prima installazione
+Function SaltaSeAggiorna
+  StrCmp $Aggiorna 1 0 +2
+  Abort
+FunctionEnd
+
+; aggiornamento riuscito: riapre FreeLaserCut (l'installatore gira come utente normale)
+Function .onInstSuccess
+  StrCmp $Aggiorna 1 0 +2
+  Exec '"$INSTDIR\python\pythonw.exe" -m freelasercut'
+FunctionEnd
+
 Function un.onInit
   !insertmacro FLC_ASPETTA_CHIUSO "un." "Quit"
 FunctionEnd
 
 Section "FreeLaserCut" SecMain
   SectionIn RO
+  StrCmp $Aggiorna 1 0 +2
+  SetAutoClose true  ; aggiornamento: a fine installazione si chiude da solo e riapre FreeLaserCut
   ; aggiornamento: FreeLaserCut deve essere chiuso (potrebbe essere stato aperto dopo la scelta della cartella)
   !insertmacro FLC_ASPETTA_CHIUSO "" "Abort"
   ; tolgo il programma vecchio, i dati in %APPDATA%\FreeLaserCut restano
@@ -159,6 +206,12 @@ Section "FreeLaserCut" SecMain
   File /r "stage\python"
   File /r "stage\app"
   WriteUninstaller "$INSTDIR\Disinstalla FreeLaserCut.exe"
+
+  ; prepara adesso, una volta sola, i file di Python (.pyc): senza, il primo avvio dopo l'installazione
+  ; durava ~25 s invece di pochi secondi (provato su Windows 11). Un errore qui non blocca nulla.
+  DetailPrint "Preparo FreeLaserCut per un avvio rapido (può volerci un minuto)…"
+  nsExec::Exec '"$INSTDIR\python\python.exe" -X utf8 -m compileall -q -j 0 "$INSTDIR\app" "$INSTDIR\python\Lib"'
+  Pop $0
 
   SetOutPath "$INSTDIR\app"
   CreateDirectory "$SMPROGRAMS\${APP}"

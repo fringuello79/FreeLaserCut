@@ -183,8 +183,8 @@ footer p{margin:0 0 8px}
       <p class="dlmeta">
         <span class="en">Version <b data-cfg="version"></b> · <span data-cfg="size"></span> · Python and all libraries included, no administrator rights needed.</span>
         <span class="it">Versione <b data-cfg="version"></b> · <span data-cfg="size"></span> · Python e librerie inclusi, non servono permessi da amministratore.</span>
-        <br><span class="en">Opens the file on Google Drive: click <b>Download</b> (Drive warns that it cannot scan large files for viruses: confirm with <b>Download anyway</b>). Also on <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>.</span>
-        <span class="it">Apre il file su Google Drive: fai clic su <b>Scarica</b> (Drive avvisa che non può controllare i virus nei file grandi: conferma con <b>Scarica comunque</b>). Anche su <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>.</span>
+        <br><span class="en">From <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>. Alternative link: <a class="drive-link" href="#">Google Drive</a> (click <b>Download</b>; Drive warns that it cannot scan large files for viruses: confirm with <b>Download anyway</b>). Once installed, FreeLaserCut updates itself: <i>Help → Check for updates…</i></span>
+        <span class="it">Da <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>. Collegamento alternativo: <a class="drive-link" href="#">Google Drive</a> (fai clic su <b>Scarica</b>; Drive avvisa che non può controllare i virus nei file grandi: conferma con <b>Scarica comunque</b>). Una volta installato, FreeLaserCut si aggiorna da solo: <i>Aiuto → Cerca aggiornamenti…</i></span>
         <br>SHA-256: <code data-cfg="sha256"></code>
       </p>
     </div>
@@ -500,16 +500,33 @@ footer p{margin:0 0 8px}
 </footer>
 
 <script>
-/* ---- dati del download: si aggiornano solo qui ---- */
+/* ---- dati del download ----
+   La pagina legge da sola l'ultima Release di GitHub (versione, dimensione, SHA-256 e file dell'installatore).
+   I valori qui sotto servono solo se GitHub non risponde o se non c'è ancora una Release. */
 const CONFIG = {
   version: "0.10.3",
   size: "183 MB",
   sha256: "59769d156b701c2d097709c212f66adaafe7855a8961c9c15d76757de38694bd",
-  // collegamento di condivisione di Google Drive al file .exe; se vuoto si usa la pagina Releases di GitHub
-  download: "https://drive.google.com/file/d/154jjLnHaRuDMT8qijVE0UjYj6d1LSqxt/view?usp=sharing"
+  // collegamento di condivisione di Google Drive al file .exe (alternativa a GitHub)
+  drive: "https://drive.google.com/file/d/154jjLnHaRuDMT8qijVE0UjYj6d1LSqxt/view?usp=sharing"
 };
-document.querySelectorAll("[data-cfg]").forEach(el => { el.textContent = CONFIG[el.dataset.cfg] || ""; });
-if (CONFIG.download) document.getElementById("download").href = CONFIG.download;
+function showConfig(c, href) {
+  document.querySelectorAll("[data-cfg]").forEach(el => { el.textContent = c[el.dataset.cfg] || ""; });
+  if (href) document.getElementById("download").href = href;
+}
+document.querySelectorAll(".drive-link").forEach(a => { a.href = CONFIG.drive; a.target = "_blank"; a.rel = "noopener"; });
+showConfig(CONFIG, CONFIG.drive);  // finché non risponde GitHub (o se non c'è ancora una Release)
+fetch("https://api.github.com/repos/fringuello79/FreeLaserCut/releases/latest", {headers: {Accept: "application/vnd.github+json"}})
+  .then(r => r.ok ? r.json() : null)
+  .then(d => {
+    if (!d || !Array.isArray(d.assets)) return;
+    const a = d.assets.find(x => /^freelasercut-[\d.]+-setup\.exe$/i.test(x.name || ""));
+    if (!a || !String(a.browser_download_url || "").startsWith("https://github.com/fringuello79/FreeLaserCut/releases/download/")) return;
+    const sha = String(a.digest || "").replace(/^sha256:/, "");
+    showConfig({version: String(d.tag_name || "").replace(/^v/, ""), size: Math.round(a.size / 1048576) + " MB",
+                sha256: /^[0-9a-f]{64}$/.test(sha) ? sha : "SHA256SUMS.txt"}, a.browser_download_url);
+  })
+  .catch(() => {});
 
 /* ---- lingua: scelta salvata, altrimenti quella del browser ---- */
 function setLang(l) {

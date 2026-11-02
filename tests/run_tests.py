@@ -227,6 +227,9 @@ if __name__ == "__main__":
     run_suite("test_v101.py", "Avvio robusto: errori visibili, istanza unica, scelta interfaccia, installatore")
     run_suite("test_v102.py", "Anteprima che non copre la foto, zoom a punti veri in Prepara foto")
     run_suite("test_v103.py", "Suggerimenti pronti, nesting nella barra, piano più reattivo e identico")
+    run_suite("test_v104.py", "Rapporto per l'assistenza, registro della comunicazione, installatore")
+    run_suite("test_v104_verifica.py", "Verifica: allarme dei limiti software, Stop/reset/Disconnetti, corsa letta dalla scheda")
+    run_suite("test_v104_aggiorna.py", "Aggiornamento dal programma: Release di GitHub, SHA-256, installatore /AGGIORNA")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

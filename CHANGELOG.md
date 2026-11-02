@@ -1,5 +1,21 @@
 # Novità di FreeLaserCut
 
+## 0.10.4 — 02/11/2026
+- **Aggiornamento dal programma** (versione con l'installatore per Windows): *Aiuto → Cerca aggiornamenti…* legge l'ultima versione pubblicata su GitHub, mostra le novità e, se vuoi, scarica l'installatore, ne controlla l'impronta SHA-256 con `SHA256SUMS.txt` della stessa Release, chiude FreeLaserCut (chiedendo di salvare), installa nella stessa cartella mostrando solo l'avanzamento e lo riapre da solo. Progetti, profili e materiali restano.
+  - Al primo avvio FreeLaserCut chiede se può controllare da solo, al massimo **una volta al giorno**; si cambia da *Aiuto → Controlla gli aggiornamenti ogni giorno*. Non invia nessun dato: una sola richiesta a GitHub per sapere qual è l'ultima versione. Una versione si può saltare.
+  - La copia del Microsoft Store continua ad aggiornarsi dallo Store; chi usa il codice sorgente aggiorna con git.
+  - Per chi pubblica: basta un tag `vX.Y.Z` su GitHub. Il server costruisce l'installatore, lo installa e lo apre su un Windows vero e, se va tutto bene, crea la Release con installatore e `SHA256SUMS.txt` (le note vengono da questo CHANGELOG).
+- **Corretto (installatore):** provato su un PC Windows 11 vero, l'installatore non si accorgeva che FreeLaserCut era aperto e cominciava a togliere i file della versione precedente (il messaggio d'errore arrivava dopo, a installazione già a metà). Ora controlla prima che `pythonw.exe` e `python.exe` non siano in uso, sia quando installa sia quando disinstalla, e chiede di chiudere FreeLaserCut prima di toccare qualsiasi file.
+- **Primo avvio più rapido:** l'installatore prepara subito i file di Python; prima il primo avvio dopo l'installazione durava circa 25 secondi.
+- **Rapporto per l'assistenza** (*Aiuto → Crea rapporto per l'assistenza…*): un file .zip da allegare a una segnalazione, con versione, sistema, schermo, librerie, profilo della macchina, impostazioni `$$`/`$I` lette, registro degli errori e registro della comunicazione con la scheda. Niente progetti, immagini o dati personali: i percorsi della cartella utente diventano «~».
+- **Registro della comunicazione con la scheda:** FreeLaserCut ricorda gli ultimi scambi con la macchina (comandi, risposte, cambi di stato, avanzamento) e li salva da solo quando arriva un allarme o un errore, quando il lavoro si interrompe o si perde la connessione, e quando un lavoro **non avanza da 20 secondi con la macchina ferma** (in quel caso lo dice anche nella barra di stato). Serve a capire problemi come il lavoro che non parte con *Stop* acceso.
+- **Verifica del lavoro più sicura (`$C`):**
+  - se la scheda va in **allarme durante la verifica** (per esempio allarme 2, limiti software superati), la verifica si chiude subito con l'allarme e la **riga colpevole**; FreeLaserCut fa il reset che la scheda aspetta e chiede di sbloccare. Prima la verifica restava «in corso» per sempre e il pulsante *Avvia* non tornava;
+  - *Stop*, *Disconnetti* e un riavvio della scheda a metà verifica la chiudono sempre come «Verifica interrotta» (il lavoro non parte).
+- **Controllo prima dell'avvio con la corsa vera della scheda:** quando la scheda ha i limiti software attivi (`$20=1`), FreeLaserCut controlla il lavoro anche con `$130`/`$131` letti dalla scheda, non solo con l'area del profilo, e blocca l'avvio se ne esce.
+- Il simulatore applica i limiti software anche in modalità verifica, come GRBL; nuova prova automatica `tests/test_v104_verifica.py` (30 controlli).
+- Sempre su Windows 11 vero: confermati istanza unica (un secondo avvio porta avanti la finestra già aperta), rifiuto della cartella «Programmi», suggerimenti immediati e *Ottimizza lo spazio* nella barra.
+
 ## 0.10.3 — 02/11/2026
 Dalle note di chi lo usa:
 - **Suggerimenti dei comandi senza scatti:** passando su un comando, il suggerimento compariva, spariva un attimo e ricompariva intero (era la dissolvenza di Windows, che sui PC lenti si vede bene). Ora compare subito intero, dopo 350 ms invece di 700; anche menu e tendine si aprono senza animazioni.

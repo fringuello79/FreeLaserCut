@@ -1,7 +1,8 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-# Costruisce l'installatore per Windows sui server di GitHub, partendo dal codice pubblico: è quello che
-# chiedono i servizi di firma per progetti open source (SignPath Foundation). Si avvia a mano
-# (Actions → Installatore Windows → Run workflow) o pubblicando un tag vX.Y.Z.
+# Costruisce l'installatore per Windows sui server di GitHub, partendo dal codice pubblico, lo prova su un
+# Windows vero e, quando si pubblica un tag vX.Y.Z, crea la Release con l'installatore e SHA256SUMS.txt.
+# È da lì che FreeLaserCut si aggiorna da solo (Aiuto → Cerca aggiornamenti…).
+# Si avvia anche a mano (Actions → Installatore Windows → Run workflow): allora costruisce e prova, senza Release.
 name: Installatore Windows
 
 on:
@@ -15,6 +16,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    outputs:
+      ver: ${{ steps.ver.outputs.ver }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,11 +25,17 @@ jobs:
           python-version: "3.12"
       - name: NSIS
         run: sudo apt-get update && sudo apt-get install -y nsis
-      - name: Prepara Python per Windows, librerie e programma
-        run: python build/prepara_installer.py
       - name: Versione
         id: ver
-        run: echo "ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
+        run: |
+          ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$ver" ]]; then
+            echo "::error::Il tag $GITHUB_REF_NAME non corrisponde alla versione del programma ($ver): il tag deve essere v$ver"
+            exit 1
+          fi
+      - name: Prepara Python per Windows, librerie e programma
+        run: python build/prepara_installer.py
       - name: Installatore
         run: makensis -V2 -DVER=${{ steps.ver.outputs.ver }} build/installer.nsi
       - name: SHA-256
@@ -56,3 +65,70 @@ jobs:
       #   with:
       #     name: FreeLaserCut-${{ steps.ver.outputs.ver }}-Setup-firmato
       #     path: build/firmato
+
+  # Installa davvero su Windows (senza finestre) e apre la finestra principale: se qualcosa manca, niente Release.
+  prova-windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: FreeLaserCut-${{ needs.build.outputs.ver }}-Setup
+          path: dist
+      - name: SHA-256 dell'installatore
+        shell: bash
+        run: cd dist && sha256sum -c SHA256SUMS.txt
+      - name: Installa (silenzioso)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist\FreeLaserCut-*-Setup.exe | Select-Object -First 1
+          Start-Process -FilePath $exe.FullName -ArgumentList '/S' -Wait
+          if (-not (Test-Path "$env:LOCALAPPDATA\Programs\FreeLaserCut\python\pythonw.exe")) { throw "installazione non riuscita" }
+      - name: Avvio di prova
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          FLC_NO_UPDATE: "1"
+          FLC_NO_FIRST_RUN: "1"
+          FLC_UI: classica
+        run: |
+          $py = "$env:LOCALAPPDATA\Programs\FreeLaserCut\python\python.exe"
+          & $py -X utf8 -c "import freelasercut, sys; v = freelasercut.__version__; print('versione', v); sys.exit(0 if v == '${{ needs.build.outputs.ver }}' else 1)"
+          if ($LASTEXITCODE -ne 0) { throw "versione sbagliata" }
+          & $py -X utf8 -c "from PySide6.QtWidgets import QApplication; app = QApplication([]); from freelasercut.ui.main_window import MainWindow; w = MainWindow(); w.show(); app.processEvents(); print('finestra principale ok'); w.editor.dirty = False; w.close()"
+          if ($LASTEXITCODE -ne 0) { throw "la finestra principale non si apre" }
+
+  # Solo per i tag vX.Y.Z: Release pubblica con installatore e SHA256SUMS.txt; le note vengono dal CHANGELOG.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, prova-windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: FreeLaserCut-${{ needs.build.outputs.ver }}-Setup
+          path: dist
+      - name: Note della versione dal CHANGELOG
+        run: |
+          python3 - "${{ needs.build.outputs.ver }}" > note.md <<'PY'
+          import re, sys
+          ver = sys.argv[1]
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          m = re.search(r"^## " + re.escape(ver) + r"\b[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+          body = m.group(1).strip() if m else ""
+          print(body or f"FreeLaserCut {ver}")
+          print()
+          print("---")
+          print("Installatore per Windows: scarica `FreeLaserCut-" + ver + "-Setup.exe`. Chi ha già FreeLaserCut "
+                "può aggiornare dal programma: *Aiuto → Cerca aggiornamenti…*.")
+          PY
+          cat note.md
+      - name: Crea la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --title "FreeLaserCut ${{ needs.build.outputs.ver }}" --notes-file note.md --verify-tag

@@ -108,7 +108,7 @@ class GrblController(QObject):
     job_finished = Signal(bool, str)  # completato?, messaggio
     homed_changed = Signal(bool, object)  # homing fatto?, spazio macchina negativo? (None = non ancora noto)
     job_error = Signal(int, str, int, str)  # indice riga, riga, codice, spiegazione (il lavoro è già in pausa)
-    check_finished = Signal(object)  # [(indice, riga, codice, spiegazione)] — verifica $C conclusa
+    check_finished = Signal(object)  # [(indice, riga, codice, spiegazione)] — verifica $C conclusa; None = interrotta
     check_progress = Signal(int, int)
 
     def __init__(self):
@@ -135,6 +135,7 @@ class GrblController(QObject):
         self.job_acked = 0  # righe confermate dalla scheda
         self.pause_on_error = True
         self._check = None  # verifica in corso: {"total", "done", "errors"}
+        self.board_settings = {}  # ultimo $$ letto dalla scheda {numero: "valore"}
         self._fire_timer = None
         self.fire_active = False
 
@@ -160,6 +161,8 @@ class GrblController(QObject):
         self.rx_buffer = RX_BUFFER  # prudente finché $I non dice quanto è grande
         self.homed = False
         self._check_space = False
+        self.board_settings = {}
+        self._check = None
         self._clear_queues()
         self._running = True
         threading.Thread(target=self._read_loop, daemon=True).start()
@@ -187,6 +190,7 @@ class GrblController(QObject):
         except Exception:  # noqa: BLE001
             pass
         self._clear_queues()
+        self._end_check(None)
         if self._job_active:
             self._job_active = False
             self.job_finished.emit(False, tr("Connessione chiusa durante il lavoro"))
@@ -253,6 +257,7 @@ class GrblController(QObject):
     def soft_reset(self):
         self.realtime(0x18)
         self._clear_queues()
+        self._end_check(None)
         if self._job_active:
             self._job_active = False
             self.job_finished.emit(False, "Lavoro interrotto (reset)")
@@ -342,6 +347,24 @@ class GrblController(QObject):
     @property
     def checking(self):
         return self._check is not None
+
+    def _end_check(self, result):
+        """Chiude la verifica (se ce n'è una): result = elenco degli errori, None = interrotta."""
+        if self._check is None:
+            return
+        self._check = None
+        self.check_finished.emit(result)
+
+    def soft_limits(self):
+        """Limiti software attivi sulla scheda ($20=1): corsa ($130, $131) in mm, altrimenti None."""
+        s = self.board_settings
+        try:
+            if float(s.get(20, 0)) < 1:
+                return None
+            tx, ty = float(s.get(130, 0)), float(s.get(131, 0))
+        except (TypeError, ValueError):
+            return None
+        return (tx, ty) if tx > 0 and ty > 0 else None
 
     # ------------------------------------------------------- override dal vivo
     def set_override(self, kind, pct):
@@ -497,6 +520,20 @@ class GrblController(QObject):
         self.line_received.emit(line)
         if line.startswith("ALARM"):
             code = _code(line)
+            check = self._check
+            if check is not None:
+                # allarme durante la verifica (es. 2 = limiti software): la scheda ha scartato tutto e aspetta un
+                # reset. La riga colpevole è la prima non ancora confermata.
+                with self._lock:
+                    head = next((c for c in self._inflight if c.tag == "check"), None)
+                    self._pending.clear()
+                    self._inflight.clear()
+                text = ALARMS.get(code, "Allarme sconosciuto")
+                errs = list(check["errors"])
+                errs.append((int(head.data) if head is not None else -1, head.line if head is not None else "",
+                             f"ALARM:{code}", text))
+                self._check = None
+                self.realtime(0x18)  # esce dallo stato critico: la testa è ferma (verifica), resta solo da sbloccare
             if code in (1, 2, 3, 6, 7, 8, 9, 10) and self.homed:
                 self.homed = False  # posizione non più garantita
                 self.homed_changed.emit(False, self.negative_space)
@@ -505,14 +542,15 @@ class GrblController(QObject):
                 self._job_active = False
                 self.job_finished.emit(False, tr("Lavoro interrotto da un allarme della macchina"))
             self.alarm_raised.emit(code, ALARMS.get(code, "Allarme sconosciuto"))
+            if check is not None:
+                self.check_finished.emit(errs)
             return
         if line.lower().startswith("grbl"):
             # la scheda si è riavviata: tutto ciò che era in volo è perso
             self._clear_queues()
-            if self._check is not None and self._check.get("exiting"):
-                res = self._check["errors"]
-                self._check = None
-                self.check_finished.emit(res)
+            if self._check is not None:
+                # fine normale (uscita dal check mode) oppure reset a metà verifica
+                self._end_check(self._check["errors"] if self._check.get("exiting") else None)
             self.message.emit(line)
             return
         if line.startswith("[MSG:"):
@@ -531,6 +569,8 @@ class GrblController(QObject):
 
     def _finish(self, cmd, ok=True):
         if cmd.tag == "settings":
+            if ok and cmd.data:
+                self.board_settings = dict(cmd.data)
             self.settings_ready.emit(dict(cmd.data))
         elif cmd.tag == "info":
             for l in cmd.data:
@@ -550,9 +590,7 @@ class GrblController(QObject):
                 self._check["exiting"] = True
                 self.send_line("$C", tag="check_exit")
         elif cmd.tag == "check_exit" and self._check is not None:
-            res = self._check["errors"]
-            self._check = None
-            self.check_finished.emit(res)
+            self._end_check(self._check["errors"])
         elif cmd.tag == "job" and self._job_active:
             self.job_acked = int(cmd.data) + 1
             self._job_done += 1

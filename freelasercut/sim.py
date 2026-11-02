@@ -43,6 +43,8 @@ class SimSerial:
         self.active_cs = 1
         self.g92 = [0.0, 0.0, 0.0]
         self.check_mode = False
+        self._cpos = None  # verifica: posizione "letta" dal parser (la testa non si muove)
+        self._critical = False  # allarme critico (limiti): la scheda ignora tutto finché non arriva un reset
         self.state = "Idle"
         self.feed = 0.0
         self.power = 0.0
@@ -234,11 +236,37 @@ class SimSerial:
         with self._pl_cv:
             self._planner.clear()
             self._pl_cv.notify_all()
-        self.state = "Idle"
+        # come GRBL: il reset esce dal check mode; un allarme resta finché non si sblocca o si fa l'homing
+        alarm = self.state == "Alarm"
+        self._critical = False
+        self.check_mode = False
+        self._cpos = None
+        self.state = "Alarm" if alarm else "Idle"
         self.feed = 0
         self.power = 0
         self.laser = False
         self._emit("\r\nGrbl 1.1h ['$' for help]\r\n")
+        if alarm:
+            self._emit("[MSG:'$H'|'$X' to unlock]\r\n")
+
+    def _limits(self):
+        bx, by = self.bed_size()
+        lo = (-bx, -by) if self.negative else (0.0, 0.0)
+        hi = (0.0, 0.0) if self.negative else (bx, by)
+        return lo, hi
+
+    def _outside(self, p):
+        lo, hi = self._limits()
+        return not (lo[0] - 0.001 <= p[0] <= hi[0] + 0.001 and lo[1] - 0.001 <= p[1] <= hi[1] + 0.001)
+
+    def _soft_limit_alarm(self):
+        """Limiti software ($20=1) superati: allarme 2 critico, come GRBL anche in modalità verifica."""
+        self.check_mode = False
+        self._cpos = None
+        self.state = "Alarm"
+        self._critical = True
+        self._emit("ALARM:2\r\n")
+        self._emit("[MSG:Reset to continue]\r\n")
 
     # ---- thread ---------------------------------------------------------
     def _processor(self):
@@ -308,6 +336,8 @@ class SimSerial:
 
     # ---- interprete -------------------------------------------------------
     def _process(self, line, gen):
+        if self._critical:
+            return  # stato critico: nessuna risposta finché non arriva Ctrl-X
         up = line.upper().replace(" ", "")
         if up.startswith("$") and not up.startswith("$J="):
             self._wait_idle(gen)
@@ -334,6 +364,7 @@ class SimSerial:
             self.check_mode = not self.check_mode
             if self.check_mode:
                 self.state = "Check"
+                self._cpos = list(self.pos)
                 self._emit("[MSG:Enabled]\r\n")
                 return self._ok()
             self._emit("[MSG:Disabled]\r\n")
@@ -439,7 +470,24 @@ class SimSerial:
             self.active_cs = int(m_cs.group(1)) - 3
             return self._ok()
         if self.check_mode:
-            return self._ok()  # verifica: nessun movimento
+            # verifica: nessun movimento, ma GRBL calcola comunque la destinazione e applica i limiti software
+            if any(ax in d for ax in "XYZ"):
+                base = self._cpos if self._cpos is not None else list(self.pos)
+                target = list(base)
+                for i, ax in enumerate("XYZ"):
+                    if ax in d:
+                        target[i] = (d[ax] + self.wco[i]) if self.absolute else base[i] + d[ax]
+                if motion is not None:
+                    self.motion = motion
+                pts = [target]
+                if self.motion in (2, 3) and ("I" in d or "J" in d):
+                    from .gcode_preview import _arc
+                    pts = [[px, py, target[2]] for px, py in _arc(base[0], base[1], target[0], target[1], d, 1.0,
+                                                                  self.motion == 2)]
+                if float(self.settings.get(20, 0)) >= 1 and any(self._outside(q) for q in pts):
+                    return self._soft_limit_alarm()
+                self._cpos = target
+            return self._ok()
         if any(ax in d for ax in "XYZ"):
             base = self._planner[-1][0] if self._planner else self.pos
             target = list(base)

@@ -169,6 +169,13 @@ check("doppio clic su Banco: parte subito con il Banco", d.result() == QDialog.A
 nsi = open(os.path.join(ROOT, "build", "installer.nsi"), encoding="utf-8").read()
 check("installatore: controlla se FreeLaserCut è aperto (installazione e disinstallazione)",
       "Function ${UN}FlcInUso" in nsi and 'FLC_ASPETTA_CHIUSO "un." "Quit"' in nsi and 'FLC_ASPETTA_CHIUSO "" "Abort"' in nsi)
+# provato su Windows 11: la rinomina della cartella riesce anche col programma aperto; aprire in scrittura
+# l'eseguibile in uso invece no. Il controllo deve venire PRIMA di togliere i file.
+check("installatore: il controllo usa l'apertura in scrittura di pythonw.exe e python.exe (non la rinomina)",
+      'FileOpen $R1 "$INSTDIR\\python\\pythonw.exe" a' in nsi and 'FileOpen $R1 "$INSTDIR\\python\\python.exe" a' in nsi
+      and 'Rename "$INSTDIR\\python" "$INSTDIR\\python.flc-prova"' not in nsi)
+check("installatore: si controlla prima di togliere i file",
+      nsi.index('FLC_ASPETTA_CHIUSO "" "Abort"', nsi.index('Section "FreeLaserCut"')) < nsi.index('RMDir /r "$INSTDIR\\python"'))
 check("installatore: messaggio chiaro se i file non si tolgono o non si scrivono",
       "flc_togli_ko" in nsi and "FileErrorText" in nsi and nsi.count("Non riesco") >= 2)
 check("installatore: spiega la cartella e rifiuta «Programmi»",
