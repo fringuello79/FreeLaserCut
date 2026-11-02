@@ -100,6 +100,7 @@ class _Writer:
         self.mode = None
         self.rot_k = 1.0  # rotativo: la F si corregge perché la velocità sulla superficie resti quella scelta
         self.cut = 0.0
+        self.scan_offset = None  # f(velocità) -> sfasamento mm fra andata e ritorno (None = nessuna correzione)
         self.burn = [math.inf, math.inf, -math.inf, -math.inf]
         self.motion = [math.inf, math.inf, -math.inf, -math.inf]
 
@@ -393,9 +394,23 @@ def _clamp_dir(px, py, dx, dy, dist, bed):
 def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None):
     """Emette righe di scansione: [(y, [(xa, xb, potenza%), ...])] nel sistema ruotato di 'rot'."""
     cos_a, sin_a = rot
+    # correzione della scansione avanti e indietro: ogni riga si sposta di metà sfasamento contro il proprio verso,
+    # così andata e ritorno si incontrano (il laser si accende e si spegne con un piccolo ritardo)
+    half = 0.0
+    if cs.bidirectional and w.scan_offset is not None:
+        half = 0.5 * float(w.scan_offset(cs.speed))
+    shift = [0.0]
 
-    def back(x, y):
-        return x * cos_a - y * sin_a, x * sin_a + y * cos_a
+    if half:
+        bx_, by_ = bed
+
+        def back(x, y):
+            x += shift[0]
+            px, py = x * cos_a - y * sin_a, x * sin_a + y * cos_a
+            return min(max(px, 0.0), bx_), min(max(py, 0.0), by_)
+    else:
+        def back(x, y):
+            return x * cos_a - y * sin_a, x * sin_a + y * cos_a
 
     dxu, dyu = cos_a, sin_a  # direzione di scansione nel piano
     forward = True
@@ -406,6 +421,7 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None):
             segs = [(b, a, p) for a, b, p in reversed(segs)]
         sgn = 1.0 if forward else -1.0
         ddx, ddy = dxu * sgn, dyu * sgn
+        shift[0] = -sgn * half
         sx, sy = back(segs[0][0], y)
         ox, oy = _clamp_dir(sx, sy, -ddx, -ddy, cs.overscan, bed)
         w.rapid(ox, oy)
@@ -497,6 +513,7 @@ def _best_grouping(w, polys, cs, bed, opts, profile):
     best, best_t = "together", math.inf
     for g in ("together", "each"):
         tmp = _Writer(w.map, w.s_max)
+        tmp.scan_offset = w.scan_offset
         tmp.x, tmp.y, tmp.pb, tmp.f, tmp.s, tmp.mode = w.x, w.y, w.pb, w.f, w.s, w.mode
         _emit_fill(tmp, polys, cs, bed, opts, g)
         t = gcode_preview.plan_time(_moves_of(tmp.lines, w.x, w.y), profile.accel_x, profile.accel_y,
@@ -642,6 +659,8 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         job.rotary_k, job.rotary_ref = rot_k, ref
         job.warnings.append(tr("Rotativo attivo: asse Y × {0:.4f} (in anteprima il disegno resta com'è sul piano)", rot_k))
     w = _Writer(placed_map, profile.s_max)
+    if getattr(profile, "scan_offsets", None):
+        w.scan_offset = profile.scan_offset
     w.rot_k = rot_k
     title = opts.name or doc.name
     w.raw(f"; FreeLaserCut — {title}")

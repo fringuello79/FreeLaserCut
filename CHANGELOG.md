@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.10.5 — 02/11/2026
+- **Correzione della scansione avanti e indietro** (*Laser → Correzione della scansione avanti e indietro…*): incidendo avanti e indietro, le righe di andata e quelle di ritorno possono non finire nello stesso punto (il laser si accende e si spegne con un piccolo ritardo), e i bordi verticali vengono «a pettine». Ora il profilo della macchina ha una tabella velocità → sfasamento e FreeLaserCut sposta ogni riga di metà dello sfasamento, nei riempimenti e nelle foto con la scansione bidirezionale.
+  - **Prova da incidere:** righe di rettangoli, una per velocità, con correzioni da 0 a 0,30 mm (si cambia); sotto ogni colonna è inciso il valore. Si sceglie, per ogni velocità, il rettangolo con i bordi più dritti, *Usa questi valori* e *Salva nel profilo*.
+  - Fra due velocità della tabella il valore si interpola; oltre cresce in proporzione alla velocità. Con la tabella vuota il G-code resta identico a prima.
+- **Acmer S1** (2,5 W / 3,5 W / 6 W, piano 130 × 130 mm) fra i modelli pronti; una scheda che si presenta come ACMER viene riconosciuta.
+- Le prove automatiche passano anche sul server Windows di GitHub (corrette alcune prove vecchie che lì non funzionavano).
+- Nuova prova automatica `tests/test_v105.py` (29 controlli).
+
 ## 0.10.4 — 02/11/2026
 - **Aggiornamento dal programma** (versione con l'installatore per Windows): *Aiuto → Cerca aggiornamenti…* legge l'ultima versione pubblicata su GitHub, mostra le novità e, se vuoi, scarica l'installatore, ne controlla l'impronta SHA-256 con `SHA256SUMS.txt` della stessa Release, chiude FreeLaserCut (chiedendo di salvare), installa nella stessa cartella mostrando solo l'avanzamento e lo riapre da solo. Progetti, profili e materiali restano.
   - Al primo avvio FreeLaserCut chiede se può controllare da solo, al massimo **una volta al giorno**; si cambia da *Aiuto → Controlla gli aggiornamenti ogni giorno*. Non invia nessun dato: una sola richiesta a GitHub per sapere qual è l'ultima versione. Una versione si può saltare.

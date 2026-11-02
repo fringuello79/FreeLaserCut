@@ -89,6 +89,8 @@ class MachineProfile:
     air_on: str = "M8"
     air_off: str = "M9"
     raw_settings: dict = field(default_factory=dict)
+    # scansione avanti e indietro: [[velocità mm/min, sfasamento mm fra righe di andata e ritorno], ...]
+    scan_offsets: list = field(default_factory=list)
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):
@@ -129,6 +131,30 @@ class MachineProfile:
             if m and not p.vendor_fw:
                 p.vendor_fw = m.group(1).strip()
         return p
+
+    def scan_offset(self, speed):
+        """Sfasamento (mm) fra le righe di andata e quelle di ritorno alla velocità data (mm/min).
+        Fra due valori della tabella si interpola; fuori dalla tabella il valore cresce in proporzione alla
+        velocità, perché il ritardo del laser è un tempo. Tabella vuota = nessuna correzione."""
+        pts = []
+        for item in self.scan_offsets or []:
+            try:
+                s, d = float(item[0]), float(item[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            if s > 0:
+                pts.append((s, d))
+        if not pts or speed <= 0:
+            return 0.0
+        pts.sort()
+        if speed <= pts[0][0]:
+            return pts[0][1] * speed / pts[0][0]
+        if speed >= pts[-1][0]:
+            return pts[-1][1] * speed / pts[-1][0]
+        for (sa, da), (sb, db) in zip(pts, pts[1:]):
+            if sa <= speed <= sb:
+                return da + (db - da) * (speed - sa) / (sb - sa)
+        return 0.0
 
     def firmware_label(self):
         parts = [x for x in (self.vendor_fw, f"GRBL {self.firmware}" if self.firmware else "", self.board) if x]

@@ -76,8 +76,9 @@ diag.STALL_SECONDS = old
 check("lavoro fermo (nessun avanzamento a macchina ferma): annotato e salvato", msgs and msgs[0][1] and
       "lavoro-fermo" in os.path.basename(msgs[0][1]) and "7/120" in msgs[0][0], msgs[:1])
 log.on_stall = w._job_stalled
-w._job_stalled("prova", None); spin(0.05)
-check("lavoro fermo: avviso nella barra di stato", "Crea rapporto" in w.statusBar().currentMessage(), w.statusBar().currentMessage())
+w._job_stalled("prova", None)
+msg = w.statusBar().currentMessage()  # subito: un [MSG:...] della scheda in arrivo potrebbe sostituirlo
+check("lavoro fermo: avviso nella barra di stato", "Crea rapporto" in msg, msg)
 check("i registri salvati restano pochi (ultimi 10)", len([f for f in os.listdir(d) if f.startswith("comunicazione-")]) <= 10)
 
 # ------------------------------------------------------------------ rapporto

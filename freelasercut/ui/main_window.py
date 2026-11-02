@@ -253,6 +253,9 @@ class MainWindow(QMainWindow):
             "materials": A(tr("Libreria materiali…"), self.material_library, "Ctrl+M", "library"),
             "material_test": A(tr("Test materiale…"), self.material_test, None, "grid",
                                tr("Griglia potenza × velocità per trovare i valori giusti di un materiale")),
+            "scan_offset": A(tr("Correzione della scansione avanti e indietro…"), self.scan_offset_dialog, None, None,
+                             tr("Allinea le righe incise andando e tornando: bordi dritti e scritte nitide nei "
+                                "riempimenti e nelle foto")),
             "rotary": A(tr("Rotativo (bicchieri, cilindri)…"), self.rotary_dialog, None, "rotary",
                         tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
@@ -397,7 +400,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["photo"])
         m.addAction(a["trace"])
         menu(tr("&Laser"), ["connect", "identify", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-                        "materials", "material_test", "-", "rotary", "-", "save_gcode", "run_file"])
+                        "materials", "material_test", "scan_offset", "-", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
         self.m_view.addSeparator()
@@ -1964,26 +1967,47 @@ class MainWindow(QMainWindow):
         dlg.setModal(False)
         dlg.setAttribute(Qt.WA_DeleteOnClose)
 
-        def act(kind, job):
-            if kind == "preview":
-                self.preview_job(job)
-            elif kind == "frame":
-                if not self.ctl.connected:
-                    self.show_external_job(job)
-                    self.statusBar().showMessage(tr("Connetti la macchina per il contorno: intanto il test è mostrato sul piano"), 5000)
-                else:
-                    self.frame_job("box", job)
-            elif kind == "save":
-                self.save_gcode(job, "test-materiale")
-            elif kind == "start":
-                self.show_external_job(job)
-                self._job_is_external = True
-                self.start_job(job)
-
-        dlg.action.connect(act)
+        dlg.action.connect(lambda kind, job: self._test_job_action(kind, job, "test-materiale"))
         dlg.destroyed.connect(lambda *_: setattr(self, "_mt_dlg", None))
         self._mt_dlg = dlg
         dlg.show()
+
+    def _test_job_action(self, kind, job, name):
+        """Anteprima / contorno / salva / avvia di un lavoro di prova (test materiale, prova della scansione)."""
+        if kind == "preview":
+            self.preview_job(job)
+        elif kind == "frame":
+            if not self.ctl.connected:
+                self.show_external_job(job)
+                self.statusBar().showMessage(tr("Connetti la macchina per il contorno: intanto il test è mostrato sul piano"), 5000)
+            else:
+                self.frame_job("box", job)
+        elif kind == "save":
+            self.save_gcode(job, name)
+        elif kind == "start":
+            self.show_external_job(job)
+            self._job_is_external = True
+            self.start_job(job)
+
+    def scan_offset_dialog(self, *_):
+        """Laser → Correzione della scansione avanti e indietro (tabella del profilo e prova da incidere)."""
+        if getattr(self, "_so_dlg", None) is not None:
+            self._so_dlg.raise_()
+            self._so_dlg.activateWindow()
+            return self._so_dlg
+        from .dialogs_scan import ScanOffsetDialog
+
+        head = self.canvas.head_pos()
+        dlg = ScanOffsetDialog(self.profile, (head.x(), head.y()) if head is not None else None, self)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.action.connect(lambda kind, job: self._test_job_action(kind, job, "prova-scansione"))
+        dlg.saved.connect(lambda: self.statusBar().showMessage(
+            tr("Correzione della scansione salvata nel profilo «{0}»", self.profile.name), 5000))
+        dlg.destroyed.connect(lambda *_: setattr(self, "_so_dlg", None))
+        self._so_dlg = dlg
+        dlg.show()
+        return dlg
 
     # ================================================================ aiuto
     def claude_dialog(self, *_):

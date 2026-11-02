@@ -157,6 +157,10 @@ HELP = {
     "materials": (tr("Libreria materiali"), tr("Valori pronti per il Longer B1 40W (incisioni e tagli) più le tue voci: "
                   "scegli il materiale e applicalo al livello."), None),
     "material_test": (tr("Test materiale"), tr("Incide una griglia potenza × velocità con le etichette per trovare i valori giusti."), None),
+    "scan_offset": (tr("Correzione della scansione avanti e indietro"), tr(
+        "Incidendo avanti e indietro, le righe di andata e quelle di ritorno possono non finire nello stesso punto: bordi "
+        "a pettine e scritte sfocate. Qui si incide una prova (righe = velocità, colonne = correzioni), si sceglie il "
+        "rettangolo con i bordi più dritti e il valore si salva nel profilo della macchina."), None),
     "identify": (tr("Riconosci la macchina"), tr("Elenca le porte USB con il chip e il driver, interroga la scheda ($I, $$), "
                  "riconosce firmware, area di lavoro e buffer e prepara il profilo giusto. Da qui puoi anche installare "
                  "un driver USB che hai sul PC."), None),

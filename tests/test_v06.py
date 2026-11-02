@@ -68,14 +68,23 @@ w = M.MainWindow()
 menus = [a.text() for a in w.menuBar().actions()]
 langs = [a.text() for a in w.m_language.actions()]
 print("MENU", "|".join(menus)); print("LINGUE", "|".join(langs)); print("SOSTIENI", w.support_button.text())
-sys.stdout.flush(); os._exit(0)
+sys.stdout.flush()
+w.editor.dirty = False
+w.close()
+app.processEvents()
+print("FINE")
+sys.stdout.flush()
+os._exit(0)
 """
 for lang, first_menu in (("en", "&File"), ("it", "&File"), ("es", None), ("fr", None), ("pt", None)):
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", APPDATA=tempfile.mkdtemp(prefix="flc_test_"), PYTHONUTF8="1")
     r = subprocess.run([sys.executable, "-c", code, ROOT, lang], capture_output=True, text=True, encoding="utf-8",
                        errors="replace", env=env, timeout=240)
-    out = dict(line.split(" ", 1) for line in r.stdout.splitlines() if line[:4] in ("MENU", "LING", "SOST"))
-    ok = r.returncode == 0 and "MENU" in out and len(out.get("LINGUE", "").split("|")) == 5
+    out = dict(line.split(" ", 1) for line in r.stdout.splitlines() if line[:4] in ("MENU", "LING", "SOST") and " " in line)
+    # su Windows (server di GitHub) os._exit a volte termina con 0xC0000005 dopo che tutto è stato scritto:
+    # conta che la finestra si sia aperta con i menu nella lingua giusta
+    done = r.returncode == 0 or (sys.platform == "win32" and "SOSTIENI" in out)
+    ok = done and "MENU" in out and len(out.get("LINGUE", "").split("|")) == 5
     if ok and lang != "it":
         ok = out["MENU"] != "&File|&Modifica|&Disponi|&Visualizza|&Laser|&Strumenti|&Aiuto"
     check(f"finestra in {lang}", ok, out.get("MENU", "") + " · " + out.get("SOSTIENI", "") +

@@ -51,6 +51,7 @@ VENDORS = (
     ("Creality", ("CREALITY",)),
     ("NEJE", ("NEJE",)),
     ("Comgrow", ("COMGROW",)),
+    ("Acmer", ("ACMER",)),
 )
 
 _BAUDS = (115200, 250000, 230400, 57600, 38400, 9600)
@@ -77,7 +78,10 @@ CATALOG = (
     ("Two Trees TS2", "Two Trees", 450, 450, "10–20 W", 10000),
     ("Two Trees TTS-55 Pro", "Two Trees", 300, 300, "5,5 W", 6000),
     ("Comgrow Z1", "Comgrow", 400, 410, "5–10 W", 10000),
+    ("Acmer S1 (2,5W / 3,5W / 6W)", "Acmer", 130, 130, "2,5–6 W", 10000),
 )
+# spot del laser (mm) dichiarato dal produttore, dove è diverso dal valore comune (0,08 × 0,10)
+SPOTS = {"Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06)}
 GENERIC = tr("Altro laser GRBL (si legge dalla macchina)")
 
 
@@ -91,9 +95,10 @@ def preset_profile(name):
         return MachineProfile()
     for n, vendor, bx, by, power, rate in CATALOG:
         if n == name:
+            sx, sy = SPOTS.get(n, (0.08, 0.10))
             return MachineProfile(name=n, model=n, source=tr("valori di targa"), bed_x=float(bx), bed_y=float(by),
                                   optical_power=power, max_rate_x=float(rate), max_rate_y=float(rate),
-                                  accel_x=1500.0, accel_y=1500.0, spot_x_mm=0.08, spot_y_mm=0.10, rx_buffer=128)
+                                  accel_x=1500.0, accel_y=1500.0, spot_x_mm=sx, spot_y_mm=sy, rx_buffer=128)
     return MachineProfile(name=tr("Laser GRBL"), model=tr("Laser GRBL"), source=tr("valori di targa"), bed_x=400.0,
                           bed_y=400.0, optical_power="", max_rate_x=10000.0, max_rate_y=10000.0, accel_x=1000.0,
                           accel_y=1000.0, spot_x_mm=0.10, spot_y_mm=0.10)
