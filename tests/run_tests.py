@@ -231,6 +231,7 @@ if __name__ == "__main__":
     run_suite("test_v104_verifica.py", "Verifica: allarme dei limiti software, Stop/reset/Disconnetti, corsa letta dalla scheda")
     run_suite("test_v104_aggiorna.py", "Aggiornamento dal programma: Release di GitHub, SHA-256, installatore /AGGIORNA")
     run_suite("test_v105.py", "Correzione della scansione avanti e indietro, prova da incidere, Acmer S1")
+    run_suite("test_v106.py", "Aspetto: tema scuro, chiaro o come Windows, colore principale")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

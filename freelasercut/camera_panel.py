@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 
 from .camera import SIM_CAMERA, AutoCam, CameraSource, SimCamera, camera_file, list_cameras
 from .camera_calib import CameraModel
-from .theme import C
+from .theme import C, css
 from freelasercut.i18n import tr  # noqa: E402
 
 PPM = 2.0  # risoluzione della foto raddrizzata: 2 pixel per mm
@@ -119,7 +119,7 @@ class CameraPanel(QWidget):
         self.preview = QLabel()
         self.preview.setAlignment(Qt.AlignCenter)
         self.preview.setMinimumHeight(190)
-        self.preview.setStyleSheet(f"background:#080D18; border:1px solid {C['border']}; border-radius:8px;")
+        self.preview.setStyleSheet(css(f"background:#080D18; border:1px solid {C['border']}; border-radius:8px;"))
         kl.addWidget(self.preview)
         lay.addWidget(kc)
         lay.addStretch(1)

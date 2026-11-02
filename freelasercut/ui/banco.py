@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from freelasercut.i18n import tr  # noqa: E402
 
 from . import style
+from ..theme import css, tc
 from .canvas import RULER
 from .editor import TOOL_LAYER
 
@@ -33,7 +34,7 @@ OFF_W = 520  # larghezza dell'Officina a cassetto
 MODES = ("banco", "classica")
 ORANGE = "#FF7A2E"
 
-BANCO_QSS = f"""
+BANCO_QSS = css(f"""
 QToolBar#bcTopBar {{ background: #0A0E17; border: none; border-bottom: 1px solid #1A2234; padding: 0; spacing: 0; }}
 QFrame#bcTop {{ background: #0A0E17; }}
 QFrame#bcCard, QFrame#bcIsland, QFrame#bcCtx, QFrame#bcOfficina {{
@@ -80,7 +81,7 @@ QListWidget#bcPalList::item:selected {{ background: #22304D; }}
 QLineEdit#bcPalEdit, QLineEdit#bcPalEdit:focus, QLineEdit#bcPalEdit:hover {{ background: transparent; color: #E8EDF7;
     border: none; border-bottom: 1px solid #263048; font-size: 13pt; padding: 8px 6px; selection-background-color: #2E7CF6; }}
 QFrame#bcPalette {{ background: #121826; border: 1px solid #2E3A56; border-radius: 16px; }}
-"""
+""")
 
 
 # ============================================================ scelta dell'interfaccia
@@ -136,9 +137,9 @@ class ChoiceDialog(QDialog):
         # doppio clic su una scheda: la sceglie e parte subito, come «Inizia»
         self.b_banco._dbl = lambda: self._start("banco")
         self.b_classic._dbl = lambda: self._start("classica")
-        self.setStyleSheet("QFrame#bcChoice { border-radius: 14px; border: 1px solid #2A3550; background: #121826; }"
+        self.setStyleSheet(css("QFrame#bcChoice { border-radius: 14px; border: 1px solid #2A3550; background: #121826; }"
                            "QFrame#bcChoice:focus { border-color: #4FB4FF; }"
-                           "QFrame#bcChoice[on=\"true\"] { border: 2px solid " + ORANGE + "; background: #1A1410; }")
+                           "QFrame#bcChoice[on=\"true\"] { border: 2px solid " + ORANGE + "; background: #1A1410; }"))
         row.addWidget(self.b_banco, 1)
         row.addWidget(self.b_classic, 1)
         v.addLayout(row)
@@ -289,7 +290,7 @@ def _menu_button(text, actions, tip=None):
 def _sep(vertical=True):
     f = QFrame()
     f.setFixedSize(1, 28) if vertical else f.setFixedHeight(1)
-    f.setStyleSheet("background: #2A3550;")
+    f.setStyleSheet(css("background: #2A3550;"))
     return f
 
 
@@ -371,7 +372,7 @@ class _PalDelegate(QStyledItemDelegate):
         key = index.data(Qt.UserRole + 2) or ""
         r = option.rect.adjusted(12, 0, -12, 0)
         p.save()
-        p.setPen(QColor("#94A0B8"))
+        p.setPen(QColor(tc("#94A0B8")))
         p.setFont(style.ui_font(8))
         if key:
             p.setFont(style.mono_font(8))
@@ -473,7 +474,7 @@ class CommandPalette(QFrame):
             it.setData(Qt.UserRole + 1, path if a.isEnabled() else tr("{0} · non disponibile ora", path))
             it.setData(Qt.UserRole + 2, a.shortcut().toString(QKeySequence.NativeText))
             if not a.isEnabled():
-                it.setForeground(QColor("#55627E"))
+                it.setForeground(QColor(tc("#55627E")))
             self.list.addItem(it)
         if self.list.count():
             self.list.setCurrentRow(0)
@@ -528,10 +529,10 @@ class RadialMenu(QWidget):
             b.setFixedSize(80, 80)
             b.setEnabled(act.isEnabled())
             b.setToolTip(_clean(act.text()))
-            b.setStyleSheet("QToolButton { background: #141B2B; border: 1px solid #2E3A56; border-radius: 40px; "
+            b.setStyleSheet(css("QToolButton { background: #141B2B; border: 1px solid #2E3A56; border-radius: 40px; "
                             "color: #E8EDF7; font-size: 7.5pt; font-weight: 600; } "
                             "QToolButton:hover { background: " + ORANGE + "; color: #1A0E05; border-color: " + ORANGE + "; } "
-                            "QToolButton:disabled { color: #55627E; }")
+                            "QToolButton:disabled { color: #55627E; }"))
             b.move(int(c + self.R * math.cos(a) - 40), int(c + self.R * math.sin(a) - 40))
             b.clicked.connect(lambda _=False, act=act: self._go(act))
             self.buttons.append(b)
@@ -548,12 +549,12 @@ class RadialMenu(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         c = QPointF(self.SIZE / 2, self.SIZE / 2)
-        p.setPen(QPen(QColor("#2E3A56"), 1))
+        p.setPen(QPen(QColor(tc("#2E3A56")), 1))
         p.setBrush(QColor(10, 14, 23, 225))
         p.drawEllipse(c, 148, 148)
-        p.setBrush(QColor("#0D1320"))
+        p.setBrush(QColor(tc("#0D1320")))
         p.drawEllipse(c, 46, 46)
-        p.setPen(QColor("#C9D3E6"))
+        p.setPen(QColor(tc("#C9D3E6")))
         p.setFont(style.ui_font(8, QFont.Weight.Bold))
         p.drawText(QRectF(c.x() - 44, c.y() - 20, 88, 40), Qt.AlignCenter | Qt.TextWordWrap, self.title)
         p.end()
@@ -690,11 +691,11 @@ class LayerRail(QWidget):
         b.setFixedSize(56, 52)
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(f"{cs.label()} · {cs.speed:g} mm/min · {cs.power_max:g}% · {cs.passes}×")
-        b.setStyleSheet("QPushButton { background: #121826; border: 1px solid #263048; border-radius: 14px; } "
-                        "QPushButton:hover { border-color: #4FB4FF; }")
+        b.setStyleSheet(css("QPushButton { background: #121826; border: 1px solid #263048; border-radius: 14px; } "
+                        "QPushButton:hover { border-color: #4FB4FF; }"))
         sw = QLabel(b)
         sw.setGeometry(15, 13, 26, 26)
-        sw.setStyleSheet(f"background: {cs.color}; border-radius: 8px;" + ("" if cs.output else "border: 2px dashed #94A0B8;"))
+        sw.setStyleSheet(css(f"background: {cs.color}; border-radius: 8px;" + ("" if cs.output else "border: 2px dashed #94A0B8;")))
         sw.setAttribute(Qt.WA_TransparentForMouseEvents)
 
         def open_full():
@@ -893,7 +894,7 @@ class JobFlow(QFrame):
                                    tr("Da dove parte il lavoro: piano, posizione attuale, origine utente")))
                 v.addLayout(r4)
         safety = QFrame()
-        safety.setStyleSheet("QFrame { background: #0D1320; border-radius: 12px; }")
+        safety.setStyleSheet(css("QFrame { background: #0D1320; border-radius: 12px; }"))
         sl = QVBoxLayout(safety)
         sl.setContentsMargins(10, 8, 10, 8)
         self.c_glasses = QCheckBox(tr("Occhiali protettivi indossati"))
@@ -932,7 +933,7 @@ class JobFlow(QFrame):
         colors = {"ok": ("#3DD68C", "✓"), "todo": ("#FFB37A", str(n + 1)), "warn": ("#E5484D", "!")}
         col, sym = colors[state]
         dot.setText(sym)
-        dot.setStyleSheet(f"background: {col}; color: #0A0E17; border-radius: 12px; font-weight: 800;")
+        dot.setStyleSheet(f"background: {col}; color: #0B0B0B; border-radius: 12px; font-weight: 800;")  # testo scuro sul pallino colorato, in entrambi i temi
         t.setText(title)
         d.setText(text)
 
@@ -1063,9 +1064,9 @@ class Cockpit:
         tl = QHBoxLayout(self.top)
         tl.setContentsMargins(16, 8, 16, 8)
         self.state = _label(tr("INCISIONE IN CORSO"))
-        self.state.setStyleSheet("color: #FFD3B3; font-weight: 800; letter-spacing: 1px;")
+        self.state.setStyleSheet(css("color: #FFD3B3; font-weight: 800; letter-spacing: 1px;"))
         self.detail = _label("")
-        self.detail.setStyleSheet("color: #FFE8D6;")
+        self.detail.setStyleSheet(css("color: #FFE8D6;"))
         tl.addWidget(self.state)
         tl.addSpacing(14)
         tl.addWidget(self.detail)
@@ -1249,7 +1250,7 @@ class Officina(QFrame):
         self.setWindowTitle(tr("FreeLaserCut — Officina"))
         self.b_close.hide()
         self.title.setText(tr("OFFICINA · secondo monitor"))
-        self.setStyleSheet("QFrame#bcOfficina { border-radius: 0; border: none; background: #0A0E17; }")
+        self.setStyleSheet(css("QFrame#bcOfficina { border-radius: 0; border: none; background: #0A0E17; }"))
         self.show()
         h = self.windowHandle()
         if h is not None:
@@ -1410,7 +1411,7 @@ class Banco(QObject):
         h.addStretch(1)
         self.search = QPushButton(tr("Cosa vuoi fare? Cerca tra tutti i comandi…") + "      Ctrl+F")
         self.search.setObjectName("bcSearch")
-        self.search.setIcon(style.icon("zoom_in", "#94A0B8"))
+        self.search.setIcon(style.icon("zoom_in", tc("#94A0B8")))
         self.search.setCursor(Qt.PointingHandCursor)
         self.search.setMinimumWidth(420)
         self.search.setMaximumWidth(560)
@@ -1471,7 +1472,7 @@ class Banco(QObject):
         ctl = self.win.ctl
         if not ctl.connected:
             self.pill.setText(tr("○  Laser non connesso"))
-            self.pill.setStyleSheet("QPushButton#bcPill { background: #161B26; border: 1px solid #2A3550; color: #C9D3E6; }")
+            self.pill.setStyleSheet(css("QPushButton#bcPill { background: #161B26; border: 1px solid #2A3550; color: #C9D3E6; }"))
             return
         st = st or getattr(ctl, "last_status", None) or {}
         state = st.get("state", "Idle") if isinstance(st, dict) else "Idle"
@@ -1487,6 +1488,7 @@ class Banco(QObject):
         self.pill.setText(txt)
         col = {"Alarm": ("#3A1418", "#E5484D", "#FFD9DA"), "Run": ("#3A1D08", ORANGE, "#FFD3B3"),
                "Hold": ("#3A2A0A", "#F5A524", "#FFE8B8")}.get(state, ("#0F2A1E", "#1D5A3C", "#BFF2D6"))
+        col = tuple(tc(x) for x in col)
         self.pill.setStyleSheet(f"QPushButton#bcPill {{ background: {col[0]}; border: 1px solid {col[1]}; color: {col[2]}; }}")
 
     # ---------------------------------------------------------- isola degli strumenti

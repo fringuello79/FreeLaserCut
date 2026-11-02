@@ -1,5 +1,11 @@
 # Novità di FreeLaserCut
 
+## 0.10.6 — 02/11/2026
+- **Aspetto a scelta** (*Impostazioni → Aspetto*): **tema scuro** (come sempre, predefinito), **tema chiaro** oppure **come Windows** (segue la modalità chiara o scura di Windows). In più il **colore principale** di pulsanti, selezioni e linguette: blu, verde, viola, arancio o rosa. Vale per la finestra Classica e per il Banco; la scelta si applica dal riavvio, che FreeLaserCut propone subito.
+  - Nel tema chiaro anche le parti con colori propri (avvisi in alto, console, pannelli e pulsanti del Banco, pastiglia di stato) diventano chiare: una prova automatica controlla che non resti nessun colore del tema scuro.
+- **Corretto:** riavviando FreeLaserCut da una scelta del menu (lingua, interfaccia, aspetto) la nuova copia poteva trovare ancora «aperta» quella che si stava chiudendo e non partire; ora la vecchia smette subito di rispondere.
+- Nuova prova automatica `tests/test_v106.py` (18 controlli).
+
 ## 0.10.5 — 02/11/2026
 - **Correzione della scansione avanti e indietro** (*Laser → Correzione della scansione avanti e indietro…*): incidendo avanti e indietro, le righe di andata e quelle di ritorno possono non finire nello stesso punto (il laser si accende e si spegne con un piccolo ritardo), e i bordi verticali vengono «a pettine». Ora il profilo della macchina ha una tabella velocità → sfasamento e FreeLaserCut sposta ogni riga di metà dello sfasamento, nei riempimenti e nelle foto con la scansione bidirezionale.
   - **Prova da incidere:** righe di rettangoli, una per velocità, con correzioni da 0 a 0,30 mm (si cambia); sotto ogni colonna è inciso il valore. Si sceglie, per ogni velocità, il rettangolo con i bordi più dritti, *Usa questi valori* e *Salva nel profilo*.

@@ -19,7 +19,7 @@ from . import __version__, gcode_preview
 from .grbl import SIM_PORT, GrblController, list_serial_ports
 from .grbl_codes import KEY_SETTINGS, SETTINGS, STATE_COLORS, VENDOR_SETTINGS
 from .profile import MachineProfile
-from .theme import C, QSS
+from .theme import C, QSS, css, tc
 from .workspace import BedView
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -549,11 +549,11 @@ class ConsolePanel(QWidget):
         self.add(line, "recv")
 
     def add(self, text, kind):
-        colors = {"sent": C["accent_hi"], "recv": "#B9C4DC", "err": C["danger"], "sys": C["warn"]}
+        colors = {"sent": C["accent_hi"], "recv": tc("#B9C4DC"), "err": C["danger"], "sys": C["warn"]}
         prefix = {"sent": "›", "recv": " ", "err": "✕", "sys": "•"}[kind]
         t = time.strftime("%H:%M:%S")
         self.log.appendHtml(
-            f'<span style="color:#4E5C7A">{t}</span> <span style="color:{colors[kind]}">{prefix} {html.escape(text)}</span>'
+            f'<span style="color:{tc("#4E5C7A")}">{t}</span> <span style="color:{colors[kind]}">{prefix} {html.escape(text)}</span>'
         )
 
     def send(self):
@@ -693,7 +693,7 @@ class MainWindow(QMainWindow):
         h.setContentsMargins(14, 8, 14, 8)
         self.alarm_text = QLabel()
         self.alarm_text.setWordWrap(True)
-        self.alarm_text.setStyleSheet("color:#FFD9DA; font-weight:600;")
+        self.alarm_text.setStyleSheet(css("color:#FFD9DA; font-weight:600;"))
         h.addWidget(self.alarm_text, 1)
         b1 = QPushButton(tr("Sblocca ($X)"))
         b1.clicked.connect(lambda: (self.ctl.unlock(), self.alarm_bar.hide()))
@@ -830,11 +830,11 @@ class MainWindow(QMainWindow):
     def show_banner(self, text, kind="alarm"):
         self._banner_kind = kind
         if kind == "alarm":
-            self._banner_frame.setStyleSheet(f"QFrame#alarm {{ background:#3A1418; border:1px solid {C['danger']}; border-radius:10px; }}")
-            self.alarm_text.setStyleSheet("color:#FFD9DA; font-weight:600;")
+            self._banner_frame.setStyleSheet(css(f"QFrame#alarm {{ background:#3A1418; border:1px solid {C['danger']}; border-radius:10px; }}"))
+            self.alarm_text.setStyleSheet(css("color:#FFD9DA; font-weight:600;"))
         else:
-            self._banner_frame.setStyleSheet(f"QFrame#alarm {{ background:#10264D; border:1px solid {C['accent']}; border-radius:10px; }}")
-            self.alarm_text.setStyleSheet("color:#D6E6FF; font-weight:600;")
+            self._banner_frame.setStyleSheet(css(f"QFrame#alarm {{ background:#10264D; border:1px solid {C['accent']}; border-radius:10px; }}"))
+            self.alarm_text.setStyleSheet(css("color:#D6E6FF; font-weight:600;"))
         self.alarm_text.setText(text)
         self.alarm_bar.show()
 

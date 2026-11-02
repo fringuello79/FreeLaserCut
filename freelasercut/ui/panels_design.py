@@ -45,7 +45,7 @@ def shape_icon(key, size=34, color=None):
     p.drawPath(path)
     p.end()
     return QIcon(pm)
-from ..theme import C
+from ..theme import C, css
 from . import style
 from .canvas import TOOL_LAYER_COLOR
 from .editor import TOOL_LAYER
@@ -1069,7 +1069,7 @@ class PropertiesPanel(QScrollArea):
             f.addRow("", QLabel(tr("Ora mostra: «{0}»", s.shown_data())))
         if s.error:
             err = QLabel(s.error)
-            err.setStyleSheet("color:#E5484D;")
+            err.setStyleSheet(css("color:#E5484D;"))
             err.setWordWrap(True)
             f.addRow("", err)
         b = QPushButton(tr("Modifica codice…"))

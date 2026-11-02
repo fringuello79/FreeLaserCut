@@ -7,7 +7,7 @@ from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
 from PySide6.QtGui import QFont, QFontDatabase, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
-from ..theme import C
+from ..theme import C, css, tc
 from freelasercut.i18n import tr  # noqa: E402
 
 ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
@@ -111,9 +111,9 @@ def icon(name, color=None, size=20, active=None):
     for scale in (1, 2):
         s = size * scale
         ic.addPixmap(_render(name, color, s, 1.75), QIcon.Mode.Normal, QIcon.State.Off)
-        ic.addPixmap(_render(name, "#55627E", s, 1.75), QIcon.Mode.Disabled, QIcon.State.Off)
+        ic.addPixmap(_render(name, tc("#55627E"), s, 1.75), QIcon.Mode.Disabled, QIcon.State.Off)
         ic.addPixmap(_render(name, active or "#FFFFFF", s, 1.75), QIcon.Mode.Normal, QIcon.State.On)
-        ic.addPixmap(_render(name, "#55627E", s, 1.75), QIcon.Mode.Disabled, QIcon.State.On)
+        ic.addPixmap(_render(name, tc("#55627E"), s, 1.75), QIcon.Mode.Disabled, QIcon.State.On)
     return ic
 
 
@@ -293,3 +293,10 @@ QToolButton#supportbtn { background: #FFFFFF; color: #0E1734; border: 1px solid 
 QToolButton#supportbtn:hover { background: #FFF3EA; border-color: #FF9A4D; }
 QToolButton#supportbtn:pressed { background: #FFE2CC; }
 """
+
+if C.get("light"):  # tema chiaro: il pulsante bianco «Sostieni» ha bisogno di un bordo sul pannello bianco
+    QSS_EXTRA += f"""
+QToolButton#supportbtn {{ border-color: {C['border']}; }}
+QDockWidget::title {{ color: {C['text']}; }}
+"""
+QSS_EXTRA = css(QSS_EXTRA)  # colori scritti a mano per il tema scuro → tema in uso

@@ -6,7 +6,7 @@ SetCompressor /SOLID bzip2
 
 !define APP "FreeLaserCut"
 !ifndef VER
-  !define VER "0.10.5"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
+  !define VER "0.10.6"  ; di solito arriva da: makensis -DVER=x.y.z build\installer.nsi
 !endif
 !define PUB "fringuello79"
 !define UNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"

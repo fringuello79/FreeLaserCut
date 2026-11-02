@@ -1463,5 +1463,16 @@
  "Velocità (mm/min)": "Speed (mm/min)",
  "da 0 a": "from 0 to",
  "passo": "step",
- "{0} valori messi nella tabella: premi «Salva nel profilo» per usarli.": "{0} values put in the table: press «Save in profile» to use them."
+ "{0} valori messi nella tabella: premi «Salva nel profilo» per usarli.": "{0} values put in the table: press «Save in profile» to use them.",
+ "Arancio": "Orange",
+ "Aspetto": "Appearance",
+ "Blu": "Blue",
+ "Colore principale": "Accent colour",
+ "Come Windows (chiaro o scuro)": "Same as Windows (light or dark)",
+ "Il nuovo aspetto sarà usato dal prossimo avvio di FreeLaserCut. Riavviare adesso?": "The new appearance will be used from the next start of FreeLaserCut. Restart now?",
+ "Rosa": "Pink",
+ "Tema chiaro": "Light theme",
+ "Tema scuro": "Dark theme",
+ "Verde": "Green",
+ "Viola": "Purple"
 }

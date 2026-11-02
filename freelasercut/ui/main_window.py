@@ -18,7 +18,7 @@ from ..core.document import Document, ImageShape
 from ..grbl import SIM_PORT, GrblController, list_serial_ports
 from ..grbl_codes import STATE_COLORS
 from ..profile import MachineProfile, config_dir, migrate_qsettings
-from ..theme import C, QSS
+from ..theme import C, QSS, css, tc
 from . import style
 from .canvas import Canvas
 from .dialogs_materials import MaterialLibraryDialog, MaterialTestDialog
@@ -437,11 +437,67 @@ class MainWindow(QMainWindow):
         sec.setChecked(self.qs.value("officina_second_screen", "true") in (True, "true"))
         sec.toggled.connect(self._toggle_second_screen)
         self.act_second_screen = sec
+        self._build_look_menu(m)
         m.addSeparator()
         m.addMenu(self.m_language)  # lo stesso sottomenu di Visualizza: una sola lista di lingue
         m.addSeparator()
         for k in ("light_bed", "snap_obj", "snap_grid", "dither_prev"):
             m.addAction(self.acts[k])
+
+    def _build_look_menu(self, parent):
+        """Impostazioni → Aspetto: tema scuro / chiaro / come Windows e colore principale (vale dal riavvio)."""
+        from PySide6.QtGui import QPixmap
+
+        from .. import theme
+
+        sub = parent.addMenu(tr("Aspetto"))
+        self.m_look = sub
+        self.theme_actions, self.accent_actions = {}, {}
+        cur_t = str(self.qs.value("ui_theme", theme.THEME))
+        cur_a = str(self.qs.value("ui_accent", theme.ACCENT))
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        for code, label in (("scuro", tr("Tema scuro")), ("chiaro", tr("Tema chiaro")),
+                            ("sistema", tr("Come Windows (chiaro o scuro)"))):
+            act = sub.addAction(label)
+            act.setCheckable(True)
+            act.setChecked(code == cur_t)
+            grp.addAction(act)
+            act.triggered.connect(lambda _=False, c=code: self.choose_look(theme=c))
+            self.theme_actions[code] = act
+        sub.addSeparator()
+        sub.addSection(tr("Colore principale"))
+        grp2 = QActionGroup(self)
+        grp2.setExclusive(True)
+        names = {"blu": tr("Blu"), "verde": tr("Verde"), "viola": tr("Viola"), "arancio": tr("Arancio"), "rosa": tr("Rosa")}
+        for code, cols in theme.ACCENTS.items():
+            pm = QPixmap(14, 14)
+            pm.fill(QColor(cols[0]))
+            act = sub.addAction(QIcon(pm), names.get(code, code))
+            act.setCheckable(True)
+            act.setChecked(code == cur_a)
+            grp2.addAction(act)
+            act.triggered.connect(lambda _=False, c=code: self.choose_look(accent=c))
+            self.accent_actions[code] = act
+
+    def choose_look(self, theme=None, accent=None):
+        """Salva tema e/o colore principale; si vedono dal prossimo avvio (propone di riavviare subito)."""
+        from .. import theme as th
+
+        if theme is not None:
+            self.qs.setValue("ui_theme", theme)
+        if accent is not None:
+            self.qs.setValue("ui_accent", accent)
+        self.qs.sync()
+        if (str(self.qs.value("ui_theme", th.THEME)), str(self.qs.value("ui_accent", th.ACCENT))) == (th.THEME, th.ACCENT):
+            return False  # è già quello in uso
+        r = QMessageBox.question(self, tr("Aspetto"), tr("Il nuovo aspetto sarà usato dal prossimo avvio di FreeLaserCut. "
+                                                         "Riavviare adesso?"))
+        if r == QMessageBox.Yes:
+            self._restart = True
+            if not self.close():
+                self._restart = False
+        return True
 
     def _toggle_second_screen(self, on):
         self.qs.setValue("officina_second_screen", bool(on))
@@ -664,6 +720,7 @@ class MainWindow(QMainWindow):
         self._banner_kind = kind
         col = {"alarm": (C["danger"], "#3A1418", "#FFD9DA"), "info": (C["accent"], "#10264D", "#D6E6FF"),
                "warn": (C["warn"], "#3A2A0A", "#FFE8B8")}[kind]
+        col = tuple(tc(x) for x in col)
         self.banner.setStyleSheet(f"QFrame#alarm {{ background:{col[1]}; border-bottom:1px solid {col[0]}; }}")
         self.banner_text.setStyleSheet(f"color:{col[2]}; font-weight:600;")
         self.banner_text.setText(text)
@@ -712,7 +769,7 @@ class MainWindow(QMainWindow):
         self.sb_rotary = QPushButton(tr("⟳ Rotativo attivo"))
         self.sb_rotary.setFlat(True)
         self.sb_rotary.setCursor(Qt.PointingHandCursor)
-        self.sb_rotary.setStyleSheet("color:#FFB347; font-weight:700;")
+        self.sb_rotary.setStyleSheet(css("color:#FFB347; font-weight:700;"))
         self.sb_rotary.setToolTip(tr("L'asse Y comanda il rotativo. Clic per le impostazioni"))
         self.sb_rotary.clicked.connect(self.rotary_dialog)
         sb.addWidget(self.sb_rotary)
@@ -2146,6 +2203,10 @@ class MainWindow(QMainWindow):
             run_installer_on_exit(self)  # aggiornamento scaricato: l'installatore parte ora che FreeLaserCut si chiude
         if getattr(self, "_restart", False):
             from PySide6.QtCore import QProcess
+
+            lst = getattr(QApplication.instance(), "_flc_single", None)
+            if lst is not None:  # smetto di ascoltare: la nuova copia non deve trovare «già aperto» questa che si chiude
+                lst.close()
 
             QProcess.startDetached(sys.executable, ["-m", "freelasercut"])
 
