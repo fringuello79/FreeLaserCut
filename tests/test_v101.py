@@ -85,17 +85,42 @@ check("errore nella finestra principale: nel registro", "finestra rotta" in open
 
 # ------------------------------------------------------------------ istanza unica
 NAME = "flc-prova-%d" % os.getpid()
+_FWD = ("import sys, json; sys.path.insert(0, sys.argv[1]); from PySide6.QtCore import QCoreApplication; "
+        "a = QCoreApplication([]); from freelasercut import single; "
+        "print(single.forward(json.loads(sys.argv[2]), name=sys.argv[3]))")
+
+
+def fwd(paths, name):
+    """Secondo avvio in un processo vero, come nella realtà: su Windows una named pipe aperta e chiusa nello
+    stesso thread del server non fa in tempo a consegnare i dati (il server non gira finché il client aspetta)."""
+    import json, threading
+    res = {}
+
+    def run():
+        env = dict(os.environ)
+        env.pop("FLC_MULTI", None)
+        r = subprocess.run([sys.executable, "-c", _FWD, ROOT, json.dumps(paths), name], capture_output=True, text=True,
+                           env=env, timeout=60)
+        res["out"] = r.stdout.strip()
+    t = threading.Thread(target=run)
+    t.start()
+    while t.is_alive():
+        app.processEvents()
+        time.sleep(0.01)
+    return res.get("out") == "True"
+
+
 t0 = time.time()
 check("nessun FreeLaserCut aperto: l'avvio prosegue (e subito)", single.forward([SVG], name=NAME) is False and time.time() - t0 < 1.5,
       f"{time.time() - t0:.2f} s")
 got = []
 lst = single.Listener(app, name=NAME, on_request=got.append)
 check("il primo avvio resta in ascolto", lst.listening)
-check("secondo avvio: trova quello aperto", single.forward([SVG, os.path.join(TMP, "non-esiste.svg")], name=NAME) is True)
+check("secondo avvio: trova quello aperto", fwd([SVG, os.path.join(TMP, "non-esiste.svg")], NAME) is True)
 spin_until(lambda: got)
 check("secondo avvio: passa i file esistenti, con il percorso completo", got == [[os.path.abspath(SVG)]], got)
 got.clear()
-check("secondo avvio senza file", single.forward([], name=NAME) and spin_until(lambda: got) and got == [[]], got)
+check("secondo avvio senza file", fwd([], NAME) and spin_until(lambda: got) and got == [[]], got)
 os.environ["FLC_MULTI"] = "1"
 check("FLC_MULTI=1: si possono aprire più copie", single.forward([], name=NAME) is False)
 os.environ.pop("FLC_MULTI")
@@ -126,13 +151,13 @@ check("avvio: la finestra si aggancia all'istanza unica", win is not None and is
 n_shapes = len(win.editor.doc.shapes) if win else -1
 check("avvio: il file passato all'avvio si apre", n_shapes == 1, n_shapes)
 win.showMinimized(); spin(0.2)
-check("secondo avvio con un file: arriva alla finestra aperta", single.forward([SVG], name=NAME + "b"))
+check("secondo avvio con un file: arriva alla finestra aperta", fwd([SVG], NAME + "b"))
 spin_until(lambda: len(win.editor.doc.shapes) == 2)
 check("secondo avvio: il file si importa nella finestra già aperta", len(win.editor.doc.shapes) == 2, len(win.editor.doc.shapes))
 check("secondo avvio: la finestra non è più ridotta a icona", not win.isMinimized() and win.isVisible())
 # richiesta arrivata prima che la finestra esista: tenuta da parte e poi eseguita
 lst3 = single.Listener(app, name=NAME + "c")
-single.forward([], name=NAME + "c"); spin_until(lambda: lst3.pending)
+fwd([], NAME + "c"); spin_until(lambda: lst3.pending)
 check("richiesta durante l'avvio: tenuta da parte", lst3.pending == [[]])
 lst3.attach(win)
 check("richiesta durante l'avvio: eseguita quando c'è la finestra", lst3.pending == [])

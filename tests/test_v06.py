@@ -78,7 +78,8 @@ for lang, first_menu in (("en", "&File"), ("it", "&File"), ("es", None), ("fr", 
     ok = r.returncode == 0 and "MENU" in out and len(out.get("LINGUE", "").split("|")) == 5
     if ok and lang != "it":
         ok = out["MENU"] != "&File|&Modifica|&Disponi|&Visualizza|&Laser|&Strumenti|&Aiuto"
-    check(f"finestra in {lang}", ok, out.get("MENU", r.stderr[-300:]) + " · " + out.get("SOSTIENI", ""))
+    check(f"finestra in {lang}", ok, out.get("MENU", "") + " · " + out.get("SOSTIENI", "") +
+          f" · rc={r.returncode} lingue={len(out.get('LINGUE', '').split('|'))}" + ("" if ok else " · " + r.stderr[-400:]))
 
 print(f"{sum(results)}/{len(results)}")
 sys.exit(0 if all(results) else 1)
