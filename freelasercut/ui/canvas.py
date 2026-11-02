@@ -9,7 +9,7 @@ Sistemi di coordinate:
 import math
 
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QLineF, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QBrush, QColor, QCursor, QFont, QImage, QPainter, QPainterPath, QPainterPathStroker, QPen, QPixmap, QTransform,
 )
@@ -65,13 +65,22 @@ class ShapeItem(QGraphicsItem):
         self.fb_shape = shape  # NON "shape": è un metodo virtuale di QGraphicsItem che Qt chiama da solo
         self._path = None
         self._bounds = QRectF()
+        self._leaves = None
         self.refresh()
 
     def refresh(self):
         self.prepareGeometryChange()
         self._path = self.fb_shape.path()
         self._bounds = self._path.boundingRect().adjusted(-1, -1, 1, 1)
+        self._leaves = None  # i percorsi si ricalcolano al prossimo disegno
         self.update()
+
+    def _leaf_paths(self):
+        """(foglia, trasformazione, percorso nel piano) calcolati una volta per modifica: ridisegnare il piano
+        (a ogni movimento del mouse) non rigenera più i contorni, per esempio quelli dei testi."""
+        if self._leaves is None:
+            self._leaves = [(leaf, tf, tf.map(leaf.local_path())) for leaf, tf in self.fb_shape.leaves()]
+        return self._leaves
 
     def boundingRect(self):
         return self._bounds
@@ -86,7 +95,7 @@ class ShapeItem(QGraphicsItem):
     def paint(self, painter, option, widget=None):
         cv = self.canvas
         doc = cv.editor.doc
-        for leaf, tf in self.fb_shape.leaves():
+        for leaf, tf, mapped in self._leaf_paths():
             if leaf.hidden:
                 continue
             col = layer_color(leaf.layer)
@@ -104,15 +113,16 @@ class ShapeItem(QGraphicsItem):
                     painter.restore()
                 painter.setPen(cpen(col, 1, Qt.DashLine, 160))
                 painter.setBrush(Qt.NoBrush)
-                painter.drawPath(tf.map(leaf.local_path()))
+                painter.drawPath(mapped)
                 continue
-            path = tf.map(leaf.local_path())
+            path = mapped
             fill = cv.filled_view and cs is not None and cs.mode in ("fill", "offset_fill") and leaf.layer < 30
             if fill:
                 fc = QColor(col)
                 fc.setAlpha(70 if cs.output else 30)
                 painter.setBrush(fc)
-                path.setFillRule(Qt.OddEvenFill)
+                if path.fillRule() != Qt.OddEvenFill:
+                    path.setFillRule(Qt.OddEvenFill)
             else:
                 painter.setBrush(Qt.NoBrush)
             if leaf.layer >= 30:
@@ -207,6 +217,10 @@ class Canvas(QGraphicsView):
         self._last_burn = None
         self._preview_items = []
         self._img_cache = {}
+        # sfondo (piano + griglia) e righelli: cambiano solo con zoom, spostamento, dimensioni e opzioni di vista,
+        # non quando si muove il mouse; si disegnano una volta e poi si copiano (molto più veloce sui PC lenti)
+        self._bg_cache = (None, None, None)  # (chiave, pixmap, passo griglia)
+        self._ruler_cache = (None, None)
         # stato interazione
         self.cursor_bed = QPointF(0, 0)
         self.snap_hint = None  # (QPointF piano, etichetta)
@@ -499,8 +513,19 @@ class Canvas(QGraphicsView):
             self._user_zoomed = True
             self.viewport().update()
             return
+        had_hint = self.snap_hint is not None
         self.tool.move(e, bed)
+        if e.buttons() == Qt.NoButton and not had_hint and self.snap_hint is None and self.tool.static_hover():
+            # il mouse passa sul piano e lo strumento non disegna nulla che lo segua (Selezione senza tasti premuti):
+            # cambiano solo i segni del cursore sui righelli, quindi ridisegno solo le due strisce
+            self.update_rulers()
+            return
         self.viewport().update()
+
+    def update_rulers(self):
+        vp = self.viewport()
+        vp.update(0, 0, vp.width(), RULER + 1)
+        vp.update(0, 0, RULER + 1, vp.height())
 
     def mouseReleaseEvent(self, e):
         if self._pan is not None and e.button() in (Qt.MiddleButton, Qt.LeftButton):
@@ -560,7 +585,37 @@ class Canvas(QGraphicsView):
             e.acceptProposedAction()
 
     # ================================================================ disegno: sfondo
+    def _view_key(self):
+        vp = self.viewport()
+        t = self.viewportTransform()
+        return (t.m11(), t.m12(), t.m21(), t.m22(), t.dx(), t.dy(), vp.width(), vp.height(), vp.devicePixelRatioF())
+
     def drawBackground(self, p, rect):
+        vp = self.viewport()
+        if p.device() is not vp:  # disegno su un'altra superficie (stampa, immagine): niente cache
+            self._paint_background(p, rect)
+            return
+        key = self._view_key() + (self.light_bed, self.show_grid, self.snap_grid, self.bed_x, self.bed_y)
+        ck, pix, step = self._bg_cache
+        if ck != key or pix is None:
+            dpr = vp.devicePixelRatioF()
+            pix = QPixmap(max(1, round(vp.width() * dpr)), max(1, round(vp.height() * dpr)))
+            pix.setDevicePixelRatio(dpr)
+            pix.fill(Qt.transparent)
+            q = QPainter(pix)
+            q.setRenderHints(self.renderHints())
+            q.setTransform(self.viewportTransform())
+            self._paint_background(q, self.mapToScene(vp.rect()).boundingRect())
+            q.end()
+            self._bg_cache = (key, pix, self.grid_step)
+        else:
+            self.grid_step = step  # come se lo sfondo fosse stato ridisegnato (passo dell'aggancio alla griglia)
+        p.save()
+        p.resetTransform()
+        p.drawPixmap(0, 0, pix)
+        p.restore()
+
+    def _paint_background(self, p, rect):
         pal = BED_LIGHT if self.light_bed else BED_DARK
         p.fillRect(rect, QColor(pal["out"]))
         bed = QRectF(0, -self.bed_y, self.bed_x, self.bed_y)
@@ -577,15 +632,14 @@ class Canvas(QGraphicsView):
                 x = math.ceil(vis.left() / step) * step
                 lines = []
                 while x <= vis.right():
-                    lines.append((x, vis.top(), x, vis.bottom()))
+                    lines.append(QLineF(x, vis.top(), x, vis.bottom()))
                     x += step
                 y = math.ceil(vis.top() / step) * step
                 while y <= vis.bottom():
-                    lines.append((vis.left(), y, vis.right(), y))
+                    lines.append(QLineF(vis.left(), y, vis.right(), y))
                     y += step
                 if len(lines) < 4000:
-                    for a in lines:
-                        p.drawLine(QPointF(a[0], a[1]), QPointF(a[2], a[3]))
+                    p.drawLines(lines)
         p.setPen(cpen(pal["edge"], 1.5))
         p.setBrush(Qt.NoBrush)
         p.drawRect(bed)
@@ -604,10 +658,12 @@ class Canvas(QGraphicsView):
         ed = self.editor
         # contorno selezione (tratteggio animato fisso)
         if ed.selection:
+            p.setPen(cpen(C["accent_hi"], 1.2, Qt.DashLine))
+            p.setBrush(Qt.NoBrush)
             for s in ed.selection:
-                p.setPen(cpen(C["accent_hi"], 1.2, Qt.DashLine))
-                p.setBrush(Qt.NoBrush)
-                p.drawPath(tf.map(s.path()))
+                it = self.items_by_id.get(s.id)
+                path = it._path if it is not None and it.fb_shape is s and it._path is not None else s.path()
+                p.drawPath(tf.map(path))
         self.tool.draw(p, tf)
         if self.snap_hint is not None:
             pt, label = self.snap_hint
@@ -624,48 +680,74 @@ class Canvas(QGraphicsView):
 
     def _draw_rulers(self, p, tf):
         W, H = self.viewport().width(), self.viewport().height()
-        k = self.scale_px()
         band = QColor(C["panel"])
         p.fillRect(QRectF(0, 0, W, RULER), band)
         p.fillRect(QRectF(0, 0, RULER, H), band)
         p.setPen(cpen(C["border"], 1))
         p.drawLine(QPointF(0, RULER), QPointF(W, RULER))
         p.drawLine(QPointF(RULER, 0), QPointF(RULER, H))
+        # tacche e numeri: si calcolano solo quando cambiano zoom, spostamento o dimensioni della vista
+        key = self._view_key()
+        if self._ruler_cache[0] != key:
+            self._ruler_cache = (key, self._ruler_scale(tf, W, H))
+        minor, major, hlabels, vlabels = self._ruler_cache[1]
+        p.setPen(cpen(C["grid_major"], 1))
+        p.drawLines(minor)
+        p.setPen(cpen(C["muted"], 1))
+        p.drawLines(major)
+        p.setFont(style.mono_font(7.5))
+        p.setPen(QColor(C["muted"]))
+        for pt, st in hlabels:
+            p.drawStaticText(pt, st)
+        for vy, st in vlabels:
+            p.save()
+            p.translate(10, vy - 3)
+            p.rotate(-90)
+            p.drawStaticText(QPointF(0, -self._ruler_ascent), st)
+            p.restore()
+        self._paint_ruler_marks(p, tf, band)
+
+    def _ruler_scale(self, tf, W, H):
+        """Tacche (secondarie, principali) e numeri dei righelli per la vista attuale."""
+        from PySide6.QtGui import QFontMetricsF, QStaticText
+
+        k = self.scale_px()
         step = next((s for s in (1, 2, 5, 10, 20, 50, 100, 200, 500) if s * k >= 50), 500)
         sub = step / (5 if step in (5, 50, 500) else 10 if step in (1, 10, 100) else 4)
         f = style.mono_font(7.5)
-        p.setFont(f)
+        self._ruler_ascent = asc = QFontMetricsF(f).ascent()
         x0 = self.to_bed(QPointF(RULER, 0)).x()
         x1 = self.to_bed(QPointF(W, 0)).x()
         y_top = self.to_bed(QPointF(0, RULER)).y()
         y_bot = self.to_bed(QPointF(0, H)).y()
-        muted = QColor(C["muted"])
+        minor, major, hl, vl = [], [], [], []
+
+        def label(v):
+            st = QStaticText(f"{v:g}")
+            st.prepare(QTransform(), f)
+            return st
         # orizzontale
         v = math.floor(x0 / sub) * sub
         while v <= x1:
             vx = tf.map(QPointF(v, 0)).x()
-            major = abs(v / step - round(v / step)) < 1e-6
-            p.setPen(cpen(C["muted"] if major else C["grid_major"], 1))
-            p.drawLine(QPointF(vx, RULER - (9 if major else 4)), QPointF(vx, RULER))
-            if major:
-                p.setPen(muted)
-                p.drawText(QPointF(vx + 3, 10), f"{v:g}")
+            big = abs(v / step - round(v / step)) < 1e-6
+            (major if big else minor).append(QLineF(vx, RULER - (9 if big else 4), vx, RULER))
+            if big:
+                hl.append((QPointF(vx + 3, 10 - asc), label(v)))  # drawText usa la linea di base, drawStaticText l'angolo
             v += sub
         # verticale
         v = math.floor(y_bot / sub) * sub
         while v <= y_top:
             vy = tf.map(QPointF(0, v)).y()
-            major = abs(v / step - round(v / step)) < 1e-6
-            p.setPen(cpen(C["muted"] if major else C["grid_major"], 1))
-            p.drawLine(QPointF(RULER - (9 if major else 4), vy), QPointF(RULER, vy))
-            if major:
-                p.save()
-                p.translate(10, vy - 3)
-                p.rotate(-90)
-                p.setPen(muted)
-                p.drawText(QPointF(0, 0), f"{v:g}")
-                p.restore()
+            big = abs(v / step - round(v / step)) < 1e-6
+            (major if big else minor).append(QLineF(RULER - (9 if big else 4), vy, RULER, vy))
+            if big:
+                vl.append((vy, label(v)))
             v += sub
+        return minor, major, hl, vl
+
+    def _paint_ruler_marks(self, p, tf, band):
+        """Parte che cambia col mouse e la selezione: cursore e ingombro della selezione sui righelli."""
         # posizione del cursore sui righelli
         c = tf.map(self.cursor_bed)
         p.setPen(cpen(C["accent_hi"], 1))

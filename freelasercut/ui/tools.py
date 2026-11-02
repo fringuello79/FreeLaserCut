@@ -49,6 +49,11 @@ class Tool:
     def deactivate(self):
         pass
 
+    def static_hover(self):
+        """True se, muovendo il mouse senza tasti premuti, lo strumento non disegna nulla che lo segua:
+        allora il piano ridisegna solo i righelli (più veloce). Di serie no: ridisegno completo."""
+        return False
+
     def cursor(self):
         return QCursor(Qt.CrossCursor)
 
@@ -298,6 +303,9 @@ class SelectTool(Tool):
             self.ed.transform(QTransform.fromTranslate(dx * d, dy * d), tr("Sposta"))
             return True
         return False
+
+    def static_hover(self):
+        return self.mode is None  # passando col mouse cambia solo il cursore: nulla da ridisegnare sul piano
 
     def draw(self, p, tf):
         hv = self._handles(tf)

@@ -36,6 +36,33 @@ def load_fonts():
     _loaded = True
 
 
+TOOLTIP_DELAY_MS = 350  # Qt di serie: 700 ms
+
+
+def fast_ui(app):
+    """Interfaccia più pronta, senza cambiare l'aspetto:
+    - niente dissolvenze e animazioni di suggerimenti, menu e tendine. Su Windows Qt le copia dalle impostazioni
+      di sistema: il suggerimento compariva come immagine in dissolvenza, spariva un attimo e ricompariva
+      intero (sui PC lenti si vedeva bene);
+    - i suggerimenti compaiono dopo 350 ms invece di 700."""
+    from PySide6.QtWidgets import QApplication, QProxyStyle, QStyle
+
+    for eff in (Qt.UI_AnimateTooltip, Qt.UI_FadeTooltip, Qt.UI_AnimateMenu, Qt.UI_FadeMenu, Qt.UI_AnimateCombo):
+        QApplication.setEffectEnabled(eff, False)
+
+    class _QuickStyle(QProxyStyle):
+        def styleHint(self, hint, option=None, widget=None, return_data=None):
+            if hint == QStyle.SH_ToolTip_WakeUpDelay:
+                return TOOLTIP_DELAY_MS
+            return super().styleHint(hint, option, widget, return_data)
+
+    base = app.style()
+    st = _QuickStyle(base.name() if base is not None else "Fusion")
+    app.setStyle(st)
+    app._flc_style = st  # riferimento Python: lo stile resta vivo finché c'è l'applicazione
+    return st
+
+
 def ui_font(size=9.0, weight=QFont.Weight.Normal):
     f = QFont(UI_FONT)
     f.setPointSizeF(size)

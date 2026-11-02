@@ -1,5 +1,15 @@
 # Novità di FreeLaserCut
 
+## 0.10.3 — 02/11/2026
+Dalle note di chi lo usa:
+- **Suggerimenti dei comandi senza scatti:** passando su un comando, il suggerimento compariva, spariva un attimo e ricompariva intero (era la dissolvenza di Windows, che sui PC lenti si vede bene). Ora compare subito intero, dopo 350 ms invece di 700; anche menu e tendine si aprono senza animazioni.
+- **Ottimizza lo spazio (nesting)** nella barra principale della finestra classica, accanto ai comandi per allineare e distribuire.
+- **Piano più reattivo**, soprattutto sui PC lenti, con lo stesso identico aspetto:
+  - griglia e righelli non si ricalcolano più a ogni movimento del mouse, ma solo quando cambiano zoom, vista o dimensioni;
+  - i contorni delle forme (in particolare dei testi) si calcolano una volta per modifica, non a ogni ridisegno;
+  - passando col mouse con lo strumento Selezione si aggiornano solo i righelli: su un piano con una foto e dieci testi, da circa 18 ms a meno di 4 ms per movimento.
+- Nuova prova automatica `tests/test_v103.py`: il piano deve restare identico, pixel per pixel, al disegno da zero in ogni situazione.
+
 ## 0.10.2 — 02/11/2026
 Dalle segnalazioni di chi lo usa:
 - **Corretto:** chiusa la finestra *Anteprima*, la foto restava coperta dall'arancione del percorso finché non la si spostava. Ora il percorso sparisce alla chiusura (resta solo durante un lavoro in corso).

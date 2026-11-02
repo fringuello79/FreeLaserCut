@@ -444,7 +444,7 @@ class MainWindow(QMainWindow):
         for k in ("new", "open", "save", "-", "import", "-", "undo", "redo", "-", "cut", "copy", "paste", "delete",
                   "-", "group", "ungroup", "weld", "union", "difference", "intersection", "-", "flip_h", "flip_v",
                   "rot_ccw", "rot_cw", "-", "align_left", "align_hcenter", "align_right", "align_top", "align_vcenter",
-                  "align_bottom", "dist_h", "dist_v", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
+                  "align_bottom", "dist_h", "dist_v", "nest", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
                   "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "code", "materials", "material_test"):
             if k == "-":
                 tb.addSeparator()
@@ -2091,6 +2091,7 @@ def main(app=None, splash=None):
         app = QApplication(sys.argv)
     app.setApplicationName("FreeLaserCut")
     app.setStyle("Fusion")
+    style.fast_ui(app)  # suggerimenti pronti e senza scatti, niente animazioni dei menu
     style.load_fonts()
     app.setFont(style.ui_font(9))
     app.setStyleSheet(QSS.replace("'Segoe UI', 'Inter'", f"'{style.UI_FONT}', 'Segoe UI'") + style.QSS_EXTRA)
