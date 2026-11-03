@@ -855,6 +855,8 @@ class MainWindow(QMainWindow):
         ctl.check_finished.connect(self._check_done)
         ctl.job_error.connect(self._job_error)
         ctl.job_finished.connect(self._job_finished)
+        # offset G54 della scheda: serve ai test (materiale, scansione) sulle schede senza G55
+        ctl.status_changed.connect(lambda _st: setattr(self.profile, "wcs_offset", self.ctl.wco))
         self._update_undo()
         self._update_sel_actions()
 
@@ -1664,6 +1666,7 @@ class MainWindow(QMainWindow):
         opts = gcode.JobOptions(start_from=mode, anchor=lp.anchor.value,
                                 current_pos=(head.x(), head.y()) if head is not None else (0.0, 0.0),
                                 work_origin=self.work_origin_on_bed(), laser_cmd="M4",
+                                no_g55=bool(getattr(self.profile, "no_g55", False)), g54_offset=self.ctl.wco,
                                 finish="origin" if lp.finish_origin.isChecked() else "stay",
                                 optimize=lp.optimize.isChecked(), inner_first=lp.optimize.isChecked(),
                                 only_ids={s.id for s in self.editor.selection} if lp.only_sel.isChecked() else None,
@@ -1857,6 +1860,21 @@ class MainWindow(QMainWindow):
         self.laser.update_running()
         job = self._pending_start
         self._pending_start = None
+        if errors and self.ctl.no_g55 and not getattr(self.profile, "no_g55", False):
+            # la scheda non conosce G55 (firmware Acmer e altri): da ora il sistema «assoluto» si fa in G54
+            self.profile.no_g55 = True
+            try:
+                self.profile.save()
+            except OSError:
+                pass
+            rest = [e for e in errors if not (e[2] == 20 and str(e[1]).strip().upper() == "G55")]
+            if not rest and not getattr(self, "_job_is_external", False):
+                self.statusBar().showMessage(tr("La scheda non conosce G55: rifaccio il lavoro senza e lo verifico di nuovo"),
+                                             8000)
+                QTimer.singleShot(1500, lambda: self._reverify(job is not None))
+                return
+        if errors and any(e[2] == "NO_RISPOSTA" for e in errors):
+            self.statusBar().showMessage(tr("La scheda ha smesso di rispondere durante la verifica"), 10000)
         if errors is None:  # Stop, Disconnetti o reset della scheda a metà verifica
             self.laser.eta.setText(tr("Verifica interrotta"))
             self.statusBar().showMessage(tr("Verifica interrotta: il lavoro non è stato avviato"), 6000)
@@ -1868,6 +1886,17 @@ class MainWindow(QMainWindow):
         n = len(self.job.lines) if self.job else 0
         self.laser.eta.setText(tr("Verifica superata") if not errors else tr("Verifica: {0} errori", len(errors)))
         CheckResultDialog(errors, n, self).exec()
+
+    def _reverify(self, then_start):
+        """Rifà il lavoro (per esempio senza G55) e lo fa verificare di nuovo alla scheda."""
+        job = self.build_job()
+        if job is None or not job.lines or not self.ctl.connected:
+            return
+        self._pending_start = job if then_start else None
+        self.laser.start_progress("check")
+        if not self.ctl.check_job(job.lines):
+            self._pending_start = None
+            self.laser.update_running()
 
     def _job_error(self, index, line, code, text):
         box = QMessageBox(self)

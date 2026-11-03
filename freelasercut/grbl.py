@@ -142,6 +142,12 @@ class GrblController(QObject):
         self._backup_done = False  # copia delle impostazioni già fatta in questa connessione
         self.last_backup = None
         self.auto_backup = True
+        self.last_reply = 0.0  # ora dell'ultimo ok/error ricevuto
+        self.stale_check_exit = False  # sto facendo uscire la scheda da un check mode rimasto acceso
+        self.trusted_buffer = False  # scheda nota: uso tutto il buffer dichiarato in [OPT]
+        self.check_stalled = False  # l'ultima verifica non ha ricevuto tutte le risposte
+        self.no_g55 = False  # la scheda ha risposto error:20 a G55
+        self._check_end_t = 0.0
         self._fire_timer = None
         self.fire_active = False
 
@@ -172,6 +178,11 @@ class GrblController(QObject):
         self.board_settings = {}
         self.board_info = []
         self._backup_done = False
+        self.stale_check_exit = False
+        self.trusted_buffer = False
+        self.check_stalled = False
+        self.no_g55 = False
+        self.last_reply = time.time()
         self._check = None
         self._clear_queues()
         self._running = True
@@ -330,6 +341,11 @@ class GrblController(QObject):
 
     # ------------------------------------------------------- invio di un lavoro
     def stream_job(self, lines):
+        if self.last_status.get("state") == "Check" or self.stale_check_exit:
+            self.exit_stale_check()
+            self.job_finished.emit(False, tr("La scheda era ancora in modalità di prova: la sto facendo uscire. "
+                                             "Riprova tra qualche secondo."))
+            return
         clean = _clean_lines(lines)
         if not clean:
             self.job_finished.emit(False, tr("Il file non contiene comandi G-code"))
@@ -355,7 +371,10 @@ class GrblController(QObject):
         clean = [(i, l) for i, l in enumerate(_clean_lines(lines))]
         if not clean or not self.connected:
             return False
+        if self.last_status.get("state") == "Check" or self.stale_check_exit:
+            return False  # scheda ancora in modalità di prova: un altro $C la farebbe uscire e partire davvero
         self._check = {"total": len(clean), "done": 0, "errors": [], "exiting": False}
+        self.last_reply = time.time()
         self.send_line("$C")
         with self._lock:
             for i, line in clean:
@@ -369,11 +388,29 @@ class GrblController(QObject):
     def checking(self):
         return self._check is not None
 
+    def exit_stale_check(self):
+        """La scheda è rimasta in modalità di prova (verifica interrotta, FreeLaserCut chiuso a metà): la faccio uscire.
+        GRBL esce con un reset morbido: finché non arriva il banner non mando altro."""
+        if self._check is not None or self.stale_check_exit or not self.connected:
+            return
+        self.stale_check_exit = True
+        self._clear_queues()
+        self._write_raw(b"\n")  # chiude un'eventuale riga a metà rimasta nella scheda
+        self.send_line("$C", tag="check_exit_stale")
+        self.message.emit(tr("La scheda era rimasta in modalità di prova ($C): la faccio uscire"))
+        threading.Timer(4.0, self._stale_timeout).start()
+
+    def _stale_timeout(self):
+        if self.stale_check_exit:  # nessun banner: riprovo con un reset
+            self.stale_check_exit = False
+            self.soft_reset()
+
     def _end_check(self, result):
         """Chiude la verifica (se ce n'è una): result = elenco degli errori, None = interrotta."""
         if self._check is None:
             return
         self._check = None
+        self._check_end_t = time.time()
         self.check_finished.emit(result)
 
     def soft_limits(self):
@@ -457,10 +494,34 @@ class GrblController(QObject):
         return self._ser if isinstance(self._ser, SimSerial) else None
 
     # ----------------------------------------------------------------- lettura
+    CHECK_STALL_S = 6.0  # in modalità di prova le risposte arrivano subito: 6 s senza risposte = ferma
+
     def _poll_loop(self):
         while self._running:
             self._write_raw(b"?")
             time.sleep(POLL_INTERVAL)
+            self._watch_check()
+
+    def _watch_check(self):
+        chk = self._check
+        if chk is None:
+            return
+        with self._lock:
+            waiting = len(self._inflight)
+        if waiting and time.time() - self.last_reply > self.CHECK_STALL_S:
+            # la scheda non risponde più (risposte perse): chiudo la verifica invece di restare fermo,
+            # passo al buffer prudente e la faccio uscire dalla modalità di prova
+            self.check_stalled = True
+            self.rx_buffer = RX_BUFFER
+            errs = list(chk["errors"])
+            errs.append((-1, "", "NO_RISPOSTA", tr("La scheda ha smesso di rispondere durante la verifica ({0} righe "
+                                                   "senza risposta). FreeLaserCut passa a una comunicazione più "
+                                                   "prudente: rifai la verifica.", waiting)))
+            self._check = None
+            self._check_end_t = time.time()
+            self._clear_queues()
+            self.check_finished.emit(errs)
+            self.exit_stale_check()
 
     def _read_loop(self):
         while self._running:
@@ -496,6 +557,9 @@ class GrblController(QObject):
             st = parse_status(line, self._wco)
             self._wco = st["WCO"]
             self.last_status = st
+            if (st["state"] == "Check" and self._check is None and not self.stale_check_exit
+                    and time.time() - self._check_end_t > 3.0):  # subito dopo una verifica il report può essere vecchio
+                self.exit_stale_check()
             self.status_time = time.time()
             if self._check_space and st["state"] == "Idle" and "MPos" in st:
                 # dopo l'homing: GRBL classico mette la macchina in coordinate negative (0 = fondo corsa)
@@ -517,6 +581,7 @@ class GrblController(QObject):
         is_ok = line == "ok"
         is_err = line.startswith("error")
         if is_ok or is_err:
+            self.last_reply = time.time()
             with self._lock:
                 head = self._inflight.popleft() if self._inflight else None
             if head is not None and head.tag != "job":
@@ -526,6 +591,8 @@ class GrblController(QObject):
                 text = ERRORS.get(code, "Errore sconosciuto")
                 if head is not None and head.tag == "check" and self._check is not None:
                     self._check["errors"].append((head.data, head.line, code, text))
+                    if code == 20 and head.line.strip().upper() == "G55":
+                        self.no_g55 = True
                 elif head is not None and head.tag == "job" and self._job_active and self.pause_on_error:
                     # sicurezza: alla prima riga rifiutata il lavoro si ferma subito in pausa
                     self.feed_hold()
@@ -554,6 +621,7 @@ class GrblController(QObject):
                 errs.append((int(head.data) if head is not None else -1, head.line if head is not None else "",
                              f"ALARM:{code}", text))
                 self._check = None
+                self._check_end_t = time.time()
                 self.realtime(0x18)  # esce dallo stato critico: la testa è ferma (verifica), resta solo da sbloccare
             if code in (1, 2, 3, 6, 7, 8, 9, 10) and self.homed:
                 self.homed = False  # posizione non più garantita
@@ -569,6 +637,7 @@ class GrblController(QObject):
         if line.lower().startswith("grbl"):
             # la scheda si è riavviata: tutto ciò che era in volo è perso
             self._clear_queues()
+            self.stale_check_exit = False
             if self._check is not None:
                 # fine normale (uscita dal check mode) oppure reset a metà verifica
                 self._end_check(self._check["errors"] if self._check.get("exiting") else None)
@@ -606,7 +675,12 @@ class GrblController(QObject):
                 m = _OPT_RE.match(l)
                 if m:
                     # [OPT:VPH,63,256] -> buffer RX della scheda: lo uso quasi tutto (più fluido sul raster)
-                    self.rx_buffer = max(RX_BUFFER, min(int(m.group(3)) - 2, 1022))
+                    full = max(RX_BUFFER, min(int(m.group(3)) - 2, 1022))
+                    txt = " ".join(cmd.data).upper()
+                    # buffer grande solo per le schede che lo gestiscono davvero (provate): con altri firmware
+                    # alcune risposte si perdono e la verifica o il lavoro restano fermi (visto su Acmer)
+                    self.trusted_buffer = any(k in txt for k in ("LGT", "GRBLHAL", "FLUIDNC"))
+                    self.rx_buffer = full if self.trusted_buffer else RX_BUFFER
             self.board_info = list(cmd.data)
             self.info_ready.emit(list(cmd.data))
         elif ok and cmd.line.upper().replace(" ", "") == "$H":

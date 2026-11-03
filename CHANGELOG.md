@@ -1,5 +1,23 @@
 # Novità di FreeLaserCut
 
+## 0.12.1 — 03/11/2026
+Dal rapporto per l'assistenza di chi usa un **Acmer S1** (firmware 1.0.4 del 2025): verifica ferma, testa che si muove a laser spento.
+- **Corretto: una scheda rimasta in modalità di prova («Check») si muoveva davvero a laser spento.**
+  - Se una verifica restava a metà, la scheda rimaneva in modalità di prova. A una nuova verifica FreeLaserCut mandava di nuovo `$C`, che invece la faceva uscire: la scheda si riavviava, le prime righe (con l'accensione del laser) si perdevano e il resto veniva eseguito come spostamenti.
+  - Ora FreeLaserCut riconosce dallo stato che la scheda è in prova e la fa uscire da solo, anche alla connessione. Finché non si è riavviata non manda né verifiche né lavori.
+- **Corretto: la verifica restava ferma** (al 62% o al 74%) quando la scheda smetteva di rispondere.
+  - Se per 6 secondi non arriva nessuna risposta, la verifica si chiude e spiega cosa è successo; la scheda esce dalla modalità di prova senza muoversi.
+  - La comunicazione passa poi a un buffer prudente.
+- **Comunicazione prudente con le schede non conosciute.**
+  - Il buffer grande dichiarato dalla scheda (`[OPT]`) si usa solo con i firmware provati: Longer, grblHAL e FluidNC.
+  - Con gli altri si mandano al massimo 127 caratteri alla volta, come nel GRBL classico. L'Acmer dichiara 511 caratteri ma perdeva risposte.
+- **Schede senza G55.**
+  - Alcuni firmware, come quello dell'Acmer, rispondono error:20 a `G55`, il sistema di coordinate che FreeLaserCut usa per la posizione «assoluta».
+  - Alla prima verifica che lo rivela, FreeLaserCut se lo segna nel profilo, rifà il lavoro in `G54` togliendo l'offset della scheda (stesso punto sul piano), lo verifica di nuovo e lo avvia.
+  - Il profilo pronto dell'Acmer S1 è già impostato così; vale anche per il test materiale e la prova della scansione.
+- L'esito della verifica non dice più «valido per il tuo B1», ma «per la tua macchina».
+- Nuova prova automatica `tests/test_v121.py` (20 controlli). Il simulatore ora sa anche fare la scheda «senza G55» e quella che perde risposte in verifica.
+
 ## 0.12.0 — 03/11/2026
 - **Laser collegati via Wi-Fi.** Con il pulsante Wi-Fi accanto alla porta si scrive l'indirizzo della scheda (per esempio `192.168.1.50`, porta 23) e *Prova il collegamento* controlla che risponda. Poi tutto funziona come con il cavo USB: lavori, verifica, contorno, stato, *Riconosci la macchina*. Gli indirizzi usati restano nell'elenco delle porte e FreeLaserCut si ricollega da solo all'avvio.
   - Funziona con le schede che accettano il G-code dalla rete (telnet), come FluidNC, grblHAL ed ESP3D (porta 23 di serie) o l'AlgoLaser Delta. I laser che si comandano solo dall'app del produttore restano con il cavo USB.

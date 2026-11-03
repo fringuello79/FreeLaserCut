@@ -1627,5 +1627,12 @@
  "La scheda risponde. {0}": "La carte répond. {0}",
  "Nessuna risposta GRBL: {0}": "Aucune réponse GRBL : {0}",
  "controlla indirizzo, porta e Wi-Fi.": "vérifiez l'adresse, le port et le Wi-Fi.",
- "Collega un laser via Wi-Fi (FluidNC, grblHAL, ESP3D)": "Connecter un laser en Wi-Fi (FluidNC, grblHAL, ESP3D)"
+ "Collega un laser via Wi-Fi (FluidNC, grblHAL, ESP3D)": "Connecter un laser en Wi-Fi (FluidNC, grblHAL, ESP3D)",
+ "La scheda era rimasta in modalità di prova ($C): la faccio uscire": "La carte était restée en mode test ($C) : je la fais sortir",
+ "La scheda era ancora in modalità di prova: la sto facendo uscire. Riprova tra qualche secondo.": "La carte était encore en mode test : je la fais sortir. Réessayez dans quelques secondes.",
+ "La scheda ha smesso di rispondere durante la verifica ({0} righe senza risposta). FreeLaserCut passa a una comunicazione più prudente: rifai la verifica.": "La carte a cessé de répondre pendant la vérification ({0} lignes sans réponse). FreeLaserCut passe à une communication plus prudente : refaites la vérification.",
+ "<b style='color:{0}'>✓ Nessun errore.</b><br>La scheda ha controllato tutte le {1} righe del lavoro senza muoversi: il G-code è valido per la tua macchina.": "<b style='color:{0}'>✓ Aucune erreur.</b><br>La carte a contrôlé les {1} lignes du travail sans bouger : le G-code est valide pour votre machine.",
+ "<b style='color:{0}'>✕ La verifica si è fermata: la scheda ha smesso di rispondere.</b><br>Il lavoro non è stato avviato. {1}": "<b style='color:{0}'>✕ La vérification s'est arrêtée : la carte a cessé de répondre.</b><br>Le travail n'a pas été lancé. {1}",
+ "La scheda ha smesso di rispondere durante la verifica": "La carte a cessé de répondre pendant la vérification",
+ "La scheda non conosce G55: rifaccio il lavoro senza e lo verifico di nuovo": "La carte ne connaît pas G55 : je refais le travail sans et je le vérifie à nouveau"
 }

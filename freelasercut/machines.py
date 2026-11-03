@@ -127,6 +127,8 @@ SOURCES = {
     "Genmitsu LE5040": "https://www.sainsmart.com/products/genmitsu-le5040-cnc-laser-engraver-machine",
     "Longer Ray5 5W": "https://longer3d.com/products/longer-ray5-laser-engraver",
 }
+# firmware che rispondono error:20 a G55 (visto nel registro di un Acmer S1, firmware 1.0.4 del 2025)
+NO_G55 = {"Acmer S1 (2,5W / 3,5W / 6W)"}
 # note da mostrare quando si sceglie il modello
 NOTES = {
     "Genmitsu Jinsoku LC-40": tr("Il LC-40 esce dalla fabbrica con il firmware per l'app: per usarlo con FreeLaserCut "
@@ -164,7 +166,8 @@ def preset_profile(name):
             sx, sy = SPOTS.get(n, (0.08, 0.10))
             return MachineProfile(name=n, model=n, source=tr("valori di targa"), bed_x=float(bx), bed_y=float(by),
                                   optical_power=power, max_rate_x=float(rate), max_rate_y=float(rate),
-                                  accel_x=1500.0, accel_y=1500.0, spot_x_mm=sx, spot_y_mm=sy, rx_buffer=128)
+                                  accel_x=1500.0, accel_y=1500.0, spot_x_mm=sx, spot_y_mm=sy, rx_buffer=128,
+                                  no_g55=n in NO_G55)
     return MachineProfile(name=tr("Laser GRBL"), model=tr("Laser GRBL"), source=tr("valori di targa"), bed_x=400.0,
                           bed_y=400.0, optical_power="", max_rate_x=10000.0, max_rate_y=10000.0, accel_x=1000.0,
                           accel_y=1000.0, spot_x_mm=0.10, spot_y_mm=0.10)

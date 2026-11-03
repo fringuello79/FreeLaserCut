@@ -1627,5 +1627,12 @@
  "La scheda risponde. {0}": "The controller answers. {0}",
  "Nessuna risposta GRBL: {0}": "No GRBL answer: {0}",
  "controlla indirizzo, porta e Wi-Fi.": "check address, port and Wi-Fi.",
- "Collega un laser via Wi-Fi (FluidNC, grblHAL, ESP3D)": "Connect a laser over Wi-Fi (FluidNC, grblHAL, ESP3D)"
+ "Collega un laser via Wi-Fi (FluidNC, grblHAL, ESP3D)": "Connect a laser over Wi-Fi (FluidNC, grblHAL, ESP3D)",
+ "La scheda era rimasta in modalità di prova ($C): la faccio uscire": "The controller was left in check mode ($C): taking it out",
+ "La scheda era ancora in modalità di prova: la sto facendo uscire. Riprova tra qualche secondo.": "The controller was still in check mode: taking it out. Try again in a few seconds.",
+ "La scheda ha smesso di rispondere durante la verifica ({0} righe senza risposta). FreeLaserCut passa a una comunicazione più prudente: rifai la verifica.": "The controller stopped answering during the check ({0} lines without an answer). FreeLaserCut switches to a more cautious communication: run the check again.",
+ "<b style='color:{0}'>✓ Nessun errore.</b><br>La scheda ha controllato tutte le {1} righe del lavoro senza muoversi: il G-code è valido per la tua macchina.": "<b style='color:{0}'>✓ No errors.</b><br>The controller checked all {1} lines of the job without moving: the G-code is valid for your machine.",
+ "<b style='color:{0}'>✕ La verifica si è fermata: la scheda ha smesso di rispondere.</b><br>Il lavoro non è stato avviato. {1}": "<b style='color:{0}'>✕ The check stopped: the controller stopped answering.</b><br>The job was not started. {1}",
+ "La scheda ha smesso di rispondere durante la verifica": "The controller stopped answering during the check",
+ "La scheda non conosce G55: rifaccio il lavoro senza e lo verifico di nuovo": "The controller doesn't know G55: rebuilding the job without it and checking again"
 }

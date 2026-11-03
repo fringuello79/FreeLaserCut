@@ -39,6 +39,8 @@ class JobOptions:
     raster_gap_g1: float = 8.0  # mm: buchi più corti in riempimento/immagine si percorrono con G1 S0
     gray_levels: int = 64
     set_g55: bool = True  # azzera G55 (sistema "assoluto" di FreeLaserCut) se non già fatto
+    no_g55: bool = False  # scheda senza G55: coordinate assolute in G54, togliendo l'offset G54 attuale
+    g54_offset: tuple = (0.0, 0.0)  # offset G54 della scheda (WCO) quando no_g55
     name: str = ""
     rotary: object = None  # dict: kind (roller | chuck), mm_per_rev, roller_d, object_d — None = piano normale
 
@@ -628,11 +630,13 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     # posizionamento: piano -> uscita
     if opts.start_from == "absolute":
         place = (0.0, 0.0)
+        off = tuple(opts.g54_offset) if opts.no_g55 else (0.0, 0.0)
 
         def out_map(bx, by):
-            return profile.to_machine(bx, by)
+            mx, my = profile.to_machine(bx, by)
+            return mx - off[0], my - off[1]
         mx0, my0 = profile.to_machine(0.0, 0.0)
-        job.out_to_bed = (-mx0, -my0)
+        job.out_to_bed = (-mx0 + off[0], -my0 + off[1])
     else:
         target = opts.current_pos if opts.start_from == "current" else opts.work_origin
         place = (target[0] - anchor.x(), target[1] - anchor.y())
@@ -669,7 +673,9 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     w.raw("G90 G21")
     w.raw("M5 S0")
     w.raw("M9")
-    if opts.start_from == "absolute":
+    if opts.start_from == "absolute" and opts.no_g55:
+        w.raw("G54")  # la scheda non ha G55: coordinate già corrette per l'offset G54
+    elif opts.start_from == "absolute":
         if opts.set_g55:
             w.raw("G10 L2 P2 X0 Y0")
         w.raw("G55")

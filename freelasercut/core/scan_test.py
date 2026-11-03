@@ -52,15 +52,21 @@ def build(spec: ScanTestSpec, profile):
     gx0, gy0 = spec.x0 + lab_x, spec.y0 + lab_y
     px, py = spec.cell_w + spec.gap, spec.cell_h + spec.gap
 
+    off = tuple(getattr(profile, "wcs_offset", (0.0, 0.0))) if getattr(profile, "no_g55", False) else (0.0, 0.0)
+
     def mp(bx, by):
-        return profile.to_machine(bx, by)
+        mx, my = profile.to_machine(bx, by)
+        return mx - off[0], my - off[1]
 
     w = _Writer(mp, profile.s_max)
     w.raw(f"; FreeLaserCut — prova della scansione avanti e indietro {len(speeds)}×{len(offs)}")
     w.raw("G90 G21")
     w.raw("M5 S0")
-    w.raw("G10 L2 P2 X0 Y0")
-    w.raw("G55")
+    if getattr(profile, "no_g55", False):
+        w.raw("G54")  # scheda senza G55 (le coordinate tolgono l'offset G54, vedi mp)
+    else:
+        w.raw("G10 L2 P2 X0 Y0")
+        w.raw("G55")
     w.raw("M8")
     w.raw("M4 S0")
     cut0 = w.cut
@@ -100,7 +106,7 @@ def build(spec: ScanTestSpec, profile):
         job.warnings.append(tr("Il test esce dall'area di lavoro: cambia la posizione"))
     job.motion_bounds = QRectF(mv[0], mv[1], mv[2] - mv[0], mv[3] - mv[1]) if mv[0] <= mv[2] else None
     mx0, my0 = profile.to_machine(0.0, 0.0)
-    job.out_to_bed = (-mx0, -my0)
+    job.out_to_bed = (-mx0 + off[0], -my0 + off[1])
     from .. import gcode_preview
 
     job.preview = gcode_preview.parse(job.lines, profile=profile)

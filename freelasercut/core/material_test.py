@@ -119,15 +119,21 @@ def build(spec: TestSpec, profile):
     spec = replace(spec, x0=L.x0c, y0=L.y0c)  # con i riferimenti la griglia si sposta verso l'interno
     pitch, lab, gx0, gy0, W, H = L.pitch, L.lab, L.gx0, L.gy0, L.W, L.H
 
+    off = tuple(getattr(profile, "wcs_offset", (0.0, 0.0))) if getattr(profile, "no_g55", False) else (0.0, 0.0)
+
     def mp(bx, by):
-        return profile.to_machine(bx, by)
+        mx, my = profile.to_machine(bx, by)
+        return mx - off[0], my - off[1]
 
     w = _Writer(mp, profile.s_max)
     w.raw(f"; FreeLaserCut — test materiale {spec.rows}×{spec.cols}")
     w.raw("G90 G21")
     w.raw("M5 S0")
-    w.raw("G10 L2 P2 X0 Y0")
-    w.raw("G55")
+    if getattr(profile, "no_g55", False):
+        w.raw("G54")  # scheda senza G55 (le coordinate tolgono l'offset G54, vedi mp)
+    else:
+        w.raw("G10 L2 P2 X0 Y0")
+        w.raw("G55")
     w.raw("M8")
     w.raw("M4 S0")
     cells = []
@@ -215,7 +221,7 @@ def build(spec: TestSpec, profile):
     if mv[0] < -0.01 or mv[1] < -0.01 or mv[2] > bed[0] + 0.01 or mv[3] > bed[1] + 0.01:
         job.warnings.append(tr("Il test esce dall'area di lavoro: cambia la posizione"))
     mx0, my0 = profile.to_machine(0.0, 0.0)
-    job.out_to_bed = (-mx0, -my0)
+    job.out_to_bed = (-mx0 + off[0], -my0 + off[1])
     from .. import gcode_preview
 
     job.seconds = gcode_preview.parse(job.lines, profile=profile).seconds

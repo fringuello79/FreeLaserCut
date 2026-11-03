@@ -91,6 +91,8 @@ class MachineProfile:
     raw_settings: dict = field(default_factory=dict)
     # scansione avanti e indietro: [[velocità mm/min, sfasamento mm fra righe di andata e ritorno], ...]
     scan_offsets: list = field(default_factory=list)
+    # la scheda non conosce G55 (es. firmware Acmer): il sistema «assoluto» si fa in G54 togliendo il suo offset
+    no_g55: bool = False
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):

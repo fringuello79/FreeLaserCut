@@ -1627,5 +1627,12 @@
  "La scheda risponde. {0}": "La placa responde. {0}",
  "Nessuna risposta GRBL: {0}": "Ninguna respuesta GRBL: {0}",
  "controlla indirizzo, porta e Wi-Fi.": "revisa dirección, puerto y Wi-Fi.",
- "Collega un laser via Wi-Fi (FluidNC, grblHAL, ESP3D)": "Conectar un láser por Wi-Fi (FluidNC, grblHAL, ESP3D)"
+ "Collega un laser via Wi-Fi (FluidNC, grblHAL, ESP3D)": "Conectar un láser por Wi-Fi (FluidNC, grblHAL, ESP3D)",
+ "La scheda era rimasta in modalità di prova ($C): la faccio uscire": "La placa se había quedado en modo de prueba ($C): la saco",
+ "La scheda era ancora in modalità di prova: la sto facendo uscire. Riprova tra qualche secondo.": "La placa todavía estaba en modo de prueba: la estoy sacando. Vuelve a intentarlo en unos segundos.",
+ "La scheda ha smesso di rispondere durante la verifica ({0} righe senza risposta). FreeLaserCut passa a una comunicazione più prudente: rifai la verifica.": "La placa dejó de responder durante la verificación ({0} líneas sin respuesta). FreeLaserCut pasa a una comunicación más prudente: repite la verificación.",
+ "<b style='color:{0}'>✓ Nessun errore.</b><br>La scheda ha controllato tutte le {1} righe del lavoro senza muoversi: il G-code è valido per la tua macchina.": "<b style='color:{0}'>✓ Ningún error.</b><br>La placa ha comprobado las {1} líneas del trabajo sin moverse: el G-code es válido para tu máquina.",
+ "<b style='color:{0}'>✕ La verifica si è fermata: la scheda ha smesso di rispondere.</b><br>Il lavoro non è stato avviato. {1}": "<b style='color:{0}'>✕ La verificación se detuvo: la placa dejó de responder.</b><br>El trabajo no se ha iniciado. {1}",
+ "La scheda ha smesso di rispondere durante la verifica": "La placa dejó de responder durante la verificación",
+ "La scheda non conosce G55: rifaccio il lavoro senza e lo verifico di nuovo": "La placa no conoce G55: rehago el trabajo sin él y lo verifico de nuevo"
 }

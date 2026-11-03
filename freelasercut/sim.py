@@ -43,6 +43,11 @@ class SimSerial:
         self.active_cs = 1
         self.g92 = [0.0, 0.0, 0.0]
         self.check_mode = False
+        # varianti di firmware per le prove: scheda senza G55, risposte perse in verifica, $I diverso
+        self.no_g55 = False
+        self.drop_check_after = None  # in verifica, dopo N righe le risposte smettono di arrivare
+        self._check_lines = 0
+        self.info_text = None
         self._cpos = None  # verifica: posizione "letta" dal parser (la testa non si muove)
         self._critical = False  # allarme critico (limiti): la scheda ignora tutto finché non arriva un reset
         self.state = "Idle"
@@ -339,11 +344,20 @@ class SimSerial:
         if self._critical:
             return  # stato critico: nessuna risposta finché non arriva Ctrl-X
         up = line.upper().replace(" ", "")
+        if self.check_mode and up != "$C" and self.drop_check_after is not None:
+            self._check_lines += 1
+            if self._check_lines > self.drop_check_after:
+                return  # risposta persa (come nel registro di un Acmer S1)
+        if self.check_mode and up in ("$H", "$I", "$$"):
+            return self._emit("error:8\r\n")
         if up.startswith("$") and not up.startswith("$J="):
             self._wait_idle(gen)
         if up == "$$":
             for k in sorted(self.settings):
                 self._emit(f"${k}={self.settings[k]}\r\n")
+            return self._ok()
+        if up == "$I" and self.info_text:
+            self._emit(self.info_text)
             return self._ok()
         if up == "$I":
             self._emit("[LGT V1.2.3]\r\n[VER:1.1.2023080801:]\r\n[OPT:VPH,63,256]\r\n"
@@ -362,6 +376,7 @@ class SimSerial:
             return self._ok()
         if up == "$C":
             self.check_mode = not self.check_mode
+            self._check_lines = 0
             if self.check_mode:
                 self.state = "Check"
                 self._cpos = list(self.pos)
@@ -411,7 +426,7 @@ class SimSerial:
             v = float(val)
             if letter not in "GMSFXYZIJKPLRTN":
                 return self._emit("error:20\r\n")
-            if letter == "G" and v not in _G_OK:
+            if letter == "G" and (v not in _G_OK or (self.no_g55 and v == 55)):
                 return self._emit("error:20\r\n")
             if letter == "M" and v not in (0, 1, 2, 3, 4, 5, 7, 8, 9, 30):
                 return self._emit("error:20\r\n")
