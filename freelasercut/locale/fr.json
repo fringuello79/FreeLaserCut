@@ -1679,5 +1679,8 @@
  "In coordinate assolute il lavoro sta dove lo vedi sul piano: il pallino indica solo il punto per «Porta la testa qui»": "En coordonnées absolues le travail est là où vous le voyez sur le plateau : le point indique seulement l'endroit pour « Amener la tête ici »",
  "Non c'è niente da incidere: disegna o importa qualcosa": "Il n'y a rien à graver : dessinez ou importez quelque chose",
  "La testa va sul punto {0} del disegno ({1:.1f}, {2:.1f} mm)": "La tête va au point {0} du dessin ({1:.1f}, {2:.1f} mm)",
- "il punto era fuori dal piano: mi fermo al bordo": "le point était hors du plateau : je m'arrête au bord"
+ "il punto era fuori dal piano: mi fermo al bordo": "le point était hors du plateau : je m'arrête au bord",
+ "partenza: sulla testa": "départ : sur la tête",
+ "partenza: origine utente": "départ : origine utilisateur",
+ "punto scelto del disegno": "point choisi du dessin"
 }

@@ -1865,7 +1865,31 @@ class MainWindow(QMainWindow):
         if show:
             self.canvas.set_preview(pv, job.out_to_bed)
             self.laser.show_job(job, self.profile)
+            self._update_anchor_marker(opts)
         return job
+
+    def anchor_point(self, opts=None):
+        """Dove finisce sul piano il punto scelto con i 9 pallini: sul disegno (assolute), sulla testa o sull'origine."""
+        opts = opts or self.job_options()
+        if opts.start_from == "current":
+            return opts.current_pos
+        if opts.start_from == "origin":
+            return tuple(opts.work_origin)
+        b = self.design_bounds()
+        if b is None or b.isNull():
+            return None
+        p = geom.rect_anchor(b, self.laser.anchor.value)
+        return (p.x(), p.y())
+
+    def _update_anchor_marker(self, opts=None):
+        pt = self.anchor_point(opts)
+        if pt is None:
+            self.canvas.set_anchor_marker(None, None)
+            return
+        mode = (opts or self.job_options()).start_from
+        label = {"current": tr("partenza: sulla testa"), "origin": tr("partenza: origine utente")}.get(
+            mode, tr("punto scelto del disegno"))
+        self.canvas.set_anchor_marker(pt[0], pt[1], label)
 
     def _photo_dots(self):
         """Punti che il laser farà sulle foto (livelli Immagine con uscita attiva)."""

@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.12.5 — 03/11/2026
+- **Due segni diversi sul piano**, per non confondere la testa con il punto di partenza:
+  - **cerchio con il mirino**, del colore principale: è la **testa del laser** e si muove solo quando si muove il laser;
+  - **rombo magenta con la scritta**: è il **punto di partenza del lavoro**, cioè il punto scelto con i 9 pallini e il posto in cui finirà.
+    - Con *Posizione attuale della testa* sta sulla testa, con *Origine utente* sull'origine. Il lavoro (anteprima arancione) si appende lì.
+    - In *Coordinate assolute* sta sul punto scelto del disegno, dove andrà la testa con *Porta la testa qui*.
+  - Il rombo compare insieme all'anteprima e si sposta subito quando si cambia pallino o partenza.
+- `tests/test_v124.py` estesa (13 controlli).
+
 ## 0.12.4 — 03/11/2026
 - **Porta la testa qui** (pannello Laser, sotto i 9 pallini): con un clic la testa va, a laser spento, sul punto del disegno indicato dal pallino, così com'è disegnato sul piano. Il punto può essere un angolo, il centro di un lato o il centro.
   - Serve per vedere sul materiale dove cadrà un angolo o il centro del lavoro.

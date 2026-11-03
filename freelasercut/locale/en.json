@@ -1679,5 +1679,8 @@
  "In coordinate assolute il lavoro sta dove lo vedi sul piano: il pallino indica solo il punto per «Porta la testa qui»": "In absolute coordinates the job is where you see it on the bed: the dot only sets the point for “Move the head here”",
  "Non c'è niente da incidere: disegna o importa qualcosa": "There is nothing to engrave: draw or import something",
  "La testa va sul punto {0} del disegno ({1:.1f}, {2:.1f} mm)": "The head goes to the {0} point of the design ({1:.1f}, {2:.1f} mm)",
- "il punto era fuori dal piano: mi fermo al bordo": "the point was outside the bed: stopping at the edge"
+ "il punto era fuori dal piano: mi fermo al bordo": "the point was outside the bed: stopping at the edge",
+ "partenza: sulla testa": "start: on the head",
+ "partenza: origine utente": "start: user origin",
+ "punto scelto del disegno": "chosen point of the design"
 }

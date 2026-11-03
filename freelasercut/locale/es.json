@@ -1679,5 +1679,8 @@
  "In coordinate assolute il lavoro sta dove lo vedi sul piano: il pallino indica solo il punto per «Porta la testa qui»": "En coordenadas absolutas el trabajo está donde lo ves en la mesa: el punto solo indica el lugar para «Llevar el cabezal aquí»",
  "Non c'è niente da incidere: disegna o importa qualcosa": "No hay nada que grabar: dibuja o importa algo",
  "La testa va sul punto {0} del disegno ({1:.1f}, {2:.1f} mm)": "El cabezal va al punto {0} del diseño ({1:.1f}, {2:.1f} mm)",
- "il punto era fuori dal piano: mi fermo al bordo": "el punto estaba fuera de la mesa: me detengo en el borde"
+ "il punto era fuori dal piano: mi fermo al bordo": "el punto estaba fuera de la mesa: me detengo en el borde",
+ "partenza: sulla testa": "inicio: en el cabezal",
+ "partenza: origine utente": "inicio: origen de usuario",
+ "punto scelto del disegno": "punto elegido del diseño"
 }

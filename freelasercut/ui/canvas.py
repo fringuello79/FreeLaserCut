@@ -11,7 +11,8 @@ import math
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
-    QBrush, QColor, QCursor, QFont, QImage, QPainter, QPainterPath, QPainterPathStroker, QPen, QPixmap, QTransform,
+    QBrush, QColor, QCursor, QFont, QImage, QPainter, QPainterPath, QPainterPathStroker, QPen, QPixmap, QPolygonF,
+    QTransform,
 )
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
 
@@ -165,6 +166,45 @@ class HeadItem(QGraphicsItem):
         p.drawEllipse(QPointF(0, 0), 2, 2)
 
 
+ANCHOR = "#FF3DB4"  # punto di partenza del lavoro: colore diverso dalla testa (che si muove con il laser)
+
+
+class AnchorItem(QGraphicsItem):
+    """Punto di partenza del lavoro: il punto scelto con i 9 pallini, nel posto in cui finirà sul piano.
+    Rombo magenta con la scritta, per non confonderlo con la testa del laser (cerchio con il mirino)."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+        self.setZValue(990)
+        self.label = ""
+
+    def boundingRect(self):
+        return QRectF(-14, -14, 190, 28)
+
+    def set_label(self, text):
+        self.label = text
+        self.update()
+
+    def paint(self, p, option, widget=None):
+        p.setRenderHint(QPainter.Antialiasing)
+        col = QColor(ANCHOR)
+        p.setPen(QPen(col, 2))
+        p.setBrush(Qt.NoBrush)
+        diamond = QPolygonF([QPointF(0, -9), QPointF(9, 0), QPointF(0, 9), QPointF(-9, 0)])
+        p.drawPolygon(diamond)
+        p.drawLine(QPointF(-4, 0), QPointF(4, 0))
+        p.drawLine(QPointF(0, -4), QPointF(0, 4))
+        if self.label:
+            f = style.ui_font(7.5)
+            f.setBold(True)
+            p.setFont(f)
+            p.setPen(QColor(0, 0, 0, 150))
+            p.drawText(QPointF(14, 4), self.label)
+            p.setPen(col)
+            p.drawText(QPointF(13, 3), self.label)
+
+
 # ======================================================================= tela
 class Canvas(QGraphicsView):
     cursor_moved = Signal(float, float)
@@ -209,6 +249,9 @@ class Canvas(QGraphicsView):
         self._head = HeadItem()
         self.scene().addItem(self._head)
         self._head.setVisible(False)
+        self._anchor = AnchorItem()
+        self.scene().addItem(self._anchor)
+        self._anchor.setVisible(False)
         self._trail_path = QPainterPath()
         self._trail_item = QGraphicsPathItem()
         self._trail_item.setPen(cpen(BURN, 2.2))
@@ -784,6 +827,21 @@ class Canvas(QGraphicsView):
             self._last_burn = None
         self._head.setPos(new)
 
+    def set_anchor_marker(self, x, y, label=""):
+        """Mostra il punto di partenza del lavoro (None = nascosto)."""
+        if x is None:
+            self._anchor.setVisible(False)
+            return
+        self._anchor.setPos(QPointF(x, -y))
+        self._anchor.set_label(label)
+        self._anchor.setVisible(True)
+
+    def anchor_marker(self):
+        if not self._anchor.isVisible():
+            return None
+        q = self._anchor.pos()
+        return QPointF(q.x(), -q.y())
+
     def head_pos(self):
         if not self._head.isVisible():
             return None
@@ -880,6 +938,7 @@ class Canvas(QGraphicsView):
                 it.setPos(off[0], -off[1])
 
     def clear_preview(self):
+        self._anchor.setVisible(False)
         for it in self._preview_items:
             self.scene().removeItem(it)
         self._preview_items = []

@@ -310,7 +310,7 @@ check("foto della camera: JPEG", code == 200 and body[:2] == b"\xff\xd8" and hdr
 w.camera.src = None
 w.ctl.stream_job(long_job)
 until(lambda: w.ctl.job_active)
-until(lambda: (w.phone.refresh(), w.phone.snapshot["job_active"])[1])
+until(lambda: (w.phone.refresh(), w.phone.snapshot["job_active"] and not w.phone.snapshot["paused"])[1])
 r = post("pausa")
 check("Pausa dal telefono: il lavoro si ferma in pausa (pulsante Pausa del PC premuto)",
       r and json.loads(r[1])["ok"] and until(lambda: w.laser.b_pause.isChecked() and w.ctl.job_active, 5), r and r[1])

@@ -64,6 +64,25 @@ check("lo spostamento è a laser spento (jog, nessun M3/M4)", until(lambda: sent
     l.startswith("$J=") for l in sent), sent)
 lp.only_sel.setChecked(False)
 w.editor.select([])
+# ------------------------------------------------------------------ segno del punto di partenza (colore diverso dalla testa)
+from freelasercut.ui import canvas as cv
+check("segno del punto di partenza: magenta, diverso dalla testa", cv.ANCHOR.upper() != cv.BURN.upper())
+lp.anchor.value = 6
+w.build_job()
+m = w.canvas.anchor_marker()
+check("coordinate assolute: il segno sta sul punto scelto del disegno (in alto a sinistra: 30, 210)",
+      m is not None and abs(m.x() - 30) < 0.01 and abs(m.y() - 210) < 0.01, m)
+until(lambda: w.ctl.last_status.get("state") == "Idle", 5)
+w.goto_bed(100, 100)
+head_at(100, 100)
+lp.start_from.setCurrentIndex(lp.start_from.findData("current"))
+until(lambda: w.job is not None and w.canvas.anchor_marker() is not None and abs(w.canvas.anchor_marker().x() - 100) < 0.1, 3)
+m = w.canvas.anchor_marker()
+check("partenza dalla testa: il segno sta sulla testa e il lavoro gli si appende", m is not None and abs(m.y() - 100) < 0.1 and
+      abs(w.job.bounds.left() - 100) < 0.5 and abs(w.job.bounds.bottom() - 100) < 0.5, (m, w.job.bounds))
+w.canvas.clear_preview()
+check("senza anteprima il segno sparisce", w.canvas.anchor_marker() is None)
+lp.start_from.setCurrentIndex(lp.start_from.findData("absolute"))
 w.ctl.disconnect_port()
 check("senza macchina: nessun movimento, solo un messaggio", w.goto_anchor() is not None and
       "Connetti" in w.statusBar().currentMessage())
