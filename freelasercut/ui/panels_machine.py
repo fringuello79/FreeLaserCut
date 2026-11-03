@@ -1,6 +1,7 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """Pannelli macchina: Laser (lavoro, verifica, contorno, override, fire, aria) e Movimento (jog, origini, posizioni)."""
 import json
+import os
 import time
 
 from PySide6.QtCore import QSettings, Qt, QTimer, Signal
@@ -9,7 +10,8 @@ from PySide6.QtWidgets import (
     QMessageBox, QProgressBar, QPushButton, QSlider, QToolButton, QVBoxLayout, QWidget,
 )
 
-from ..theme import C
+from ..grbl import POINTER_MAX, POINTER_WARN
+from ..theme import C, css
 from . import style
 from .widgets import AnchorPicker, NumField, row, section
 from freelasercut.i18n import tr  # noqa: E402
@@ -170,14 +172,16 @@ class LaserPanel(QWidget):
         self.b_fire = _btn(tr("Puntino (tieni premuto)"), "fire", tip=tr("Accende il laser alla potenza del puntino finché tieni "
                            "premuto (si spegne da solo dopo 20 s). Usalo per centrare il pezzo."))
         self.fire_pct = QDoubleSpinBox()
-        self.fire_pct.setRange(0.1, 5.0)
+        self.fire_pct.setRange(0.1, POINTER_MAX)
         self.fire_pct.setSingleStep(0.1)
         self.fire_pct.setDecimals(1)
         self.fire_pct.setSuffix(" %")
         self.fire_pct.setValue(float(self.qs.value("fire_pct", 1.0)))
         self.fire_pct.setToolTip(tr("Potenza del puntino: la stessa per il pulsante Puntino e per il contorno con il puntino.\n"
                                  "Contorno → Regola il puntino… ti aiuta a trovarla."))
-        self.fire_pct.valueChanged.connect(lambda x: (self.qs.setValue("fire_pct", x), self._frame_tip()))
+        self._fire_ok = self.fire_pct.value()  # ultimo valore accettato (per l'avviso oltre il 5%)
+        self.fire_pct.valueChanged.connect(self._fire_pct_changed)
+        self._fire_style()
         self.b_fire.pressed.connect(lambda: self.fire_changed(True))
         self.b_fire.released.connect(lambda: self.fire_changed(False))
         self.b_air = _btn(tr("Aria"), "air", tip=tr("Air assist acceso/spento"), checkable=True)
@@ -234,6 +238,25 @@ class LaserPanel(QWidget):
 
     def frame_repeats(self):
         return 3 if self.a_frame_repeat.isChecked() else 1
+
+    def _fire_pct_changed(self, x):
+        if x > POINTER_WARN >= self._fire_ok and not confirm_high_pointer(self, x):
+            self.fire_pct.blockSignals(True)
+            self.fire_pct.setValue(POINTER_WARN)
+            self.fire_pct.blockSignals(False)
+            x = POINTER_WARN
+        self._fire_ok = x
+        self.qs.setValue("fire_pct", x)
+        self._fire_style()
+        self._frame_tip()
+
+    def _fire_style(self):
+        high = self.fire_pct.value() > POINTER_WARN
+        self.fire_pct.setStyleSheet(css("QDoubleSpinBox { color: #FFB020; font-weight: 700; }") if high else "")
+        self.fire_pct.setToolTip(
+            (tr("Attenzione: sopra il 5% il puntino può segnare o bruciare il materiale.") + "\n" if high else "")
+            + tr("Potenza del puntino: la stessa per il pulsante Puntino e per il contorno con il puntino.\n"
+                 "Contorno → Regola il puntino… ti aiuta a trovarla."))
 
     def pointer_setup(self):
         if not self.ctl.connected:
@@ -545,6 +568,32 @@ class MovePanel(QWidget):
             self._store()
 
 
+def confirm_high_pointer(parent, pct):
+    """Avviso quando il puntino supera il 5%: oltre quella soglia non è più solo una luce di riferimento."""
+    if os.environ.get("FLC_NO_DIALOGS"):
+        return True
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Warning)
+    box.setWindowTitle(tr("Puntino oltre il 5%"))
+    box.setTextFormat(Qt.RichText)
+    box.setText(tr(
+        "<b>Stai portando il puntino al {0:g}% della potenza del laser.</b><br><br>"
+        "Fino al 5% il puntino serve solo a vedere dove si trova la testa. Più in alto il raggio <b>segna, brucia e "
+        "può incendiare</b> legno, carta, cartone e tessuti anche in pochi secondi, e la luce riflessa è più "
+        "pericolosa per gli occhi.<br><br>"
+        "• Occhiali protettivi per 450 nm per tutti i presenti.<br>"
+        "• Tieni premuto solo il tempo che serve: si spegne comunque da solo dopo 20 secondi.<br>"
+        "• Punta su uno scarto o su una zona che verrà incisa, mai sul pezzo finito.<br>"
+        "• Anche il <i>Contorno con il puntino</i> userà questa potenza e potrebbe lasciare il segno del "
+        "rettangolo.<br><br>"
+        "Vuoi davvero usare il {0:g}%?", pct))
+    yes = box.addButton(tr("Sì, uso il {0:g}%", pct), QMessageBox.AcceptRole)
+    box.addButton(tr("No, resto al 5%"), QMessageBox.RejectRole)
+    box.setDefaultButton(box.buttons()[-1])
+    box.exec()
+    return box.clickedButton() is yes
+
+
 class PointerDialog(QDialog):
     """Trova la potenza del puntino: il B1 non ha un puntatore rosso, il puntino è il laser blu al minimo."""
 
@@ -552,7 +601,7 @@ class PointerDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(tr("Regola il puntino"))
         self.ctl, self.s_max = ctl, s_max
-        self.pct = max(0.1, min(5.0, pct))
+        self.pct = max(0.1, min(POINTER_MAX, pct))
         self.on = False
         self.setMinimumWidth(440)
         self.auto_off = QTimer(self)
@@ -561,8 +610,9 @@ class PointerDialog(QDialog):
         self.auto_off.timeout.connect(lambda: self.b_on.setChecked(False))
         v = QVBoxLayout(self)
         txt = QLabel(
-            tr("Il B1 non ha un puntatore rosso: il puntino è il laser blu a potenza minima. Sotto una certa "
-            "potenza il diodo resta spento, sopra comincia a segnare il materiale.<br><br>"
+            tr("Molti laser a diodo non hanno un puntatore rosso: il puntino è il laser blu a potenza minima. Sotto "
+            "una certa potenza il diodo resta spento, sopra comincia a segnare il materiale (oltre il 5% FreeLaserCut "
+            "chiede conferma).<br><br>"
             "1. Indossa gli <b>occhiali per 450 nm</b>.<br>"
             "2. Metti sotto la testa uno scarto di legno o di cartone.<br>"
             "3. Premi <b>Accendi</b> e alza con <b>+</b> finché vedi bene il puntino. Se lascia un segno, abbassa."))
@@ -599,7 +649,14 @@ class PointerDialog(QDialog):
         self.val.setText(f"{self.pct:.1f} %")
 
     def _step(self, d):
-        self.pct = round(max(0.1, min(5.0, self.pct + d)), 1)
+        new = round(max(0.1, min(POINTER_MAX, self.pct + d)), 1)
+        if new > POINTER_WARN >= self.pct:
+            was_on = self.on
+            if was_on:  # durante la domanda il laser resta spento
+                self.b_on.setChecked(False)
+            if not confirm_high_pointer(self, new):
+                return
+        self.pct = new
         self._show()
         if self.on:
             self.ctl.fire(True, self.pct, s_max=self.s_max)

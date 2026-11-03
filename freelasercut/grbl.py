@@ -28,6 +28,8 @@ from . import netport
 
 SIM_PORT = "SIMULATORE"
 RX_BUFFER = 127
+POINTER_MAX = 20.0  # % massimo del puntino (oltre POINTER_WARN FreeLaserCut avvisa)
+POINTER_WARN = 5.0
 POLL_INTERVAL = 0.2
 _SETTING_RE = re.compile(r"^\$(\d+)=(.*)$")
 _WRITE_RE = re.compile(r"^\$\d+\s*=")
@@ -398,7 +400,7 @@ class GrblController(QObject):
             return
         self.stale_check_exit = True
         self._clear_queues()
-        self._write_raw(b"\n")  # chiude un'eventuale riga a metà rimasta nella scheda
+        # niente riga vuota prima: GRBL risponde «ok» anche a quella e le risposte successive slitterebbero di una
         self.send_line("$C", tag="check_exit_stale")
         self.message.emit(tr("La scheda era rimasta in modalità di prova ($C): la faccio uscire"))
         threading.Timer(4.0, self._stale_timeout).start()
@@ -439,7 +441,7 @@ class GrblController(QObject):
         self._write_raw(bytes(seq))
 
     # ------------------------------------------------------- fire (puntatore a bassa potenza)
-    def fire(self, on, pct=1.0, max_pct=5.0, timeout_s=20.0, s_max=1000.0):
+    def fire(self, on, pct=1.0, max_pct=POINTER_MAX, timeout_s=20.0, s_max=1000.0):
         if on:
             if self._job_active:
                 return False
@@ -471,7 +473,7 @@ class GrblController(QObject):
             return
         x0, y0 = points[0]
         self.send_line(f"G53 G0 X{x0:.3f} Y{y0:.3f}")
-        self.send_line(f"M3 S{min(laser_pct, 5.0) / 100.0 * s_max:.1f}")
+        self.send_line(f"M3 S{min(laser_pct, POINTER_MAX) / 100.0 * s_max:.1f}")
         for x, y in points[1:]:
             self.send_line(f"G53 G1 X{x:.3f} Y{y:.3f} F{feed:.0f}")
         self.send_line("M5 S0")

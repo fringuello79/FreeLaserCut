@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.12.3 — 03/11/2026
+- **Corretto: cambiando il punto di riferimento** (i 9 pallini accanto a *Partenza*) o la partenza stessa, l'anteprima sul piano non si muoveva. Ora si sposta subito e la barra di stato dice quale punto del lavoro va sulla testa o sull'origine utente, per esempio «al centro». Con le foto molto grandi l'anteprima resta da chiedere con *Anteprima*.
+- **Puntino fino al 20%** (prima al massimo 5%), sia dal pulsante *Puntino* sia da *Contorno → Regola il puntino…*.
+  - Quando si supera il 5% compare un avviso: oltre quella soglia il raggio segna, brucia e può incendiare il materiale, e la luce riflessa è più pericolosa per gli occhi. L'avviso ricorda occhiali, spegnimento automatico dopo 20 s, uso su uno scarto e che anche il contorno con il puntino userà quella potenza.
+  - Con «No» resta al 5%. Sopra il 5% il valore si vede in arancione.
+- **Corretto (0.12.1):** quando FreeLaserCut faceva uscire la scheda dalla modalità di prova, mandava prima una riga vuota. GRBL risponde «ok» anche a quella, e le risposte successive potevano slittare di una: un errore veniva attribuito alla riga sbagliata.
+- Nuova prova automatica `tests/test_v123.py` (14 controlli).
+
 ## 0.12.2 — 03/11/2026
 Da chi usa una scheda **Makerbase MKS DLC32** («premo giù e la testa va su»):
 - **Assi invertibili.** Nel pannello Laser, sotto *Posizionamento*, ci sono due spunte: **Inverti l'asse X (destra ↔ sinistra)** e **Inverti l'asse Y (avanti ↔ indietro)**.

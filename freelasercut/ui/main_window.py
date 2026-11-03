@@ -698,6 +698,13 @@ class MainWindow(QMainWindow):
         self.layers = LayersPanel(self.editor, lambda: self.profile)
         self.props = PropertiesPanel(self.editor, self.canvas)
         self.laser = LaserPanel(self.ctl, self.qs)
+        # punto di riferimento (9 pallini) e tipo di partenza: l'anteprima sul piano si sposta subito
+        self._place_timer = QTimer(self)
+        self._place_timer.setSingleShot(True)
+        self._place_timer.setInterval(150)
+        self._place_timer.timeout.connect(self._placement_changed)
+        self.laser.anchor.changed.connect(lambda *_: self._place_timer.start())
+        self.laser.start_from.currentIndexChanged.connect(lambda *_: self._place_timer.start())
         self.laser.inv_x.toggled.connect(lambda on: self.set_axis_inverted("x", on))
         self.laser.inv_y.toggled.connect(lambda on: self.set_axis_inverted("y", on))
         self.move = MovePanel(self.ctl, self.qs, lambda: self.profile, self.canvas.head_pos)
@@ -1678,6 +1685,28 @@ class MainWindow(QMainWindow):
         self._sync_axes()
         if (self.canvas.bed_x, self.canvas.bed_y) != (p.bed_x, p.bed_y):
             self.canvas.set_bed(p.bed_x, p.bed_y)
+
+    def _placement_changed(self):
+        """Partenza o punto di riferimento cambiati: rifà l'anteprima, così sul piano si vede dove inciderà."""
+        if self.ctl.job_active or self.ctl.checking or getattr(self, "_job_is_external", False):
+            return
+        if not self.editor.doc.shapes:
+            return
+        mode = self.laser.start_from.currentData()
+        if mode == "current" and self.canvas.head_pos() is None:
+            self.statusBar().showMessage(tr("Partenza dalla posizione della testa: connetti la macchina per vedere "
+                                            "dove inciderà"), 5000)
+            return
+        if self._photo_dots() > BIG_PHOTO_DOTS and not getattr(self, "_big_photo_ok", False):
+            return  # foto enorme: l'anteprima la chiede la persona (Anteprima), non la faccio da sola
+        self.build_job()
+        names = [tr("in basso a sinistra"), tr("in basso al centro"), tr("in basso a destra"), tr("al centro a sinistra"),
+                 tr("al centro"), tr("al centro a destra"), tr("in alto a sinistra"), tr("in alto al centro"),
+                 tr("in alto a destra")]
+        if mode != "absolute":
+            where = tr("sulla testa") if mode == "current" else tr("sull'origine utente")
+            self.statusBar().showMessage(tr("Il punto {0} del lavoro va {1}: l'anteprima mostra dove inciderà",
+                                            names[self.laser.anchor.value], where), 6000)
 
     def _sync_axes(self):
         """Spunte «Inverti l'asse X/Y» del pannello Laser ↔ profilo della macchina, e verso dei jog."""

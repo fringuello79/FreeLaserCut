@@ -239,6 +239,7 @@ if __name__ == "__main__":
     run_suite("test_v120.py", "Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti")
     run_suite("test_v121.py", "Scheda rimasta in prova, verifica senza risposte, schede senza G55")
     run_suite("test_v122.py", "Assi invertibili, velocità in mm/s, MKS DLC32")
+    run_suite("test_v123.py", "Anteprima che segue il punto di riferimento, puntino fino al 20%")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]
