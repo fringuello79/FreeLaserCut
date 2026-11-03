@@ -1,5 +1,33 @@
 # Novità di FreeLaserCut
 
+## 0.11.0 — 03/11/2026
+Tre funzioni nuove, tutte scritte da zero per FreeLaserCut.
+- **Guardia fiamme** (*Laser → Guardia fiamme…*, anche nel Banco). È **spenta di partenza** e si attiva con una casella. Durante il lavoro FreeLaserCut guarda la camera scelta nel pannello Camera. Se vede una fiamma per circa un secondo:
+  - ferma il lavoro e spegne laser e aria;
+  - suona e mostra un avviso rosso;
+  - salva una foto nella cartella della diagnostica e lo annota nel registro della comunicazione con la scheda.
+  - **Cosa non la fa scattare:**
+    - il puntino del laser, la brace normale e le scintille di un solo fotogramma;
+    - le luci sempre presenti nell'inquadratura, perché nei primi istanti del lavoro FreeLaserCut impara com'è l'immagine «normale».
+  - **Sensibilità** alta, media o bassa, con una prova dal vivo: le zone che verrebbero prese per fiamma si colorano di rosso.
+  - È un aiuto in più, non una protezione certificata: la macchina non va mai lasciata da sola.
+- **Taratura da foto del test materiale.** Nel *Test materiale* si spunta *Riferimenti per leggere la foto*: agli angoli del test vengono incisi quattro quadratini a scacchiera. Poi si fotografa il test e si preme *Leggi la foto del test…*. La foto può arrivare da un file, dalla camera del laser oppure **direttamente dal telefono**.
+  - FreeLaserCut ritrova la griglia anche in una foto storta, in prospettiva o specchiata, e anche con un riferimento coperto.
+  - Misura quanto è scuro ogni quadrato rispetto al materiale nudo e propone tre valori, ognuno da scegliere con *Usa questo* e salvare in libreria:
+    - **incisione scura**: il quadrato più leggero che arriva quasi al nero;
+    - **incisione leggera**: un tono a metà;
+    - **foto**: potenza minima e massima per la scala di grigi.
+  - **Mini guida** con il pulsante *Come si fa?*.
+  - La griglia del test inciso si ricorda, così la foto si può leggere anche più tardi.
+- **Controllo dal telefono** (*Laser → Controllo dal telefono…*). È **spento di partenza** e resta acceso solo fino alla chiusura di FreeLaserCut. Il telefono deve essere sullo stesso Wi-Fi del PC; inquadrando il codice QR apre una pagina da cui:
+  - vede l'avanzamento con il tempo trascorso e quello che manca, e la camera;
+  - può mettere in **Pausa** o fare **Stop**;
+  - può inviare la **foto del test materiale**.
+  - **Dal telefono non si può avviare né riprendere un lavoro:** per partire bisogna essere davanti alla macchina.
+  - **Sicurezza:** l'indirizzo contiene un codice casuale, che si cambia con *Cambia codice*. La pagina risponde solo ai dispositivi della rete di casa e niente passa da internet.
+  - **Mini guida** nella finestra, con la nota sul firewall di Windows («Reti private»).
+- Nuova prova automatica `tests/test_v110.py` (63 controlli). Le incisioni e le foto delle prove sono simulate: la fiamma, il G-code del test con i riferimenti trasformato in una foto storta e specchiata, Pausa e Stop dal telefono su un lavoro vero del simulatore.
+
 ## 0.10.8 — 03/11/2026
 Dalle segnalazioni di chi lo usa (issue #3):
 - **Corretto: le foto dei progetti LightBurn (.lbrn2) si aprivano specchiate in verticale**, e bisognava rifletterle a mano (e poi ancora in *Prepara foto*). In LightBurn la prima riga di pixel di una foto sta dalla parte opposta rispetto a FreeLaserCut: ora l'apertura ne tiene conto e la foto arriva dritta, al suo posto e con le sue misure, anche se in LightBurn era ruotata.

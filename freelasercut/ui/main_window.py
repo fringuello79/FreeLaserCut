@@ -87,6 +87,12 @@ class MainWindow(QMainWindow):
         self._build_menus()
         self._build_toolbars()
         self._build_docks()
+        from .fire_ui import FireGuard
+
+        self.fire = FireGuard(self, self.qs)  # guardia fiamme (spenta di partenza)
+        from .phone_ui import PhoneControl
+
+        self.phone = PhoneControl(self)  # controllo dal telefono (spento di partenza, solo per la sessione)
         self._build_statusbar()
         self._wire()
         self.refresh_ports()
@@ -256,6 +262,10 @@ class MainWindow(QMainWindow):
             "scan_offset": A(tr("Correzione della scansione avanti e indietro…"), self.scan_offset_dialog, None, None,
                              tr("Allinea le righe incise andando e tornando: bordi dritti e scritte nitide nei "
                                 "riempimenti e nelle foto")),
+            "phone": A(tr("Controllo dal telefono…"), self.phone_dialog, None, "smartphone",
+                       tr("Dal telefono sulla rete di casa: avanzamento, camera, pausa, stop e foto del test")),
+            "fire_guard": A(tr("Guardia fiamme…"), self.fire_guard_dialog, None, "fire",
+                            tr("Durante il lavoro guarda la camera: se vede una fiamma ferma tutto e spegne il laser")),
             "rotary": A(tr("Rotativo (bicchieri, cilindri)…"), self.rotary_dialog, None, "rotary",
                         tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
@@ -400,7 +410,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["photo"])
         m.addAction(a["trace"])
         menu(tr("&Laser"), ["connect", "identify", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-                        "materials", "material_test", "scan_offset", "-", "rotary", "-", "save_gcode", "run_file"])
+                        "materials", "material_test", "scan_offset", "-", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
         self.m_view.addSeparator()
@@ -2017,7 +2027,7 @@ class MainWindow(QMainWindow):
             self._mt_dlg.activateWindow()
             if isinstance(seed, materials.Material):
                 self._mt_dlg.seed(seed)
-            return
+            return self._mt_dlg
         head = self.canvas.head_pos()
         dlg = MaterialTestDialog(self.profile, (head.x(), head.y()) if head is not None else None,
                                  seed if isinstance(seed, materials.Material) else None, self)
@@ -2028,6 +2038,7 @@ class MainWindow(QMainWindow):
         dlg.destroyed.connect(lambda *_: setattr(self, "_mt_dlg", None))
         self._mt_dlg = dlg
         dlg.show()
+        return dlg
 
     def _test_job_action(self, kind, job, name):
         """Anteprima / contorno / salva / avvia di un lavoro di prova (test materiale, prova della scansione)."""
@@ -2063,6 +2074,50 @@ class MainWindow(QMainWindow):
             tr("Correzione della scansione salvata nel profilo «{0}»", self.profile.name), 5000))
         dlg.destroyed.connect(lambda *_: setattr(self, "_so_dlg", None))
         self._so_dlg = dlg
+        dlg.show()
+        return dlg
+
+    def phone_dialog(self, *_):
+        """Laser → Controllo dal telefono (acceso/spento, codice QR, mini guida)."""
+        if getattr(self, "_ph_dlg", None) is not None:
+            self._ph_dlg.raise_()
+            return self._ph_dlg
+        from .phone_ui import PhoneDialog
+
+        dlg = PhoneDialog(self.phone, self)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.destroyed.connect(lambda *_: setattr(self, "_ph_dlg", None))
+        self._ph_dlg = dlg
+        dlg.show()
+        return dlg
+
+    def photo_from_phone(self, data):
+        """Foto del test materiale arrivata dal telefono: apre il Test materiale e la legge."""
+        from .dialogs_testphoto import decode_image
+
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
+        dlg = self.material_test()
+        if dlg is None:
+            return None
+        dlg.raise_()
+        return dlg.analyze_image(decode_image(data))
+
+    def fire_guard_dialog(self, *_):
+        """Laser → Guardia fiamme (attivazione, sensibilità e prova dal vivo con la camera)."""
+        if getattr(self, "_fg_dlg", None) is not None:
+            self._fg_dlg.raise_()
+            return self._fg_dlg
+        from .fire_ui import FireGuardDialog
+
+        dlg = FireGuardDialog(self.fire, self)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.destroyed.connect(lambda *_: setattr(self, "_fg_dlg", None))
+        self._fg_dlg = dlg
         dlg.show()
         return dlg
 
@@ -2184,6 +2239,8 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             e.ignore()
             return
+        if getattr(self, "phone", None) is not None:
+            self.phone.stop()
         if getattr(self, "banco", None) is None:
             self.qs.setValue("win_state_v5", self.saveState(5))
         else:

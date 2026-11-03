@@ -234,6 +234,7 @@ if __name__ == "__main__":
     run_suite("test_v106.py", "Aspetto: tema scuro, chiaro o come Windows, colore principale")
     run_suite("test_v107.py", "Telecamera: la scelta si ricorda, «Nessuna» non accende la webcam")
     run_suite("test_v108.py", "Progetti LightBurn: foto non più specchiate, testi al loro posto")
+    run_suite("test_v110.py", "Guardia fiamme, taratura da foto del test, controllo dal telefono")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

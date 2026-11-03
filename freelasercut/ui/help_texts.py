@@ -161,6 +161,14 @@ HELP = {
         "Incidendo avanti e indietro, le righe di andata e quelle di ritorno possono non finire nello stesso punto: bordi "
         "a pettine e scritte sfocate. Qui si incide una prova (righe = velocità, colonne = correzioni), si sceglie il "
         "rettangolo con i bordi più dritti e il valore si salva nel profilo della macchina."), None),
+    "fire_guard": (tr("Guardia fiamme"), tr(
+        "Spenta di partenza. Se la attivi, durante il lavoro FreeLaserCut guarda la camera scelta nel pannello Camera: "
+        "se vede una fiamma per circa un secondo ferma il lavoro, spegne il laser, suona e salva una foto. "
+        "È un aiuto in più: non lasciare mai la macchina accesa da sola."), None),
+    "phone": (tr("Controllo dal telefono"), tr(
+        "Spento di partenza. Se lo accendi, il telefono collegato allo stesso Wi-Fi apre una pagina (codice QR) con "
+        "l'avanzamento del lavoro, la camera, Pausa e Stop, e può inviare la foto del test materiale. Dal telefono "
+        "non si può avviare né riprendere un lavoro."), None),
     "identify": (tr("Riconosci la macchina"), tr("Elenca le porte USB con il chip e il driver, interroga la scheda ($I, $$), "
                  "riconosce firmware, area di lavoro e buffer e prepara il profilo giusto. Da qui puoi anche installare "
                  "un driver USB che hai sul PC."), None),

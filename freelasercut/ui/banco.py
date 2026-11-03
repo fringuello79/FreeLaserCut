@@ -902,6 +902,10 @@ class JobFlow(QFrame):
         for c in (self.c_glasses, self.c_air):
             c.toggled.connect(self.refresh)
             sl.addWidget(c)
+        sl.addWidget(_chip(tr("Guardia fiamme…"), win.fire_guard_dialog,
+                           tr("La camera sorveglia il lavoro e lo ferma se vede una fiamma (spenta di partenza)")))
+        sl.addWidget(_chip(tr("Controllo dal telefono…"), win.phone_dialog,
+                           tr("Pausa, stop, avanzamento e camera dal telefono sulla rete di casa")))
         v.addWidget(safety)
         self.b_start = HoldButton(tr("Tieni premuto per incidere"))
         self.b_start.setObjectName("bcStart")

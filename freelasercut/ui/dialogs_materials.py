@@ -6,9 +6,10 @@ La libreria parte dalla tabella ufficiale Longer per il B1 40W; le voci proprie
 modificare o eliminare. Il test incide una griglia potenza × velocità e alla fine
 si sceglie il quadrato migliore: diventa una voce della libreria in un clic.
 """
-from dataclasses import replace
+import json
+from dataclasses import asdict, fields, replace
 
-from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtCore import QRectF, QSettings, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFormLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
@@ -373,6 +374,9 @@ class MaterialTestDialog(QDialog):
         self.labels = QCheckBox(tr("Etichette (potenza e velocità)"))
         self.labels.setChecked(True)
         self.border = QCheckBox(tr("Ritaglia il test con una cornice"))
+        self.markers = QCheckBox(tr("Riferimenti per leggere la foto (4 quadratini agli angoli)"))
+        self.markers.setToolTip(tr("Servono per la taratura da foto: FreeLaserCut ritrova la griglia nella foto e "
+                                   "misura quanto è scuro ogni quadrato"))
         pr = QHBoxLayout()
         pr.addWidget(self.p_min)
         pr.addWidget(QLabel("→"))
@@ -409,6 +413,7 @@ class MaterialTestDialog(QDialog):
         f.addRow(tr("Angolo in basso a sinistra"), posr)
         f.addRow("", self.labels)
         f.addRow("", self.border)
+        f.addRow("", self.markers)
         left.addWidget(section(tr("Griglia")))
         left.addLayout(f)
         self.info = QLabel("")
@@ -451,6 +456,21 @@ class MaterialTestDialog(QDialog):
         self.b_lib.clicked.connect(self._save_material)
         sv.addWidget(self.b_lib, 1)
         right.addLayout(sv)
+        ph = QHBoxLayout()
+        self.b_photo = QPushButton(style.icon("camera"), tr("Leggi la foto del test…"))
+        self.b_photo.setToolTip(tr("Taratura da foto: misura quanto è scuro ogni quadrato e propone i valori"))
+        from PySide6.QtWidgets import QMenu
+
+        pm = QMenu(self.b_photo)
+        pm.addAction(tr("Da un file…"), self.photo_from_file)
+        pm.addAction(tr("Dalla camera"), self.photo_from_camera)
+        pm.addAction(tr("Dal telefono…"), self.photo_from_phone)
+        self.b_photo.setMenu(pm)
+        self.b_guide = QPushButton(tr("Come si fa?"))
+        self.b_guide.clicked.connect(self.show_guide)
+        ph.addWidget(self.b_photo, 1)
+        ph.addWidget(self.b_guide)
+        right.addLayout(ph)
         for w in (self.p_min, self.p_max, self.s_min, self.s_max, self.cell, self.gap, self.interval, self.x0, self.y0):
             w.valueChanged.connect(self._changed)
         for w in (self.rows, self.cols, self.passes):
@@ -458,10 +478,11 @@ class MaterialTestDialog(QDialog):
         self.mode.currentIndexChanged.connect(self._mode_changed)
         self.labels.toggled.connect(self._changed)
         self.border.toggled.connect(self._changed)
+        self.markers.toggled.connect(self._changed)
         self.title.textChanged.connect(self._changed)
         if seed is not None:
             self.seed(seed)
-        self._changed()
+        self._mode_changed()
 
     def seed(self, m):
         """Griglia intorno ai valori di un materiale: potenza ±40%, velocità ±50%."""
@@ -480,7 +501,10 @@ class MaterialTestDialog(QDialog):
             self.cols.setValue(4)
 
     def _mode_changed(self):
-        self.interval.setEnabled(self.mode.currentData() == "fill")
+        fill = self.mode.currentData() == "fill"
+        self.interval.setEnabled(fill)
+        self.markers.setEnabled(fill)
+        self.b_photo.setEnabled(fill)
         self._changed()
 
     def _at_head(self):
@@ -494,7 +518,7 @@ class MaterialTestDialog(QDialog):
                               cols=self.cols.value(), cell=self.cell.value(), gap=self.gap.value(),
                               interval=self.interval.value(), passes=self.passes.value(), x0=self.x0.value(),
                               y0=self.y0.value(), labels=self.labels.isChecked(), border=self.border.isChecked(),
-                              title=self.title.text().strip())
+                              title=self.title.text().strip(), markers=self.markers.isChecked())
 
     def _changed(self, *_):
         s = self.spec()
@@ -529,7 +553,104 @@ class MaterialTestDialog(QDialog):
         return self.job
 
     def _emit(self, kind):
+        if kind in ("start", "save"):
+            self.remember_spec()
         self.action.emit(kind, self.build())
+
+    # ---------------------------------------------------------------- taratura da foto
+    def _qs(self):
+        qs = getattr(self.parent(), "qs", None)
+        return qs if qs is not None else QSettings()
+
+    def remember_spec(self):
+        """Griglia dell'ultimo test inciso (o salvato): serve per leggere la sua foto anche dopo."""
+        self._qs().setValue("material_test_last", json.dumps(asdict(self.spec())))
+
+    def photo_spec(self):
+        """Griglia con cui leggere la foto: l'ultima incisa con i riferimenti, altrimenti quella della finestra."""
+        cur = self.spec()
+        try:
+            d = json.loads(str(self._qs().value("material_test_last", "") or "{}"))
+            names = {f.name for f in fields(mtest.TestSpec)}
+            last = mtest.TestSpec(**{k: v for k, v in d.items() if k in names})
+        except (TypeError, ValueError):
+            last = None
+        if last is not None and last.markers and last.mode == "fill":
+            return last
+        return cur
+
+    def show_guide(self):
+        from .dialogs_testphoto import GuideDialog
+
+        GuideDialog(self).exec()
+
+    def photo_from_file(self):
+        from PySide6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getOpenFileName(self, tr("Foto del test"), "",
+                                              tr("Immagini (*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff)"))
+        if not path:
+            return None
+        import cv2
+        import numpy as np
+
+        try:
+            data = np.fromfile(path, np.uint8)  # anche con percorsi con lettere accentate (Windows)
+            img = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        except OSError:
+            img = None
+        return self.analyze_image(img)
+
+    def photo_from_camera(self):
+        cam = getattr(self.parent(), "camera", None)
+        src = getattr(cam, "src", None)
+        if src is None:
+            QMessageBox.information(self, tr("Foto del test"), tr("Nessuna camera: sceglila nel pannello Camera."))
+            return None
+        frame = src.get(after=0, timeout=2.0)
+        return self.analyze_image(frame)
+
+    def photo_from_phone(self):
+        win = self.parent()
+        if win is not None and hasattr(win, "phone_dialog"):
+            win.phone_dialog()
+        QMessageBox.information(self, tr("Foto del test dal telefono"), tr(
+            "Apri la pagina di controllo sul telefono (inquadra il codice QR) e tocca «Invia la foto del test»: "
+            "la foto arriva qui da sola."))
+
+    def analyze_image(self, img):
+        from ..core import test_photo
+        from .dialogs_testphoto import PhotoResultDialog
+
+        spec = self.photo_spec()
+        try:
+            res = test_photo.analyze(img, spec)
+        except test_photo.PhotoError as ex:
+            QMessageBox.warning(self, tr("Foto del test"), str(ex) + "\n\n" + tr("Premi «Come si fa?» per i consigli."))
+            return None
+        if spec != self.spec():
+            self.apply_spec(spec)
+        dlg = PhotoResultDialog(res, spec, self)
+        dlg.use.connect(self.pick_cell)
+        self._photo_dlg = dlg
+        dlg.open()
+        return res
+
+    def apply_spec(self, s):
+        """Rimette nella finestra la griglia del test letto nella foto."""
+        self.title.setText(s.title)
+        self.mode.setCurrentIndex(1 if s.mode == "line" else 0)
+        for w, val in ((self.p_min, s.p_min), (self.p_max, s.p_max), (self.rows, s.rows), (self.s_min, s.s_min),
+                       (self.s_max, s.s_max), (self.cols, s.cols), (self.cell, s.cell), (self.gap, s.gap),
+                       (self.interval, s.interval), (self.passes, s.passes), (self.x0, s.x0), (self.y0, s.y0)):
+            w.setValue(val)
+        self.labels.setChecked(s.labels)
+        self.border.setChecked(s.border)
+        self.markers.setChecked(s.markers)
+
+    def pick_cell(self, r, c):
+        self.pick_r.setCurrentIndex(r + 1)
+        self.pick_c.setCurrentIndex(c + 1)
 
     def _pick_changed(self, *_):
         r, c = self.pick_r.currentData(), self.pick_c.currentData()

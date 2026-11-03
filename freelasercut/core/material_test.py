@@ -8,7 +8,8 @@ funzionano allo stesso modo.
 """
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from types import SimpleNamespace
 
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QTransform
@@ -41,6 +42,64 @@ class TestSpec:
     border_power: float = 100.0
     border_speed: float = 600.0
     title: str = ""
+    markers: bool = False  # quattro riferimenti agli angoli per leggere la foto del test (solo riempimento)
+
+
+MARK = 8.0  # lato di un riferimento (mm): 6 × 6 quadretti
+MARK_GAP = 3.0  # spazio libero intorno ai riferimenti
+
+
+def marker_bits(marker_id):
+    """Quadretti (6 × 6, riga 0 in alto) del riferimento: True = da incidere. Riferimenti ArUco 4×4 della
+    libreria OpenCV (licenza Apache-2.0), generati al momento: nessuna immagine copiata."""
+    import cv2
+
+    d = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    img = cv2.aruco.generateImageMarker(d, int(marker_id), 6, borderBits=1)
+    return [[bool(img[i, j] == 0) for j in range(6)] for i in range(6)]
+
+
+def layout(spec: TestSpec):
+    """Posizioni (coordinate piano, mm) di griglia, etichette e riferimenti. Usato per incidere e per leggere la foto."""
+    lab = 8.0 if spec.labels else 0.0
+    pitch = spec.cell + spec.gap
+    W = lab + spec.cols * pitch - spec.gap
+    H = lab + spec.rows * pitch - spec.gap + (7.0 if spec.title else 0.0)
+    use_marks = bool(spec.markers) and spec.mode == "fill"
+    if use_marks:
+        x0c = spec.x0 + MARK + MARK_GAP + 3.0
+        y0c = spec.y0 + MARK + MARK_GAP + 4.0
+    else:
+        x0c, y0c = spec.x0, spec.y0
+    L = SimpleNamespace(lab=lab, pitch=pitch, W=W, H=H, x0c=x0c, y0c=y0c, gx0=x0c + lab, gy0=y0c + lab, marks=[],
+                        outer=None)
+    if use_marks:
+        xa, ya = spec.x0, spec.y0
+        xb = x0c + W + MARK_GAP + MARK
+        yb = y0c + H + MARK_GAP + MARK
+        L.outer = (xa, ya, xb, yb)
+        # 0 in basso a sinistra, 1 in basso a destra, 2 in alto a destra, 3 in alto a sinistra
+        L.marks = [(0, xa, ya), (1, xb - MARK, ya), (2, xb - MARK, yb - MARK), (3, xa, yb - MARK)]
+    return L
+
+
+def cell_rect(spec, L, r, c):
+    """(x, y, lato) del quadrato riga r (potenza) colonna c (velocità)."""
+    return (L.gx0 + c * L.pitch, L.gy0 + r * L.pitch, spec.cell)
+
+
+def marker_corners(mx, my):
+    """Angoli del riferimento nell'ordine di OpenCV (alto-sinistra, alto-destra, basso-destra, basso-sinistra)."""
+    return [(mx, my + MARK), (mx + MARK, my + MARK), (mx + MARK, my), (mx, my)]
+
+
+def marker_settings(spec):
+    """Potenza e velocità dei riferimenti: un quadrato scuro ma non il più bruciato della griglia."""
+    powers = _steps(spec.p_min, spec.p_max, spec.rows)
+    speeds = _steps(spec.s_min, spec.s_max, spec.cols)
+    cells = sorted((p / max(s, 1.0), p, s) for p in powers for s in speeds)
+    _, p, s = cells[min(len(cells) - 1, int(round((len(cells) - 1) * 0.8)))]
+    return p, s
 
 
 def _steps(a, b, n):
@@ -55,11 +114,10 @@ def build(spec: TestSpec, profile):
     bed = (profile.bed_x, profile.bed_y)
     powers = _steps(spec.p_min, spec.p_max, spec.rows)
     speeds = _steps(spec.s_min, spec.s_max, spec.cols)
-    pitch = spec.cell + spec.gap
-    lab = 8.0 if spec.labels else 0.0  # spazio per le etichette a sinistra e in basso
-    gx0, gy0 = spec.x0 + lab, spec.y0 + lab
-    W = lab + spec.cols * pitch - spec.gap
-    H = lab + spec.rows * pitch - spec.gap + (7.0 if spec.title else 0.0)
+    L = layout(spec)
+    outer = spec
+    spec = replace(spec, x0=L.x0c, y0=L.y0c)  # con i riferimenti la griglia si sposta verso l'interno
+    pitch, lab, gx0, gy0, W, H = L.pitch, L.lab, L.gx0, L.gy0, L.W, L.H
 
     def mp(bx, by):
         return profile.to_machine(bx, by)
@@ -111,11 +169,40 @@ def build(spec: TestSpec, profile):
         from .gcode import order_polys
 
         _emit_polys(w, order_polys(polys, w.pb or (0, 0), False, True), lc)
+    if L.marks:
+        mp_, ms_ = marker_settings(outer)
+        mc = CutSettings(mode="fill", speed=ms_, power_max=mp_, interval=spec.interval, overscan=2.0, bidirectional=True)
+        q = MARK / 6.0
+        polys = []
+        for mid, mx, my in L.marks:
+            bits = marker_bits(mid)
+            for i in range(6):
+                j = 0
+                while j < 6:
+                    if not bits[i][j]:
+                        j += 1
+                        continue
+                    k = j
+                    while k < 6 and bits[i][k]:
+                        k += 1
+                    y_top = my + MARK - i * q
+                    polys.append(geom.Poly([(mx + j * q, y_top - q), (mx + k * q, y_top - q), (mx + k * q, y_top),
+                                            (mx + j * q, y_top)], True))
+                    j = k
+        cut1 = w.cut
+        for poly in polys:  # riga per riga: i pezzi di un riferimento si toccano soltanto
+            lines, rot = _scanlines([poly], spec.interval, 0.0)
+            _emit_scan(w, [(yy, [(a, b, mp_) for a, b in segs]) for yy, segs in lines], rot, mc, bed, 6.0)
+        job.layers.append(LayerStats(1, "riferimenti", "fill", len(L.marks), w.cut - cut1, 0))
     if spec.border:
         bc = CutSettings(mode="line", speed=spec.border_speed, power_max=spec.border_power)
         m = 3.0
-        b = geom.Poly([(spec.x0 - m, spec.y0 - m - 4), (spec.x0 + W + m, spec.y0 - m - 4),
-                       (spec.x0 + W + m, spec.y0 + H + m), (spec.x0 - m, spec.y0 + H + m)], True)
+        if L.outer:
+            xa, ya, xb, yb = L.outer
+            b = geom.Poly([(xa - m, ya - m), (xb + m, ya - m), (xb + m, yb + m), (xa - m, yb + m)], True)
+        else:
+            b = geom.Poly([(spec.x0 - m, spec.y0 - m - 4), (spec.x0 + W + m, spec.y0 - m - 4),
+                           (spec.x0 + W + m, spec.y0 + H + m), (spec.x0 - m, spec.y0 + H + m)], True)
         _emit_polys(w, [b], bc)
     w.raw("M5 S0")
     w.raw("M9")
