@@ -58,10 +58,11 @@ class CameraPanel(QWidget):
         self.combo.setIconSize(QSize(96, 54))
         self.combo.setMinimumHeight(62)
         self.combo.currentIndexChanged.connect(self.on_select)
+        self.combo.activated.connect(self._remember_choice)  # solo le scelte fatte dalla persona
         self.btn_search = QToolButton()
         self.btn_search.setText("⟳")
         self.btn_search.setToolTip(tr("Cerca di nuovo le telecamere USB"))
-        self.btn_search.clicked.connect(self.search)
+        self.btn_search.clicked.connect(lambda: self.search(manual=True))
         row.addWidget(self.combo, 1)
         row.addWidget(self.btn_search)
         cl.addLayout(row)
@@ -134,9 +135,43 @@ class CameraPanel(QWidget):
         self.update_state()
         QTimer.singleShot(500, self.search)
 
+    # ---------------------------------------------------------------- scelta ricordata
+    def choice(self):
+        """Scelta salvata: "none" (nessuna telecamera), un indice, oppure None (mai scelto)."""
+        qs = getattr(self.win, "qs", None)
+        v = qs.value("camera_choice") if qs is not None else None
+        if v in (None, ""):
+            return None
+        if str(v) == "none":
+            return "none"
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
+    def _remember_choice(self, _i):
+        qs = getattr(self.win, "qs", None)
+        if qs is None:
+            return
+        idx = self.combo.currentData()
+        if idx == SIM_CAMERA:
+            return  # la camera simulata non è una scelta da ricordare
+        qs.setValue("camera_choice", "none" if idx is None else int(idx))
+
     # ---------------------------------------------------------------- ricerca
-    def search(self):
+    def search(self, manual=False):
         if self._searching or self.autocam is not None:
+            return
+        if not manual and self.choice() == "none" and self.ctl.sim is None:
+            # «Nessuna telecamera» scelta dalla persona: all'avvio e alla connessione non apro nessuna camera
+            # (cercarle accende per un attimo anche la webcam del PC). Il pulsante ⟳ cerca comunque.
+            self.combo.blockSignals(True)
+            self.combo.clear()
+            self.combo.addItem(tr("Nessuna telecamera"), None)
+            self.combo.blockSignals(False)
+            self._close_src()
+            self.update_state()
+            self.state.setText(tr("Telecamera spenta (scelta tua). Per usarne una premi ⟳ e sceglila."))
             return
         self._searching = True
         self.state.setText(tr("Cerco le telecamere…"))
@@ -173,12 +208,15 @@ class CameraPanel(QWidget):
             self.combo.addItem(tr("Camera simulata (per provare AutoCam)"), SIM_CAMERA)
         self.combo.blockSignals(False)
         want = current
-        if want is None and self.saved is not None:
+        choice = self.choice()
+        if want is None and isinstance(choice, int):
+            want = choice  # l'ultima camera scelta dalla persona
+        if want is None and choice is None and self.saved is not None:
             want = self.saved.get("camera_index")
-        if want is None:
+        if want is None and choice != "none":
             real = [c[0] for c in cams]
-            if len(real) == 1:
-                want = real[0]  # una sola camera: la scelgo io
+            if len(real) == 1 and choice is None:
+                want = real[0]  # una sola camera e nessuna scelta fatta: la scelgo io
             elif self.ctl.sim is not None and not real:
                 want = SIM_CAMERA
         i = self.combo.findData(want) if want is not None else -1

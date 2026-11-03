@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.10.7 — 03/11/2026
+Dalla segnalazione di chi lo usa:
+- **La scelta della telecamera si ricorda.** Chi non ha una camera sull'incisore e sceglie *Nessuna telecamera* non vede più accendersi la webcam del PC a ogni avvio: FreeLaserCut non apre nessuna camera all'avvio né quando si collega la macchina. Per usarne una basta premere ⟳ e sceglierla; anche la camera scelta si ricorda e si riapre da sola. Con una sola camera e nessuna scelta fatta, FreeLaserCut la propone come prima.
+- Nuova prova automatica `tests/test_v107.py` (8 controlli).
+
 ## 0.10.6 — 02/11/2026
 - **Aspetto a scelta** (*Impostazioni → Aspetto*): **tema scuro** (come sempre, predefinito), **tema chiaro** oppure **come Windows** (segue la modalità chiara o scura di Windows). In più il **colore principale** di pulsanti, selezioni e linguette: blu, verde, viola, arancio o rosa. Vale per la finestra Classica e per il Banco; la scelta si applica dal riavvio, che FreeLaserCut propone subito.
   - Nel tema chiaro anche le parti con colori propri (avvisi in alto, console, pannelli e pulsanti del Banco, pastiglia di stato) diventano chiare: una prova automatica controlla che non resti nessun colore del tema scuro.
