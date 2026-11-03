@@ -208,10 +208,18 @@ class MachineWizard(QDialog):
         self.main.set_active_profile(p)
         self._fill_profiles()
         self.log.appendPlainText(tr("Profilo attivo: {0} ({1:g} × {2:g} mm)", p.name, p.bed_x, p.bed_y))
+        name = self.model_combo.currentText()
+        if name in machines.NOTES:
+            self.log.appendPlainText(machines.NOTES[name])
+        if name in machines.SOURCES:
+            self.log.appendPlainText(tr("Valori di targa da: {0}", machines.SOURCES[name]))
 
     # ------------------------------------------------------------------ porte e driver
     def refresh(self):
-        self.ports = machines.describe_ports()
+        from .. import netport
+
+        self.ports = machines.describe_ports() + [machines.PortInfo(p, tr("Wi-Fi (rete)")) for p in
+                                                  netport.saved(getattr(self.main, "qs", None))]
         self.table.setRowCount(0)
         sel = 0
         for i, p in enumerate(self.ports + [machines.PortInfo(SIM_PORT, tr("Simulatore (senza macchina)"))]):
@@ -247,6 +255,8 @@ class MachineWizard(QDialog):
             return
         if p.device == SIM_PORT:
             self.drv_hint.setText(tr("Simulatore: una macchina finta per provare FreeLaserCut senza laser."))
+        elif p.device.startswith("tcp://"):
+            self.drv_hint.setText(tr("Collegamento via Wi-Fi: non serve nessun driver USB."))
         elif p.driver:
             name, url = machines.DRIVERS[p.driver]
             self.drv_hint.setText(tr("Chip {0}: {1}. Se la porta compare qui, il driver è già installato.", p.chip, name))

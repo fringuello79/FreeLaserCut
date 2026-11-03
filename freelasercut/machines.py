@@ -52,6 +52,8 @@ VENDORS = (
     ("NEJE", ("NEJE",)),
     ("Comgrow", ("COMGROW",)),
     ("Acmer", ("ACMER",)),
+    ("AlgoLaser", ("ALGO_LASER", "ALGOLASER", "ALGO LASER")),
+    ("SainSmart", ("GENMITSU", "SAINSMART", "JINSOKU")),
 )
 
 _BAUDS = (115200, 250000, 230400, 57600, 38400, 9600)
@@ -79,14 +81,78 @@ CATALOG = (
     ("Two Trees TTS-55 Pro", "Two Trees", 300, 300, "5,5 W", 6000),
     ("Comgrow Z1", "Comgrow", 400, 410, "5–10 W", 10000),
     ("Acmer S1 (2,5W / 3,5W / 6W)", "Acmer", 130, 130, "2,5–6 W", 10000),
+    # 0.12.0: valori presi dalle pagine ufficiali dei produttori (fonti in SOURCES, lette il 03/11/2026).
+    # Dove il produttore non dice la velocità massima metto 20000 mm/min: alla connessione vale quella della scheda.
+    ("Ortur Aufero Laser 1 (AL1)", "Ortur", 180, 180, "1,6–5,5 W", 5000),
+    ("Ortur Aufero Laser 2 (AL2)", "Ortur", 390, 390, "1,6–5,5 W", 10000),
+    ("Sculpfun SF-A9 40W", "Sculpfun", 400, 400, "20–40 W", 36000),
+    ("Sculpfun iCube Pro Max 10W", "Sculpfun", 120, 120, "10 W", 10000),
+    ("Sculpfun iCube Ultra 12W", "Sculpfun", 150, 150, "12 W", 10000),
+    ("Atomstack A5 Pro", "Atomstack", 410, 400, "5–5,5 W", 10000),
+    ("Creality Falcon A1 10W", "Creality", 305, 381, "10 W", 36000),
+    ("Creality Falcon2 Pro 22W / 40W", "Creality", 400, 415, "22–40 W", 20000),
+    ("Creality Falcon2 Pro 60W", "Creality", 400, 400, "60 W", 20000),
+    ("Two Trees TTS-10 Pro", "Two Trees", 300, 300, "10 W", 30000),
+    ("Two Trees TTS-20 Pro", "Two Trees", 418, 418, "20 W", 30000),
+    ("AlgoLaser Alpha 22W", "AlgoLaser", 400, 400, "22 W", 20000),
+    ("AlgoLaser Alpha MK2 20W", "AlgoLaser", 400, 410, "20 W", 20000),
+    ("AlgoLaser Alpha MK2 40W", "AlgoLaser", 400, 386, "40 W", 20000),
+    ("AlgoLaser Delta 22W", "AlgoLaser", 440, 415, "22 W", 30000),
+    ("Genmitsu Jinsoku LC-40", "SainSmart", 395, 365, "5–10 W", 10200),
+    ("Genmitsu L8 20W", "SainSmart", 400, 400, "20 W", 40000),
+    ("Genmitsu L8 40W", "SainSmart", 390, 390, "40 W", 40000),
+    ("Genmitsu LE5040", "SainSmart", 500, 400, "5,5 W", 10000),
+    ("Longer Ray5 5W", "Longer", 400, 400, "5,5 W", 10000),
 )
+# pagine ufficiali da cui vengono i valori dei modelli aggiunti nella 0.12.0
+SOURCES = {
+    "Ortur Aufero Laser 1 (AL1)": "https://ortur.net/pages/support-al1",
+    "Ortur Aufero Laser 2 (AL2)": "https://ortur.net/pages/support-al2",
+    "Sculpfun SF-A9 40W": "https://www.sculpfun.com/products/sculpfun-sf-a9-40w-laser-engraver-cutting-machine",
+    "Sculpfun iCube Pro Max 10W": "https://sculpfun.com/products/sculpfun-icube-portable-laser-engraving-machine",
+    "Sculpfun iCube Ultra 12W": "https://eu.sculpfun.com/products/icube-ultra-portable-laser-engraving-machine",
+    "Atomstack A5 Pro": "https://atomstack.com/products/refurbished-atomstack-a5-m50-pro-laser-engraver",
+    "Creality Falcon A1 10W": "https://www.crealityfalcon.com/products/falcon-a1-10w-enclosed-laser-engraver-and-cutter",
+    "Creality Falcon2 Pro 22W / 40W": "https://crealityfalcon.com/products/falcon2-pro-60w-enclosed-laser-cutter-and-engraver",
+    "Creality Falcon2 Pro 60W": "https://crealityfalcon.com/products/falcon2-pro-60w-enclosed-laser-cutter-and-engraver",
+    "Two Trees TTS-10 Pro": "https://uk.twotrees3d.com/collections/tts-series/products/tts-10-pro-diode-laser-engraver-twotrees",
+    "Two Trees TTS-20 Pro": "https://uk.twotrees3d.com/collections/tts-series/products/tts-20-20w-laser-engraver-machine",
+    "AlgoLaser Alpha 22W": "https://algolaser.com/pages/comparison-of-alpha-and-delta-parameters",
+    "AlgoLaser Alpha MK2 20W": "https://algolaser.com/products/alpha-mk2-20w-smart-enclosed-diode-laser-engraver",
+    "AlgoLaser Alpha MK2 40W": "https://algolaser.com/products/alpha-mk2-20w-smart-enclosed-diode-laser-engraver",
+    "AlgoLaser Delta 22W": "https://algolaser.com/products/algolaser-delta-22w-diode-laser-engraver",
+    "Genmitsu Jinsoku LC-40": "https://www.sainsmart.com/products/jinsoku-lc40-laser-engraver-wireless-control-candle-support",
+    "Genmitsu L8 20W": "https://www.sainsmart.com/products/l8-laser-engraver",
+    "Genmitsu L8 40W": "https://www.sainsmart.com/products/l8-laser-engraver",
+    "Genmitsu LE5040": "https://www.sainsmart.com/products/genmitsu-le5040-cnc-laser-engraver-machine",
+    "Longer Ray5 5W": "https://longer3d.com/products/longer-ray5-laser-engraver",
+}
+# note da mostrare quando si sceglie il modello
+NOTES = {
+    "Genmitsu Jinsoku LC-40": tr("Il LC-40 esce dalla fabbrica con il firmware per l'app: per usarlo con FreeLaserCut "
+                                 "va caricato il firmware GRBL che SainSmart mette a disposizione."),
+    "AlgoLaser Delta 22W": tr("Il Delta si può collegare anche via Wi-Fi (pulsante Wi-Fi accanto alla porta): "
+                              "l'indirizzo si legge nell'app AlgoLaser."),
+    "Sculpfun iCube Pro Max 10W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
+    "Sculpfun iCube Ultra 12W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
+}
 # spot del laser (mm) dichiarato dal produttore, dove è diverso dal valore comune (0,08 × 0,10)
-SPOTS = {"Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06)}
+SPOTS = {"Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06), "Sculpfun SF-A9 40W": (0.10, 0.15),
+         "Sculpfun iCube Pro Max 10W": (0.08, 0.08), "Sculpfun iCube Ultra 12W": (0.08, 0.08),
+         "Atomstack A5 Pro": (0.08, 0.08), "Creality Falcon A1 10W": (0.06, 0.08),
+         "Creality Falcon2 Pro 22W / 40W": (0.08, 0.12), "Creality Falcon2 Pro 60W": (0.08, 0.15),
+         "Two Trees TTS-10 Pro": (0.08, 0.08), "Two Trees TTS-20 Pro": (0.13, 0.145),
+         "AlgoLaser Alpha 22W": (0.16, 0.14), "AlgoLaser Alpha MK2 20W": (0.16, 0.14),
+         "AlgoLaser Alpha MK2 40W": (0.175, 0.15), "AlgoLaser Delta 22W": (0.16, 0.14),
+         "Genmitsu Jinsoku LC-40": (0.08, 0.05), "Genmitsu L8 20W": (0.07, 0.13), "Genmitsu L8 40W": (0.07, 0.13),
+         "Longer Ray5 5W": (0.08, 0.08)}
 GENERIC = tr("Altro laser GRBL (si legge dalla macchina)")
 
 
 def catalog_names():
-    return [c[0] for c in CATALOG] + [GENERIC]
+    """Modelli pronti: il B1 40W per primo, poi in ordine alfabetico, il generico per ultimo."""
+    rest = sorted((c[0] for c in CATALOG[1:]), key=str.lower)
+    return [CATALOG[0][0]] + rest + [GENERIC]
 
 
 def preset_profile(name):
@@ -176,6 +242,7 @@ class Identification:
     homing: bool = None
     confidence: str = "bassa"  # alta / media / bassa
     notes: list = field(default_factory=list)  # (livello, testo)
+    candidates: list = field(default_factory=list)  # modelli del catalogo con la stessa area
 
     def name(self):
         if self.model:
@@ -255,8 +322,23 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
                                     "legge dalla scheda: confermala nel nome (20, 30 o 40 W).")))
     if ident.vendor and not ident.model and bx and by:
         same = [n for n, v, cx, cy, *_ in CATALOG if v == ident.vendor and abs(bx - cx) <= 15 and abs(by - cy) <= 15]
+        if len(same) > 1:  # più modelli simili: tengo quelli con l'area più vicina
+            best = min(abs(bx - cx) + abs(by - cy) for n, v, cx, cy, *_ in CATALOG if n in same)
+            same = [n for n, v, cx, cy, *_ in CATALOG if n in same and abs(bx - cx) + abs(by - cy) <= best + 0.5]
         if len(same) == 1:
             ident.model = same[0]
+        elif same:
+            ident.candidates = same
+            ident.notes.append(("info", tr("Area di lavoro come: {0}. Scegli il modello giusto nell'elenco.",
+                                           ", ".join(same))))
+    if not ident.vendor and not ident.model and bx and by:
+        same = [n for n, v, cx, cy, *_ in CATALOG if abs(bx - cx) <= 2 and abs(by - cy) <= 2]
+        if len(same) == 1:
+            ident.model = same[0]
+            ident.notes.append(("info", tr("Modello riconosciuto solo dall'area di lavoro ({0:g} × {1:g} mm): "
+                                           "controlla che sia quello giusto.", bx, by)))
+        elif same:
+            ident.candidates = same
     # affidabilità
     score = (2 if ident.vendor else 0) + (1 if ident.family else 0) + (1 if bx and by else 0) + (1 if ident.board else 0)
     ident.confidence = "alta" if score >= 4 else "media" if score >= 2 else "bassa"
@@ -326,10 +408,16 @@ def probe(port, bauds=_BAUDS, opener=None, settle=1.6, log=None):
     """Apre la porta e legge avvio, $I e $$.  Ritorna dict(baud, banner, info, settings) o None.
 
     opener(port, baud) -> oggetto tipo serial.Serial (per il simulatore e i test)."""
+    from . import netport
+
+    if netport.is_net(port):
+        bauds = bauds[:1]  # in rete la velocità non conta
     if opener is None:
         import serial
 
         def opener(p, b):
+            if netport.is_net(p):
+                return netport.NetSerial.from_port(p)
             return serial.Serial(p, b, timeout=0.1, write_timeout=1)
     end_ok = lambda l: l == "ok" or l.startswith("error")  # noqa: E731
     for baud in bauds:

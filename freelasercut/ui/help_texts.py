@@ -165,6 +165,10 @@ HELP = {
         "Spenta di partenza. Se la attivi, durante il lavoro FreeLaserCut guarda la camera scelta nel pannello Camera: "
         "se vede una fiamma per circa un secondo ferma il lavoro, spegne il laser, suona e salva una foto. "
         "È un aiuto in più: non lasciare mai la macchina accesa da sola."), None),
+    "board_backup": (tr("Copie delle impostazioni della scheda"), tr(
+        "FreeLaserCut salva da solo i parametri della scheda ($$) quando si collega e prima di cambiarne uno. Da qui "
+        "si vede l'elenco delle copie, se ne fa una a mano, si confronta una copia con la scheda e si ripristinano "
+        "solo i valori diversi."), None),
     "cmd_labels": (tr("Nomi sotto i comandi"), tr(
         "Sotto ogni icona delle barre compare un nome corto e piccolo (Apri, Salva, Rettangolo, Codici…), nella lingua "
         "scelta. Si spegne dalla stessa voce; la scelta si ricorda."), None),

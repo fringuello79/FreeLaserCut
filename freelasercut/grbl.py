@@ -24,11 +24,13 @@ except ImportError:  # pragma: no cover
 
 from .grbl_codes import ALARMS, ERRORS
 from .sim import SimSerial
+from . import netport
 
 SIM_PORT = "SIMULATORE"
 RX_BUFFER = 127
 POLL_INTERVAL = 0.2
 _SETTING_RE = re.compile(r"^\$(\d+)=(.*)$")
+_WRITE_RE = re.compile(r"^\$\d+\s*=")
 _STATUS_RE = re.compile(r"<[^<>]*>")
 _OPT_RE = re.compile(r"^\[OPT:([^,\]]*),(\d+),(\d+)")
 _USB_HINTS = ("CH340", "CH341", "1A86", "USB-SERIAL", "USB SERIAL", "CP210", "FTDI", "ESP32", "USB JTAG")
@@ -136,6 +138,10 @@ class GrblController(QObject):
         self.pause_on_error = True
         self._check = None  # verifica in corso: {"total", "done", "errors"}
         self.board_settings = {}  # ultimo $$ letto dalla scheda {numero: "valore"}
+        self.board_info = []  # ultimo $I
+        self._backup_done = False  # copia delle impostazioni già fatta in questa connessione
+        self.last_backup = None
+        self.auto_backup = True
         self._fire_timer = None
         self.fire_active = False
 
@@ -149,6 +155,8 @@ class GrblController(QObject):
         try:
             if port == SIM_PORT:
                 ser = SimSerial()
+            elif netport.is_net(port):  # Wi-Fi / cavo di rete (FluidNC, grblHAL, ESP3D: telnet)
+                ser = netport.NetSerial.from_port(port)
             else:
                 if serial is None:
                     raise RuntimeError(tr("pyserial non è installato"))
@@ -162,6 +170,8 @@ class GrblController(QObject):
         self.homed = False
         self._check_space = False
         self.board_settings = {}
+        self.board_info = []
+        self._backup_done = False
         self._check = None
         self._clear_queues()
         self._running = True
@@ -217,6 +227,17 @@ class GrblController(QObject):
         line = line.strip()
         if not line or not self.connected:
             return
+        if (tag is None and not self._backup_done and _WRITE_RE.match(line) and self.board_settings
+                and self.port != SIM_PORT):
+            # prima di cambiare un'impostazione della scheda: copia di tutte le impostazioni ($$)
+            self._backup_done = True
+            try:
+                from . import board_backup
+
+                self.last_backup = board_backup.save(self.board_settings, self.board_info,
+                                                     tr("prima della modifica {0}", line), self.port or "")
+            except OSError:
+                self.last_backup = None
         with self._lock:
             self._pending.append(_Cmd(line, tag))
         self._pump()
@@ -571,6 +592,14 @@ class GrblController(QObject):
         if cmd.tag == "settings":
             if ok and cmd.data:
                 self.board_settings = dict(cmd.data)
+                if not self._backup_done and self.auto_backup and self.port != SIM_PORT:
+                    try:  # una copia a ogni connessione (se i valori sono cambiati dall'ultima)
+                        from . import board_backup
+
+                        self.last_backup = board_backup.save(self.board_settings, self.board_info,
+                                                             tr("lettura alla connessione"), self.port or "")
+                    except OSError:
+                        pass
             self.settings_ready.emit(dict(cmd.data))
         elif cmd.tag == "info":
             for l in cmd.data:
@@ -578,6 +607,7 @@ class GrblController(QObject):
                 if m:
                     # [OPT:VPH,63,256] -> buffer RX della scheda: lo uso quasi tutto (più fluido sul raster)
                     self.rx_buffer = max(RX_BUFFER, min(int(m.group(3)) - 2, 1022))
+            self.board_info = list(cmd.data)
             self.info_ready.emit(list(cmd.data))
         elif ok and cmd.line.upper().replace(" ", "") == "$H":
             self._check_space = True  # al prossimo stato Idle capisco come sono le coordinate

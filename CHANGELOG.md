@@ -1,5 +1,18 @@
 # Novità di FreeLaserCut
 
+## 0.12.0 — 03/11/2026
+- **Laser collegati via Wi-Fi.** Con il pulsante Wi-Fi accanto alla porta si scrive l'indirizzo della scheda (per esempio `192.168.1.50`, porta 23) e *Prova il collegamento* controlla che risponda. Poi tutto funziona come con il cavo USB: lavori, verifica, contorno, stato, *Riconosci la macchina*. Gli indirizzi usati restano nell'elenco delle porte e FreeLaserCut si ricollega da solo all'avvio.
+  - Funziona con le schede che accettano il G-code dalla rete (telnet), come FluidNC, grblHAL ed ESP3D (porta 23 di serie) o l'AlgoLaser Delta. I laser che si comandano solo dall'app del produttore restano con il cavo USB.
+- **Copie delle impostazioni della scheda** (*Laser → Copie delle impostazioni della scheda…*, anche dal pannello Macchina).
+  - FreeLaserCut salva da solo tutti i parametri `$$` quando si collega, se sono cambiati dall'ultima copia, e prima di cambiarne uno: da Macchina, dalla console o da *Riconosci e adatta*.
+  - Le copie sono file di testo leggibili, una riga `$numero=valore` ciascuna, e ne restano le ultime 40.
+  - Con *Confronta e ripristina* si vede cosa cambierebbe e si rimandano alla scheda solo i valori diversi. Una copia si può anche salvare a mano, esportare o aggiungere da un file.
+- **20 modelli pronti in più** (39 in tutto). Nell'elenco il B1 40W resta per primo e gli altri sono in ordine alfabetico.
+  - I nuovi: Ortur Aufero Laser 1 e 2, Sculpfun SF-A9 40W, iCube Pro Max 10W, iCube Ultra 12W, Atomstack A5 Pro, Creality Falcon A1 10W, Falcon2 Pro 22/40W e 60W, Two Trees TTS-10 Pro e TTS-20 Pro, AlgoLaser Alpha 22W, Alpha MK2 20W e 40W, Delta 22W, Genmitsu Jinsoku LC-40, L8 20W e 40W, LE5040, Longer Ray5 5W.
+  - Area di lavoro, potenza, velocità e dimensione del punto vengono **dalle pagine ufficiali dei produttori**, indicate nel codice.
+  - Il riconoscimento usa anche l'area di lavoro letta dalla scheda: se è unica propone il modello da confermare, se più modelli hanno la stessa area li elenca invece di tirare a indovinare.
+- Nuova prova automatica `tests/test_v120.py` (41 controlli): una scheda simulata collegata in rete per lavori, impostazioni e riconoscimento, poi copie, confronto, ripristino e catalogo.
+
 ## 0.11.2 — 03/11/2026
 - **Controllo dal telefono:**
   - nuova sezione **Controllo attività**: la camera si accende da sola durante il lavoro, si aggiorna circa ogni secondo e mostra l'ora dell'ultima immagine. Un tocco la apre a schermo intero; se la camera smette di mandare immagini, la pagina lo dice. Con la guardia fiamme accesa, la pagina lo ricorda;

@@ -379,12 +379,24 @@ class MachinePanel(QWidget):
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
         self.table.itemChanged.connect(self.on_item_changed)
         tl.addWidget(self.table, 1)
+        self.btn_backups = QPushButton(tr("Copie delle impostazioni…"))
+        self.btn_backups.setToolTip(tr("Copie automatiche dei parametri della scheda: confronto e ripristino"))
+        self.btn_backups.clicked.connect(self.open_backups)
+        tl.addWidget(self.btn_backups)
         lay.addWidget(tc, 1)
 
         ctl.settings_ready.connect(self.on_settings)
         ctl.info_ready.connect(self.on_info)
         self.refresh_profile()
         self.set_connected(False)
+
+    def open_backups(self):
+        from PySide6.QtWidgets import QApplication
+
+        for w in QApplication.topLevelWidgets():
+            if hasattr(w, "board_backup_dialog"):
+                return w.board_backup_dialog()
+        return None
 
     def set_connected(self, ok):
         self.btn_read.setEnabled(ok)

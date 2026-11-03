@@ -270,6 +270,8 @@ class MainWindow(QMainWindow):
                                 "riempimenti e nelle foto")),
             "phone": A(tr("Controllo dal telefono…"), self.phone_dialog, None, "smartphone",
                        tr("Dal telefono sulla rete di casa: avanzamento, camera, pausa, stop e foto del test")),
+            "board_backup": A(tr("Copie delle impostazioni della scheda…"), self.board_backup_dialog, None, None,
+                              tr("Copie automatiche dei parametri della scheda ($$): confronto e ripristino in un clic")),
             "fire_guard": A(tr("Guardia fiamme…"), self.fire_guard_dialog, None, "fire",
                             tr("Durante il lavoro guarda la camera: se vede una fiamma ferma tutto e spegne il laser")),
             "rotary": A(tr("Rotativo (bicchieri, cilindri)…"), self.rotary_dialog, None, "rotary",
@@ -419,7 +421,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["photo"])
         m.addAction(a["trace"])
         menu(tr("&Laser"), ["connect", "identify", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-                        "materials", "material_test", "scan_offset", "-", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
+                        "materials", "material_test", "scan_offset", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
         self.m_view.addSeparator()
@@ -570,6 +572,11 @@ class MainWindow(QMainWindow):
         rb.setToolTip(tr("Cerca di nuovo le porte USB"))
         rb.clicked.connect(self.refresh_ports)
         self.btn_refresh = rb
+        wb = QToolButton()
+        wb.setIcon(style.icon("wifi"))
+        wb.setToolTip(tr("Collega un laser via Wi-Fi (FluidNC, grblHAL, ESP3D)"))
+        wb.clicked.connect(self.net_dialog)
+        self.btn_wifi = wb
         self.btn_connect = QPushButton(tr("Connetti"))
         self.btn_connect.setObjectName("primary")
         self.btn_connect.setIcon(style.icon("connect", "#FFFFFF"))
@@ -685,6 +692,7 @@ class MainWindow(QMainWindow):
         hl.setSpacing(4)
         hl.addWidget(self.port_combo, 1)
         hl.addWidget(self.btn_refresh)
+        hl.addWidget(self.btn_wifi)
         ib = QToolButton()
         ib.setDefaultAction(self.acts["identify"])
         hl.addWidget(ib)
@@ -1420,7 +1428,10 @@ class MainWindow(QMainWindow):
         best = None
         from .. import machines
 
+        from .. import netport
+
         ports = [(p.device, p.label(), p.likely) for p in machines.describe_ports()]
+        ports += [(p, netport.label(p), False) for p in netport.saved(self.qs)]  # laser in Wi-Fi già usati
         ports.append((SIM_PORT, tr("Simulatore (senza macchina)"), False))
         for dev, label, likely in ports:
             self.port_combo.addItem(("★  " if likely else "") + label, dev)
@@ -1430,6 +1441,27 @@ class MainWindow(QMainWindow):
                 best = self.port_combo.count() - 1
         if best is not None:
             self.port_combo.setCurrentIndex(best)
+
+    def board_backup_dialog(self, *_):
+        from .dialogs_backup import BoardBackupDialog
+
+        dlg = BoardBackupDialog(self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.show()
+        return dlg
+
+    def net_dialog(self, *_):
+        """Laser via Wi-Fi: indirizzo della scheda, prova del collegamento, indirizzi ricordati."""
+        from .dialogs_net import NetDialog
+
+        dlg = NetDialog(self.qs, self)
+        if dlg.exec() and dlg.port:
+            self.refresh_ports()
+            i = self.port_combo.findData(dlg.port)
+            if i >= 0:
+                self.port_combo.setCurrentIndex(i)
+            return dlg.port
+        return None
 
     def _auto_connect(self):
         """All'avvio si collega da solo alla porta usata l'ultima volta (se c'è ancora)."""
@@ -1470,6 +1502,7 @@ class MainWindow(QMainWindow):
         self.btn_connect.style().polish(self.btn_connect)
         self.port_combo.setEnabled(not ok)
         self.btn_refresh.setEnabled(not ok)
+        self.btn_wifi.setEnabled(not ok)
         self.laser.set_connected(ok)
         self.move.set_connected(ok)
         self.machine.set_connected(ok)
