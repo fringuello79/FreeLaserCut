@@ -160,6 +160,39 @@ for l in ("it", "fr"):
     b = probe(l, "banco")
     check(f"Banco ({l}): nomi interi sotto gli strumenti, nessuno tagliato", b.get("cut") == [] and b.get("rect") and
           b.get("island", 9999) < 1500, b)
+# ------------------------------------------------------------------ telefono: logo e controllo attività
+import urllib.request, urllib.error
+from freelasercut import phone
+w.phone.start()
+base_url = f"http://127.0.0.1:{w.phone.server.port}/{w.phone.server.token}/"
+page = urllib.request.urlopen(base_url, timeout=5).read().decode("utf-8")
+check("pagina del telefono: logo nell'intestazione e icona per la schermata Home",
+      '<img src="logo.svg"' in page and 'rel="apple-touch-icon" href="logo.png"' in page)
+svg = urllib.request.urlopen(base_url + "logo.svg", timeout=5)
+png = urllib.request.urlopen(base_url + "logo.png", timeout=5).read()
+check("logo servito dalla pagina (SVG e PNG)", svg.headers.get("Content-Type") == "image/svg+xml" and
+      b"<svg" in svg.read() and png[:4] == b"\x89PNG")
+leak = False
+for bad in ("app.py", "assets/logo.svg", "logo.ico", "%2e%2e/app.py"):
+    try:
+        urllib.request.urlopen(base_url + bad, timeout=5)
+        leak = True
+    except urllib.error.HTTPError:
+        pass
+check("dalla pagina si leggono solo i due loghi, nessun altro file", not leak)
+check("sezione «Controllo attività»: la camera si accende da sola durante il lavoro, tocco = schermo intero",
+      "Controllo attività" in page and "wantCam" in page and "classList.toggle('full')" in page)
+w.phone.refresh()
+st = json.loads(urllib.request.urlopen(base_url + "stato", timeout=5).read())
+check("lo stato dice se il PC ha una camera e come sta la guardia fiamme", st.get("camera") is False and "fire" in st, st)
+w.camera.src = FakeCam()
+w.phone.refresh()
+st = json.loads(urllib.request.urlopen(base_url + "stato", timeout=5).read())
+jpg = urllib.request.urlopen(base_url + "foto.jpg", timeout=5).read()
+check("con una camera: lo stato lo dice e la foto arriva", st.get("camera") is True and jpg[:2] == b"\xff\xd8")
+w.camera.src = None
+w.phone.stop()
+
 w.editor.dirty = False
 w.qs.setValue("autosave_pending", False)
 w.close()

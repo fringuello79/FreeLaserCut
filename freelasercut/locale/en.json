@@ -1574,5 +1574,8 @@
  "Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i comandi": "A short, small name appears under every toolbar icon, to recognise commands at a glance",
  "Salva l'immagine di prova": "Save the test image",
  "Salva nella diagnostica la foto della camera e le zone viste come fiamma: utile da allegare a una segnalazione se la guardia non vede bene la fiamma": "Saves the camera photo and the areas seen as flame in the diagnostics folder: useful to attach to a report if the guard doesn't see the flame well",
- "Immagini salvate:\n{0}": "Images saved:\n{0}"
+ "Immagini salvate:\n{0}": "Images saved:\n{0}",
+ "Controllo attività": "Activity monitor",
+ "La camera non manda immagini nuove da qualche secondo.": "The camera hasn't sent new images for a few seconds.",
+ "Guardia fiamme attiva: la camera sorveglia il lavoro.": "Flame guard on: the camera is watching the job."
 }

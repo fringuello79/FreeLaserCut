@@ -1,5 +1,11 @@
 # Novità di FreeLaserCut
 
+## 0.11.2 — 03/11/2026
+- **Controllo dal telefono:**
+  - nuova sezione **Controllo attività**: la camera si accende da sola durante il lavoro, si aggiorna circa ogni secondo e mostra l'ora dell'ultima immagine. Un tocco la apre a schermo intero; se la camera smette di mandare immagini, la pagina lo dice. Con la guardia fiamme accesa, la pagina lo ricorda;
+  - il **logo** di FreeLaserCut nell'intestazione e come icona, se aggiungi la pagina alla schermata Home.
+- Prova automatica `tests/test_v111.py` estesa (25 controlli).
+
 ## 0.11.1 — 03/11/2026
 Dalla prima prova della 0.11.0:
 - **Guardia fiamme più attenta:** con un accendino davanti alla camera si vedeva solo il bordo rosso della fiamma, non il cuore chiaro. La camera, abbagliata, vede il cuore quasi bianco. Ora conta anche la zona chiara, purché sia attaccata al bordo caldo della fiamma; una lampada bianca o un foglio illuminato da soli non la fanno scattare.

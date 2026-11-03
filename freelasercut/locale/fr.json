@@ -1574,5 +1574,8 @@
  "Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i comandi": "Sous chaque icône des barres apparaît un nom court et petit, pour reconnaître tout de suite les commandes",
  "Salva l'immagine di prova": "Enregistrer l'image d'essai",
  "Salva nella diagnostica la foto della camera e le zone viste come fiamma: utile da allegare a una segnalazione se la guardia non vede bene la fiamma": "Enregistre dans le diagnostic la photo de la caméra et les zones vues comme flamme : utile à joindre à un signalement si la surveillance voit mal la flamme",
- "Immagini salvate:\n{0}": "Images enregistrées :\n{0}"
+ "Immagini salvate:\n{0}": "Images enregistrées :\n{0}",
+ "Controllo attività": "Suivi de l'activité",
+ "La camera non manda immagini nuove da qualche secondo.": "La caméra n'envoie plus de nouvelles images depuis quelques secondes.",
+ "Guardia fiamme attiva: la camera sorveglia il lavoro.": "Surveillance des flammes active : la caméra surveille le travail."
 }

@@ -113,6 +113,18 @@ class PhoneServer:
         return self.token
 
 
+def _asset(name):
+    """Logo di FreeLaserCut per la pagina del telefono (intestazione e icona della schermata Home)."""
+    import os
+
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", name)
+    try:
+        with open(path, "rb") as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
 def _make_handler(srv):
     import time
 
@@ -166,6 +178,13 @@ def _make_handler(srv):
                     self._send(200, dict(srv.state() or {}))
                 except Exception as ex:  # noqa: BLE001
                     self._send(500, {"ok": False, "msg": str(ex)})
+            elif r in ("logo.svg", "logo.png"):
+                data = _asset(r)
+                if data:
+                    self._send(200, data, "image/svg+xml" if r.endswith(".svg") else "image/png",
+                               {"Cache-Control": "max-age=86400"})
+                else:
+                    self._send(404, "non trovato", "text/plain; charset=utf-8")
             elif r == "foto.jpg":
                 data = srv.frame() if srv.frame else None
                 if data:
@@ -214,11 +233,14 @@ PAGE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0C1322">
 <title>FreeLaserCut · [[telefono]]</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="logo.png">
 <style>
 :root{--bg:#0C1322;--card:#141D30;--line:#24304A;--tx:#E6EBF5;--mu:#8C98B0;--ac:#2E7CF6;--warn:#F5A524;--bad:#E5484D;--ok:#2FB171}
 @media (prefers-color-scheme: light){:root{--bg:#F2F4F8;--card:#FFFFFF;--line:#D8DEE9;--tx:#1A2233;--mu:#5C6880}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:14px 16px 28px}
 h1{font-size:18px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+h1 .brand{display:flex;align-items:center;gap:9px}h1 img{width:30px;height:30px;border-radius:7px}
 h1 small{font-weight:400;color:var(--mu);font-size:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:0 0 12px}
 .state{font-size:22px;font-weight:700}.mu{color:var(--mu);font-size:14px}
@@ -228,13 +250,20 @@ h1 small{font-weight:400;color:var(--mu);font-size:12px}
 button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:16px 10px;color:#fff;background:var(--ac);min-height:56px}
 button:disabled{opacity:.35}
 #pause{background:var(--warn);color:#1A0E05}#stop{background:var(--bad)}
-#cam{width:100%;border-radius:10px;display:none;background:#000;margin-top:8px}
+.ctitle{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:8px}
+.live{font-size:12px;font-weight:700;color:var(--mu)}.live.on{color:var(--bad)}
+#camwrap{position:relative;display:none}
+#cam{width:100%;border-radius:10px;background:#000;display:block}
+#camts{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:2px 7px;border-radius:6px}
+#camwrap.full{position:fixed;inset:0;z-index:9;background:#000;display:flex;align-items:center;justify-content:center;border-radius:0}
+#camwrap.full #cam{border-radius:0;max-height:100%;object-fit:contain}
+button.sec{background:var(--line);color:var(--tx)}
 .alarm{background:#3A1418;border-color:var(--bad);color:#FFD7DA}
 #msg{min-height:1.4em;margin-top:8px;font-size:14px}
 label.file{display:block;text-align:center;border:1px dashed var(--line);border-radius:12px;padding:14px;cursor:pointer;font-weight:700}
 input[type=file]{display:none}
 </style></head><body>
-<h1>FreeLaserCut <small>v{{VER}}</small></h1>
+<h1><span class="brand"><img src="logo.svg" alt="">FreeLaserCut</span> <small>v{{VER}}</small></h1>
 <div class="card" id="st">
   <div class="state" id="state">…</div>
   <div class="mu" id="sub"></div>
@@ -247,8 +276,11 @@ input[type=file]{display:none}
   <div id="msg"></div>
 </div>
 <div class="card">
-  <div class="row"><button id="camb" style="background:var(--line);color:var(--tx)">[[Mostra la camera]]</button></div>
-  <img id="cam" alt="">
+  <div class="ctitle"><span>[[Controllo attività]]</span><span id="live" class="live">● LIVE</span></div>
+  <div id="camwrap"><img id="cam" alt=""><div id="camts"></div></div>
+  <div class="mu" id="camnote"></div>
+  <div class="mu" id="firenote"></div>
+  <div class="row" style="margin-top:8px"><button id="camb" class="sec">[[Mostra la camera]]</button></div>
 </div>
 <div class="card">
   <label class="file" for="ph">📷 [[Invia la foto del test materiale]]</label>
@@ -271,6 +303,7 @@ async function tick(){
     const s = await (await fetch(base + 'stato', {cache:'no-store'})).json(); last = s;
     $('state').textContent = s.title || s.state || '—';
     $('sub').textContent = s.detail || '';
+    $('firenote').textContent = s.job_active && s.fire === 'attiva' ? T.fireon : '';
     const p = s.total ? 100*s.done/s.total : 0;
     $('prog').style.width = p.toFixed(1)+'%';
     $('pct').textContent = s.job_active ? (p.toFixed(0)+' %  ·  '+T.elapsed+' '+fmt(s.elapsed)+(s.left!=null?'  ·  '+T.left+' '+fmt(s.left):'')) : '';
@@ -282,10 +315,24 @@ async function tick(){
 }
 $('pause').onclick = async () => { const r = await post('pausa'); $('msg').textContent = r.msg || ''; tick(); };
 $('stop').onclick = async () => { if(!confirm(T.confirm)) return; const r = await post('stop'); $('msg').textContent = r.msg || ''; tick(); };
-function cam(){ $('cam').src = base + 'foto.jpg?t=' + Date.now(); }
-$('cam').onerror = () => { if(camOn){ $('cam').style.display='none'; $('camb').textContent=T.nocam; } };
-$('cam').onload = () => { if(camOn){ $('cam').style.display='block'; camTimer = setTimeout(cam, 1000); } };
-$('camb').onclick = () => { camOn = !camOn; clearTimeout(camTimer); $('camb').textContent = camOn ? T.hidecam : T.showcam; if(camOn) cam(); else $('cam').style.display='none'; };
+// controllo attività: la camera si accende da sola durante il lavoro (se il PC ha una camera), un tocco = schermo intero
+let userCam = null, camLast = 0, camBusy = false;
+function wantCam(){ return userCam !== null ? userCam : !!(last && last.job_active && last.camera); }
+function camShow(on){ $('camwrap').style.display = on ? 'block' : 'none'; $('camb').textContent = on ? T.hidecam : T.showcam;
+  $('live').classList.toggle('on', on); if(!on) $('camwrap').classList.remove('full'); }
+function cam(){
+  clearTimeout(camTimer);
+  if(!wantCam()){ camShow(false); camTimer = setTimeout(cam, 1000); return; }
+  if(last && !last.camera){ camShow(false); $('camnote').textContent = T.nocam; camTimer = setTimeout(cam, 2000); return; }
+  if(camBusy){ camTimer = setTimeout(cam, 300); return; }
+  camBusy = true; $('cam').src = base + 'foto.jpg?t=' + Date.now();
+}
+$('cam').onload = () => { camBusy = false; camLast = Date.now(); camShow(true); $('camnote').textContent = '';
+  $('camts').textContent = new Date().toLocaleTimeString(); camTimer = setTimeout(cam, 700); };
+$('cam').onerror = () => { camBusy = false; $('camnote').textContent = T.nocam; camShow(false); camTimer = setTimeout(cam, 2000); };
+$('cam').onclick = () => $('camwrap').classList.toggle('full');
+$('camb').onclick = () => { userCam = !wantCam(); cam(); };
+setInterval(() => { if(wantCam() && camLast && Date.now() - camLast > 5000) $('camnote').textContent = T.stale; }, 1000);
 async function shrink(file){
   try{
     const bmp = await createImageBitmap(file); const k = Math.min(1, 2400/Math.max(bmp.width,bmp.height));
@@ -301,7 +348,7 @@ $('ph').onchange = async e => {
   catch(err){ $('phmsg').textContent = T.failed + err; }
   e.target.value = '';
 };
-tick(); setInterval(tick, 1000);
+tick(); setInterval(tick, 1000); cam();
 </script></body></html>
 """
 
@@ -311,6 +358,8 @@ def _js_strings():
             "offline": tr("PC non raggiungibile"),
             "offline2": tr("FreeLaserCut è chiuso o il controllo dal telefono è spento."),
             "confirm": tr("Fermare il lavoro? Non si potrà riprendere da qui."), "nocam": tr("Nessuna camera sul PC"),
+            "stale": tr("La camera non manda immagini nuove da qualche secondo."),
+            "fireon": tr("Guardia fiamme attiva: la camera sorveglia il lavoro."),
             "hidecam": tr("Nascondi la camera"), "showcam": tr("Mostra la camera"), "sending": tr("Invio in corso…"),
             "sent": tr("Inviata."), "failed": tr("Invio non riuscito:")}
 
@@ -318,7 +367,7 @@ def _js_strings():
 def _html_strings():
     """Testi fissi della pagina (qui scritti per intero così finiscono nelle traduzioni)."""
     return {"telefono": tr("telefono"), "Pausa": tr("Pausa"), "Stop": tr("Stop"),
-            "Mostra la camera": tr("Mostra la camera"),
+            "Mostra la camera": tr("Mostra la camera"), "Controllo attività": tr("Controllo attività"),
             "Invia la foto del test materiale": tr("Invia la foto del test materiale"),
             "Da qui puoi fermare il lavoro, non avviarlo: per partire o riprendere serve essere davanti alla macchina.":
                 tr("Da qui puoi fermare il lavoro, non avviarlo: per partire o riprendere serve essere davanti alla macchina."),

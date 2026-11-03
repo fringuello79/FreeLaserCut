@@ -95,6 +95,8 @@ class PhoneControl(QObject):
             title = tr("Allarme della macchina")
         else:
             title = tr("Pronta")
+        src = getattr(getattr(self.win, "camera", None), "src", None)
+        cam = src is not None and getattr(src, "index", None) != SIM_CAMERA
         elapsed = time.time() - self.job_t0 if active and self.job_t0 else 0.0
         left = elapsed * (total - done) / done if active and done > 20 and total else None
         detail = tr("Stato della scheda: {0}", st) if ctl.connected and st else ""
@@ -102,7 +104,8 @@ class PhoneControl(QObject):
             detail += ("  ·  " if detail else "") + tr("guardia fiamme attiva")
         self.snapshot = {"title": title, "detail": detail, "state": st, "connected": bool(ctl.connected),
                          "job_active": active, "paused": paused, "done": done if active else 0,
-                         "total": total if active else 0, "elapsed": elapsed, "left": left, "alarm": alarm}
+                         "total": total if active else 0, "elapsed": elapsed, "left": left, "alarm": alarm,
+                         "camera": bool(cam), "fire": fire or ""}
 
     # ---------------------------------------------------------------- chiamate dal thread del server
     def _frame(self):

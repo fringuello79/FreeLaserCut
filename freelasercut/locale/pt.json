@@ -1574,5 +1574,8 @@
  "Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i comandi": "Sob cada ícone das barras aparece um nome curto e pequeno, para reconhecer os comandos na hora",
  "Salva l'immagine di prova": "Salvar a imagem de teste",
  "Salva nella diagnostica la foto della camera e le zone viste come fiamma: utile da allegare a una segnalazione se la guardia non vede bene la fiamma": "Salva no diagnóstico a foto da câmera e as áreas vistas como chama: útil para anexar a um relato se o vigia não enxergar bem a chama",
- "Immagini salvate:\n{0}": "Imagens salvas:\n{0}"
+ "Immagini salvate:\n{0}": "Imagens salvas:\n{0}",
+ "Controllo attività": "Controle de atividade",
+ "La camera non manda immagini nuove da qualche secondo.": "A câmera não envia imagens novas há alguns segundos.",
+ "Guardia fiamme attiva: la camera sorveglia il lavoro.": "Vigia de chamas ativo: a câmera vigia o trabalho."
 }

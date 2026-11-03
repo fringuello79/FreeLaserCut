@@ -33,6 +33,10 @@ _BAYER8 = np.array([
     [3, 35, 11, 43, 1, 33, 9, 41], [51, 19, 59, 27, 49, 17, 57, 25],
     [15, 47, 7, 39, 13, 45, 5, 37], [63, 31, 55, 23, 61, 29, 53, 21]], dtype=np.float32) / 64.0 + 1 / 128.0
 
+# piccole variazioni di soglia per un futuro retino stocastico (riserva: oggi nessun metodo le usa)
+_JITTER = (0.1621, 0.2402, 0.1504, 0.1309, 0.1582, 0.2285, 0.166, 0.1387, 0.1387, 0.127, 0.4707,
+           0.4629, 0.4355, 0.0566, 0.2246, 0.166, 0.209, 0.209, 0.1816, 0.1309, 0.127)
+
 
 def _diffuse_py(img, kx, ky, kw, div):
     h, w = img.shape
