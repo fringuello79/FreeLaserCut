@@ -271,8 +271,10 @@ def _text(el, ctx, tf):
     if backup is not None:
         bp = _path_of(backup, ctx)
         if bp is not None and not bp.isEmpty():
-            btf = _xform(backup) if backup.find("XForm") is not None else QTransform()
-            target = (btf * tf).map(bp).boundingRect()
+            # il tracciato di riserva ha la sua XForm completa (di solito uguale a quella del testo, non relativa):
+            # applicarle tutte e due spostava il testo lontano dal suo posto
+            btf = _xform(backup) if backup.find("XForm") is not None else tf
+            target = btf.map(bp).boundingRect()
             mine = t.path().boundingRect()
             if mine.height() > 1e-6 and target.height() > 1e-6:
                 k = target.height() / mine.height()
@@ -303,7 +305,11 @@ def _bitmap(el, ctx, tf):
     s.brightness = float(el.get("Brightness", 0) or 0)
     s.contrast = float(el.get("Contrast", 0) or 0)
     s.gamma = float(el.get("Gamma", 1) or 1)
-    return _centered(s, w, h, tf)
+    # In LightBurn la prima riga di pixel dell'immagine sta a y = −H/2 nelle coordinate della forma (come in un
+    # sistema con Y in giù); in FreeLaserCut la prima riga sta in alto (y = h). Senza questo ribaltamento le foto
+    # salvate da LightBurn (che di solito hanno XForm "1 0 0 −1 …") si aprivano specchiate in verticale.
+    s.set_transform(QTransform(1, 0, 0, -1, -w / 2.0, h / 2.0) * tf)
+    return s
 
 
 # ------------------------------------------------------------------ progetto

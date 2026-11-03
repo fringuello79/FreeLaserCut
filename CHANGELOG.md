@@ -1,5 +1,11 @@
 # Novità di FreeLaserCut
 
+## 0.10.8 — 03/11/2026
+Dalle segnalazioni di chi lo usa (issue #3):
+- **Corretto: le foto dei progetti LightBurn (.lbrn2) si aprivano specchiate in verticale**, e bisognava rifletterle a mano (e poi ancora in *Prepara foto*). In LightBurn la prima riga di pixel di una foto sta dalla parte opposta rispetto a FreeLaserCut: ora l'apertura ne tiene conto e la foto arriva dritta, al suo posto e con le sue misure, anche se in LightBurn era ruotata.
+- **Corretto: i testi dei progetti LightBurn** con il tracciato di riserva finivano lontani dal loro posto (lo spostamento veniva applicato due volte). Ora restano esattamente dove li aveva messi LightBurn, con la stessa altezza.
+- Nuova prova automatica `tests/test_v108.py` (7 controlli), più la verifica su progetti LightBurn veri confrontati con l'anteprima salvata da LightBurn nel file.
+
 ## 0.10.7 — 03/11/2026
 Dalla segnalazione di chi lo usa:
 - **La scelta della telecamera si ricorda.** Chi non ha una camera sull'incisore e sceglie *Nessuna telecamera* non vede più accendersi la webcam del PC a ogni avvio: FreeLaserCut non apre nessuna camera all'avvio né quando si collega la macchina. Per usarne una basta premere ⟳ e sceglierla; anche la camera scelta si ricorda e si riapre da sola. Con una sola camera e nessuna scelta fatta, FreeLaserCut la propone come prima.
