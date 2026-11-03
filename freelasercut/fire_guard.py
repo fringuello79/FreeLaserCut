@@ -22,16 +22,29 @@ LEARN = 6  # fotogrammi iniziali per imparare il livello "normale"
 
 
 def hot_mask(frame_bgr):
-    """Maschera dei pixel "da fiamma" dell'immagine rimpicciolita a WIDTH px di larghezza."""
+    """Maschera dei pixel "da fiamma" dell'immagine rimpicciolita a WIDTH px di larghezza.
+
+    Una fiamma vista dalla camera ha un bordo caldo (rosso, arancio, giallo) e spesso un cuore quasi bianco, perché
+    la camera è abbagliata. Il bordo caldo conta sempre; le zone molto chiare contano solo se toccano un bordo caldo:
+    così una lampada bianca o un foglio illuminato da soli non sembrano fiamme."""
     h, w = frame_bgr.shape[:2]
     if w != WIDTH:
         frame_bgr = cv2.resize(frame_bgr, (WIDTH, max(1, int(round(h * WIDTH / w)))), interpolation=cv2.INTER_AREA)
     hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
     hh, ss, vv = hsv[..., 0], hsv[..., 1], hsv[..., 2]
-    warm = (hh <= 35) | (hh >= 172)  # rosso, arancio, giallo (OpenCV: 0..180)
-    flame = warm & (ss >= 90) & (vv >= 190)
-    core = (hh <= 40) & (ss >= 35) & (vv >= 245)  # cuore della fiamma: quasi bianco ma con una punta di giallo
-    m = ((flame | core).astype(np.uint8)) * 255
+    warm_hue = (hh <= 35) | (hh >= 165)  # rosso, arancio, giallo (OpenCV: 0..180)
+    rim = warm_hue & (ss >= 90) & (vv >= 150)
+    rim = cv2.morphologyEx(rim.astype(np.uint8), cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+    bright = ((vv >= 230) & (ss <= 120)).astype(np.uint8)
+    out = rim.copy()
+    if bright.any() and rim.any():
+        n, lab = cv2.connectedComponents(bright, connectivity=8)
+        near = cv2.dilate(rim, np.ones((5, 5), np.uint8)) > 0
+        keep = np.unique(lab[near & (bright > 0)])
+        keep = keep[keep > 0]
+        if keep.size:
+            out |= np.isin(lab, keep).astype(np.uint8)
+    m = out * 255
     return cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
 
 

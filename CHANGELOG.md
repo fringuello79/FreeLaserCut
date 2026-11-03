@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.11.1 — 03/11/2026
+Dalla prima prova della 0.11.0:
+- **Guardia fiamme più attenta:** con un accendino davanti alla camera si vedeva solo il bordo rosso della fiamma, non il cuore chiaro. La camera, abbagliata, vede il cuore quasi bianco. Ora conta anche la zona chiara, purché sia attaccata al bordo caldo della fiamma; una lampada bianca o un foglio illuminato da soli non la fanno scattare.
+  - Nuovo pulsante **Salva l'immagine di prova**: salva nella diagnostica la foto della camera e la stessa foto con le zone viste come fiamma, da allegare a una segnalazione.
+- **Nomi sotto i comandi** (*Aiuto → Mostra i nomi sotto i comandi*, anche in *Impostazioni* per il Banco): sotto ogni icona delle barre compare un nome corto e piccolo (Apri, Salva, Rettangolo, Codici, Poligono…), nella lingua scelta. È spento di partenza e la scelta si ricorda.
+  - A 1920 × 1080 la barra in alto della Classica ci sta tutta, in tutte le lingue. Se non ci sta, ad esempio con lo zoom di Windows al 125%, i comandi in più vanno nel pulsante » in fondo alla barra.
+- Nuova prova automatica `tests/test_v111.py` (19 controlli).
+
 ## 0.11.0 — 03/11/2026
 Tre funzioni nuove, tutte scritte da zero per FreeLaserCut.
 - **Guardia fiamme** (*Laser → Guardia fiamme…*, anche nel Banco). È **spenta di partenza** e si attiva con una casella. Durante il lavoro FreeLaserCut guarda la camera scelta nel pannello Camera. Se vede una fiamma per circa un secondo:

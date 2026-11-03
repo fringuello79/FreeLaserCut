@@ -216,6 +216,11 @@ class FireGuardDialog(QDialog):
         lay.addWidget(tip)
         bb = QDialogButtonBox(QDialogButtonBox.Close)
         bb.rejected.connect(self.reject)
+        self.b_save = bb.addButton(tr("Salva l'immagine di prova"), QDialogButtonBox.ActionRole)
+        self.b_save.setToolTip(tr("Salva nella diagnostica la foto della camera e le zone viste come fiamma: utile da "
+                                  "allegare a una segnalazione se la guardia non vede bene la fiamma"))
+        self.b_save.clicked.connect(self.save_sample)
+        self.last_frame = None
         lay.addWidget(bb)
         self.timer = QTimer(self)
         self.timer.setInterval(250)
@@ -232,6 +237,7 @@ class FireGuardDialog(QDialog):
         frame = src.get(after=0, timeout=0.0)
         if frame is None:
             return
+        self.last_frame = frame
         frame = cv2.resize(frame, (fg.WIDTH, max(1, int(round(frame.shape[0] * fg.WIDTH / frame.shape[1])))))
         m = fg.hot_mask(frame)
         show = frame.copy()
@@ -243,3 +249,20 @@ class FireGuardDialog(QDialog):
         self.view.setPixmap(QPixmap.fromImage(img))
         self.reading.setText(tr("Zona che sembra fiamma: {0} % dell'immagine (con questa sensibilità scatta sopra "
                                 "{1} %, se resta per circa un secondo).", f"{frac * 100:.2f}", f"{thr * 100:.2f}"))
+
+    def save_sample(self):
+        """Foto della camera + la stessa con le zone «fiamma» in rosso, nella cartella della diagnostica."""
+        if self.last_frame is None:
+            QMessageBox.information(self, tr("Guardia fiamme"), tr("Nessuna camera: sceglila nel pannello Camera."))
+            return None
+        base = os.path.join(diag.diag_dir(), time.strftime("prova-fiamma-%Y%m%d-%H%M%S"))
+        f = self.last_frame
+        m = fg.hot_mask(f)
+        m = cv2.resize(m, (f.shape[1], f.shape[0]), interpolation=cv2.INTER_NEAREST)
+        show = f.copy()
+        show[m > 0] = (40, 40, 255)
+        cv2.imwrite(base + ".jpg", f)
+        cv2.imwrite(base + "-zone.jpg", show)
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            QMessageBox.information(self, tr("Guardia fiamme"), tr("Immagini salvate:\n{0}", base + ".jpg"))
+        return base + ".jpg"

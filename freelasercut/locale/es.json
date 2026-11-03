@@ -1567,5 +1567,12 @@
  "Spunta la casella qui sopra per accendere la pagina per il telefono.": "Marca la casilla de arriba para activar la página del teléfono.",
  "Allarme della macchina": "Alarma de la máquina",
  "Non riesco ad aprire la pagina: {0}": "No puedo abrir la página: {0}",
- "Altri indirizzi di questo PC:": "Otras direcciones de este PC:"
+ "Altri indirizzi di questo PC:": "Otras direcciones de este PC:",
+ "Apri": "Abrir",
+ "Homing": "Homing",
+ "Mostra i nomi sotto i comandi": "Mostrar los nombres bajo los comandos",
+ "Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i comandi": "Bajo cada icono de las barras aparece un nombre corto y pequeño, para reconocer enseguida los comandos",
+ "Salva l'immagine di prova": "Guardar la imagen de prueba",
+ "Salva nella diagnostica la foto della camera e le zone viste come fiamma: utile da allegare a una segnalazione se la guardia non vede bene la fiamma": "Guarda en el diagnóstico la foto de la cámara y las zonas vistas como llama: útil para adjuntar a un informe si la vigilancia no ve bien la llama",
+ "Immagini salvate:\n{0}": "Imágenes guardadas:\n{0}"
 }

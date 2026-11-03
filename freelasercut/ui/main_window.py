@@ -137,6 +137,12 @@ class MainWindow(QMainWindow):
 
             self.banco = Banco(self)
         self.update_rotary_state()
+        from . import cmd_labels
+
+        cmd_labels.label_actions(self)
+        if self.qs.value("cmd_labels", False) in (True, "true", "1", 1):
+            self.acts["cmd_labels"].setChecked(True)
+            cmd_labels.apply(self, True)
 
     # ================================================================ azioni
     def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
@@ -281,6 +287,9 @@ class MainWindow(QMainWindow):
             "updates": A(tr("Cerca aggiornamenti…"), lambda: self.updates.check(manual=True), None, None,
                          tr("Controlla su GitHub se c'è una versione più nuova di FreeLaserCut e, se vuoi, la scarica "
                             "e la installa: FreeLaserCut si chiude e si riapre da solo.")),
+            "cmd_labels": A(tr("Mostra i nomi sotto i comandi"), self.set_cmd_labels, None, None,
+                            tr("Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i "
+                               "comandi"), checkable=True),
             "update_auto": A(tr("Controlla gli aggiornamenti ogni giorno"), lambda on: self.updates.set_enabled(on), None, None,
                              tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede a GitHub qual è l'ultima "
                                 "versione. Non invia dati tuoi e non scarica niente senza chiedere."), checkable=True),
@@ -419,7 +428,7 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
-        menu(tr("&Aiuto"), ["help_mode", "-", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
+        menu(tr("&Aiuto"), ["help_mode", "cmd_labels", "-", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
                             "-", "support"])
         self.acts["update_auto"].setChecked(self.updates.enabled())
         self.acts["update_auto"].setVisible(self.updates.mode == "installer")  # Store e git si aggiornano da sé
@@ -448,6 +457,7 @@ class MainWindow(QMainWindow):
         sec.toggled.connect(self._toggle_second_screen)
         self.act_second_screen = sec
         self._build_look_menu(m)
+        m.addAction(self.acts["cmd_labels"])  # anche qui: nel Banco il menu Aiuto non c'è
         m.addSeparator()
         m.addMenu(self.m_language)  # lo stesso sottomenu di Visualizza: una sola lista di lingue
         m.addSeparator()
@@ -2076,6 +2086,15 @@ class MainWindow(QMainWindow):
         self._so_dlg = dlg
         dlg.show()
         return dlg
+
+    def set_cmd_labels(self, on):
+        """Aiuto → Mostra i nomi sotto i comandi (si ricorda)."""
+        from . import cmd_labels
+
+        self.qs.setValue("cmd_labels", bool(on))
+        if self.acts["cmd_labels"].isChecked() != bool(on):
+            self.acts["cmd_labels"].setChecked(bool(on))
+        cmd_labels.apply(self, bool(on))
 
     def phone_dialog(self, *_):
         """Laser → Controllo dal telefono (acceso/spento, codice QR, mini guida)."""

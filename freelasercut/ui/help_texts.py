@@ -165,6 +165,9 @@ HELP = {
         "Spenta di partenza. Se la attivi, durante il lavoro FreeLaserCut guarda la camera scelta nel pannello Camera: "
         "se vede una fiamma per circa un secondo ferma il lavoro, spegne il laser, suona e salva una foto. "
         "È un aiuto in più: non lasciare mai la macchina accesa da sola."), None),
+    "cmd_labels": (tr("Nomi sotto i comandi"), tr(
+        "Sotto ogni icona delle barre compare un nome corto e piccolo (Apri, Salva, Rettangolo, Codici…), nella lingua "
+        "scelta. Si spegne dalla stessa voce; la scelta si ricorda."), None),
     "phone": (tr("Controllo dal telefono"), tr(
         "Spento di partenza. Se lo accendi, il telefono collegato allo stesso Wi-Fi apre una pagina (codice QR) con "
         "l'avanzamento del lavoro, la camera, Pausa e Stop, e può inviare la foto del test materiale. Dal telefono "

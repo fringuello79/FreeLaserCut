@@ -1567,5 +1567,12 @@
  "Spunta la casella qui sopra per accendere la pagina per il telefono.": "Tick the box above to turn on the phone page.",
  "Allarme della macchina": "Machine alarm",
  "Non riesco ad aprire la pagina: {0}": "I can't open the page: {0}",
- "Altri indirizzi di questo PC:": "Other addresses of this PC:"
+ "Altri indirizzi di questo PC:": "Other addresses of this PC:",
+ "Apri": "Open",
+ "Homing": "Homing",
+ "Mostra i nomi sotto i comandi": "Show names under the commands",
+ "Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i comandi": "A short, small name appears under every toolbar icon, to recognise commands at a glance",
+ "Salva l'immagine di prova": "Save the test image",
+ "Salva nella diagnostica la foto della camera e le zone viste come fiamma: utile da allegare a una segnalazione se la guardia non vede bene la fiamma": "Saves the camera photo and the areas seen as flame in the diagnostics folder: useful to attach to a report if the guard doesn't see the flame well",
+ "Immagini salvate:\n{0}": "Images saved:\n{0}"
 }
