@@ -1246,6 +1246,27 @@ class MainWindow(QMainWindow):
         free = [i for i in range(1, 30) if i not in used]
         return free[:n]
 
+    def _unmirror_photo(self, img):
+        """Foto con uno specchio nella trasformazione (es. aperta da LightBurn con una versione precedente):
+        sposta lo specchio nei pixel, così «Prepara foto» la mostra come appare sul piano. Sul piano non cambia nulla."""
+        import uuid
+
+        from ..core.document import bake_mirror
+
+        doc = self.editor.doc
+        if img.source_id or img.tf.determinant() >= 0 or doc.images.get(img.image_id) is None:
+            return
+        pix, tf = bake_mirror(doc.images[img.image_id], img.w, img.h, img.tf)
+        nid = uuid.uuid4().hex[:12]
+
+        def do():
+            doc.images[nid] = pix
+            img.image_id = nid
+            img.set_transform(tf)
+            img.invalidate()
+
+        self.editor.run(tr("Raddrizza la foto"), do)
+
     def photo_dialog(self):
         """«Prepara foto»: elaborazione della foto, oppure conversione in linee e riempimenti, oppure prova foto."""
         import math
@@ -1260,6 +1281,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(tr("Seleziona una foto (immagine) da preparare"), 4000)
             return
         img, doc = sel[0], self.editor.doc
+        self._unmirror_photo(img)
         src_id = img.source_id or img.image_id
         original = doc.images.get(src_id)
         if original is None:

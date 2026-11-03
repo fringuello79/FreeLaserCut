@@ -408,6 +408,29 @@ class ImageShape(Shape):
         return tr("Immagine")
 
 
+def bake_mirror(img, w, h, tf):
+    """Se la trasformazione di una foto contiene uno specchio, lo sposta nei pixel.
+
+    Sul piano non cambia nulla, ma i pixel restano nel verso in cui la foto si vede: così «Prepara foto»
+    (che mostra i pixel) la presenta uguale al piano. -> (immagine, trasformazione), invariate se non serve.
+    Lo specchio tolto è quello (verticale o orizzontale) che lascia la trasformazione più vicina a una foto dritta."""
+    if img is None or tf.determinant() >= 0:
+        return img, tf
+    from PIL import Image
+
+    fv = QTransform(1, 0, 0, -1, 0, h) * tf
+    fh = QTransform(-1, 0, 0, 1, w, 0) * tf
+
+    def straight(t):
+        sx = math.hypot(t.m11(), t.m12()) or 1.0
+        sy = math.hypot(t.m21(), t.m22()) or 1.0
+        return t.m11() / sx + t.m22() / sy
+
+    if straight(fh) > straight(fv) + 1e-9:
+        return img.transpose(Image.FLIP_LEFT_RIGHT), fh
+    return img.transpose(Image.FLIP_TOP_BOTTOM), fv
+
+
 class SpecialShape(Shape):
     """Forma della galleria (freccia, cuore, ingranaggio, scudo…), parametrica."""
 

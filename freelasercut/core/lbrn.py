@@ -16,7 +16,7 @@ from PySide6.QtCore import QPointF
 from PySide6.QtGui import QPainterPath, QTransform
 
 from .document import (
-    CutSettings, Document, EllipseShape, GroupShape, ImageShape, PathShape, PolygonShape, RectShape, TextShape,
+    CutSettings, Document, EllipseShape, bake_mirror, GroupShape, ImageShape, PathShape, PolygonShape, RectShape, TextShape,
     default_layer,
 )
 from freelasercut.i18n import tr  # noqa: E402
@@ -124,8 +124,9 @@ def parse_verts(text):
             continue
         x, y, rest = float(m.group(1)), float(m.group(2)), m.group(3)
         vals = dict(re.findall(r"(c[01][xy])(-?[\d.]+(?:[eE][-+]?\d+)?)", rest))
-        c0 = (float(vals["c0x"]), float(vals["c0y"])) if "c0y" in vals else None
-        c1 = (float(vals["c1x"]), float(vals["c1y"])) if "c1y" in vals else None
+        # una maniglia vale solo con tutte e due le coordinate (alcuni file hanno solo c0y o solo c1y)
+        c0 = (float(vals["c0x"]), float(vals["c0y"])) if "c0x" in vals and "c0y" in vals else None
+        c1 = (float(vals["c1x"]), float(vals["c1y"])) if "c1x" in vals and "c1y" in vals else None
         verts.append(((x, y), c0, c1))
     return verts
 
@@ -299,7 +300,7 @@ def _bitmap(el, ctx, tf):
     img = Image.open(io.BytesIO(base64.b64decode(data)))
     img.load()
     iid = f"lb{len(ctx.doc.images) + 1}_{abs(hash(data[:200])) % 10**8}"
-    ctx.doc.images[iid] = img.convert("RGBA") if img.mode not in ("L", "RGBA") else img.copy()
+    pix = img.convert("RGBA") if img.mode not in ("L", "RGBA") else img.copy()
     w, h = float(el.get("W", img.width / 10)), float(el.get("H", img.height / 10))
     s = ImageShape(iid, w, h, _layer(el))
     s.brightness = float(el.get("Brightness", 0) or 0)
@@ -308,7 +309,11 @@ def _bitmap(el, ctx, tf):
     # In LightBurn la prima riga di pixel dell'immagine sta a y = −H/2 nelle coordinate della forma (come in un
     # sistema con Y in giù); in FreeLaserCut la prima riga sta in alto (y = h). Senza questo ribaltamento le foto
     # salvate da LightBurn (che di solito hanno XForm "1 0 0 −1 …") si aprivano specchiate in verticale.
-    s.set_transform(QTransform(1, 0, 0, -1, -w / 2.0, h / 2.0) * tf)
+    # Se alla fine resta uno specchio (es. XForm "1 0 0 1"), lo sposto nei pixel: sul piano è uguale, ma
+    # «Prepara foto», che mostra i pixel, la fa vedere come sul piano invece che specchiata.
+    pix, m = bake_mirror(pix, w, h, QTransform(1, 0, 0, -1, -w / 2.0, h / 2.0) * tf)
+    ctx.doc.images[iid] = pix
+    s.set_transform(m)
     return s
 
 

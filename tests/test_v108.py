@@ -39,9 +39,12 @@ def load(xml):
 def rows_y(doc):
     s = [x for x in doc.shapes if isinstance(x, ImageShape)][0]
     leaf, tf = list(s.leaves())[0]
-    top_row = tf.map(QPointF(leaf.w / 2, leaf.h - 0.1))   # FreeLaserCut: la prima riga (rossa) sta a y = h
+    top_row = tf.map(QPointF(leaf.w / 2, leaf.h - 0.1))   # FreeLaserCut: la prima riga dei pixel sta a y = h
     bottom_row = tf.map(QPointF(leaf.w / 2, 0.1))
-    return top_row.y(), bottom_row.y(), tf.map(leaf.local_path()).boundingRect()
+    # dalla 0.12.6 uno specchio rimasto può finire nei pixel: guardo dove sta davvero la riga rossa
+    first_red = doc.images[leaf.image_id].convert("RGB").getpixel((0, 0))[0] > 128
+    red, blue = (top_row.y(), bottom_row.y()) if first_red else (bottom_row.y(), top_row.y())
+    return red, blue, tf.map(leaf.local_path()).boundingRect()
 
 # XForm tipica di LightBurn per le foto: Y ribaltata (1 0 0 -1)
 red, blue, r = rows_y(load(project("1 0 0 -1 50 60")))

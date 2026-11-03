@@ -1,5 +1,12 @@
 # Novità di FreeLaserCut
 
+## 0.12.6 — 03/11/2026
+- **Corretto: foto dei progetti LightBurn specchiate in *Prepara foto*.** Sul piano la foto era giusta, ma la finestra mostrava i pixel senza lo specchio contenuto nella posizione della foto, quindi la vedeva capovolta.
+  - Ora lo specchio viene spostato nei pixel all'apertura del progetto: sul piano ogni pixel resta esattamente dov'era e *Prepara foto* la mostra uguale al piano.
+  - Le foto già aperte con la 0.12.5 e salvate nel progetto si raddrizzano da sole quando si apre *Prepara foto* (si può annullare).
+- **Corretto: alcuni progetti LightBurn non si aprivano** con l'errore «Impossibile aprire il file: 'c0x'». Erano tracciati con maniglie di curva incomplete (solo una delle due coordinate): ora quelle maniglie si ignorano e il tracciato si apre.
+- Nuova prova automatica `tests/test_v125.py` (21 controlli); `tests/test_v108.py` aggiornata.
+
 ## 0.12.5 — 03/11/2026
 - **Due segni diversi sul piano**, per non confondere la testa con il punto di partenza:
   - **cerchio con il mirino**, del colore principale: è la **testa del laser** e si muove solo quando si muove il laser;
