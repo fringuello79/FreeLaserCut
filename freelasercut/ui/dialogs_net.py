@@ -15,7 +15,7 @@ def guide_html():
         "<b>Laser con il Wi-Fi</b> che accettano il G-code dalla rete (per esempio le schede FluidNC, grblHAL o "
         "ESP3D, o l'AlgoLaser Delta): il laser e il PC devono essere sulla stessa rete. L'indirizzo della scheda si legge "
         "sul display del laser, nella sua app o nella pagina del router (per esempio <i>192.168.1.50</i>); "
-        "su FluidNC va bene anche il nome, per esempio <i>fluidnc.local</i>. La porta è quasi sempre <b>23</b>.<br>"
+        "su FluidNC va bene anche il nome, per esempio <i>fluidnc.local</i>. La porta è quasi sempre <b>23</b> (sulle schede Makerbase MKS DLC32 di solito <b>8080</b>).<br>"
         "Se la tua macchina si collega solo con l'app del produttore, usa il cavo USB.")
 
 

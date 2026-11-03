@@ -17,6 +17,7 @@ from ..core.document import (
     CodeShape, PolygonShape, RectShape, SpecialShape, TextPathShape, TextShape,
 )
 from freelasercut.i18n import tr  # noqa: E402
+from .. import units
 
 
 def shape_icon(key, size=34, color=None):
@@ -332,10 +333,10 @@ class CutSettingsDialog(QDialog):
         self.mode.setCurrentIndex(MODES.index(cs.mode))
         f.addRow(tr("Modalità"), self.mode)
         max_rate = min(profile.max_rate_x, profile.max_rate_y) if profile else 36000
-        self.speed = _spin(1, max_rate, cs.speed, 0, 100, " mm/min")
+        self.speed = units.SpeedSpin(1, max_rate, cs.speed, 100)
         self.speed_s = QLabel()
         self.speed_s.setObjectName("muted")
-        self.speed.valueChanged.connect(lambda x: self.speed_s.setText(tr("= {0:.1f} mm/s", x / 60)))
+        self.speed.valueChanged.connect(lambda x: self.speed_s.setText("= " + units.other(x)))
         self.speed.valueChanged.emit(self.speed.value())
         f.addRow(tr("Velocità"), row(self.speed, self.speed_s))
         self.pmax = _spin(0, 100, cs.power_max, 1, 1, " %")
@@ -470,7 +471,7 @@ L_NAME, L_MODE, L_SPEED, L_POWER, L_PASSES, L_OUT, L_SHOW, L_AIR = range(8)
 LAYER_COLS = (
     (tr("Livello"), tr("Nome del livello: doppio clic per rinominarlo (vuoto = C00…C29)")),
     (tr("Modalità"), tr("Linea, Riempimento, Riempimento offset o Immagine: doppio clic per cambiarla")),
-    ("mm/min", tr("Velocità in mm al minuto: doppio clic per modificarla")),
+    (units.speed_unit(), tr("Velocità: doppio clic per modificarla (unità in Impostazioni → Unità di misura)")),
     (tr("Pot. %"), tr("Potenza massima in percentuale: doppio clic per modificarla")),
     ("×", tr("Numero di passate: doppio clic per modificarlo")),
     (tr("Inc."), tr("Incidi: se tolto, il livello resta nel disegno ma non viene inciso")),
@@ -511,7 +512,7 @@ class _LayerDelegate(QStyledItemDelegate):
         elif col == L_SPEED:
             p = self.panel.get_profile()
             hi = min(p.max_rate_x, p.max_rate_y) if p else 36000
-            w = _spin(1, max(hi, 1), cs.speed, 0, 100, "")
+            w = units.SpeedSpin(1, max(hi, 1), cs.speed, 100, show_suffix=False)
         elif col == L_POWER:
             w = _spin(0, 100, cs.power_max, 1, 1, "")
         else:
@@ -632,7 +633,7 @@ class LayersPanel(QWidget):
         self.q_mode = QComboBox()
         for m in MODES:
             self.q_mode.addItem(MODE_LABELS[m], m)
-        self.q_speed = _spin(1, 36000, 1000, 0, 100, " mm/min")
+        self.q_speed = units.SpeedSpin(1, 36000, 1000, 100)
         self.q_pmax = _spin(0, 100, 20, 1, 1, " %")
         self.q_pmin = _spin(0, 100, 0, 1, 1, " %")
         self.q_passes = QSpinBox()
@@ -685,7 +686,7 @@ class LayersPanel(QWidget):
             it.setText(L_NAME, cs.label())
             it.setIcon(L_NAME, self._swatch_icon(cs.color))
             it.setText(L_MODE, MODE_LABELS[cs.mode])
-            it.setText(L_SPEED, f"{cs.speed:g}")
+            it.setText(L_SPEED, units.fmt(cs.speed, unit=False))
             it.setToolTip(L_SPEED, tr("{0:g} mm/min = {1:.1f} mm/s", cs.speed, cs.speed / 60))
             it.setText(L_POWER, f"{cs.power_max:g}")
             it.setText(L_PASSES, f"{cs.passes}")

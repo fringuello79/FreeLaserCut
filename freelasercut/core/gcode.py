@@ -25,6 +25,37 @@ ANCHOR_NAMES = ["basso-sinistra", "basso-centro", "basso-destra", "centro-sinist
                 "centro-destra", "alto-sinistra", "alto-centro", "alto-destra"]
 
 
+def flip_preview(pv, fx, fy):
+    """Ribalta un'anteprima letta dal G-code sugli assi invertiti (piano = -uscita + offset su quell'asse)."""
+    if pv is None or not (fx or fy):
+        return pv
+    import numpy as np
+
+    for arr, xs, ys in ((pv.segs, (0, 2), (1, 3)), (pv.cut, (0, 2), (1, 3)), (pv.travel, (0, 2), (1, 3))):
+        if arr is None or not len(arr):
+            continue
+        if fx:
+            arr[:, list(xs)] = -arr[:, list(xs)]
+        if fy:
+            arr[:, list(ys)] = -arr[:, list(ys)]
+    if fx:
+        pv.min_x, pv.max_x = -pv.max_x, -pv.min_x
+    if fy:
+        pv.min_y, pv.max_y = -pv.max_y, -pv.min_y
+    return pv
+
+
+def orient_job_preview(job, profile, out_at):
+    """Con un asse invertito l'anteprima va ribaltata e l'offset è l'uscita del punto 0 del piano su quell'asse."""
+    fx, fy = bool(getattr(profile, "invert_x", False)), bool(getattr(profile, "invert_y", False))
+    if not (fx or fy) or job.preview is None:
+        return
+    flip_preview(job.preview, fx, fy)
+    o0 = out_at(0.0, 0.0)
+    ox, oy = job.out_to_bed
+    job.out_to_bed = (o0[0] if fx else ox, o0[1] if fy else oy)
+
+
 @dataclass
 class JobOptions:
     start_from: str = "absolute"  # absolute | current | origin
@@ -641,8 +672,10 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         target = opts.current_pos if opts.start_from == "current" else opts.work_origin
         place = (target[0] - anchor.x(), target[1] - anchor.y())
 
-        def out_map(bx, by):
-            return bx - anchor.x(), by - anchor.y()
+        sx, sy = profile.axis_sign() if hasattr(profile, "axis_sign") else (1.0, 1.0)
+
+        def out_map(bx, by):  # relative alla testa: con un asse invertito il verso si capovolge
+            return sx * (bx - anchor.x()), sy * (by - anchor.y())
         job.out_to_bed = (target[0], target[1])
 
     # il disegno viene "spostato" sul piano di place: genero già in coordinate piano finali
@@ -782,5 +815,6 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     from .. import gcode_preview
 
     job.preview = gcode_preview.parse(job.lines, profile=profile)  # riusata dall'interfaccia: una sola lettura
+    orient_job_preview(job, profile, placed_map)
     job.seconds = job.preview.seconds
     return job

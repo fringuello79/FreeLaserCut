@@ -21,6 +21,7 @@ from ..theme import C
 from . import style
 from .widgets import section
 from freelasercut.i18n import tr  # noqa: E402
+from .. import units
 
 
 def _dspin(lo, hi, val, dec=1, step=1.0, suffix=""):
@@ -97,7 +98,7 @@ class MaterialLibraryDialog(QDialog):
         for k, lab in (("fill", tr("Riempimento")), ("line", tr("Linea")), ("image", tr("Immagine"))):
             self.e_mode.addItem(lab, k)
         self.e_power = _dspin(0, 100, 30, 1, 1, " %")
-        self.e_speed = _dspin(1, 36000, 1000, 0, 100, " mm/min")
+        self.e_speed = units.SpeedSpin(1, 36000, 1000, 100)
         self.e_passes = _ispin(1, 100, 1)
         self.e_interval = _dspin(0.01, 2, 0.1, 3, 0.01, " mm")
         self.e_defocus = _dspin(0, 30, 0, 1, 0.5, " mm")
@@ -336,8 +337,9 @@ class _GridPreview(QWidget):
         for r in range(rows):
             p.drawText(QRectF(0, y0 + (rows - 1 - r) * cell, lab - 6, cell), Qt.AlignRight | Qt.AlignVCenter, f"{powers[r]:g}%")
         for c in range(cols):
-            p.drawText(QRectF(x0 + c * cell - 6, y0 + rows * cell + 2, cell + 12, 16), Qt.AlignCenter, f"{speeds[c]:g}")
-        p.drawText(QRectF(x0, y0 + rows * cell + 16, cols * cell, 16), Qt.AlignRight, tr("mm/min"))
+            p.drawText(QRectF(x0 + c * cell - 6, y0 + rows * cell + 2, cell + 12, 16), Qt.AlignCenter,
+                       units.fmt(speeds[c], unit=False))
+        p.drawText(QRectF(x0, y0 + rows * cell + 16, cols * cell, 16), Qt.AlignRight, units.speed_unit())
         p.end()
 
 
@@ -363,7 +365,7 @@ class MaterialTestDialog(QDialog):
         self.mode.addItem(tr("Linea (taglio / contorno)"), "line")
         self.p_min, self.p_max = _dspin(0.5, 100, 10, 1, 5, " %"), _dspin(0.5, 100, 100, 1, 5, " %")
         self.rows = _ispin(1, 10, 5)
-        self.s_min, self.s_max = _dspin(10, 36000, 1000, 0, 250, " mm/min"), _dspin(10, 36000, 10000, 0, 250, " mm/min")
+        self.s_min, self.s_max = units.SpeedSpin(10, 36000, 1000, 250), units.SpeedSpin(10, 36000, 10000, 250)
         self.cols = _ispin(1, 10, 5)
         self.cell = _dspin(3, 40, 10, 1, 1, " mm")
         self.gap = _dspin(0.5, 20, 3, 1, 0.5, " mm")
@@ -525,13 +527,13 @@ class MaterialTestDialog(QDialog):
         self.grid.spec = s
         self.job = None
         for cb, vals, fmt in ((self.pick_r, mtest._steps(s.p_min, s.p_max, s.rows), "{:g} %"),
-                              (self.pick_c, mtest._steps(s.s_min, s.s_max, s.cols), "{:g} mm/min")):
+                              (self.pick_c, mtest._steps(s.s_min, s.s_max, s.cols), None)):
             cur = cb.currentIndex()
             cb.blockSignals(True)
             cb.clear()
             cb.addItem("—", None)
             for i, v in enumerate(vals):
-                cb.addItem(fmt.format(round(v, 1)), i)
+                cb.addItem(fmt.format(round(v, 1)) if fmt else units.fmt(round(v)), i)
             cb.setCurrentIndex(min(cur, cb.count() - 1) if cur > 0 else 0)
             cb.blockSignals(False)
         self._pick_changed()

@@ -13,6 +13,7 @@ from ..theme import C
 from . import style
 from .widgets import AnchorPicker, NumField, row, section
 from freelasercut.i18n import tr  # noqa: E402
+from .. import units
 
 START_MODES = [("absolute", tr("Coordinate assolute")), ("current", tr("Posizione attuale della testa")),
                ("origin", tr("Origine utente"))]
@@ -145,6 +146,14 @@ class LaserPanel(QWidget):
         self.verify_first.setChecked(self.qs.value("verify_first", "true") == "true")
         self.verify_first.toggled.connect(lambda x: self.qs.setValue("verify_first", "true" if x else "false"))
         for w in (self.only_sel, self.finish_origin, self.optimize, self.verify_first):
+            v.addWidget(w)
+        # assi invertiti: valgono per la macchina (si salvano nel suo profilo), la finestra principale li collega
+        self.inv_x = QCheckBox(tr("Inverti l'asse X (destra ↔ sinistra)"))
+        self.inv_y = QCheckBox(tr("Inverti l'asse Y (avanti ↔ indietro)"))
+        for w, ax in ((self.inv_x, "X"), (self.inv_y, "Y")):
+            w.setToolTip(tr("Spunta se, premendo le frecce di movimento, la testa va dalla parte opposta sull'asse {0} "
+                            "(origine della macchina dall'altra parte o motore montato al contrario). Cambiano jog, "
+                            "posizione della testa e coordinate del lavoro; il disegno resta come lo vedi.", ax))
             v.addWidget(w)
         self._start_changed()
 
@@ -411,11 +420,7 @@ class MovePanel(QWidget):
         seg.addStretch(1)
         v.addWidget(QLabel(tr("Passo (mm)")))
         v.addLayout(seg)
-        self.feed = QDoubleSpinBox()
-        self.feed.setRange(100, 36000)
-        self.feed.setDecimals(0)
-        self.feed.setSingleStep(500)
-        self.feed.setSuffix(tr(" mm/min"))
+        self.feed = units.SpeedSpin(100, 36000, 3000, 500)
         self.feed.setValue(float(self.qs.value("jog_feed", 3000)))
         self.feed.valueChanged.connect(lambda x: self.qs.setValue("jog_feed", x))
         v.addWidget(row(QLabel(tr("Velocità jog")), self.feed))

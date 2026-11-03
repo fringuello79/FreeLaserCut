@@ -28,6 +28,7 @@ from .help_mode import HelpMode
 from .panels_design import LayersPanel, NumericBar, PaletteBar, PropertiesPanel
 from .panels_machine import LaserPanel, MovePanel
 from freelasercut.i18n import tr  # noqa: E402
+from .. import units
 
 ASSETS = style.ASSETS
 STATE_IT = {"Idle": tr("Pronta"), "Run": tr("In lavoro"), "Jog": "Jog", "Hold": tr("In pausa"), "Door": tr("Porta aperta"),
@@ -90,6 +91,7 @@ class MainWindow(QMainWindow):
         from .fire_ui import FireGuard
 
         self.fire = FireGuard(self, self.qs)  # guardia fiamme (spenta di partenza)
+        self._sync_axes()
         from .phone_ui import PhoneControl
 
         self.phone = PhoneControl(self)  # controllo dal telefono (spento di partenza, solo per la sessione)
@@ -459,6 +461,7 @@ class MainWindow(QMainWindow):
         sec.toggled.connect(self._toggle_second_screen)
         self.act_second_screen = sec
         self._build_look_menu(m)
+        self._build_units_menu(m)
         m.addAction(self.acts["cmd_labels"])  # anche qui: nel Banco il menu Aiuto non c'è
         m.addSeparator()
         m.addMenu(self.m_language)  # lo stesso sottomenu di Visualizza: una sola lista di lingue
@@ -501,6 +504,43 @@ class MainWindow(QMainWindow):
             grp2.addAction(act)
             act.triggered.connect(lambda _=False, c=code: self.choose_look(accent=c))
             self.accent_actions[code] = act
+
+    def _build_units_menu(self, parent):
+        """Impostazioni → Unità di misura: velocità in mm/min (come GRBL) o in mm/s."""
+        sub = parent.addMenu(tr("Unità di misura"))
+        self.m_units = sub
+        self.unit_actions = {}
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        cur = units.speed_unit()
+        for code, label in (("mm/min", tr("Velocità in mm/min (millimetri al minuto)")),
+                            ("mm/s", tr("Velocità in mm/s (millimetri al secondo)"))):
+            act = sub.addAction(label)
+            act.setCheckable(True)
+            act.setChecked(code == cur)
+            grp.addAction(act)
+            act.triggered.connect(lambda _=False, c=code: self.choose_units(c))
+            self.unit_actions[code] = act
+        sub.addSeparator()
+        note = sub.addAction(tr("Le misure di lunghezza sono in mm (nei campi puoi scrivere anche 2in o 5cm)"))
+        note.setEnabled(False)
+
+    def choose_units(self, code):
+        """Salva l'unità della velocità; i campi la usano dal prossimo avvio (propone di riavviare subito)."""
+        if code not in units.UNITS:
+            return False
+        self.qs.setValue("unit_speed", code)
+        self.qs.sync()
+        if code == units.speed_unit():
+            return False
+        r = QMessageBox.question(self, tr("Unità di misura"), tr(
+            "Le velocità saranno mostrate in {0} dal prossimo avvio di FreeLaserCut (progetti, profili e libreria "
+            "non cambiano). Riavviare adesso?", code))
+        if r == QMessageBox.Yes:
+            self._restart = True
+            if not self.close():
+                self._restart = False
+        return True
 
     def choose_look(self, theme=None, accent=None):
         """Salva tema e/o colore principale; si vedono dal prossimo avvio (propone di riavviare subito)."""
@@ -658,6 +698,8 @@ class MainWindow(QMainWindow):
         self.layers = LayersPanel(self.editor, lambda: self.profile)
         self.props = PropertiesPanel(self.editor, self.canvas)
         self.laser = LaserPanel(self.ctl, self.qs)
+        self.laser.inv_x.toggled.connect(lambda on: self.set_axis_inverted("x", on))
+        self.laser.inv_y.toggled.connect(lambda on: self.set_axis_inverted("y", on))
         self.move = MovePanel(self.ctl, self.qs, lambda: self.profile, self.canvas.head_pos)
         self.machine = MachinePanel(self.ctl, self.profile, self.on_profile)
         self.camera = CameraPanel(self.ctl, self)
@@ -1563,7 +1605,7 @@ class MainWindow(QMainWindow):
         self.canvas.set_head(bx, by, state, st.get("power", 0))
         self.lbl_head.setText(tr("testa {0:7.2f}, {1:7.2f}  ·  lavoro {2:.2f}, {3:.2f}", bx, by, w[0], w[1]))
         pw = st.get("power", 0) / max(self.profile.s_max, 1) * 100
-        self.lbl_fs.setText(tr("F {0:.0f} mm/min · potenza {1:.0f}%", st.get('feed', 0), pw))
+        self.lbl_fs.setText(tr("F {0} · potenza {1:.0f}%", units.fmt(st.get('feed', 0) or 0), pw))
         if state == "Alarm" and not self.banner.isVisible() and not self._alarm_dismissed:
             self.show_banner(tr("⚠  La macchina è bloccata (allarme): fai l'homing oppure sblocca."), "alarm",
                              [(tr("Sblocca"), self.ctl.unlock), (tr("Homing"), self.ctl.home)])
@@ -1633,8 +1675,37 @@ class MainWindow(QMainWindow):
     def on_profile(self, p):
         self.profile = p
         self.laser.s_max = p.s_max
+        self._sync_axes()
         if (self.canvas.bed_x, self.canvas.bed_y) != (p.bed_x, p.bed_y):
             self.canvas.set_bed(p.bed_x, p.bed_y)
+
+    def _sync_axes(self):
+        """Spunte «Inverti l'asse X/Y» del pannello Laser ↔ profilo della macchina, e verso dei jog."""
+        p = self.profile
+        self.ctl.axis_sign = p.axis_sign()
+        lp = getattr(self, "laser", None)
+        if lp is None or not hasattr(lp, "inv_x"):
+            return
+        for w, val in ((lp.inv_x, p.invert_x), (lp.inv_y, p.invert_y)):
+            w.blockSignals(True)
+            w.setChecked(bool(val))
+            w.blockSignals(False)
+
+    def set_axis_inverted(self, axis, on):
+        """Spunta «Inverti l'asse»: si salva nel profilo della macchina e rifà l'anteprima del lavoro."""
+        if self.ctl.job_active or self.ctl.checking:
+            self._sync_axes()
+            return
+        setattr(self.profile, "invert_x" if axis == "x" else "invert_y", bool(on))
+        try:
+            self.profile.save()
+        except OSError:
+            pass
+        self._sync_axes()
+        self.statusBar().showMessage(tr("Asse {0} {1}: vale da subito per jog, posizione della testa e lavori",
+                                        axis.upper(), tr("invertito") if on else tr("normale")), 6000)
+        if self.job is not None and not getattr(self, "_job_is_external", False):
+            self.build_job()
 
     def work_origin_on_bed(self):
         wx, wy = self.ctl.wco
@@ -2022,6 +2093,7 @@ class MainWindow(QMainWindow):
         with open(path, encoding="utf-8", errors="replace") as fh:
             lines = fh.read().splitlines()
         pv = gcode_preview.parse(lines, profile=self.profile)
+        gcode.flip_preview(pv, self.profile.invert_x, self.profile.invert_y)  # assi invertiti: piano = origine - uscita
         off = self.work_origin_on_bed()
         self.canvas.set_preview(pv, off)
         if not self.ctl.connected:
@@ -2033,7 +2105,7 @@ class MainWindow(QMainWindow):
 
     def show_external_job(self, job):
         """Un lavoro generato fuori dal documento (test materiale): anteprima sul piano e riepilogo."""
-        pv = gcode_preview.parse(job.lines, profile=self.profile)
+        pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
         self.job, self.job_preview = job, pv
         self.canvas.set_preview(pv, job.out_to_bed)
         self.laser.show_job(job, self.profile)

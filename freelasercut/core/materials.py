@@ -37,7 +37,9 @@ class Material:
         return f"{self.operation.capitalize()}{t}"
 
     def summary(self):
-        s = f"{self.power:g}% · {self.speed:g} mm/min · {self.passes}×"
+        from .. import units
+
+        s = f"{self.power:g}% · {units.fmt(self.speed)} · {self.passes}×"
         if self.defocus:
             s += f" · sfocatura {self.defocus:g} mm"
         return s

@@ -165,11 +165,13 @@ def build(spec: TestSpec, profile):
             tf = tf * QTransform.fromTranslate(x, y)
             polys.extend(geom.flatten(tf.map(p), 0.02))
 
+        from .. import units
+
         for c, s in enumerate(speeds):
-            put(f"{s:g}", gx0 + c * pitch + spec.cell / 2, spec.y0 + 1.0, 2.6)
+            put(units.fmt(s, unit=False), gx0 + c * pitch + spec.cell / 2, spec.y0 + 1.0, 2.6)
         for r, p in enumerate(powers):
             put(f"{p:g}%", spec.x0 + 5.5, gy0 + r * pitch + spec.cell / 2 - 1.3, 2.6, 0, "right")
-        put("mm/min →", gx0 + spec.cols * pitch - spec.gap, spec.y0 - 3.5, 2.2, 0, "right")
+        put(units.speed_unit() + " →", gx0 + spec.cols * pitch - spec.gap, spec.y0 - 3.5, 2.2, 0, "right")
         if spec.title:
             put(spec.title, gx0, gy0 + spec.rows * pitch + 1.5, 3.5, 0, "left")
         from .gcode import order_polys
@@ -224,6 +226,10 @@ def build(spec: TestSpec, profile):
     job.out_to_bed = (-mx0 + off[0], -my0 + off[1])
     from .. import gcode_preview
 
-    job.seconds = gcode_preview.parse(job.lines, profile=profile).seconds
+    job.preview = gcode_preview.parse(job.lines, profile=profile)
+    job.seconds = job.preview.seconds
+    from .gcode import orient_job_preview
+
+    orient_job_preview(job, profile, mp)
     job.gen_ms = (time.time() - t0) * 1000
     return job

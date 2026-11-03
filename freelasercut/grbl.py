@@ -143,6 +143,7 @@ class GrblController(QObject):
         self.last_backup = None
         self.auto_backup = True
         self.last_reply = 0.0  # ora dell'ultimo ok/error ricevuto
+        self.axis_sign = (1.0, 1.0)  # dal profilo: -1 sugli assi invertiti
         self.stale_check_exit = False  # sto facendo uscire la scheda da un check mode rimasto acceso
         self.trusted_buffer = False  # scheda nota: uso tutto il buffer dichiarato in [OPT]
         self.check_stalled = False  # l'ultima verifica non ha ricevuto tutte le risposte
@@ -301,6 +302,8 @@ class GrblController(QObject):
         self.realtime(b"~")
 
     def jog(self, dx=0.0, dy=0.0, feed=3000):
+        sx, sy = self.axis_sign  # assi invertiti nel profilo: «su» sul piano resta «su» per la testa
+        dx, dy = dx * sx, dy * sy
         parts = []
         if dx:
             parts.append(f"X{dx:.3f}")

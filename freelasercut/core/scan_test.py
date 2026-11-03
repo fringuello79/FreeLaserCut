@@ -110,6 +110,9 @@ def build(spec: ScanTestSpec, profile):
     from .. import gcode_preview
 
     job.preview = gcode_preview.parse(job.lines, profile=profile)
+    from .gcode import orient_job_preview
+
+    orient_job_preview(job, profile, mp)
     job.seconds = job.preview.seconds
     job.gen_ms = (time.time() - t0) * 1000
     return job

@@ -93,6 +93,10 @@ class MachineProfile:
     scan_offsets: list = field(default_factory=list)
     # la scheda non conosce G55 (es. firmware Acmer): il sistema «assoluto» si fa in G54 togliendo il suo offset
     no_g55: bool = False
+    # assi invertiti rispetto al piano di FreeLaserCut (0,0 davanti a sinistra): per esempio macchine con l'origine
+    # dietro, o motori montati al contrario. Il piano resta come lo vedi; cambiano coordinate inviate e jog.
+    invert_x: bool = False
+    invert_y: bool = False
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):
@@ -168,13 +172,26 @@ class MachineProfile:
             return (self.bed_x, self.bed_y)
         return (0.0, 0.0)
 
+    def axis_sign(self):
+        """(+1|-1, +1|-1): verso degli assi della macchina rispetto al piano."""
+        return (-1.0 if self.invert_x else 1.0, -1.0 if self.invert_y else 1.0)
+
     def to_machine(self, x, y):
         ox, oy = self.bed_offset()
+        if self.invert_x:
+            x = self.bed_x - x
+        if self.invert_y:
+            y = self.bed_y - y
         return x - ox, y - oy
 
     def to_bed(self, mx, my):
         ox, oy = self.bed_offset()
-        return mx + ox, my + oy
+        bx, by = mx + ox, my + oy
+        if self.invert_x:
+            bx = self.bed_x - bx
+        if self.invert_y:
+            by = self.bed_y - by
+        return bx, by
 
     def checks(self):
         """Lista di (livello, messaggio, correzione_suggerita|None). livello: ok/info/warn."""

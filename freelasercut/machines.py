@@ -54,6 +54,7 @@ VENDORS = (
     ("Acmer", ("ACMER",)),
     ("AlgoLaser", ("ALGO_LASER", "ALGOLASER", "ALGO LASER")),
     ("SainSmart", ("GENMITSU", "SAINSMART", "JINSOKU")),
+    ("Makerbase", ("MKS DLC", "MKS_DLC", "MKSDLC", "DLC32")),  # scheda montata su tanti laser e telai fai-da-te
 )
 
 _BAUDS = (115200, 250000, 230400, 57600, 38400, 9600)
@@ -103,6 +104,8 @@ CATALOG = (
     ("Genmitsu L8 40W", "SainSmart", 390, 390, "40 W", 40000),
     ("Genmitsu LE5040", "SainSmart", 500, 400, "5,5 W", 10000),
     ("Longer Ray5 5W", "Longer", 400, 400, "5,5 W", 10000),
+    # scheda di controllo, non una macchina: l'area vera si legge dalla scheda ($130/$131) collegandola
+    ("Scheda Makerbase MKS DLC32", "Makerbase", 400, 400, "", 10000),
 )
 # pagine ufficiali da cui vengono i valori dei modelli aggiunti nella 0.12.0
 SOURCES = {
@@ -136,6 +139,10 @@ NOTES = {
     "AlgoLaser Delta 22W": tr("Il Delta si può collegare anche via Wi-Fi (pulsante Wi-Fi accanto alla porta): "
                               "l'indirizzo si legge nell'app AlgoLaser."),
     "Sculpfun iCube Pro Max 10W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
+    "Scheda Makerbase MKS DLC32": tr(
+        "MKS DLC32: collega la macchina e premi «Leggi dalla macchina» per l'area di lavoro vera. Se premendo una "
+        "freccia la testa va dalla parte opposta, spunta «Inverti l'asse X/Y» nel pannello Laser. Via Wi-Fi la porta "
+        "è di solito 8080. Se il firmware non accetta G55, FreeLaserCut se ne accorge alla prima verifica."),
     "Sculpfun iCube Ultra 12W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
 }
 # spot del laser (mm) dichiarato dal produttore, dove è diverso dal valore comune (0,08 × 0,10)

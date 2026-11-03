@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from freelasercut.i18n import tr  # noqa: E402
+from .. import units
 
 from . import style
 from ..theme import css, tc
@@ -690,7 +691,7 @@ class LayerRail(QWidget):
         b = QPushButton()
         b.setFixedSize(56, 52)
         b.setCursor(Qt.PointingHandCursor)
-        b.setToolTip(f"{cs.label()} · {cs.speed:g} mm/min · {cs.power_max:g}% · {cs.passes}×")
+        b.setToolTip(f"{cs.label()} · {units.fmt(cs.speed)} · {cs.power_max:g}% · {cs.passes}×")
         b.setStyleSheet(css("QPushButton { background: #121826; border: 1px solid #263048; border-radius: 14px; } "
                         "QPushButton:hover { border-color: #4FB4FF; }"))
         sw = QLabel(b)
@@ -725,7 +726,7 @@ class LayerRail(QWidget):
         txt = QVBoxLayout()
         txt.setSpacing(0)
         name = _label(cs.label(), "bcTitle")
-        summ = _label(tr("{0:g} mm/min · {1:g}% · {2}×", cs.speed, cs.power_max, cs.passes)
+        summ = _label(tr("{0} · {1:g}% · {2}×", units.fmt(cs.speed), cs.power_max, cs.passes)
                       + (tr(" · aria") if cs.air else "") + ("" if cs.output else tr(" · non inciso")), "bcMuted")
         txt.addWidget(name)
         txt.addWidget(summ)
@@ -778,7 +779,7 @@ class LayerRail(QWidget):
             box.setSpacing(2)
             top = QHBoxLayout()
             top.addWidget(_label(label, "bcMuted"), 1)
-            sp = QSpinBox()
+            sp = units.SpeedIntSpin() if key == "speed" else QSpinBox()
             sp.setRange(lo, hi)
             sp.setSingleStep(step)
             sp.setValue(int(round(val)))
@@ -798,7 +799,8 @@ class LayerRail(QWidget):
             box.addWidget(sl)
             return box
 
-        g.addLayout(slider_row(tr("Velocità"), 10, 36000, cs.speed, 100, " mm/min", "speed", tr("Velocità livello")))
+        g.addLayout(slider_row(tr("Velocità"), 10, 36000, cs.speed, 60 if units.per_s() else 100, units.suffix(), "speed",
+                               tr("Velocità livello")))
         g.addLayout(slider_row(tr("Potenza"), 0, 100, cs.power_max, 1, " %", "power_max", tr("Potenza livello")))
         row = QHBoxLayout()
         row.addWidget(_label(tr("Passate"), "bcMuted"))

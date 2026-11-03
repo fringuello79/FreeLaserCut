@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel, Q
 from ..core import material_test as mtest
 from ..theme import css
 from freelasercut.i18n import tr  # noqa: E402
+from .. import units
 
 
 def guide_html():
@@ -123,9 +124,9 @@ class PhotoResultDialog(QDialog):
         for s in res.suggestions:
             row = QHBoxLayout()
             if s.kind == "foto":
-                val = tr("{0:g}–{1:g} % a {2:g} mm/min", s.power_min, s.power, s.speed)
+                val = tr("{0:g}–{1:g} % a {2}", s.power_min, s.power, units.fmt(s.speed))
             else:
-                val = tr("{0:g} % a {1:g} mm/min", s.power, s.speed)
+                val = tr("{0:g} % a {1}", s.power, units.fmt(s.speed))
             lab = QLabel(f"<span style='color:{dots[s.kind]}'>■</span> <b>{s.title}</b>: {val}<br>"
                          f"<small>{s.text}</small>")
             lab.setWordWrap(True)

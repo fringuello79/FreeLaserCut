@@ -1,5 +1,19 @@
 # Novità di FreeLaserCut
 
+## 0.12.2 — 03/11/2026
+Da chi usa una scheda **Makerbase MKS DLC32** («premo giù e la testa va su»):
+- **Assi invertibili.** Nel pannello Laser, sotto *Posizionamento*, ci sono due spunte: **Inverti l'asse X (destra ↔ sinistra)** e **Inverti l'asse Y (avanti ↔ indietro)**.
+  - Servono per le macchine con l'origine dall'altra parte o con un motore montato al contrario.
+  - Valgono subito per le frecce di movimento, la posizione della testa sul piano, il contorno, il clic su «Vai qui» e le coordinate del lavoro (anche partendo dalla posizione della testa o dall'origine utente).
+  - Il disegno, l'anteprima e il test materiale restano dove li vedi.
+  - La scelta si salva nel profilo della macchina, non nella scheda: i parametri `$3`/`$23` non vengono toccati.
+- **Unità di misura** (*Impostazioni → Unità di misura*): le velocità si possono vedere e scrivere in **mm/s** invece che in mm/min.
+  - Vale per il livello, la tabella dei livelli, le impostazioni rapide, il Banco, la libreria e il test materiale (anche le etichette incise), la correzione della scansione, il jog e la barra di stato.
+  - Dentro FreeLaserCut, nei progetti e nel G-code resta tutto in mm/min, come vuole GRBL: cambiare unità non cambia nessun lavoro. Si applica dal riavvio, che FreeLaserCut propone.
+- **MKS DLC32 riconosciuta** (produttore «Makerbase»), con una nota: area di lavoro letta dalla scheda, spunte per gli assi e porta 8080 per il Wi-Fi.
+  - Se il suo firmware non accetta `G55`, la 0.12.1 lo scopre da sola alla prima verifica.
+- Nuova prova automatica `tests/test_v122.py` (29 controlli).
+
 ## 0.12.1 — 03/11/2026
 Dal rapporto per l'assistenza di chi usa un **Acmer S1** (firmware 1.0.4 del 2025): verifica ferma, testa che si muove a laser spento.
 - **Corretto: una scheda rimasta in modalità di prova («Check») si muoveva davvero a laser spento.**

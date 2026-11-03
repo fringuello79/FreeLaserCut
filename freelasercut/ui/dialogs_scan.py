@@ -12,9 +12,18 @@ from . import style
 from .dialogs_materials import _dspin, _mmss
 from .widgets import section
 from freelasercut.i18n import tr  # noqa: E402
+from .. import units
 
 
-def parse_speeds(text):
+def shown_speeds(text):
+    """Velocità scritte nell'unità scelta → mm/min."""
+    if not units.per_s():
+        return parse_speeds(text)
+    vals = parse_speeds(text, lo=0.1)
+    return sorted({round(units.from_shown(v), 1) for v in vals})[:10]
+
+
+def parse_speeds(text, lo=10):
     """«3000, 6000 10000» → [3000.0, 6000.0, 10000.0] (valori positivi, al massimo 10)."""
     out = []
     for tok in text.replace(";", " ").replace(",", " ").split():
@@ -22,7 +31,7 @@ def parse_speeds(text):
             v = float(tok.replace("k", "000").replace("K", "000"))
         except ValueError:
             continue
-        if 10 <= v <= 100000 and v not in out:
+        if lo <= v <= 100000 and v not in out:
             out.append(v)
     return sorted(out)[:10]
 
@@ -48,7 +57,7 @@ class ScanOffsetDialog(QDialog):
         left.addWidget(intro)
         left.addWidget(section(tr("Valori del profilo «{0}»", profile.name)))
         self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels([tr("Velocità (mm/min)"), tr("Sfasamento (mm)")])
+        self.table.setHorizontalHeaderLabels([tr("Velocità ({0})", units.speed_unit()), tr("Sfasamento (mm)")])
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -79,8 +88,8 @@ class ScanOffsetDialog(QDialog):
         h.addLayout(right, 1)
         right.addWidget(section(tr("Prova da incidere")))
         f = QFormLayout()
-        self.speeds = QLineEdit("3000, 6000, 10000")
-        self.speeds.setToolTip(tr("Una riga di rettangoli per ogni velocità (mm/min), separate da virgole"))
+        self.speeds = QLineEdit(", ".join(units.fmt(v, unit=False) for v in (3000, 6000, 10000)))
+        self.speeds.setToolTip(tr("Una riga di rettangoli per ogni velocità ({0}), separate da virgole", units.speed_unit()))
         self.off_max = _dspin(0.02, 2.0, 0.30, 2, 0.05, " mm")
         self.off_step = _dspin(0.01, 0.5, 0.05, 2, 0.01, " mm")
         self.power = _dspin(1, 100, 30, 0, 5, " %")
@@ -144,7 +153,7 @@ class ScanOffsetDialog(QDialog):
     def _add_row(self, s, d):
         r = self.table.rowCount()
         self.table.insertRow(r)
-        self.table.setItem(r, 0, QTableWidgetItem(f"{float(s):g}"))
+        self.table.setItem(r, 0, QTableWidgetItem(units.fmt(float(s), unit=False)))
         self.table.setItem(r, 1, QTableWidgetItem(f"{float(d):g}"))
 
     def _del_row(self):
@@ -158,7 +167,7 @@ class ScanOffsetDialog(QDialog):
         out = {}
         for r in range(self.table.rowCount()):
             try:
-                s = float(self.table.item(r, 0).text().replace(",", "."))
+                s = round(units.from_shown(float(self.table.item(r, 0).text().replace(",", "."))), 1)
                 d = float(self.table.item(r, 1).text().replace(",", "."))
             except (AttributeError, ValueError):
                 continue
@@ -185,7 +194,7 @@ class ScanOffsetDialog(QDialog):
             self.y0.setValue(max(0.0, self.head_bed[1]))
 
     def spec(self):
-        return scan_test.ScanTestSpec(speeds=parse_speeds(self.speeds.text()) or [6000.0], off_max=self.off_max.value(),
+        return scan_test.ScanTestSpec(speeds=shown_speeds(self.speeds.text()) or [6000.0], off_max=self.off_max.value(),
                                       off_step=self.off_step.value(), power=self.power.value(),
                                       interval=self.interval.value(), x0=self.x0.value(), y0=self.y0.value(),
                                       labels=self.labels.isChecked())
@@ -212,7 +221,7 @@ class ScanOffsetDialog(QDialog):
             same = [i for i, d in enumerate(offs) if sp in current and abs(d - current[sp]) < 1e-6]
             if same:  # solo se il valore attuale è proprio una delle correzioni provate
                 cb.setCurrentIndex(same[0] + 1)
-            self.pick_box.addRow(f"{sp:g} mm/min", cb)
+            self.pick_box.addRow(units.fmt(sp), cb)
             self.picks.append((sp, cb))
         try:
             job = self.build()
