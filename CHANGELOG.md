@@ -1,5 +1,12 @@
 # Novità di FreeLaserCut
 
+## 0.12.4 — 03/11/2026
+- **Porta la testa qui** (pannello Laser, sotto i 9 pallini): con un clic la testa va, a laser spento, sul punto del disegno indicato dal pallino, così com'è disegnato sul piano. Il punto può essere un angolo, il centro di un lato o il centro.
+  - Serve per vedere sul materiale dove cadrà un angolo o il centro del lavoro.
+  - Con *Solo gli oggetti selezionati* usa la selezione. Se il punto è fuori dal piano, la testa si ferma al bordo e la barra di stato lo dice.
+  - I pallini restano attivi anche in coordinate assolute, dove servono solo a questo pulsante.
+- Nuova prova automatica `tests/test_v124.py` (9 controlli).
+
 ## 0.12.3 — 03/11/2026
 - **Corretto: cambiando il punto di riferimento** (i 9 pallini accanto a *Partenza*) o la partenza stessa, l'anteprima sul piano non si muoveva. Ora si sposta subito e la barra di stato dice quale punto del lavoro va sulla testa o sull'origine utente, per esempio «al centro». Con le foto molto grandi l'anteprima resta da chiedere con *Anteprima*.
 - **Puntino fino al 20%** (prima al massimo 5%), sia dal pulsante *Puntino* sia da *Contorno → Regola il puntino…*.

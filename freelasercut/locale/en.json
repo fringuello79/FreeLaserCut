@@ -1673,5 +1673,11 @@
  "Sì, uso il {0:g}%": "Yes, use {0:g}%",
  "No, resto al 5%": "No, stay at 5%",
  "Molti laser a diodo non hanno un puntatore rosso: il puntino è il laser blu a potenza minima. Sotto una certa potenza il diodo resta spento, sopra comincia a segnare il materiale (oltre il 5% FreeLaserCut chiede conferma).<br><br>1. Indossa gli <b>occhiali per 450 nm</b>.<br>2. Metti sotto la testa uno scarto di legno o di cartone.<br>3. Premi <b>Accendi</b> e alza con <b>+</b> finché vedi bene il puntino. Se lascia un segno, abbassa.": "Many diode lasers have no red pointer: the pointer is the blue laser at minimum power. Below a certain power the diode stays off, above it starts marking the material (above 5% FreeLaserCut asks for confirmation).<br><br>1. Put on the <b>450 nm glasses</b>.<br>2. Put a scrap of wood or cardboard under the head.<br>3. Press <b>Turn on</b> and raise with <b>+</b> until you see the dot clearly. If it leaves a mark, lower it.",
- "Attenzione: sopra il 5% il puntino può segnare o bruciare il materiale.": "Warning: above 5% the pointer can mark or burn the material."
+ "Attenzione: sopra il 5% il puntino può segnare o bruciare il materiale.": "Warning: above 5% the pointer can mark or burn the material.",
+ "Porta la testa qui": "Move the head here",
+ "La testa va (a laser spento) sul punto del disegno indicato dai 9 pallini: un angolo, il centro di un lato o il centro. Utile per vedere sul materiale dove cadrà quel punto del lavoro.": "The head moves (laser off) to the point of the design shown by the 9 dots: a corner, the middle of a side or the centre. Useful to see on the material where that point of the job will fall.",
+ "In coordinate assolute il lavoro sta dove lo vedi sul piano: il pallino indica solo il punto per «Porta la testa qui»": "In absolute coordinates the job is where you see it on the bed: the dot only sets the point for “Move the head here”",
+ "Non c'è niente da incidere: disegna o importa qualcosa": "There is nothing to engrave: draw or import something",
+ "La testa va sul punto {0} del disegno ({1:.1f}, {2:.1f} mm)": "The head goes to the {0} point of the design ({1:.1f}, {2:.1f} mm)",
+ "il punto era fuori dal piano: mi fermo al bordo": "the point was outside the bed: stopping at the edge"
 }

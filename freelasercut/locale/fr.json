@@ -1673,5 +1673,11 @@
  "Sì, uso il {0:g}%": "Oui, utiliser {0:g} %",
  "No, resto al 5%": "Non, rester à 5 %",
  "Molti laser a diodo non hanno un puntatore rosso: il puntino è il laser blu a potenza minima. Sotto una certa potenza il diodo resta spento, sopra comincia a segnare il materiale (oltre il 5% FreeLaserCut chiede conferma).<br><br>1. Indossa gli <b>occhiali per 450 nm</b>.<br>2. Metti sotto la testa uno scarto di legno o di cartone.<br>3. Premi <b>Accendi</b> e alza con <b>+</b> finché vedi bene il puntino. Se lascia un segno, abbassa.": "Beaucoup de lasers à diode n'ont pas de pointeur rouge : le pointeur est le laser bleu à puissance minimale. En dessous d'une certaine puissance la diode reste éteinte, au-dessus elle commence à marquer le matériau (au-delà de 5 % FreeLaserCut demande confirmation).<br><br>1. Mettez les <b>lunettes pour 450 nm</b>.<br>2. Placez sous la tête une chute de bois ou de carton.<br>3. Appuyez sur <b>Allumer</b> et montez avec <b>+</b> jusqu'à bien voir le point. S'il laisse une marque, baissez.",
- "Attenzione: sopra il 5% il puntino può segnare o bruciare il materiale.": "Attention : au-dessus de 5 % le pointeur peut marquer ou brûler le matériau."
+ "Attenzione: sopra il 5% il puntino può segnare o bruciare il materiale.": "Attention : au-dessus de 5 % le pointeur peut marquer ou brûler le matériau.",
+ "Porta la testa qui": "Amener la tête ici",
+ "La testa va (a laser spento) sul punto del disegno indicato dai 9 pallini: un angolo, il centro di un lato o il centro. Utile per vedere sul materiale dove cadrà quel punto del lavoro.": "La tête va (laser éteint) au point du dessin indiqué par les 9 points : un coin, le milieu d'un côté ou le centre. Utile pour voir sur le matériau où tombera ce point du travail.",
+ "In coordinate assolute il lavoro sta dove lo vedi sul piano: il pallino indica solo il punto per «Porta la testa qui»": "En coordonnées absolues le travail est là où vous le voyez sur le plateau : le point indique seulement l'endroit pour « Amener la tête ici »",
+ "Non c'è niente da incidere: disegna o importa qualcosa": "Il n'y a rien à graver : dessinez ou importez quelque chose",
+ "La testa va sul punto {0} del disegno ({1:.1f}, {2:.1f} mm)": "La tête va au point {0} du dessin ({1:.1f}, {2:.1f} mm)",
+ "il punto era fuori dal piano: mi fermo al bordo": "le point était hors du plateau : je m'arrête au bord"
 }

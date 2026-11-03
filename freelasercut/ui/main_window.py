@@ -705,6 +705,7 @@ class MainWindow(QMainWindow):
         self._place_timer.timeout.connect(self._placement_changed)
         self.laser.anchor.changed.connect(lambda *_: self._place_timer.start())
         self.laser.start_from.currentIndexChanged.connect(lambda *_: self._place_timer.start())
+        self.laser.b_goto_anchor.clicked.connect(self.goto_anchor)
         self.laser.inv_x.toggled.connect(lambda on: self.set_axis_inverted("x", on))
         self.laser.inv_y.toggled.connect(lambda on: self.set_axis_inverted("y", on))
         self.move = MovePanel(self.ctl, self.qs, lambda: self.profile, self.canvas.head_pos)
@@ -1739,6 +1740,41 @@ class MainWindow(QMainWindow):
     def work_origin_on_bed(self):
         wx, wy = self.ctl.wco
         return self.profile.to_bed(wx, wy)
+
+    def design_bounds(self):
+        """Ingombro del disegno che verrà inciso (solo la selezione se «Solo gli oggetti selezionati»)."""
+        from .editor import TOOL_LAYER
+
+        if self.laser.only_sel.isChecked() and self.editor.selection:
+            shapes = list(self.editor.selection)
+        else:
+            shapes = list(self.editor.doc.shapes)
+        shapes = [s for s in shapes if not s.hidden and getattr(s, "layer", 0) != TOOL_LAYER
+                  and self.editor.doc.layer(s.layer).output]
+        return self.editor.doc.bounds(shapes) if shapes else None
+
+    def goto_anchor(self, *_):
+        """Porta la testa (laser spento) sul punto del disegno scelto con i 9 pallini, com'è disegnato sul piano."""
+        b = self.design_bounds()
+        if b is None or b.isNull():
+            self.statusBar().showMessage(tr("Non c'è niente da incidere: disegna o importa qualcosa"), 5000)
+            return None
+        names = [tr("in basso a sinistra"), tr("in basso al centro"), tr("in basso a destra"), tr("al centro a sinistra"),
+                 tr("al centro"), tr("al centro a destra"), tr("in alto a sinistra"), tr("in alto al centro"),
+                 tr("in alto a destra")]
+        a = self.laser.anchor.value
+        p = geom.rect_anchor(b, a)
+        x = min(max(p.x(), 0.0), self.profile.bed_x)
+        y = min(max(p.y(), 0.0), self.profile.bed_y)
+        if not self.ctl.connected:
+            self.statusBar().showMessage(tr("Connetti la macchina per muovere la testa"), 3000)
+            return (x, y)
+        self.goto_bed(x, y)
+        msg = tr("La testa va sul punto {0} del disegno ({1:.1f}, {2:.1f} mm)", names[a], x, y)
+        if (x, y) != (p.x(), p.y()):
+            msg += " · " + tr("il punto era fuori dal piano: mi fermo al bordo")
+        self.statusBar().showMessage(msg, 8000)
+        return (x, y)
 
     def goto_bed(self, x, y):
         if not self.ctl.connected:

@@ -136,7 +136,12 @@ class LaserPanel(QWidget):
         self.anchor = AnchorPicker(int(self.qs.value("job_anchor", 0)))
         self.anchor.changed.connect(lambda a: self.qs.setValue("job_anchor", a))
         self.start_from.currentIndexChanged.connect(self._start_changed)
+        self.b_goto_anchor = _btn(tr("Porta la testa qui"), "position",
+                                  tip=tr("La testa va (a laser spento) sul punto del disegno indicato dai 9 pallini: "
+                                         "un angolo, il centro di un lato o il centro. Utile per vedere sul materiale "
+                                         "dove cadrà quel punto del lavoro."))
         v.addWidget(row(QLabel(tr("Partenza")), self.start_from, self.anchor))
+        v.addWidget(row(self.b_goto_anchor))
         self.only_sel = QCheckBox(tr("Solo gli oggetti selezionati"))
         self.finish_origin = QCheckBox(tr("A fine lavoro torna al punto di partenza"))
         self.finish_origin.setChecked(self.qs.value("finish_origin", "true") == "true")
@@ -226,9 +231,10 @@ class LaserPanel(QWidget):
     def _start_changed(self):
         k = self.start_from.currentData()
         self.qs.setValue("start_from", k)
-        self.anchor.setEnabled(k != "absolute")
+        self.anchor.setEnabled(True)  # in coordinate assolute serve solo a «Porta la testa qui»
         self.anchor.setToolTip(tr("Punto del lavoro che va sulla testa / sull'origine") if k != "absolute"
-                               else tr("In coordinate assolute il lavoro sta dove lo vedi sul piano"))
+                               else tr("In coordinate assolute il lavoro sta dove lo vedi sul piano: il pallino "
+                                       "indica solo il punto per «Porta la testa qui»"))
 
     def _frame_tip(self):
         if self.a_frame_laser.isChecked():
@@ -282,7 +288,8 @@ class LaserPanel(QWidget):
             self.b_pause.setIcon(style.icon("pause"))
 
     def set_connected(self, ok):
-        for b in (self.b_start, self.b_frame, self.b_frame_more, self.b_verify, self.b_fire, self.b_air, self.b_run):
+        for b in (self.b_start, self.b_frame, self.b_frame_more, self.b_verify, self.b_fire, self.b_air, self.b_run,
+                  self.b_goto_anchor):
             b.setEnabled(ok)
         self.update_running()
         if not ok:

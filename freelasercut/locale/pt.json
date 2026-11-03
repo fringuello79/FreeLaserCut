@@ -1673,5 +1673,11 @@
  "Sì, uso il {0:g}%": "Sim, usar {0:g}%",
  "No, resto al 5%": "Não, fico em 5%",
  "Molti laser a diodo non hanno un puntatore rosso: il puntino è il laser blu a potenza minima. Sotto una certa potenza il diodo resta spento, sopra comincia a segnare il materiale (oltre il 5% FreeLaserCut chiede conferma).<br><br>1. Indossa gli <b>occhiali per 450 nm</b>.<br>2. Metti sotto la testa uno scarto di legno o di cartone.<br>3. Premi <b>Accendi</b> e alza con <b>+</b> finché vedi bene il puntino. Se lascia un segno, abbassa.": "Muitos lasers de diodo não têm ponteiro vermelho: o ponteiro é o laser azul na potência mínima. Abaixo de certa potência o diodo fica desligado, acima começa a marcar o material (acima de 5% o FreeLaserCut pede confirmação).<br><br>1. Coloque os <b>óculos para 450 nm</b>.<br>2. Ponha sob a cabeça um retalho de madeira ou papelão.<br>3. Clique em <b>Ligar</b> e aumente com <b>+</b> até ver bem o ponto. Se deixar marca, diminua.",
- "Attenzione: sopra il 5% il puntino può segnare o bruciare il materiale.": "Atenção: acima de 5% o ponteiro pode marcar ou queimar o material."
+ "Attenzione: sopra il 5% il puntino può segnare o bruciare il materiale.": "Atenção: acima de 5% o ponteiro pode marcar ou queimar o material.",
+ "Porta la testa qui": "Levar a cabeça aqui",
+ "La testa va (a laser spento) sul punto del disegno indicato dai 9 pallini: un angolo, il centro di un lato o il centro. Utile per vedere sul materiale dove cadrà quel punto del lavoro.": "A cabeça vai (com o laser desligado) ao ponto do desenho indicado pelos 9 pontos: um canto, o meio de um lado ou o centro. Útil para ver no material onde cairá esse ponto do trabalho.",
+ "In coordinate assolute il lavoro sta dove lo vedi sul piano: il pallino indica solo il punto per «Porta la testa qui»": "Em coordenadas absolutas o trabalho fica onde você o vê na mesa: o ponto indica só o lugar para «Levar a cabeça aqui»",
+ "Non c'è niente da incidere: disegna o importa qualcosa": "Não há nada para gravar: desenhe ou importe algo",
+ "La testa va sul punto {0} del disegno ({1:.1f}, {2:.1f} mm)": "A cabeça vai ao ponto {0} do desenho ({1:.1f}, {2:.1f} mm)",
+ "il punto era fuori dal piano: mi fermo al bordo": "o ponto estava fora da mesa: paro na borda"
 }
