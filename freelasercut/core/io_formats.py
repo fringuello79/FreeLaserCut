@@ -191,6 +191,36 @@ def import_dxf(path, doc):
 PHOTO_MM = 100.0  # lato lungo delle foto importate senza una risoluzione vera (si ridimensionano dopo)
 
 
+def _upright_8bit(img):
+    """Foto dei telefoni: la rotazione sta nei dati EXIF (senza, una foto in verticale arrivava coricata).
+    Immagini a 16 bit o in virgola (scanner, programmi di grafica): portate a 0–255 in proporzione, invece di
+    tagliarle a 255 (prima un grigio medio a 16 bit diventava bianco e non si incideva)."""
+    from PIL import Image, ImageOps
+
+    try:
+        info = dict(img.info)
+        img = ImageOps.exif_transpose(img) or img
+        img.info.update({k: v for k, v in info.items() if k not in img.info})
+    except Exception:  # noqa: BLE001  EXIF rovinato: la lascio com'è
+        pass
+    if img.mode in ("I;16", "I;16B", "I;16L", "I;16N", "I", "F"):
+        import numpy as np
+
+        a = np.asarray(img, dtype=np.float64)
+        top = float(a.max()) if a.size else 0.0
+        if img.mode.startswith("I;16") or 255 < top <= 65535:
+            a = a / 257.0
+        elif img.mode == "F" and top <= 1.0:
+            a = a * 255.0
+        elif top > 65535:
+            lo = float(a.min())
+            a = (a - lo) / max(top - lo, 1e-9) * 255.0
+        info = dict(img.info)
+        img = Image.fromarray(np.clip(np.rint(a), 0, 255).astype(np.uint8), "L")
+        img.info.update(info)
+    return img
+
+
 def import_image(path_or_pil, doc, max_size=None, photo_mm=None):
     """photo_mm: le foto grandi senza risoluzione vera (fotocamere e telefoni dichiarano 72-96 dpi o nulla)
     arrivano con questo lato lungo invece che grandi quanto il piano: a 10 punti/mm una foto da 36 cm sono
@@ -200,6 +230,7 @@ def import_image(path_or_pil, doc, max_size=None, photo_mm=None):
     img = Image.open(path_or_pil) if isinstance(path_or_pil, str) else path_or_pil
     img.load()
     dpi = img.info.get("dpi", (0, 0))[0] or 0
+    img = _upright_8bit(img)
     no_dpi = not dpi or dpi <= 96
     if not dpi or dpi < 30:
         dpi = 254.0  # 10 pixel/mm se l'immagine non dichiara la risoluzione
@@ -212,7 +243,8 @@ def import_image(path_or_pil, doc, max_size=None, photo_mm=None):
         mw, mh = max_size
         f = min(1.0, mw / w, mh / h)
         w, h = w * f, h * f
-    keep = img.convert("RGBA") if img.mode in ("RGBA", "LA", "P") else img.convert("L")
+    alpha = img.mode in ("RGBA", "LA", "P", "PA", "RGBa", "La") or "transparency" in img.info
+    keep = img.convert("RGBA") if alpha else img.convert("L")
     iid = uuid.uuid4().hex[:12]
     doc.images[iid] = keep
     return [ImageShape(iid, w, h, layer=0)]

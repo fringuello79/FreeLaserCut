@@ -67,8 +67,8 @@ def list_backups(folder=None):
     for fn in os.listdir(folder):
         if fn.lower().endswith(".txt"):
             p = os.path.join(folder, fn)
-            try:
-                with open(p, encoding="utf-8") as fh:
+            try:  # una copia aperta e salvata da un editor in un'altra codifica non deve fermare niente
+                with open(p, encoding="utf-8", errors="replace") as fh:
                     txt = fh.read()
             except OSError:
                 continue
@@ -95,7 +95,7 @@ def save(settings, info=(), reason="manuale", port="", folder=None):
     prev = list_backups(folder)
     if prev:
         try:
-            with open(prev[0][0], encoding="utf-8") as fh:
+            with open(prev[0][0], encoding="utf-8", errors="replace") as fh:
                 old = parse(fh.read())
         except OSError:
             old = {}

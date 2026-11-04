@@ -9,6 +9,7 @@ la porta seriale (write / readline / close), così il resto di FreeLaserCut non 
 Le porte di rete si scrivono «tcp://indirizzo:porta», per esempio «tcp://192.168.1.50:23».
 """
 import re
+import select
 import socket
 import threading
 import time
@@ -51,6 +52,10 @@ def label(port):
     return f"Wi-Fi  {a[0]}:{a[1]}" if a else str(port)
 
 
+WRITE_TIMEOUT = 2.0  # una rete Wi-Fi lenta può fermare una scrittura per un istante; oltre, il collegamento è perso
+# (non di più: finché una scrittura aspetta, anche Pausa e Stop aspettano dietro di lei)
+
+
 class NetSerial:
     """Collegamento TCP che si comporta come serial.Serial (timeout di lettura 0,1 s)."""
 
@@ -63,7 +68,7 @@ class NetSerial:
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         except OSError:
             pass
-        self.sock.settimeout(timeout)
+        self.sock.settimeout(WRITE_TIMEOUT)  # vale per le scritture; la lettura aspetta con select (vedi readline)
         self._buf = bytearray()
         self._lock = threading.Lock()
         self.is_open = True
@@ -118,7 +123,11 @@ class NetSerial:
             if left <= 0:
                 return b""
             try:
-                self.sock.settimeout(max(0.01, left))
+                # attesa con select: il timeout del socket resta quello lungo, così una scrittura del lavoro (sendall,
+                # dall'altro filo) non scade per colpa della lettura che aspetta 0,1 s
+                ready, _, _ = select.select([self.sock], [], [], max(0.01, left))
+                if not ready:
+                    return b""
                 chunk = self.sock.recv(4096)
             except socket.timeout:
                 return b""

@@ -130,5 +130,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" --title "FreeLaserCut ${{ needs.build.outputs.ver }}" --notes-file note.md --verify-tag
+          # GitHub ogni tanto risponde con un errore suo (HTTP 500, successo con la 0.13.1) e la Release resta a metà,
+          # in bozza: riprovo fino a 3 volte e, se la Release esiste già, carico i file e la pubblico.
+          TITLE="FreeLaserCut ${{ needs.build.outputs.ver }}"
+          for i in 1 2 3; do
+            if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release upload "$GITHUB_REF_NAME" dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt \
+                --repo "$GITHUB_REPOSITORY" --clobber \
+              && gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --title "$TITLE" \
+                --notes-file note.md && exit 0
+            elif gh release create "$GITHUB_REF_NAME" dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt \
+                --repo "$GITHUB_REPOSITORY" --title "$TITLE" --notes-file note.md --verify-tag; then
+              exit 0
+            fi
+            echo "Tentativo $i non riuscito: riprovo fra 30 secondi"
+            sleep 30
+          done
+          exit 1

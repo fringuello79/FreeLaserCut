@@ -64,6 +64,7 @@ class MainWindow(QMainWindow):
         self.bed = self.canvas  # compatibilità con il pannello Camera
         self.job = None
         self.job_preview = None
+        self.job_preview_off = None
         self._pending_start = None
         self._interrupted = None  # (righe, riga raggiunta) per la ripresa
         self.setWindowTitle(tr("FreeLaserCut"))
@@ -1666,10 +1667,21 @@ class MainWindow(QMainWindow):
         w = st.get("WPos", [0, 0, 0])
         bx, by = self.profile.to_bed(m[0], m[1])
         self.canvas.set_head(bx, by, state, st.get("power", 0))
+        ah = getattr(self, "_anchor_head", None)
+        if ah is not None and state == "Idle" and abs(ah[0] - bx) + abs(ah[1] - by) > 0.05 and \
+                not (self.ctl.job_active or self.ctl.checking) and self.job_preview is not None:
+            # partenza dalla testa: il lavoro segue la testa. Sposto anteprima e rombo (niente da ricalcolare:
+            # all'avvio il lavoro si rifà comunque dalla posizione vera)
+            dx, dy = bx - ah[0], by - ah[1]
+            ox, oy = self.job_preview_off or (0.0, 0.0)
+            self.job_preview_off = (ox + dx, oy + dy)
+            self.canvas.set_preview_offset(self.job_preview_off)
+            self._anchor_head = (bx, by)
+            self.canvas.set_anchor_marker(bx, by, tr("partenza: sulla testa"))
         self.lbl_head.setText(tr("testa {0:7.2f}, {1:7.2f}  ·  lavoro {2:.2f}, {3:.2f}", bx, by, w[0], w[1]))
         pw = st.get("power", 0) / max(self.profile.s_max, 1) * 100
         self.lbl_fs.setText(tr("F {0} · potenza {1:.0f}%", units.fmt(st.get('feed', 0) or 0), pw))
-        if state == "Alarm" and not self.banner.isVisible() and not self._alarm_dismissed:
+        if state == "Alarm" and (not self.banner.isVisible() or self._banner_kind == "info") and not self._alarm_dismissed:
             self.show_banner(tr("⚠  La macchina è bloccata (allarme): fai l'homing oppure sblocca."), "alarm",
                              [(tr("Sblocca"), self.ctl.unlock), (tr("Homing"), self.ctl.home)])
         elif state != "Alarm":
@@ -1682,13 +1694,10 @@ class MainWindow(QMainWindow):
             p = self.profile
             if p.negative_space != negative:
                 p.negative_space = negative
-                if p.origin_corner and not p.axes_tested:
-                    # angolo dello 0 detto nella configurazione guidata, assi non ancora provati: ora che so se le
-                    # coordinate sono negative, ricalcolo il verso degli assi
-                    ix, iy = p.corner_inversion(p.origin_corner, negative)
-                    if (ix, iy) != (p.invert_x, p.invert_y):
-                        p.invert_x, p.invert_y = ix, iy
-                        self._sync_axes()
+                # angolo dello 0 detto nella configurazione guidata: ora che so se le coordinate sono negative,
+                # ricalcolo il verso degli assi NON provati con le frecce (quelli provati restano)
+                if p.recompute_untested_axes():
+                    self._sync_axes()
                 try:
                     p.save()
                 except OSError:
@@ -1790,10 +1799,12 @@ class MainWindow(QMainWindow):
             self._sync_axes()
             return
         setattr(self.profile, "invert_x" if axis == "x" else "invert_y", bool(on))
-        # scelta a mano: l'angolo dello 0 segue le spunte
-        self.profile.origin_corner = ""
-        self.profile.origin_corner = self.profile.corner_now()
-        self.profile.axes_tested = True
+        # scelta a mano: quell'asse è deciso, l'homing non lo ricalcola più
+        if axis == "x":
+            self.profile.tested_x = True
+        else:
+            self.profile.tested_y = True
+        self.profile.axes_tested = self.profile.tested_x and self.profile.tested_y
         try:
             self.profile.save()
         except OSError:
@@ -1830,6 +1841,19 @@ class MainWindow(QMainWindow):
                  tr("al centro"), tr("al centro a destra"), tr("in alto a sinistra"), tr("in alto al centro"),
                  tr("in alto a destra")]
         a = self.laser.anchor.value
+        if self.laser.start_from.currentData() == "origin":
+            # con «Origine utente» il punto scelto del lavoro cade sull'origine, non dove il disegno è disegnato:
+            # la testa va lì, dove inciderà davvero (lo stesso posto del rombo magenta)
+            ox, oy = self.work_origin_on_bed()
+            x = min(max(ox, 0.0), self.profile.bed_x)
+            y = min(max(oy, 0.0), self.profile.bed_y)
+            if not self.ctl.connected:
+                self.statusBar().showMessage(tr("Connetti la macchina per muovere la testa"), 3000)
+                return (x, y)
+            self.goto_bed(x, y)
+            self.statusBar().showMessage(tr("La testa va sull'origine utente: lì cade il punto {0} del lavoro "
+                                            "({1:.1f}, {2:.1f} mm)", names[a], x, y), 8000)
+            return (x, y)
         p = geom.rect_anchor(b, a)
         x = min(max(p.x(), 0.0), self.profile.bed_x)
         y = min(max(p.y(), 0.0), self.profile.bed_y)
@@ -1923,14 +1947,15 @@ class MainWindow(QMainWindow):
                 from dataclasses import replace as _dc_replace
 
                 flat = gcode.generate(self.editor.doc, self.profile, _dc_replace(opts, rotary=None))
-                pv = flat.preview
+                pv, pv_off = flat.preview, flat.out_to_bed  # spostamento della SUA anteprima (con Y invertito cambia)
             else:
                 pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
+                pv_off = job.out_to_bed
         finally:
             QApplication.restoreOverrideCursor()
-        self.job, self.job_preview = job, pv
+        self.job, self.job_preview, self.job_preview_off = job, pv, pv_off
         if show:
-            self.canvas.set_preview(pv, job.out_to_bed)
+            self.canvas.set_preview(pv, pv_off)
             self.laser.show_job(job, self.profile)
             self._update_anchor_marker(opts)
         return job
@@ -1957,6 +1982,8 @@ class MainWindow(QMainWindow):
         label = {"current": tr("partenza: sulla testa"), "origin": tr("partenza: origine utente")}.get(
             mode, tr("punto scelto del disegno"))
         self.canvas.set_anchor_marker(pt[0], pt[1], label)
+        # partenza dalla testa: se poi la testa si sposta (frecce, «Porta la testa qui»), anteprima e rombo la seguono
+        self._anchor_head = tuple(pt) if mode == "current" else None
 
     def _photo_dots(self):
         """Punti che il laser farà sulle foto (livelli Immagine con uscita attiva)."""
@@ -1984,6 +2011,9 @@ class MainWindow(QMainWindow):
             block.append(tr("La macchina non è connessa."))
         if st == "Alarm":
             block.append(tr("La macchina è in allarme: sblocca o fai l'homing."))
+        elif st in ("Run", "Jog", "Hold", "Door", "Home") and self.ctl.connected:
+            block.append(tr("La macchina non è ferma (contorno, spostamento o pausa in corso): aspetta che si fermi, poi "
+                            "riprova."))
         if job is None or not job.lines or job.bounds is None:
             block.append(tr("Il lavoro è vuoto: nessuna forma su livelli con uscita attiva."))
         else:
@@ -2021,10 +2051,18 @@ class MainWindow(QMainWindow):
         neg = self.profile.negative_space
         if neg is None:
             neg = self.ctl.negative_space
-        x0, y0, x1, y1 = box
+        # angoli del lavoro (coordinate del piano) → coordinate macchina, con assi invertiti e coordinate negative
+        prof = self.profile
+        if prof.negative_space is None and neg is not None:
+            import copy
+
+            prof = copy.copy(prof)
+            prof.negative_space = neg
+        corners = [prof.to_machine(x, y) for x in (box[0], box[2]) for y in (box[1], box[3])]
+        x0, x1 = min(c[0] for c in corners), max(c[0] for c in corners)
+        y0, y1 = min(c[1] for c in corners), max(c[1] for c in corners)
         lo, hi = (0.0, 0.0), (tx, ty)
-        if neg:  # coordinate macchina negative: piano = MPos + area del profilo; la scheda accetta -$130..0
-            x0, y0, x1, y1 = x0 - self.profile.bed_x, y0 - self.profile.bed_y, x1 - self.profile.bed_x, y1 - self.profile.bed_y
+        if neg:  # coordinate macchina negative: la scheda accetta -$130..0
             lo, hi = (-tx, -ty), (0.0, 0.0)
         eps = 0.01
         if x0 < lo[0] - eps or y0 < lo[1] - eps or x1 > hi[0] + eps or y1 > hi[1] + eps:
@@ -2063,7 +2101,9 @@ class MainWindow(QMainWindow):
         if verify:
             self._pending_start = job
             self.laser.start_progress("check")
-            self.ctl.check_job(job.lines)
+            if not self.ctl.check_job(job.lines):  # macchina non ferma, riga troppo lunga…: lo dice la barra di stato
+                self._pending_start = None
+                self.laser.update_running()
         else:
             self._run(job.lines)
 
@@ -2081,7 +2121,8 @@ class MainWindow(QMainWindow):
             return
         self._pending_start = None
         self.laser.start_progress("check")
-        self.ctl.check_job(job.lines)
+        if not self.ctl.check_job(job.lines):
+            self.laser.update_running()
 
     def _check_done(self, errors):
         self.laser.update_running()
@@ -2185,7 +2226,7 @@ class MainWindow(QMainWindow):
         if job is None or job.bounds is None:
             return
         pv = self.job_preview
-        ox, oy = job.out_to_bed
+        ox, oy = self._preview_offset(job)
         if kind.startswith("hull"):
             import cv2
             import numpy as np
@@ -2219,7 +2260,7 @@ class MainWindow(QMainWindow):
             pv = self.job_preview  # già letta da build_job (per il rotativo è il disegno com'è sul piano)
         else:
             pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
-        ox, oy = job.out_to_bed
+        ox, oy = self._preview_offset(job) if job is self.job else job.out_to_bed
         pv = gcode_preview.shifted(pv, ox, oy)  # anteprima in coordinate piano; l'originale resta per il piano
         PreviewDialog(pv, job, self.profile, (self.profile.bed_x, self.profile.bed_y), self).exec()
         # chiusa l'anteprima, il percorso arancione non resta sopra il disegno (con una foto la copriva tutta);
@@ -2262,10 +2303,16 @@ class MainWindow(QMainWindow):
     def show_external_job(self, job):
         """Un lavoro generato fuori dal documento (test materiale): anteprima sul piano e riepilogo."""
         pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
-        self.job, self.job_preview = job, pv
+        self.job, self.job_preview, self.job_preview_off = job, pv, job.out_to_bed
         self.canvas.set_preview(pv, job.out_to_bed)
         self.laser.show_job(job, self.profile)
         return pv
+
+    def _preview_offset(self, job):
+        """Spostamento dell'anteprima salvata (con il rotativo è quella del disegno piatto, che ha il suo)."""
+        if job is self.job and getattr(self, "job_preview_off", None) is not None:
+            return self.job_preview_off
+        return job.out_to_bed
 
     # ================================================================ testo variabile
     def _variable_texts(self, output_only=False):
@@ -2511,6 +2558,12 @@ class MainWindow(QMainWindow):
                 self.qs.value("setup_wizard_offered", False) in (True, "true", "1", 1) or self.banner.isVisible():
             return
         if os.environ.get("FLC_NO_FIRST_RUN") or QGuiApplication.platformName() in ("offscreen", "minimal"):
+            return
+        from ..profile import FIRST_RUN_FLAG
+
+        # PC nuovo: ci pensa il primo avvio (avviso di sicurezza, poi la configurazione). Questo timer scatta anche
+        # mentre l'avviso è aperto, e la striscia «Novità» resterebbe sotto la configurazione appena fatta.
+        if not os.path.exists(os.path.join(config_dir(), FIRST_RUN_FLAG)) or getattr(self, "_setup_dlg", None):
             return
         self.qs.setValue("setup_wizard_offered", True)
         self.show_banner(tr("Novità: la configurazione guidata della macchina. Poche domande (modello, angolo dello 0, "

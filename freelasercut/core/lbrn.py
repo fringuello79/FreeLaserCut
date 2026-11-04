@@ -327,15 +327,47 @@ def load(path, apply_variables=True):
         raise ValueError(tr("non è un progetto LightBurn"))
     doc = Document()
     ctx = _Ctx(root, doc)
-    for el in root.findall("CutSetting") + root.findall("CutSetting_Img"):
+    img_cs = {}
+    for el in root.findall("CutSetting"):
         cs = cut_setting(el)
-        if el.tag == "CutSetting_Img":
-            cs.mode = "image"
         doc.layers[cs.index] = cs
+    for el in root.findall("CutSetting_Img"):
+        cs = cut_setting(el)
+        cs.mode = "image"
+        img_cs[cs.index] = cs
     for el in root.findall("Shape"):
         s = shape_from(el, ctx)
         if s is not None:
             doc.add(s)
+    # In LightBurn lo stesso colore può avere sia disegni (CutSetting) sia foto (CutSetting_Img), con impostazioni
+    # diverse. In FreeLaserCut un livello ha una sola modalità: le foto di quel colore vanno su un livello libero
+    # con le impostazioni da immagine, i disegni restano dove sono con le loro (prima le foto vincevano e i
+    # disegni di quel colore sparivano dal lavoro).
+    leaves = [leaf for s in doc.shapes for leaf, _ in s.leaves()]
+    used = {leaf.layer for leaf in leaves}
+    for index in sorted(used):
+        imgs = [l for l in leaves if l.layer == index and isinstance(l, ImageShape)]
+        vecs = [l for l in leaves if l.layer == index and not isinstance(l, ImageShape)]
+        if imgs and vecs and index != TOOL_LAYER:
+            free = next((i for i in range(TOOL_LAYER) if i not in used), None)
+            if free is None:
+                ctx.warnings.append(tr("colore {0}: foto e disegni insieme e nessun livello libero per separarli", index))
+                continue
+            used.add(free)
+            src = img_cs.get(index) or default_layer(free)
+            cs = CutSettings(**{**src.to_dict(), "index": free})
+            if re.fullmatch(r"C\d\d", cs.name or ""):
+                cs.name = ""  # «C00» di LightBurn su un altro livello confonderebbe: nome automatico
+            cs.mode = "image"
+            doc.layers[free] = cs
+            for leaf in imgs:
+                leaf.layer = free
+            ctx.warnings.append(tr("colore {0}: le foto sono sul livello {1}, i disegni restano sul loro", index, cs.label()))
+        elif imgs and index in img_cs:
+            doc.layers[index] = img_cs[index]
+    for s in doc.shapes:
+        if isinstance(s, GroupShape) and s.children:
+            s.layer = s.children[0].layer
     for s in doc.shapes:  # livelli usati senza impostazioni: valori predefiniti
         for leaf, _ in s.leaves():
             if leaf.layer not in doc.layers:

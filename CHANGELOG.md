@@ -1,5 +1,57 @@
 # Novità di FreeLaserCut
 
+## 0.13.2 — 04/11/2026
+Versione di controllo: revisione completa delle parti delicate (comunicazione con la scheda, assi, configurazione guidata, foto) con una seconda lettura indipendente del codice. Ogni correzione ha la sua prova automatica (`tests/test_v132.py`, `tests/test_v130.py`).
+
+**Sicurezza della macchina**
+- **Corretto (grave): una verifica chiesta mentre la macchina non era ferma poteva eseguire davvero il lavoro, con il laser.** La verifica manda `$C` per entrare in modalità di prova. A testa in movimento la scheda lo rifiuta (error:8) e le righe accodate dietro partivano davvero, per esempio premendo *Verifica* durante un *Contorno*. Ora:
+  - la verifica parte solo a macchina ferma;
+  - `$C` viaggia da solo e le righe partono solo dopo il suo «ok»;
+  - se la scheda lo rifiuta, la verifica si chiude senza inviare niente e lo spiega.
+- Avvio e verifica bloccati con un messaggio chiaro anche quando la macchina sta ancora facendo un contorno, uno spostamento o è in pausa.
+- **Corretto: se la scheda si riavvia a metà lavoro** (calo di tensione, watchdog) il lavoro risulta interrotto e si può riprendere. Prima il programma restava «in lavoro» per sempre.
+- **Corretto: una riga di G-code più lunga del buffer della scheda** (file esterni) faceva restare fermo il lavoro senza spiegazioni. Ora il lavoro viene rifiutato subito, con il numero della riga.
+- **Comunicazione più robusta:**
+  - un errore imprevisto su una risposta della scheda non ferma più la lettura;
+  - la verifica che si blocca non si può più chiudere due volte;
+  - in Wi-Fi una scrittura lenta non fa più cadere il collegamento.
+- **Puntino:** una potenza oltre il 5% salvata non viene più ripresa da sola alla riapertura; si riparte dal 5% e la conferma va data di nuovo.
+- **Limiti software della scheda:** il controllo prima dell'avvio ora tiene conto degli assi invertiti.
+- Un avviso d'allarme compare sempre, anche se in alto c'era un suggerimento.
+
+**Configurazione guidata e assi**
+- **Corretto: con un profilo fuori catalogo** (scheda riconosciuta, profilo rinominato) il primo passo proponeva il Longer B1 e *Avanti* fino in fondo sostituiva il profilo. Ora in cima c'è «Il profilo attuale: …». Probabilmente è il motivo per cui ad alcuni, dopo l'aggiornamento, il programma «tornava» al Longer B1.
+- **Assi provati con le frecce:** il loro verso resta quello provato. Dopo l'homing si ricalcolano solo gli assi non provati. Prima, provando un solo asse, l'homing poteva rovesciare proprio quello.
+- **«Non lo so» o *Avanti* senza scegliere l'angolo:** gli assi restano com'erano. Prima davano per vero «davanti a sinistra» e, sulle macchine con coordinate negative, il primo homing poteva capovolgere il lavoro.
+- L'angolo dello 0 mostrato si ricava sempre da come si muove davvero la macchina, quindi non resta indietro dopo l'homing. Un angolo salvato in automatico dalla 0.13.0/0.13.1 senza prove non viene più dato per vero.
+- Scegliendo nella configurazione un altro modello, il nuovo profilo non eredita gli assi della macchina di prima; un homing fatto durante la configurazione non viene annullato da *Fine*.
+- **Prova delle frecce:**
+  - se la scheda rifiuta lo spostamento perché la testa è sul bordo, ora lo spiega e non conta come prova (prima sembrava un asse al contrario);
+  - con la macchina in allarme compare il pulsante *Homing*.
+- **Porta la testa qui** con *Origine utente* va sull'origine, dove il lavoro inciderà davvero. Con *Posizione attuale della testa*, anteprima e rombo seguono la testa quando si sposta (senza ricalcolare il lavoro: resta tutto fluido). Con il rotativo e l'asse Y invertito anche contorno e anteprima grande sono al posto giusto.
+- Al primo avvio su un PC nuovo non compare più la striscia «Novità» dietro la configurazione.
+
+**Foto e disegni**
+- **Corretto: foto e scritta sullo stesso livello** (per esempio un portachiavi): se ne incideva una sola, perché un livello in modalità Immagine incide solo le foto e gli altri solo i disegni. Ora foto e disegni restano su livelli separati:
+  - importando una foto dove c'è già una scritta;
+  - scrivendo sul livello di una foto;
+  - spostando insieme foto e scritta su un livello.
+  Quello che si sposta va sempre su un livello nuovo, con le impostazioni di base (mai su un livello già usato, che potrebbe essere un taglio), e la barra di stato dice dove è finito.
+- Una foto rimasta su un livello che non è in modalità Immagine (progetti vecchi) ora dà un avviso prima dell'avvio; prima veniva saltata in silenzio.
+- **LightBurn:** se lo stesso colore ha sia foto sia disegni, la foto va su un livello suo con le impostazioni da immagine e i disegni restano con le loro. Prima i disegni di quel colore sparivano dal lavoro.
+- **Formati delle immagini:**
+  - le foto dei telefoni scattate in verticale arrivano dritte (rotazione EXIF);
+  - le immagini a 16 bit non diventano più bianche;
+  - i PNG con un colore trasparente restano trasparenti.
+  Provati PNG, JPEG (anche CMYK), WEBP, GIF, TIFF e BMP a 1 bit.
+- **Velocità in mm/s:** aprire e chiudere un campo non cambia più la velocità salvata (prima 1000 → 1002 mm/min, 50 → 48 mm/min).
+- Una copia delle impostazioni della scheda modificata a mano con un'altra codifica non blocca più la connessione.
+
+**Altro**
+- Le prove automatiche su Windows misurano la barra dei nomi con lo stile del programma (prima con quello nativo di Windows 11, che FreeLaserCut non usa).
+- Pubblicazione della Release più robusta: se GitHub dà un errore momentaneo, il passo riprova e completa la Release rimasta a metà.
+- La 0.13.1 non è stata pubblicata come Release (errore temporaneo di GitHub): le sue novità arrivano con questa versione.
+
 ## 0.13.1 — 04/11/2026
 - **Livello di aiuto** (*Impostazioni → Livello di aiuto*, e lo stesso sottomenu in *Aiuto*). Prende il posto di *Mostra i nomi sotto i comandi* e di *Modalità esperto*, che potevano sembrare in contrasto e lasciavano una voce grigia. Ora le voci sono tre, ne è attiva sempre una, e scegliendone una le altre si tolgono da sole.
   - **Principiante**: nomi sotto i comandi e accanto ai segni del piano, spiegazioni passando sui segni, suggerimenti.

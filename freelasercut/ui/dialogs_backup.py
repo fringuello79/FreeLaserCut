@@ -115,7 +115,7 @@ class BoardBackupDialog(QDialog):
         path = self.current()
         if path is None or not self.ctl.connected:
             return None
-        with open(path, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8", errors="replace") as fh:
             saved = bb.parse(fh.read())
         changes = bb.diff(self.ctl.board_settings, saved)
         if not changes:

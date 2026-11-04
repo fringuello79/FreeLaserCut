@@ -97,10 +97,14 @@ class MachineProfile:
     # dietro, o motori montati al contrario. Il piano resta come lo vedi; cambiano coordinate inviate e jog.
     invert_x: bool = False
     invert_y: bool = False
-    # angolo dello 0 della macchina sul piano (configurazione guidata): "fl" davanti a sinistra, "bl" dietro a
-    # sinistra, "fr" davanti a destra, "br" dietro a destra; "" = non indicato. axes_tested: assi confermati con le frecce
+    # angolo dello 0 scelto nella configurazione guidata: "fl" davanti a sinistra, "bl" dietro a sinistra, "fr" davanti
+    # a destra, "br" dietro a destra; "" = non indicato. Serve solo per gli assi non ancora provati con le frecce:
+    # quando l'homing dice se le coordinate sono negative, il loro verso si ricalcola da qui.
     origin_corner: str = ""
-    axes_tested: bool = False
+    # assi provati con le frecce (o decisi a mano con le spunte): il loro verso è un fatto, non si ricalcola più
+    tested_x: bool = False
+    tested_y: bool = False
+    axes_tested: bool = False  # tutti e due (dalla 0.13.0; resta per i profili già salvati)
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):
@@ -190,11 +194,23 @@ class MachineProfile:
         return (("r" in corner[1:]) != neg, (corner[0] == "b") != neg)
 
     def corner_now(self):
-        """Angolo del piano in cui cade lo 0 della macchina con le impostazioni attuali."""
-        if self.origin_corner:
-            return self.origin_corner
+        """Angolo del piano in cui cade lo 0 della macchina con le impostazioni attuali (sempre ricavato dal verso
+        degli assi e dalle coordinate: così non resta mai indietro rispetto a quello che fa la macchina)."""
         neg = bool(self.negative_space)
         return ("b" if self.invert_y != neg else "f") + ("r" if self.invert_x != neg else "l")
+
+    def recompute_untested_axes(self):
+        """Dopo l'homing (coordinate negative o no ora note): il verso degli assi NON provati segue l'angolo scelto.
+        Gli assi provati con le frecce restano come sono. -> True se è cambiato qualcosa."""
+        if not self.origin_corner:
+            return False
+        ix, iy = self.corner_inversion(self.origin_corner, self.negative_space)
+        old = (self.invert_x, self.invert_y)
+        if not self.tested_x:
+            self.invert_x = ix
+        if not self.tested_y:
+            self.invert_y = iy
+        return (self.invert_x, self.invert_y) != old
 
     def to_machine(self, x, y):
         ox, oy = self.bed_offset()
@@ -269,6 +285,13 @@ class MachineProfile:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         known = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        if "axes_tested" in known and "tested_x" not in known:  # profilo salvato dalla 0.13.0/0.13.1
+            if known["axes_tested"]:
+                known["tested_x"] = known["tested_y"] = True
+            else:
+                # quelle versioni salvavano un angolo anche senza sceglierlo (o ricavato da una prova a metà):
+                # non lo do per vero, altrimenti il primo homing potrebbe capovolgere gli assi
+                known["origin_corner"] = ""
         return cls(**known)
 
     @classmethod

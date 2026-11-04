@@ -191,15 +191,33 @@ class Editor(QObject):
     def add(self, shapes, label=tr("Aggiungi"), select=True):
         shapes = shapes if isinstance(shapes, list) else [shapes]
 
+        moved = []
+
         def do():
             for s in shapes:
                 self.doc.add(s)
+            moved[:] = self.doc.keep_photos_apart(shapes, TOOL_LAYER)
             if select:
                 self.selection = list(shapes)
         self.run(label, do)
         if select:
             self.selection_changed.emit()
+        self._tell_moved(moved)
         return shapes
+
+    def _tell_moved(self, moved):
+        """Foto o disegni messi su un altro livello per non mescolarli: lo dico nella barra di stato."""
+        if not moved:
+            return
+        leaf, _old, new = moved[-1]
+        name = self.doc.layer(new).label()
+        if isinstance(leaf, ImageShape):
+            text = tr("Foto messa sul livello nuovo {0} (Immagine): foto e disegni vanno su livelli diversi. "
+                      "Controlla le impostazioni del nuovo livello.", name)
+        else:
+            text = tr("Disegno messo sul livello nuovo {0}: il livello di partenza è per le foto (Immagine). "
+                      "Controlla modalità, velocità e potenza del nuovo livello.", name)
+        self.message.emit(text)
 
     def delete(self):
         sel = self.editable()
@@ -220,6 +238,8 @@ class Editor(QObject):
             self.current_layer = index
             return
 
+        moved = []
+
         def do():
             for s in sel:
                 if isinstance(s, GroupShape):
@@ -228,8 +248,10 @@ class Editor(QObject):
                 s.layer = index
                 s.invalidate()
             self.doc.layer(index)
+            moved[:] = self.doc.keep_photos_apart(sel, TOOL_LAYER)
         self.run(tr("Cambia livello"), do)
         self.current_layer = index
+        self._tell_moved(moved)
 
     def replace(self, old, new, label):
         """Sostituisce forme mantenendo la posizione nell'ordine di disegno."""

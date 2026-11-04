@@ -748,6 +748,9 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
                 for _ in range(max(1, cs.passes)):
                     _emit_scan(w, lines, (1.0, 0.0), cs, bed, opts.raster_gap_g1)
         else:
+            if any(isinstance(l, ImageShape) for l, _ in items):
+                job.warnings.append(tr("{0}: le foto su un livello che non è in modalità Immagine non vengono incise: "
+                                       "mettile su un livello Immagine", cs.label()))
             polys = _polys_of(items)
             if cs.mode == "line":
                 if cs.kerf:

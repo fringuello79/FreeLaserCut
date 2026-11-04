@@ -127,7 +127,12 @@ from PySide6.QtGui import QFontMetrics
 app = QApplication([])
 from freelasercut import theme
 from freelasercut.ui import style
-app.setStyleSheet(theme.QSS + style.QSS_EXTRA)
+# come main(): stile Fusion e caratteri del programma (lo stile nativo di Windows 11 ha margini molto più larghi,
+# ma FreeLaserCut non lo usa mai: misurarlo dava barre larghe il doppio che nessun utente vede)
+app.setStyle("Fusion")
+style.load_fonts()
+app.setFont(style.ui_font(9))
+app.setStyleSheet(theme.QSS.replace("'Segoe UI', 'Inter'", f"'{style.UI_FONT}', 'Segoe UI'") + style.QSS_EXTRA)
 from freelasercut.ui.main_window import MainWindow
 from freelasercut.ui import cmd_labels
 w = MainWindow(); w.resize(1920, 1050); w.show(); app.processEvents()

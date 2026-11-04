@@ -158,7 +158,9 @@ class CheckResultDialog(QDialog):
         else:
             lab = QLabel(tr("<b style='color:{0}'>✕ La scheda ha rifiutato {1} righe.</b><br>Il lavoro non è stato avviato. Righe rifiutate:", C['danger'], len(errors)))
             alarm = next((e for e in errors if isinstance(e[2], str)), None)
-            if alarm is not None and alarm[2] == "NO_RISPOSTA":
+            if alarm is not None and alarm[2] == "NON_PRONTA":
+                lab = QLabel(tr("<b style='color:{0}'>✕ Verifica non fatta.</b><br>{1}", C['danger'], alarm[3]))
+            elif alarm is not None and alarm[2] == "NO_RISPOSTA":
                 lab = QLabel(tr("<b style='color:{0}'>✕ La verifica si è fermata: la scheda ha smesso di rispondere.</b><br>"
                                 "Il lavoro non è stato avviato. {1}", C['danger'], alarm[3]))
             elif alarm is not None:
@@ -172,7 +174,7 @@ class CheckResultDialog(QDialog):
         if errors:
             lst = QListWidget()
             for i, line, code, text in errors[:500]:
-                if code == "NO_RISPOSTA":
+                if code in ("NO_RISPOSTA", "NON_PRONTA"):
                     lst.addItem(text)
                 elif isinstance(code, str):  # allarme (es. "ALARM:2")
                     lst.addItem(tr("riga {0}:  {1}    →  {2} {3}", i + 1, line, code, text))

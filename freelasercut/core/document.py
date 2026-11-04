@@ -605,6 +605,71 @@ class Document:
             self.layer(i)
         return [self.layers[i] for i in sorted(used, key=lambda i: (self.layers[i].priority, i))]
 
+    # ---- foto e disegni su livelli separati
+    def keep_photos_apart(self, batch, tool_layer=30):
+        """Foto e disegni (testi, forme) non possono stare sullo stesso livello: un livello in modalità Immagine
+        incide solo le foto, gli altri solo i disegni, e il resto verrebbe saltato (un portachiavi con foto e
+        scritta usciva con una sola delle due). Le forme di `batch` (appena aggiunte o spostate) che finirebbero
+        insieme all'altro tipo vengono messe su un livello adatto. Chi resta: sul livello in modalità Immagine le
+        foto, sugli altri i disegni. -> [(foglia, livello di prima, livello nuovo)]."""
+        ids = {id(leaf) for s in batch for leaf, _ in s.leaves()}
+        others = [leaf for s in self.shapes for leaf, _ in s.leaves() if id(leaf) not in ids]
+        mine = [leaf for s in batch for leaf, _ in s.leaves()]
+        used = {leaf.layer for leaf in others} | {leaf.layer for leaf in mine}
+
+        def kinds(index):
+            imgs = any(isinstance(l, ImageShape) and l.layer == index for l in others)
+            vecs = any(not isinstance(l, ImageShape) and l.layer == index for l in others)
+            return imgs, vecs
+
+        def free():
+            for i in range(tool_layer):
+                if i not in used:
+                    used.add(i)
+                    return i
+            return None
+
+        def new_layer():
+            """Sempre un livello libero, con le impostazioni predefinite: mai uno già usato (potrebbe essere un
+            taglio a piena potenza, o un livello che non esce), così niente viene inciso con impostazioni altrui."""
+            i = free()
+            if i is not None:
+                self.layers[i] = default_layer(i)
+            return i
+
+        moved = []
+        for index in sorted({leaf.layer for leaf in mine}):
+            if index == tool_layer:
+                continue
+            imgs = [l for l in mine if l.layer == index and isinstance(l, ImageShape)]
+            vecs = [l for l in mine if l.layer == index and not isinstance(l, ImageShape)]
+            o_img, o_vec = kinds(index)
+            cs = self.layer(index)
+            if imgs and not vecs and not o_vec:
+                cs.mode = "image"  # solo foto: il livello diventa (o resta) Immagine
+                continue
+            if vecs and not imgs and not o_img:
+                if cs.mode == "image":  # livello Immagine rimasto senza foto: torna come gli altri
+                    cs.mode = default_layer(index).mode if default_layer(index).mode != "image" else "line"
+                continue
+            # sul livello Immagine restano le foto (i disegni vanno su un livello nuovo); sugli altri i disegni
+            group = vecs if cs.mode == "image" else imgs
+            if not group:
+                continue
+            target = new_layer()
+            if target is None:
+                continue  # nessun livello libero: resta com'è (l'avviso del lavoro lo dirà)
+            for leaf in group:
+                leaf.layer = target
+                leaf.invalidate()
+                moved.append((leaf, index, target))
+            if group is imgs:
+                self.layer(target).mode = "image"
+        for s in batch:  # il gruppo prende il livello del primo figlio, come quando si crea
+            if isinstance(s, GroupShape) and s.children:
+                s.layer = s.children[0].layer
+        return moved
+
     # ---- forme
     def add(self, shape):
         self.shapes.append(shape)

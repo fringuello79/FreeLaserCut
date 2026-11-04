@@ -81,6 +81,10 @@ class SpeedSpin(QDoubleSpinBox):
 
     def valueFromText(self, text):
         t = text.replace(self.suffix(), "").strip().replace(",", ".")
+        if t == fmt(self.value(), unit=False).replace(",", "."):
+            # il testo è quello mostrato per il valore attuale: in mm/s è arrotondato a un decimale, e rileggerlo
+            # cambierebbe la velocità salvata (1000 mm/min → 16,7 mm/s → 1002 mm/min) a ogni apertura del campo
+            return self.value()
         try:
             return from_shown(float(t))
         except ValueError:
@@ -110,6 +114,8 @@ class SpeedIntSpin(QSpinBox):
 
     def valueFromText(self, text):
         t = text.replace(self.suffix(), "").strip().replace(",", ".")
+        if t == fmt(self.value(), unit=False).replace(",", "."):
+            return self.value()  # come SpeedSpin: rileggere il valore mostrato non lo deve cambiare
         try:
             return int(round(from_shown(float(t))))
         except ValueError:

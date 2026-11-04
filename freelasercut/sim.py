@@ -350,6 +350,8 @@ class SimSerial:
                 return  # risposta persa (come nel registro di un Acmer S1)
         if self.check_mode and up in ("$H", "$I", "$$"):
             return self._emit("error:8\r\n")
+        if up == "$C" and not self.check_mode and (self._planner or self.state in ("Run", "Jog", "Hold", "Home")):
+            return self._emit("error:8\r\n")  # come GRBL: $C solo a macchina ferma (Idle)
         if up.startswith("$") and not up.startswith("$J="):
             self._wait_idle(gen)
         if up == "$$":

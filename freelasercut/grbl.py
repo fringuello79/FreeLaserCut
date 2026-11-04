@@ -253,7 +253,7 @@ class GrblController(QObject):
 
                 self.last_backup = board_backup.save(self.board_settings, self.board_info,
                                                      tr("prima della modifica {0}", line), self.port or "")
-            except OSError:
+            except (OSError, ValueError):
                 self.last_backup = None
         with self._lock:
             self._pending.append(_Cmd(line, tag))
@@ -359,6 +359,10 @@ class GrblController(QObject):
         if not clean:
             self.job_finished.emit(False, tr("Il file non contiene comandi G-code"))
             return
+        too_long = self._too_long(clean)
+        if too_long:
+            self.job_finished.emit(False, too_long)
+            return
         self._job_total = len(clean)
         self._job_done = 0
         self._job_idle = 0
@@ -380,18 +384,31 @@ class GrblController(QObject):
         clean = [(i, l) for i, l in enumerate(_clean_lines(lines))]
         if not clean or not self.connected:
             return False
-        if self.last_status.get("state") == "Check" or self.stale_check_exit:
+        state = self.last_status.get("state")
+        if state == "Check" or self.stale_check_exit:
             return False  # scheda ancora in modalità di prova: un altro $C la farebbe uscire e partire davvero
-        self._check = {"total": len(clean), "done": 0, "errors": [], "exiting": False}
+        if state != "Idle" or self._job_active or self._check is not None or self.busy:
+            # $C si accetta solo a macchina ferma: altrimenti la scheda risponde error:8, NON entra in prova e le
+            # righe accodate dietro verrebbero eseguite davvero, con il laser (per esempio durante un contorno)
+            self.message.emit(tr("Verifica non avviata: la macchina non è ferma ({0}). Aspetta che finisca, poi riprova.",
+                                 state or "?"))
+            return False
+        too_long = self._too_long(l for _, l in clean)
+        if too_long:
+            self.message.emit(too_long)
+            return False
+        self._check = {"total": len(clean), "done": 0, "errors": [], "exiting": False, "lines": clean}
         self.last_reply = time.time()
-        self.send_line("$C")
-        with self._lock:
-            for i, line in clean:
-                c = _Cmd(line, "check")
-                c.data = i
-                self._pending.append(c)
-        self._pump()
+        self.send_line("$C", tag="check_enter")  # le righe partono solo dopo il suo «ok» (vedi _finish)
         return True
+
+    def _too_long(self, lines):
+        """Una riga più lunga del buffer della scheda non partirebbe mai e il lavoro resterebbe fermo in silenzio."""
+        for n, l in enumerate(lines):
+            if len(l) + 1 > self.rx_buffer:
+                return tr("Riga {0} troppo lunga per la scheda ({1} caratteri, al massimo {2}): il lavoro non è partito.",
+                          n + 1, len(l), self.rx_buffer - 1)
+        return None
 
     @property
     def checking(self):
@@ -415,10 +432,12 @@ class GrblController(QObject):
             self.soft_reset()
 
     def _end_check(self, result):
-        """Chiude la verifica (se ce n'è una): result = elenco degli errori, None = interrotta."""
-        if self._check is None:
-            return
-        self._check = None
+        """Chiude la verifica (se ce n'è una): result = elenco degli errori, None = interrotta.
+        Sotto il lucchetto: con il controllo delle risposte perse la verifica si chiude una volta sola."""
+        with self._lock:
+            if self._check is None:
+                return
+            self._check = None
         self._check_end_t = time.time()
         self.check_finished.emit(result)
 
@@ -512,12 +531,13 @@ class GrblController(QObject):
             self._watch_check()
 
     def _watch_check(self):
-        chk = self._check
-        if chk is None:
-            return
         with self._lock:
+            chk = self._check
             waiting = len(self._inflight)
-        if waiting and time.time() - self.last_reply > self.CHECK_STALL_S:
+            stalled = chk is not None and waiting and time.time() - self.last_reply > self.CHECK_STALL_S
+            if stalled:
+                self._check = None  # sotto il lucchetto: il filo di lettura non la chiude due volte
+        if stalled:
             # la scheda non risponde più (risposte perse): chiudo la verifica invece di restare fermo,
             # passo al buffer prudente e la faccio uscire dalla modalità di prova
             self.check_stalled = True
@@ -526,7 +546,6 @@ class GrblController(QObject):
             errs.append((-1, "", "NO_RISPOSTA", tr("La scheda ha smesso di rispondere durante la verifica ({0} righe "
                                                    "senza risposta). FreeLaserCut passa a una comunicazione più "
                                                    "prudente: rifai la verifica.", waiting)))
-            self._check = None
             self._check_end_t = time.time()
             self._clear_queues()
             self.check_finished.emit(errs)
@@ -547,7 +566,12 @@ class GrblController(QObject):
                 continue
             line = raw.decode(errors="replace").strip()
             if line:
-                self._dispatch(line)
+                try:
+                    self._dispatch(line)
+                except Exception:  # noqa: BLE001  un errore su una riga non deve fermare la lettura della scheda
+                    import traceback
+
+                    traceback.print_exc()
 
     def _dispatch(self, line):
         """Le schede ESP32 (come quella del B1) possono infilare un report di stato <...>
@@ -598,8 +622,9 @@ class GrblController(QObject):
             if is_err:
                 code = _code(line)
                 text = ERRORS.get(code, "Errore sconosciuto")
-                if head is not None and head.tag == "check" and self._check is not None:
-                    self._check["errors"].append((head.data, head.line, code, text))
+                chk = self._check
+                if head is not None and head.tag == "check" and chk is not None:
+                    chk["errors"].append((head.data, head.line, code, text))
                     if code == 20 and head.line.strip().upper() == "G55":
                         self.no_g55 = True
                 elif head is not None and head.tag == "job" and self._job_active and self.pause_on_error:
@@ -607,7 +632,7 @@ class GrblController(QObject):
                     self.feed_hold()
                     self.job_error.emit(int(head.data), head.line, code, text)
                     self.error_raised.emit(code, text, head.line)
-                else:
+                elif head is None or head.tag != "check_enter":  # il $C rifiutato lo spiega già la verifica
                     self.error_raised.emit(code, text, head.line if head else "")
             if head is not None:
                 self._finish(head, is_ok)
@@ -647,9 +672,14 @@ class GrblController(QObject):
             # la scheda si è riavviata: tutto ciò che era in volo è perso
             self._clear_queues()
             self.stale_check_exit = False
-            if self._check is not None:
+            chk = self._check
+            if chk is not None:
                 # fine normale (uscita dal check mode) oppure reset a metà verifica
-                self._end_check(self._check["errors"] if self._check.get("exiting") else None)
+                self._end_check(chk["errors"] if chk.get("exiting") else None)
+            if self._job_active:
+                # riavvio a metà lavoro (calo di tensione, watchdog): il lavoro è perso, non «ancora in corso»
+                self._job_active = False
+                self.job_finished.emit(False, tr("La scheda si è riavviata durante il lavoro: lavoro interrotto"))
             self.message.emit(line)
             return
         if line.startswith("[MSG:"):
@@ -676,7 +706,7 @@ class GrblController(QObject):
 
                         self.last_backup = board_backup.save(self.board_settings, self.board_info,
                                                              tr("lettura alla connessione"), self.port or "")
-                    except OSError:
+                    except (OSError, ValueError):  # la copia è un aiuto: se non riesce, la connessione va avanti
                         pass
             self.settings_ready.emit(dict(cmd.data))
         elif cmd.tag == "info":
@@ -694,16 +724,42 @@ class GrblController(QObject):
             self.info_ready.emit(list(cmd.data))
         elif ok and cmd.line.upper().replace(" ", "") == "$H":
             self._check_space = True  # al prossimo stato Idle capisco come sono le coordinate
+        elif cmd.tag == "check_enter":
+            chk = self._check
+            if chk is None:
+                return
+            if ok:  # la scheda è in modalità di prova: ora, e solo ora, le righe da controllare
+                self.last_reply = time.time()
+                with self._lock:
+                    if chk is self._check:  # nel frattempo nessuno l'ha chiusa
+                        for i, line in chk["lines"]:
+                            c = _Cmd(line, "check")
+                            c.data = i
+                            self._pending.append(c)
+            else:
+                with self._lock:
+                    if chk is not self._check:
+                        return
+                    self._check = None
+                self._check_end_t = time.time()
+                self.check_finished.emit([(-1, "$C", "NON_PRONTA", tr(
+                    "La scheda non è entrata in modalità di prova (non era ferma): niente è stato inviato. Aspetta "
+                    "che la macchina sia ferma e rifai la verifica."))])
         elif cmd.tag == "check" and self._check is not None:
-            self._check["done"] += 1
-            if self._check["done"] % 200 == 0 or self._check["done"] == self._check["total"]:
-                self.check_progress.emit(self._check["done"], self._check["total"])
-            if self._check["done"] >= self._check["total"]:
+            chk = self._check
+            if chk is None:
+                return
+            chk["done"] += 1
+            if chk["done"] % 200 == 0 or chk["done"] == chk["total"]:
+                self.check_progress.emit(chk["done"], chk["total"])
+            if chk["done"] >= chk["total"] and not chk["exiting"]:
                 # uscita dal check mode: GRBL fa un reset morbido e lo segnala col banner
-                self._check["exiting"] = True
+                chk["exiting"] = True
                 self.send_line("$C", tag="check_exit")
         elif cmd.tag == "check_exit" and self._check is not None:
-            self._end_check(self._check["errors"])
+            chk = self._check
+            if chk is not None:
+                self._end_check(chk["errors"])
         elif cmd.tag == "job" and self._job_active:
             self.job_acked = int(cmd.data) + 1
             self._job_done += 1

@@ -181,7 +181,12 @@ class LaserPanel(QWidget):
         self.fire_pct.setSingleStep(0.1)
         self.fire_pct.setDecimals(1)
         self.fire_pct.setSuffix(" %")
-        self.fire_pct.setValue(float(self.qs.value("fire_pct", 1.0)))
+        try:
+            saved = float(self.qs.value("fire_pct", 1.0))
+        except (TypeError, ValueError):
+            saved = 1.0
+        # oltre il 5% serve una conferma: alla riapertura del programma si riparte al massimo dal 5%
+        self.fire_pct.setValue(min(saved, POINTER_WARN))
         self.fire_pct.setToolTip(tr("Potenza del puntino: la stessa per il pulsante Puntino e per il contorno con il puntino.\n"
                                  "Contorno → Regola il puntino… ti aiuta a trovarla."))
         self._fire_ok = self.fire_pct.value()  # ultimo valore accettato (per l'avviso oltre il 5%)
