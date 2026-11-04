@@ -7,7 +7,7 @@ Alla fine: nomi sotto i comandi oppure modalità esperto. Si può rifare quando 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QGridLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout,
+    QButtonGroup, QComboBox, QDialog, QRadioButton, QGridLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout,
     QWidget,
 )
 
@@ -218,20 +218,28 @@ class SetupWizard(QDialog):
     def _page_end(self):
         w = QWidget()
         v = QVBoxLayout(w)
-        v.addWidget(_title(tr("Ultima cosa: quante scritte d'aiuto?")))
+        v.addWidget(_title(tr("Ultima cosa: quanto aiuto vuoi sullo schermo?")))
         self.summary = _text("")
         v.addWidget(self.summary)
-        self.c_names = QCheckBox(tr("Mostra i nomi sotto i comandi (e accanto ai segni sul piano)"))
-        self.c_expert = QCheckBox(tr("Modalità esperto: niente nomi, spiegazioni dei segni e suggerimenti"))
-        self.c_expert.setToolTip(tr("Gli avvisi di sicurezza restano sempre"))
-        self.c_names.setChecked(self.main.acts["cmd_labels"].isChecked())
-        self.c_expert.setChecked(self.main.expert_mode())
-        self.c_names.toggled.connect(lambda on: on and self.c_expert.setChecked(False))
-        self.c_expert.toggled.connect(lambda on: on and self.c_names.setChecked(False))
-        v.addWidget(self.c_names)
-        v.addWidget(self.c_expert)
-        v.addWidget(_text(tr("Puoi cambiare tutto quando vuoi: <i>Impostazioni → Configurazione guidata della macchina</i>, "
-                             "<i>Mostra i nomi sotto i comandi</i> e <i>Modalità esperto</i>.")))
+        self.levels = {}
+        grp = QButtonGroup(self)
+        for lv, text in (("principiante", tr("<b>Principiante</b>: nomi sotto i comandi e accanto ai segni del piano, "
+                                             "spiegazioni e suggerimenti")),
+                         ("normale", tr("<b>Normale</b>: solo icone; spiegazioni passando sui segni e suggerimenti")),
+                         ("esperto", tr("<b>Esperto</b>: niente nomi, spiegazioni né suggerimenti (gli avvisi di "
+                                        "sicurezza restano sempre)"))):
+            b = QRadioButton()
+            row = QHBoxLayout()
+            row.addWidget(b)
+            lab = _text(text)
+            lab.mousePressEvent = lambda _e, bb=b: bb.setChecked(True)
+            row.addWidget(lab, 1)
+            grp.addButton(b)
+            v.addLayout(row)
+            self.levels[lv] = b
+        self.levels[self.main.help_level()].setChecked(True)
+        v.addWidget(_text(tr("Puoi cambiare tutto quando vuoi: <i>Impostazioni → Configurazione guidata della macchina</i> "
+                             "e <i>Impostazioni → Livello di aiuto</i>.")))
         v.addStretch(1)
         self.stack.addWidget(w)
 
@@ -321,6 +329,9 @@ class SetupWizard(QDialog):
                                 tr("invertito") if ix else tr("normale"), tr("invertito") if iy else tr("normale"),
                                 tested))
 
+    def help_level_choice(self):
+        return next((lv for lv, b in self.levels.items() if b.isChecked()), "normale")
+
     # ------------------------------------------------------------------ fine
     def reject(self):
         self.main.ctl.axis_sign = self._sign_before
@@ -351,8 +362,7 @@ class SetupWizard(QDialog):
             pass
         main._sync_axes()
         main.qs.setValue("setup_wizard_done", True)
-        main.set_expert_mode(self.c_expert.isChecked())
-        main.set_cmd_labels(self.c_names.isChecked())
+        main.set_help_level(self.help_level_choice(), quiet=True)
         main.statusBar().showMessage(tr("Configurazione salvata: {0}, lo 0 è {1}", p.name, corner_name(p.origin_corner)),
                                      8000)
         if main.job is not None and not getattr(main, "_job_is_external", False):

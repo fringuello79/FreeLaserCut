@@ -1740,5 +1740,20 @@
  "Il laser non è pronto: collegalo e riprova.": "O laser não está pronto: conecte-o e tente de novo.",
  "sinistra–destra": "esquerda–direita",
  "fondo–davanti": "fundo–frente",
- "Adesso: {0}.": "Agora: {0}."
+ "Adesso: {0}.": "Agora: {0}.",
+ "Livello di aiuto": "Nível de ajuda",
+ "Principiante: nomi sotto i comandi e spiegazioni": "Iniciante: nomes sob os comandos e explicações",
+ "Sotto ogni icona un nome corto, scritte accanto ai segni del piano, spiegazioni passando sui segni e suggerimenti": "Um nome curto sob cada ícone, textos ao lado das marcas da mesa, explicações ao passar sobre as marcas e sugestões",
+ "Normale: spiegazioni passando sui segni": "Normal: explicações ao passar sobre as marcas",
+ "Solo icone; spiegazioni passando sui segni del piano e suggerimenti come «Fai l'homing»": "Só ícones; explicações ao passar sobre as marcas da mesa e sugestões como «Faça o homing»",
+ "Esperto: meno scritte d'aiuto": "Especialista: menos textos de ajuda",
+ "Niente nomi, spiegazioni dei segni e suggerimenti. Gli avvisi di sicurezza restano sempre.": "Sem nomes, explicações das marcas nem sugestões. Os avisos de segurança ficam sempre.",
+ "Livello di aiuto: principiante (nomi sotto i comandi e spiegazioni)": "Nível de ajuda: iniciante (nomes sob os comandos e explicações)",
+ "Livello di aiuto: normale (spiegazioni passando sui segni)": "Nível de ajuda: normal (explicações ao passar sobre as marcas)",
+ "Livello di aiuto: esperto (meno scritte; gli avvisi di sicurezza restano)": "Nível de ajuda: especialista (menos textos; os avisos de segurança ficam)",
+ "Ultima cosa: quanto aiuto vuoi sullo schermo?": "Última coisa: quanta ajuda você quer na tela?",
+ "<b>Principiante</b>: nomi sotto i comandi e accanto ai segni del piano, spiegazioni e suggerimenti": "<b>Iniciante</b>: nomes sob os comandos e ao lado das marcas da mesa, explicações e sugestões",
+ "<b>Normale</b>: solo icone; spiegazioni passando sui segni e suggerimenti": "<b>Normal</b>: só ícones; explicações ao passar sobre as marcas e sugestões",
+ "<b>Esperto</b>: niente nomi, spiegazioni né suggerimenti (gli avvisi di sicurezza restano sempre)": "<b>Especialista</b>: sem nomes, explicações nem sugestões (os avisos de segurança ficam sempre)",
+ "Puoi cambiare tutto quando vuoi: <i>Impostazioni → Configurazione guidata della macchina</i> e <i>Impostazioni → Livello di aiuto</i>.": "Você pode mudar tudo quando quiser: <i>Configurações → Configuração guiada da máquina</i> e <i>Configurações → Nível de ajuda</i>."
 }

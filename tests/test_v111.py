@@ -76,13 +76,13 @@ w.camera.src = None
 
 # ------------------------------------------------------------------ nomi sotto i comandi
 help_menu = [m.menu() for m in w.menuBar().actions() if m.menu() and w.acts["help_mode"] in m.menu().actions()][0]
-check("Aiuto → Mostra i nomi sotto i comandi (anche in Impostazioni, per il Banco)",
-      w.acts["cmd_labels"] in help_menu.actions() and w.acts["cmd_labels"] in w.m_settings.actions())
+check("Livello di aiuto in Aiuto e in Impostazioni (per il Banco): lo stesso sottomenu",
+      w.m_help_level.menuAction() in help_menu.actions() and w.m_help_level.menuAction() in w.m_settings.actions())
 main = [t for t in w.findChildren(QToolBar) if t.objectName() == "main"][0]
 tools = [t for t in w.findChildren(QToolBar) if t.objectName() == "tools"][0]
-check("spento di partenza: solo icone", not w.acts["cmd_labels"].isChecked() and
+check("di partenza livello normale: solo icone", w.acts["help_normal"].isChecked() and
       main.toolButtonStyle() == Qt.ToolButtonIconOnly and tools.toolButtonStyle() == Qt.ToolButtonIconOnly)
-w.acts["cmd_labels"].trigger()
+w.acts["help_beginner"].trigger()
 app.processEvents()
 b_open = main.widgetForAction(w.acts["open"])
 b_rect = tools.widgetForAction(w.tool_actions["rect"])
@@ -92,19 +92,19 @@ check("acceso: nome sotto l'icona (Apri, Rettangolo, Codici)", main.toolButtonSt
       (b_open.text(), b_rect.text(), b_code.text()))
 check("scritte piccole (9 pixel)", b_open.font().pixelSize() == cmd_labels.FONT_PX or "9px" in main.styleSheet())
 check("nei menu i nomi restano quelli completi", w.acts["code"].text().startswith("Codice QR"))
-check("la scelta si ricorda", w.qs.value("cmd_labels") in (True, "true"))
+check("la scelta si ricorda", w.qs.value("help_level") == "principiante")
 w2 = MainWindow()
 main2 = [t for t in w2.findChildren(QToolBar) if t.objectName() == "main"][0]
-check("alla riapertura i nomi ci sono già", w2.acts["cmd_labels"].isChecked() and
+check("alla riapertura i nomi ci sono già", w2.acts["help_beginner"].isChecked() and
       main2.toolButtonStyle() == Qt.ToolButtonTextUnderIcon)
 w2.editor.dirty = False
 w2.qs.setValue("autosave_pending", False)
 w2.close()
-w.acts["cmd_labels"].trigger()
+w.acts["help_normal"].trigger()
 app.processEvents()
-check("spento di nuovo: solo icone, come prima", main.toolButtonStyle() == Qt.ToolButtonIconOnly and
+check("livello normale di nuovo: solo icone, come prima", main.toolButtonStyle() == Qt.ToolButtonIconOnly and
       tools.toolButtonStyle() == Qt.ToolButtonIconOnly and "9px" not in main.styleSheet() and
-      w.qs.value("cmd_labels") in (False, "false"))
+      w.qs.value("help_level") == "normale")
 
 # ------------------------------------------------------------------ tabella dei nomi
 names_ok = all(len(v) == len(cmd_labels.LANGS) and all(0 < len(x) <= 12 for x in v) for v in cmd_labels.SHORT.values())

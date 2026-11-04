@@ -1740,5 +1740,20 @@
  "Il laser non è pronto: collegalo e riprova.": "The laser is not ready: connect it and try again.",
  "sinistra–destra": "left–right",
  "fondo–davanti": "back–front",
- "Adesso: {0}.": "Now: {0}."
+ "Adesso: {0}.": "Now: {0}.",
+ "Livello di aiuto": "Help level",
+ "Principiante: nomi sotto i comandi e spiegazioni": "Beginner: names under the commands and explanations",
+ "Sotto ogni icona un nome corto, scritte accanto ai segni del piano, spiegazioni passando sui segni e suggerimenti": "A short name under each icon, labels next to the markers on the bed, explanations when hovering over the markers and hints",
+ "Normale: spiegazioni passando sui segni": "Normal: explanations when hovering over the markers",
+ "Solo icone; spiegazioni passando sui segni del piano e suggerimenti come «Fai l'homing»": "Icons only; explanations when hovering over the markers on the bed and hints such as \"Do the homing\"",
+ "Esperto: meno scritte d'aiuto": "Expert: fewer help labels",
+ "Niente nomi, spiegazioni dei segni e suggerimenti. Gli avvisi di sicurezza restano sempre.": "No names, marker explanations or hints. Safety warnings always stay.",
+ "Livello di aiuto: principiante (nomi sotto i comandi e spiegazioni)": "Help level: beginner (names under the commands and explanations)",
+ "Livello di aiuto: normale (spiegazioni passando sui segni)": "Help level: normal (explanations when hovering over the markers)",
+ "Livello di aiuto: esperto (meno scritte; gli avvisi di sicurezza restano)": "Help level: expert (fewer labels; safety warnings stay)",
+ "Ultima cosa: quanto aiuto vuoi sullo schermo?": "Last thing: how much help do you want on screen?",
+ "<b>Principiante</b>: nomi sotto i comandi e accanto ai segni del piano, spiegazioni e suggerimenti": "<b>Beginner</b>: names under the commands and next to the markers on the bed, explanations and hints",
+ "<b>Normale</b>: solo icone; spiegazioni passando sui segni e suggerimenti": "<b>Normal</b>: icons only; explanations when hovering over the markers and hints",
+ "<b>Esperto</b>: niente nomi, spiegazioni né suggerimenti (gli avvisi di sicurezza restano sempre)": "<b>Expert</b>: no names, explanations or hints (safety warnings always stay)",
+ "Puoi cambiare tutto quando vuoi: <i>Impostazioni → Configurazione guidata della macchina</i> e <i>Impostazioni → Livello di aiuto</i>.": "You can change everything whenever you like: <i>Settings → Guided machine setup</i> and <i>Settings → Help level</i>."
 }

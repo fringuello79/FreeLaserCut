@@ -1740,5 +1740,20 @@
  "Il laser non è pronto: collegalo e riprova.": "Le laser n'est pas prêt : connecte-le et réessaie.",
  "sinistra–destra": "gauche–droite",
  "fondo–davanti": "fond–avant",
- "Adesso: {0}.": "En ce moment : {0}."
+ "Adesso: {0}.": "En ce moment : {0}.",
+ "Livello di aiuto": "Niveau d'aide",
+ "Principiante: nomi sotto i comandi e spiegazioni": "Débutant : noms sous les commandes et explications",
+ "Sotto ogni icona un nome corto, scritte accanto ai segni del piano, spiegazioni passando sui segni e suggerimenti": "Un nom court sous chaque icône, des textes à côté des repères du plateau, des explications au survol des repères et des conseils",
+ "Normale: spiegazioni passando sui segni": "Normal : explications au survol des repères",
+ "Solo icone; spiegazioni passando sui segni del piano e suggerimenti come «Fai l'homing»": "Icônes seules ; explications au survol des repères du plateau et conseils comme « Fais le homing »",
+ "Esperto: meno scritte d'aiuto": "Expert : moins de textes d'aide",
+ "Niente nomi, spiegazioni dei segni e suggerimenti. Gli avvisi di sicurezza restano sempre.": "Pas de noms, d'explications des repères ni de conseils. Les avertissements de sécurité restent toujours.",
+ "Livello di aiuto: principiante (nomi sotto i comandi e spiegazioni)": "Niveau d'aide : débutant (noms sous les commandes et explications)",
+ "Livello di aiuto: normale (spiegazioni passando sui segni)": "Niveau d'aide : normal (explications au survol des repères)",
+ "Livello di aiuto: esperto (meno scritte; gli avvisi di sicurezza restano)": "Niveau d'aide : expert (moins de textes ; les avertissements de sécurité restent)",
+ "Ultima cosa: quanto aiuto vuoi sullo schermo?": "Dernière chose : combien d'aide veux-tu à l'écran ?",
+ "<b>Principiante</b>: nomi sotto i comandi e accanto ai segni del piano, spiegazioni e suggerimenti": "<b>Débutant</b> : noms sous les commandes et à côté des repères du plateau, explications et conseils",
+ "<b>Normale</b>: solo icone; spiegazioni passando sui segni e suggerimenti": "<b>Normal</b> : icônes seules ; explications au survol des repères et conseils",
+ "<b>Esperto</b>: niente nomi, spiegazioni né suggerimenti (gli avvisi di sicurezza restano sempre)": "<b>Expert</b> : pas de noms, d'explications ni de conseils (les avertissements de sécurité restent toujours)",
+ "Puoi cambiare tutto quando vuoi: <i>Impostazioni → Configurazione guidata della macchina</i> e <i>Impostazioni → Livello di aiuto</i>.": "Tu peux tout changer quand tu veux : <i>Paramètres → Configuration guidée de la machine</i> et <i>Paramètres → Niveau d'aide</i>."
 }

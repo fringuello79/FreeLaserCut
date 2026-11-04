@@ -122,6 +122,9 @@ class GrblController(QObject):
         self._running = False
         self._lock = threading.Lock()
         self._wlock = threading.Lock()
+        # un solo _pump per volta (finestra e lettura della scheda lo chiamano da thread diversi): altrimenti due
+        # gruppi di righe potevano partire in ordine diverso da quello delle risposte attese
+        self._pump_lock = threading.RLock()
         self._pending = collections.deque()
         self._inflight = collections.deque()
         self._wco = [0.0, 0.0, 0.0]
@@ -257,18 +260,19 @@ class GrblController(QObject):
         self._pump()
 
     def _pump(self):
-        to_send = []
-        with self._lock:
-            used = sum(c.length for c in self._inflight)
-            while self._pending and used + self._pending[0].length <= self.rx_buffer:
-                cmd = self._pending.popleft()
-                self._inflight.append(cmd)
-                used += cmd.length
-                to_send.append(cmd)
-        for cmd in to_send:
-            self._write_raw((cmd.line + "\n").encode())
-            if cmd.tag != "job":
-                self.line_sent.emit(cmd.line)
+        with self._pump_lock:
+            to_send = []
+            with self._lock:
+                used = sum(c.length for c in self._inflight)
+                while self._pending and used + self._pending[0].length <= self.rx_buffer:
+                    cmd = self._pending.popleft()
+                    self._inflight.append(cmd)
+                    used += cmd.length
+                    to_send.append(cmd)
+            for cmd in to_send:
+                self._write_raw((cmd.line + "\n").encode())
+                if cmd.tag != "job":
+                    self.line_sent.emit(cmd.line)
 
     def realtime(self, byte):
         self._write_raw(bytes([byte]) if isinstance(byte, int) else byte)

@@ -1,5 +1,16 @@
 # Novità di FreeLaserCut
 
+## 0.13.1 — 04/11/2026
+- **Livello di aiuto** (*Impostazioni → Livello di aiuto*, e lo stesso sottomenu in *Aiuto*). Prende il posto di *Mostra i nomi sotto i comandi* e di *Modalità esperto*, che potevano sembrare in contrasto e lasciavano una voce grigia. Ora le voci sono tre, ne è attiva sempre una, e scegliendone una le altre si tolgono da sole.
+  - **Principiante**: nomi sotto i comandi e accanto ai segni del piano, spiegazioni passando sui segni, suggerimenti.
+  - **Normale** (di partenza): solo icone; spiegazioni e suggerimenti.
+  - **Esperto**: niente nomi, spiegazioni e suggerimenti come «Fai l'homing».
+  - Gli avvisi di sicurezza (puntino oltre il 5%, guardia fiamme, conferme prima di avviare) restano in tutti e tre.
+  - Chi aveva i nomi accesi parte da *Principiante*, chi aveva la modalità esperto da *Esperto*.
+- L'ultimo passo della configurazione guidata è la stessa scelta a tre.
+- **Corretto: comunicazione con la scheda più sicura.** La finestra e il filo che legge le risposte della scheda potevano mandare righe nello stesso istante. In quel caso, raramente, due gruppi di righe partivano in ordine diverso da quello in cui FreeLaserCut aspettava le risposte: un errore della verifica poteva essere attribuito alla riga sbagliata. Ora le righe partono sempre una dopo l'altra nell'ordine giusto. Era emerso come errore saltuario di una prova automatica.
+- `tests/test_v130.py` estesa (43 controlli), `tests/test_v111.py` aggiornata.
+
 ## 0.13.0 — 04/11/2026
 - **Configurazione guidata della macchina** (*Impostazioni → Configurazione guidata della macchina*). Compare al primo avvio; chi aggiorna la trova proposta una volta in alto. Si può rifare quando si vuole. Quattro passi:
   1. **Quale laser hai**: il modello dal catalogo, oppure l'ultima voce se non c'è.

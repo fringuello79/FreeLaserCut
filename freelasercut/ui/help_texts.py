@@ -169,13 +169,16 @@ HELP = {
         "FreeLaserCut salva da solo i parametri della scheda ($$) quando si collega e prima di cambiarne uno. Da qui "
         "si vede l'elenco delle copie, se ne fa una a mano, si confronta una copia con la scheda e si ripristinano "
         "solo i valori diversi."), None),
-    "cmd_labels": (tr("Nomi sotto i comandi"), tr(
-        "Sotto ogni icona delle barre compare un nome corto e piccolo (Apri, Salva, Rettangolo, Codici…), nella lingua "
-        "scelta. Si spegne dalla stessa voce; la scelta si ricorda."), None),
-    "expert_mode": (tr("Modalità esperto"), tr(
-        "Per chi conosce già il programma: toglie i nomi sotto i comandi, le scritte accanto ai segni del piano, le "
-        "spiegazioni che compaiono passando sui segni e i suggerimenti come «Fai l'homing». Gli avvisi di sicurezza "
-        "(puntino oltre il 5%, guardia fiamme, conferme prima di avviare) restano sempre."), None),
+    "help_beginner": (tr("Livello di aiuto: principiante"), tr(
+        "Sotto ogni icona delle barre compare un nome corto e piccolo (Apri, Salva, Rettangolo…), accanto ai segni del "
+        "piano una scritta («testa del laser», punto di partenza); passando sui segni compare la spiegazione. Le tre "
+        "voci Principiante, Normale ed Esperto si escludono: ne è attiva sempre una."), None),
+    "help_normal": (tr("Livello di aiuto: normale"), tr(
+        "Solo icone, senza nomi. Passando con il mouse sui segni del piano compare la spiegazione e restano i "
+        "suggerimenti come «Fai l'homing». È il livello di partenza."), None),
+    "help_expert": (tr("Livello di aiuto: esperto"), tr(
+        "Per chi conosce già il programma: niente nomi, scritte e spiegazioni dei segni, niente suggerimenti. Gli "
+        "avvisi di sicurezza (puntino oltre il 5%, guardia fiamme, conferme prima di avviare) restano sempre."), None),
     "setup_wizard": (tr("Configurazione guidata della macchina"), tr(
         "Poche domande: il modello del laser, l'angolo in cui sta lo 0 della macchina e, con il laser collegato, la "
         "prova delle frecce. Da qui FreeLaserCut ricava il verso degli assi, così la testa e il lavoro compaiono nel "

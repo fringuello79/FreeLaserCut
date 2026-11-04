@@ -146,13 +146,7 @@ class MainWindow(QMainWindow):
         cmd_labels.label_actions(self)
         # scritte e spiegazioni dei segni del piano: niente con la modalità esperto né durante il lavoro
         self.canvas.hints_allowed = lambda: not self.expert_mode() and not (self.ctl.job_active or self.ctl.checking)
-        expert = self.expert_mode()
-        self.acts["expert_mode"].setChecked(expert)
-        self.acts["cmd_labels"].setEnabled(not expert)
-        if not expert and self.qs.value("cmd_labels", False) in (True, "true", "1", 1):
-            self.acts["cmd_labels"].setChecked(True)
-            cmd_labels.apply(self, True)
-            self.canvas.set_marker_labels(True)
+        self.set_help_level(self.help_level(), quiet=True)
 
     # ================================================================ azioni
     def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
@@ -299,12 +293,16 @@ class MainWindow(QMainWindow):
             "updates": A(tr("Cerca aggiornamenti…"), lambda: self.updates.check(manual=True), None, None,
                          tr("Controlla su GitHub se c'è una versione più nuova di FreeLaserCut e, se vuoi, la scarica "
                             "e la installa: FreeLaserCut si chiude e si riapre da solo.")),
-            "cmd_labels": A(tr("Mostra i nomi sotto i comandi"), self.set_cmd_labels, None, None,
-                            tr("Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i "
-                               "comandi"), checkable=True),
-            "expert_mode": A(tr("Modalità esperto (meno scritte d'aiuto)"), self.set_expert_mode, None, None,
-                             tr("Toglie i nomi sotto i comandi, le scritte e le spiegazioni dei segni sul piano e i "
-                                "suggerimenti come «Fai l'homing». Gli avvisi di sicurezza restano sempre."), checkable=True),
+            "help_beginner": A(tr("Principiante: nomi sotto i comandi e spiegazioni"),
+                               lambda: self.set_help_level("principiante"), None, None,
+                               tr("Sotto ogni icona un nome corto, scritte accanto ai segni del piano, spiegazioni "
+                                  "passando sui segni e suggerimenti"), checkable=True),
+            "help_normal": A(tr("Normale: spiegazioni passando sui segni"), lambda: self.set_help_level("normale"), None,
+                             None, tr("Solo icone; spiegazioni passando sui segni del piano e suggerimenti come «Fai "
+                                      "l'homing»"), checkable=True),
+            "help_expert": A(tr("Esperto: meno scritte d'aiuto"), lambda: self.set_help_level("esperto"), None, None,
+                             tr("Niente nomi, spiegazioni dei segni e suggerimenti. Gli avvisi di sicurezza restano "
+                                "sempre."), checkable=True),
             "setup_wizard": A(tr("Configurazione guidata della macchina…"), self.setup_wizard, None, None,
                               tr("Poche domande: il modello, l'angolo dello 0 della macchina e la prova delle frecce. "
                                  "Si può rifare quando vuoi.")),
@@ -446,8 +444,9 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
-        menu(tr("&Aiuto"), ["help_mode", "cmd_labels", "-", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
-                            "-", "support"])
+        hm = menu(tr("&Aiuto"), ["help_mode", "-", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
+                                 "-", "support"])
+        hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
         self.acts["update_auto"].setChecked(self.updates.enabled())
         self.acts["update_auto"].setVisible(self.updates.mode == "installer")  # Store e git si aggiornano da sé
 
@@ -478,8 +477,14 @@ class MainWindow(QMainWindow):
         self.act_second_screen = sec
         self._build_look_menu(m)
         self._build_units_menu(m)
-        m.addAction(self.acts["cmd_labels"])  # anche qui: nel Banco il menu Aiuto non c'è
-        m.addAction(self.acts["expert_mode"])
+        # Livello di aiuto: tre voci, una sola attiva (anche nel menu Aiuto; nel Banco il menu Aiuto non c'è)
+        sub = m.addMenu(tr("Livello di aiuto"))
+        self.m_help_level = sub
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        for k in ("help_beginner", "help_normal", "help_expert"):
+            grp.addAction(self.acts[k])
+            sub.addAction(self.acts[k])
         m.addSeparator()
         m.addMenu(self.m_language)  # lo stesso sottomenu di Visualizza: una sola lista di lingue
         m.addSeparator()
@@ -2372,35 +2377,45 @@ class MainWindow(QMainWindow):
         dlg.show()
         return dlg
 
-    def set_cmd_labels(self, on):
-        """Aiuto → Mostra i nomi sotto i comandi (si ricorda)."""
+    HELP_LEVELS = ("principiante", "normale", "esperto")
+
+    def help_level(self):
+        """Impostazioni → Livello di aiuto. Chi aggiorna dalla 0.12: nomi accesi → principiante, esperto → esperto."""
+        v = self.qs.value("help_level", "")
+        if v in self.HELP_LEVELS:
+            return v
+        if self.qs.value("expert_mode", False) in (True, "true", "1", 1):
+            return "esperto"
+        if self.qs.value("cmd_labels", False) in (True, "true", "1", 1):
+            return "principiante"
+        return "normale"
+
+    def set_help_level(self, level, quiet=False):
+        """principiante: nomi sotto i comandi e accanto ai segni, spiegazioni, suggerimenti;
+        normale: spiegazioni e suggerimenti; esperto: nessuno dei tre. Gli avvisi di sicurezza restano sempre."""
         from . import cmd_labels
 
-        on = bool(on) and not self.expert_mode()
-        self.qs.setValue("cmd_labels", on)
-        if self.acts["cmd_labels"].isChecked() != on:
-            self.acts["cmd_labels"].setChecked(on)
-        cmd_labels.apply(self, on)
-        self.canvas.set_marker_labels(on)
+        level = level if level in self.HELP_LEVELS else "normale"
+        self.qs.setValue("help_level", level)
+        for k, lv in (("help_beginner", "principiante"), ("help_normal", "normale"), ("help_expert", "esperto")):
+            if self.acts[k].isChecked() != (lv == level):
+                self.acts[k].setChecked(lv == level)
+        names = level == "principiante"
+        if names or getattr(self, "_names_applied", False):
+            cmd_labels.apply(self, names)
+        self._names_applied = names
+        self.canvas.set_marker_labels(names)
+        self.canvas.hide_marker_hint()
+        if level == "esperto" and getattr(self, "_banner_hint", False) and self.banner.isVisible():
+            self.banner.hide()
+        if not quiet:
+            self.statusBar().showMessage({
+                "principiante": tr("Livello di aiuto: principiante (nomi sotto i comandi e spiegazioni)"),
+                "normale": tr("Livello di aiuto: normale (spiegazioni passando sui segni)"),
+                "esperto": tr("Livello di aiuto: esperto (meno scritte; gli avvisi di sicurezza restano)")}[level], 5000)
 
     def expert_mode(self):
-        return self.qs.value("expert_mode", False) in (True, "true", "1", 1)
-
-    def set_expert_mode(self, on):
-        """Impostazioni → Modalità esperto: via le scritte d'aiuto (nomi, segni, suggerimenti). Gli avvisi di
-        sicurezza restano. «Mostra i nomi sotto i comandi» si spegne e non si può accendere finché è attiva."""
-        on = bool(on)
-        self.qs.setValue("expert_mode", on)
-        if self.acts["expert_mode"].isChecked() != on:
-            self.acts["expert_mode"].setChecked(on)
-        if on and self.acts["cmd_labels"].isChecked():
-            self.set_cmd_labels(False)
-        self.acts["cmd_labels"].setEnabled(not on)
-        self.canvas.hide_marker_hint()
-        if on and getattr(self, "_banner_hint", False) and self.banner.isVisible():
-            self.banner.hide()
-        self.statusBar().showMessage(tr("Modalità esperto attiva: meno scritte d'aiuto (gli avvisi di sicurezza restano)")
-                                     if on else tr("Modalità esperto spenta: tornano scritte e suggerimenti"), 5000)
+        return self.help_level() == "esperto"
 
     def setup_wizard(self, *_, first=False):
         """Impostazioni → Configurazione guidata della macchina (anche al primo avvio)."""
