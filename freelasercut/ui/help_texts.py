@@ -172,6 +172,14 @@ HELP = {
     "cmd_labels": (tr("Nomi sotto i comandi"), tr(
         "Sotto ogni icona delle barre compare un nome corto e piccolo (Apri, Salva, Rettangolo, Codici…), nella lingua "
         "scelta. Si spegne dalla stessa voce; la scelta si ricorda."), None),
+    "expert_mode": (tr("Modalità esperto"), tr(
+        "Per chi conosce già il programma: toglie i nomi sotto i comandi, le scritte accanto ai segni del piano, le "
+        "spiegazioni che compaiono passando sui segni e i suggerimenti come «Fai l'homing». Gli avvisi di sicurezza "
+        "(puntino oltre il 5%, guardia fiamme, conferme prima di avviare) restano sempre."), None),
+    "setup_wizard": (tr("Configurazione guidata della macchina"), tr(
+        "Poche domande: il modello del laser, l'angolo in cui sta lo 0 della macchina e, con il laser collegato, la "
+        "prova delle frecce. Da qui FreeLaserCut ricava il verso degli assi, così la testa e il lavoro compaiono nel "
+        "punto giusto del piano. Compare al primo avvio e si può rifare quando vuoi."), None),
     "phone": (tr("Controllo dal telefono"), tr(
         "Spento di partenza. Se lo accendi, il telefono collegato allo stesso Wi-Fi apre una pagina (codice QR) con "
         "l'avanzamento del lavoro, la camera, Pausa e Stop, e può inviare la foto del test materiale. Dal telefono "

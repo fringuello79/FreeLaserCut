@@ -140,9 +140,15 @@ class HeadItem(QGraphicsItem):
         self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
         self.setZValue(1000)
         self.active = False
+        self.label = ""  # «testa del laser», solo con i nomi sotto i comandi
 
     def boundingRect(self):
-        return QRectF(-18, -18, 36, 36)
+        return QRectF(-70, -18, 140, 52)
+
+    def set_label(self, text):
+        if text != self.label:
+            self.label = text
+            self.update()
 
     def set_active(self, a):
         if a != self.active:
@@ -164,6 +170,15 @@ class HeadItem(QGraphicsItem):
             p.drawLine(QPointF(*a), QPointF(*b))
         p.setBrush(color)
         p.drawEllipse(QPointF(0, 0), 2, 2)
+        if self.label:
+            f = style.ui_font(7.5)
+            f.setBold(True)
+            p.setFont(f)
+            r = QRectF(-70, 17, 140, 14)
+            p.setPen(QColor(0, 0, 0, 150))
+            p.drawText(r.translated(1, 1), Qt.AlignHCenter | Qt.AlignTop, self.label)
+            p.setPen(color)
+            p.drawText(r, Qt.AlignHCenter | Qt.AlignTop, self.label)
 
 
 ANCHOR = "#FF3DB4"  # punto di partenza del lavoro: colore diverso dalla testa (che si muove con il laser)
@@ -178,6 +193,7 @@ class AnchorItem(QGraphicsItem):
         self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
         self.setZValue(990)
         self.label = ""
+        self.show_label = False  # la scritta accanto al rombo solo con i nomi sotto i comandi
 
     def boundingRect(self):
         return QRectF(-14, -14, 190, 28)
@@ -195,7 +211,7 @@ class AnchorItem(QGraphicsItem):
         p.drawPolygon(diamond)
         p.drawLine(QPointF(-4, 0), QPointF(4, 0))
         p.drawLine(QPointF(0, -4), QPointF(0, 4))
-        if self.label:
+        if self.label and self.show_label:
             f = style.ui_font(7.5)
             f.setBold(True)
             p.setFont(f)
@@ -203,6 +219,57 @@ class AnchorItem(QGraphicsItem):
             p.drawText(QPointF(14, 4), self.label)
             p.setPen(col)
             p.drawText(QPointF(13, 3), self.label)
+
+
+class HintItem(QGraphicsItem):
+    """Spiegazione di un segno del piano (testa, punto di partenza) quando ci passa sopra il mouse:
+    riquadro semitrasparente, come i suggerimenti dei comandi. Coordinate in pixel dello schermo."""
+
+    WIDTH = 270
+
+    def __init__(self):
+        super().__init__()
+        self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+        self.setZValue(1100)
+        self.title, self.body, self.color = "", "", QColor(C["accent_hi"])
+        self._rect = QRectF(0, 0, self.WIDTH, 40)
+
+    def set_text(self, title, body, color):
+        from PySide6.QtGui import QFontMetrics
+
+        self.prepareGeometryChange()
+        self.title, self.body, self.color = title, body, QColor(color)
+        ft, fb = self._fonts()
+        inner = self.WIDTH - 20
+        ht = QFontMetrics(ft).boundingRect(0, 0, inner, 400, Qt.TextWordWrap, title).height()
+        hb = QFontMetrics(fb).boundingRect(0, 0, inner, 600, Qt.TextWordWrap, body).height()
+        self._th = ht
+        self._rect = QRectF(0, 0, self.WIDTH, ht + hb + 22)
+        self.update()
+
+    @staticmethod
+    def _fonts():
+        ft = style.ui_font(8.5)
+        ft.setBold(True)
+        return ft, style.ui_font(8)
+
+    def boundingRect(self):
+        return self._rect.adjusted(-1, -1, 1, 1)
+
+    def paint(self, p, option, widget=None):
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(QColor(255, 255, 255, 45), 1))
+        p.setBrush(QColor(14, 18, 28, 196))
+        p.drawRoundedRect(self._rect, 7, 7)
+        ft, fb = self._fonts()
+        inner = QRectF(10, 8, self.WIDTH - 20, self._th)
+        p.setFont(ft)
+        p.setPen(self.color)
+        p.drawText(inner, Qt.TextWordWrap, self.title)
+        p.setFont(fb)
+        p.setPen(QColor(236, 240, 248))
+        p.drawText(QRectF(10, 12 + self._th, self.WIDTH - 20, self._rect.height() - self._th - 14), Qt.TextWordWrap,
+                   self.body)
 
 
 # ======================================================================= tela
@@ -252,6 +319,13 @@ class Canvas(QGraphicsView):
         self._anchor = AnchorItem()
         self.scene().addItem(self._anchor)
         self._anchor.setVisible(False)
+        # scritte e spiegazioni dei segni: la finestra decide (nomi sotto i comandi, modalità esperto, lavoro in corso)
+        self.marker_labels = False
+        self.hints_allowed = lambda: True
+        self._hint = HintItem()
+        self.scene().addItem(self._hint)
+        self._hint.setVisible(False)
+        self._hint_for = None
         self._trail_path = QPainterPath()
         self._trail_item = QGraphicsPathItem()
         self._trail_item.setPen(cpen(BURN, 2.2))
@@ -549,6 +623,7 @@ class Canvas(QGraphicsView):
         bed = self.to_bed(e.position())
         self.cursor_bed = bed
         self.cursor_moved.emit(bed.x(), bed.y())
+        self._update_marker_hint(e.position() if e.buttons() == Qt.NoButton and self._pan is None else None)
         if self._pan is not None:
             d = e.position() - self._pan
             self._pan = e.position()
@@ -608,6 +683,7 @@ class Canvas(QGraphicsView):
         super().keyReleaseEvent(e)
 
     def leaveEvent(self, e):
+        self.hide_marker_hint()
         self.snap_hint = None
         self.viewport().update()
         super().leaveEvent(e)
@@ -841,6 +917,64 @@ class Canvas(QGraphicsView):
             return None
         q = self._anchor.pos()
         return QPointF(q.x(), -q.y())
+
+    # ---------------------------------------------------------------- scritte e spiegazioni dei segni
+    def set_marker_labels(self, on):
+        """Scritte accanto ai segni (testa, punto di partenza): solo con «Mostra i nomi sotto i comandi»."""
+        self.marker_labels = bool(on)
+        self._anchor.show_label = self.marker_labels
+        self._anchor.update()
+        self._head.set_label(tr("testa del laser") if self.marker_labels else "")
+
+    def marker_under(self, vp):
+        """Il segno sotto il punto vp (pixel della vista), o None. La testa vince sul punto di partenza."""
+        for item, kind in ((self._head, "head"), (self._anchor, "anchor")):
+            if item.isVisible():
+                q = QPointF(self.mapFromScene(item.pos()))
+                if abs(q.x() - vp.x()) <= 13 and abs(q.y() - vp.y()) <= 13:
+                    return kind
+        return None
+
+    def marker_hint_text(self, kind):
+        if kind == "head":
+            return (tr("Testa del laser"), tr("Dove si trova adesso la testa, secondo la macchina. Si sposta solo quando "
+                                             "si muove il laser: frecce, Contorno, Porta la testa qui, lavoro."), C["accent_hi"])
+        body = tr("Il punto del lavoro scelto con i 9 pallini (pannello Laser, Posizionamento). Il lavoro, "
+                  "cioè l'anteprima arancione, si appoggia qui. Non è la testa: per portarcela usa «Porta la testa qui».")
+        if self._anchor.label:
+            body += "\n" + tr("Adesso: {0}.", self._anchor.label)
+        return tr("Punto di partenza del lavoro"), body, ANCHOR
+
+    def _update_marker_hint(self, vp):
+        kind = None
+        if vp is not None:
+            try:
+                ok = self.hints_allowed()
+            except Exception:  # noqa: BLE001
+                ok = False
+            kind = self.marker_under(vp) if ok else None
+        if kind is None:
+            self.hide_marker_hint()
+            return
+        if kind != self._hint_for:
+            self._hint.set_text(*self.marker_hint_text(kind))
+            self._hint_for = kind
+        item = self._head if kind == "head" else self._anchor
+        q = QPointF(self.mapFromScene(item.pos()))
+        r = self._hint.boundingRect()
+        vw, vh = self.viewport().width(), self.viewport().height()
+        x = q.x() + 18 if q.x() + 18 + r.width() < vw else q.x() - 18 - r.width()
+        y = q.y() + 18 if q.y() + 18 + r.height() < vh else q.y() - 18 - r.height()
+        self._hint.setPos(self.mapToScene(int(max(0, x)), int(max(0, y))))
+        self._hint.setVisible(True)
+
+    def hide_marker_hint(self):
+        if self._hint.isVisible():
+            self._hint.setVisible(False)
+        self._hint_for = None
+
+    def marker_hint_shown(self):
+        return self._hint_for if self._hint.isVisible() else None
 
     def head_pos(self):
         if not self._head.isVisible():

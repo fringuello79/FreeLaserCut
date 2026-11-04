@@ -1,5 +1,19 @@
 # Novità di FreeLaserCut
 
+## 0.13.0 — 04/11/2026
+- **Configurazione guidata della macchina** (*Impostazioni → Configurazione guidata della macchina*). Compare al primo avvio; chi aggiorna la trova proposta una volta in alto. Si può rifare quando si vuole. Quattro passi:
+  1. **Quale laser hai**: il modello dal catalogo, oppure l'ultima voce se non c'è.
+  2. **Dov'è lo 0 della macchina**: si clicca uno dei quattro angoli del piano. È dove va la testa con l'homing o, senza homing, l'angolo da cui parte. Da qui FreeLaserCut ricava il verso degli assi; con le coordinate negative del GRBL classico lo ricalcola da solo dopo il primo homing.
+  3. **Prova delle frecce**, con il laser collegato: la testa si sposta di 10 mm a laser spento e deve andare dove indica la freccia. Se va al contrario si preme «correggi» per quell'asse. Le frecce hanno l'ultima parola.
+  4. **Quante scritte d'aiuto**: nomi sotto i comandi oppure modalità esperto.
+- **Segni del piano più chiari.**
+  - Le scritte accanto al rombo del punto di partenza e la nuova scritta «testa del laser» sotto il cerchio compaiono solo con *Mostra i nomi sotto i comandi*.
+  - Passando con il mouse su un segno compare una spiegazione su sfondo semitrasparente, come per i comandi. Non compare durante il lavoro.
+- **Modalità esperto** (*Impostazioni*): toglie i nomi sotto i comandi, le scritte e le spiegazioni dei segni e i suggerimenti come «Fai l'homing». Gli avvisi di sicurezza (puntino oltre il 5%, guardia fiamme, conferme prima di avviare) restano sempre. Finché è attiva, *Mostra i nomi sotto i comandi* non si può accendere.
+- **Macchine senza homing** ($22=0): alla connessione, al posto di «Fai l'homing», un promemoria. Ricorda che lo 0 è dove sta la testa all'accensione e indica l'angolo in cui portarla.
+- Spuntando a mano *Inverti l'asse X/Y* l'angolo dello 0 si aggiorna di conseguenza.
+- Nuova prova automatica `tests/test_v130.py` (38 controlli).
+
 ## 0.12.6 — 03/11/2026
 - **Corretto: foto dei progetti LightBurn specchiate in *Prepara foto*.** Sul piano la foto era giusta, ma la finestra mostrava i pixel senza lo specchio contenuto nella posizione della foto, quindi la vedeva capovolta.
   - Ora lo specchio viene spostato nei pixel all'apertura del progetto: sul piano ogni pixel resta esattamente dov'era e *Prepara foto* la mostra uguale al piano.

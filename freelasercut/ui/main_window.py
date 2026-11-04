@@ -27,6 +27,7 @@ from .editor import Editor
 from .help_mode import HelpMode
 from .panels_design import LayersPanel, NumericBar, PaletteBar, PropertiesPanel
 from .panels_machine import LaserPanel, MovePanel
+from .dialogs_setup import corner_name
 from freelasercut.i18n import tr  # noqa: E402
 from .. import units
 
@@ -107,6 +108,7 @@ class MainWindow(QMainWindow):
         self._autosave.start(90_000)
         QTimer.singleShot(400, self._offer_recovery)
         QTimer.singleShot(200, self._first_run_notice)
+        QTimer.singleShot(2200, self._offer_setup)
         QTimer.singleShot(4000, self.updates.startup)
         try:  # comandi da Claude (MCP): solo da questo PC
             from ..remote import RemoteServer
@@ -142,9 +144,15 @@ class MainWindow(QMainWindow):
         from . import cmd_labels
 
         cmd_labels.label_actions(self)
-        if self.qs.value("cmd_labels", False) in (True, "true", "1", 1):
+        # scritte e spiegazioni dei segni del piano: niente con la modalità esperto né durante il lavoro
+        self.canvas.hints_allowed = lambda: not self.expert_mode() and not (self.ctl.job_active or self.ctl.checking)
+        expert = self.expert_mode()
+        self.acts["expert_mode"].setChecked(expert)
+        self.acts["cmd_labels"].setEnabled(not expert)
+        if not expert and self.qs.value("cmd_labels", False) in (True, "true", "1", 1):
             self.acts["cmd_labels"].setChecked(True)
             cmd_labels.apply(self, True)
+            self.canvas.set_marker_labels(True)
 
     # ================================================================ azioni
     def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
@@ -294,6 +302,12 @@ class MainWindow(QMainWindow):
             "cmd_labels": A(tr("Mostra i nomi sotto i comandi"), self.set_cmd_labels, None, None,
                             tr("Sotto ogni icona delle barre compare un nome corto, piccolo: per riconoscere subito i "
                                "comandi"), checkable=True),
+            "expert_mode": A(tr("Modalità esperto (meno scritte d'aiuto)"), self.set_expert_mode, None, None,
+                             tr("Toglie i nomi sotto i comandi, le scritte e le spiegazioni dei segni sul piano e i "
+                                "suggerimenti come «Fai l'homing». Gli avvisi di sicurezza restano sempre."), checkable=True),
+            "setup_wizard": A(tr("Configurazione guidata della macchina…"), self.setup_wizard, None, None,
+                              tr("Poche domande: il modello, l'angolo dello 0 della macchina e la prova delle frecce. "
+                                 "Si può rifare quando vuoi.")),
             "update_auto": A(tr("Controlla gli aggiornamenti ogni giorno"), lambda on: self.updates.set_enabled(on), None, None,
                              tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede a GitHub qual è l'ultima "
                                 "versione. Non invia dati tuoi e non scarica niente senza chiedere."), checkable=True),
@@ -443,6 +457,8 @@ class MainWindow(QMainWindow):
 
         m = mb.addMenu(tr("&Impostazioni"))
         self.m_settings = m
+        m.addAction(self.acts["setup_wizard"])
+        m.addSeparator()
         sub = m.addMenu(tr("Interfaccia"))
         grp = QActionGroup(self)
         grp.setExclusive(True)
@@ -463,6 +479,7 @@ class MainWindow(QMainWindow):
         self._build_look_menu(m)
         self._build_units_menu(m)
         m.addAction(self.acts["cmd_labels"])  # anche qui: nel Banco il menu Aiuto non c'è
+        m.addAction(self.acts["expert_mode"])
         m.addSeparator()
         m.addMenu(self.m_language)  # lo stesso sottomenu di Visualizza: una sola lista di lingue
         m.addSeparator()
@@ -794,7 +811,11 @@ class MainWindow(QMainWindow):
         self._alarm_dismissed = False
         return f
 
-    def show_banner(self, text, kind="alarm", buttons=()):
+    def show_banner(self, text, kind="alarm", buttons=(), hint=False):
+        """hint=True: solo un suggerimento (es. «Fai l'homing»), che la modalità esperto non mostra."""
+        if hint and self.expert_mode():
+            return
+        self._banner_hint = hint
         self._banner_kind = kind
         col = {"alarm": (C["danger"], "#3A1418", "#FFD9DA"), "info": (C["accent"], "#10264D", "#D6E6FF"),
                "warn": (C["warn"], "#3A2A0A", "#FFE8B8")}[kind]
@@ -1607,8 +1628,15 @@ class MainWindow(QMainWindow):
             self.show_banner(tr("Un lavoro si è interrotto alla riga {0} di {1}. Fai l'homing, poi puoi riprenderlo da dove si era fermato.", at, len(lines)), "warn", [(tr("Homing"), self.ctl.home), (tr("Riprendi"), self.resume_job),
                                                                  (tr("Scarta"), self._drop_interrupted)])
         elif not self.ctl.homed and not self.banner.isVisible():
-            self.show_banner(tr("Fai l'homing: così testa, piano di lavoro e camera usano le stesse coordinate."), "info",
-                             [(tr("Homing"), self.ctl.home)])
+            if not self.profile.homing:
+                # senza finecorsa lo 0 è dove sta la testa all'accensione: lo ricordo, con l'angolo giusto
+                self.show_banner(tr("Questa macchina non ha l'homing: conta le posizioni da dove si trova la testa quando "
+                                    "la accendi. Prima di accenderla porta la testa nell'angolo dello 0 ({0}).",
+                                    corner_name(self.profile.corner_now())), "info",
+                                 [(tr("Configurazione guidata"), self.setup_wizard), (tr("Ok"), self.banner.hide)], hint=True)
+            else:
+                self.show_banner(tr("Fai l'homing: così testa, piano di lavoro e camera usano le stesse coordinate."), "info",
+                                 [(tr("Homing"), self.ctl.home)], hint=True)
 
     def set_pill(self, state):
         if state == getattr(self, "_pill_state", None):  # lo stato arriva più volte al secondo: niente da rifare
@@ -1646,10 +1674,18 @@ class MainWindow(QMainWindow):
 
     def on_homed(self, homed, negative):
         if homed:
-            if self.profile.negative_space != negative:
-                self.profile.negative_space = negative
+            p = self.profile
+            if p.negative_space != negative:
+                p.negative_space = negative
+                if p.origin_corner and not p.axes_tested:
+                    # angolo dello 0 detto nella configurazione guidata, assi non ancora provati: ora che so se le
+                    # coordinate sono negative, ricalcolo il verso degli assi
+                    ix, iy = p.corner_inversion(p.origin_corner, negative)
+                    if (ix, iy) != (p.invert_x, p.invert_y):
+                        p.invert_x, p.invert_y = ix, iy
+                        self._sync_axes()
                 try:
-                    self.profile.save()
+                    p.save()
                 except OSError:
                     pass
             if self._banner_kind == "info":
@@ -1749,6 +1785,10 @@ class MainWindow(QMainWindow):
             self._sync_axes()
             return
         setattr(self.profile, "invert_x" if axis == "x" else "invert_y", bool(on))
+        # scelta a mano: l'angolo dello 0 segue le spunte
+        self.profile.origin_corner = ""
+        self.profile.origin_corner = self.profile.corner_now()
+        self.profile.axes_tested = True
         try:
             self.profile.save()
         except OSError:
@@ -2336,10 +2376,41 @@ class MainWindow(QMainWindow):
         """Aiuto → Mostra i nomi sotto i comandi (si ricorda)."""
         from . import cmd_labels
 
-        self.qs.setValue("cmd_labels", bool(on))
-        if self.acts["cmd_labels"].isChecked() != bool(on):
-            self.acts["cmd_labels"].setChecked(bool(on))
-        cmd_labels.apply(self, bool(on))
+        on = bool(on) and not self.expert_mode()
+        self.qs.setValue("cmd_labels", on)
+        if self.acts["cmd_labels"].isChecked() != on:
+            self.acts["cmd_labels"].setChecked(on)
+        cmd_labels.apply(self, on)
+        self.canvas.set_marker_labels(on)
+
+    def expert_mode(self):
+        return self.qs.value("expert_mode", False) in (True, "true", "1", 1)
+
+    def set_expert_mode(self, on):
+        """Impostazioni → Modalità esperto: via le scritte d'aiuto (nomi, segni, suggerimenti). Gli avvisi di
+        sicurezza restano. «Mostra i nomi sotto i comandi» si spegne e non si può accendere finché è attiva."""
+        on = bool(on)
+        self.qs.setValue("expert_mode", on)
+        if self.acts["expert_mode"].isChecked() != on:
+            self.acts["expert_mode"].setChecked(on)
+        if on and self.acts["cmd_labels"].isChecked():
+            self.set_cmd_labels(False)
+        self.acts["cmd_labels"].setEnabled(not on)
+        self.canvas.hide_marker_hint()
+        if on and getattr(self, "_banner_hint", False) and self.banner.isVisible():
+            self.banner.hide()
+        self.statusBar().showMessage(tr("Modalità esperto attiva: meno scritte d'aiuto (gli avvisi di sicurezza restano)")
+                                     if on else tr("Modalità esperto spenta: tornano scritte e suggerimenti"), 5000)
+
+    def setup_wizard(self, *_, first=False):
+        """Impostazioni → Configurazione guidata della macchina (anche al primo avvio)."""
+        from .dialogs_setup import SetupWizard
+
+        dlg = SetupWizard(self, first=first)
+        self._setup_dlg = dlg
+        res = dlg.exec()
+        self._setup_dlg = None
+        return res
 
     def phone_dialog(self, *_):
         """Laser → Controllo dal telefono (acceso/spento, codice QR, mini guida)."""
@@ -2415,6 +2486,22 @@ class MainWindow(QMainWindow):
                 fh.write("avviso letto\n")
         except OSError:
             pass
+        if not self.qs.value("setup_wizard_done", False) in (True, "true", "1", 1):
+            self.qs.setValue("setup_wizard_offered", True)
+            self.setup_wizard(first=True)
+
+    def _offer_setup(self):
+        """Chi aggiorna da una versione precedente: una volta sola propongo la configurazione guidata."""
+        if self.qs.value("setup_wizard_done", False) in (True, "true", "1", 1) or \
+                self.qs.value("setup_wizard_offered", False) in (True, "true", "1", 1) or self.banner.isVisible():
+            return
+        if os.environ.get("FLC_NO_FIRST_RUN") or QGuiApplication.platformName() in ("offscreen", "minimal"):
+            return
+        self.qs.setValue("setup_wizard_offered", True)
+        self.show_banner(tr("Novità: la configurazione guidata della macchina. Poche domande (modello, angolo dello 0, "
+                            "prova delle frecce) perché testa e lavoro compaiano nel punto giusto del piano."), "info",
+                         [(tr("Apri"), lambda: (self.banner.hide(), self.setup_wizard())),
+                          (tr("Più tardi"), self.banner.hide)], hint=True)
 
     def make_support_report(self, path=None):
         """Aiuto → Crea rapporto per l'assistenza: un .zip da allegare a una segnalazione."""

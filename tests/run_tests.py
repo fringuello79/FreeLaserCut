@@ -242,6 +242,7 @@ if __name__ == "__main__":
     run_suite("test_v123.py", "Anteprima che segue il punto di riferimento, puntino fino al 20%")
     run_suite("test_v124.py", "Porta la testa sul punto scelto del disegno")
     run_suite("test_v125.py", "Foto da LightBurn uguali in «Prepara foto», maniglie incomplete")
+    run_suite("test_v130.py", "Segni del piano spiegati, modalità esperto, configurazione guidata della macchina")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

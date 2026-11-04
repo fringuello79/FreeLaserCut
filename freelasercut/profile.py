@@ -97,6 +97,10 @@ class MachineProfile:
     # dietro, o motori montati al contrario. Il piano resta come lo vedi; cambiano coordinate inviate e jog.
     invert_x: bool = False
     invert_y: bool = False
+    # angolo dello 0 della macchina sul piano (configurazione guidata): "fl" davanti a sinistra, "bl" dietro a
+    # sinistra, "fr" davanti a destra, "br" dietro a destra; "" = non indicato. axes_tested: assi confermati con le frecce
+    origin_corner: str = ""
+    axes_tested: bool = False
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):
@@ -175,6 +179,22 @@ class MachineProfile:
     def axis_sign(self):
         """(+1|-1, +1|-1): verso degli assi della macchina rispetto al piano."""
         return (-1.0 if self.invert_x else 1.0, -1.0 if self.invert_y else 1.0)
+
+    @staticmethod
+    def corner_inversion(corner, negative=None):
+        """(inverti X, inverti Y) che mettono lo 0 della macchina nell'angolo indicato del piano.
+        Con le coordinate positive (quasi tutti i laser a diodo) lo 0 è dove gli assi partono; con le coordinate
+        negative (GRBL classico dopo l'homing) lo 0 sta all'altra estremità, quindi il verso si rovescia."""
+        corner = corner or "fl"
+        neg = bool(negative)
+        return (("r" in corner[1:]) != neg, (corner[0] == "b") != neg)
+
+    def corner_now(self):
+        """Angolo del piano in cui cade lo 0 della macchina con le impostazioni attuali."""
+        if self.origin_corner:
+            return self.origin_corner
+        neg = bool(self.negative_space)
+        return ("b" if self.invert_y != neg else "f") + ("r" if self.invert_x != neg else "l")
 
     def to_machine(self, x, y):
         ox, oy = self.bed_offset()
