@@ -53,5 +53,4 @@ script `build/prepara_installer.py`, senza modificarli. Le versioni esatte sono 
 
 ## Marchi
 
-LightBurn è un marchio dei rispettivi titolari. FreeLaserCut non è collegato a LightBurn Software:
-ne legge soltanto il formato dei file di progetto, per compatibilità. Longer e B1 sono marchi dei rispettivi titolari.
+I nomi di prodotti e marchi citati sono dei rispettivi titolari e sono usati solo per indicare la compatibilità.

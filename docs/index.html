@@ -239,8 +239,8 @@ footer p{margin:0 0 8px}
         <p class="en"><b>Workbench</b>: full-screen bed, command search (<kbd>Ctrl</kbd>+<kbd>F</kbd>), radial menu, a cockpit while engraving, and laser/camera panels that move to a second monitor by themselves. Or <b>Classic</b>, with menus and side panels.</p>
         <p class="it"><b>Banco</b>: piano a tutto schermo, ricerca di tutti i comandi (<kbd>Ctrl</kbd>+<kbd>F</kbd>), menu radiale, cabina durante l'incisione, pannelli laser e camera che vanno da soli sul secondo monitor. Oppure <b>Classica</b>, con menu e pannelli laterali.</p></div>
       <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span><span class="en">Your files</span><span class="it">I tuoi file</span></h3>
-        <p class="en">Opens LightBurn projects (<code>.lbrn2</code>, <code>.lbrn</code>), imports SVG, DXF, PNG, JPG and BMP, exports SVG and G-code.</p>
-        <p class="it">Apre i progetti LightBurn (<code>.lbrn2</code>, <code>.lbrn</code>), importa SVG, DXF, PNG, JPG e BMP, esporta SVG e G-code.</p></div>
+        <p class="en">Opens <code>.lbrn2</code> and <code>.lbrn</code> projects, imports SVG, DXF, PNG, JPG and BMP, exports SVG and G-code.</p>
+        <p class="it">Apre i progetti <code>.lbrn2</code> e <code>.lbrn</code>, importa SVG, DXF, PNG, JPG e BMP, esporta SVG e G-code.</p></div>
       <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/></svg></span><span class="en">Layers that make sense</span><span class="it">Livelli chiari</span></h3>
         <p class="en">Line, fill, offset fill and image modes; speed, power, passes, kerf, tabs, air assist. Images with dithering and halftone.</p>
         <p class="it">Modalità linea, riempimento, riempimento offset e immagine; velocità, potenza, passate, kerf, ponticelli, aria. Immagini con dithering e retino.</p></div>
@@ -381,21 +381,21 @@ footer p{margin:0 0 8px}
           <ul class="it"><li>Leggi l'avviso di sicurezza, poi scegli l'interfaccia (<b>Banco</b> o <b>Classica</b>) e <b>il modello del tuo laser</b>.</li>
             <li>Interfaccia, lingua e uso del secondo monitor si cambiano quando vuoi da <b>Impostazioni</b> (il pulsante ⚙ nel Banco).</li></ul></article>
         <article class="step" id="g3"><h3><span class="num">3</span><span class="en">Connect the laser</span><span class="it">Collega il laser</span></h3>
-          <ul class="en"><li>Close LightBurn, LaserGRBL or other programs that may hold the USB port.</li>
+          <ul class="en"><li>Close other laser programs that may hold the USB port.</li>
             <li>Plug in the USB cable and click the machine status at the top (or <kbd>Ctrl</kbd>+<kbd>K</kbd>).</li>
             <li>If it is not found, open <b>Laser → Detect machine</b>: it shows the USB chip, whether the driver is missing (with the official download), and adapts the profile to your controller.</li>
             <li>Run <b>Homing</b> if your laser has limit switches.</li></ul>
-          <ul class="it"><li>Chiudi LightBurn, LaserGRBL o altri programmi che possono occupare la porta USB.</li>
+          <ul class="it"><li>Chiudi gli altri programmi per il laser che possono occupare la porta USB.</li>
             <li>Collega il cavo USB e fai clic sullo stato della macchina in alto (o <kbd>Ctrl</kbd>+<kbd>K</kbd>).</li>
             <li>Se non la trova, apri <b>Laser → Riconosci la macchina</b>: mostra il chip USB, se manca il driver (con il download ufficiale) e adatta il profilo alla tua scheda.</li>
             <li>Esegui l'<b>Homing</b> se il laser ha i finecorsa.</li></ul></article>
         <article class="step" id="g4"><h3><span class="num">4</span><span class="en">Design or import</span><span class="it">Disegna o importa</span></h3>
           <ul class="en"><li>Tools: <kbd>V</kbd> select, <kbd>N</kbd> nodes, <kbd>L</kbd> lines, <kbd>R</kbd> rectangle, <kbd>E</kbd> ellipse, <kbd>P</kbd> polygon, <kbd>S</kbd> star, <kbd>F</kbd> shape gallery, <kbd>T</kbd> text.</li>
-            <li><kbd>Ctrl</kbd>+<kbd>I</kbd> imports SVG, DXF and images; <b>File → Open</b> also opens LightBurn projects.</li>
+            <li><kbd>Ctrl</kbd>+<kbd>I</kbd> imports SVG, DXF and images; <b>File → Open</b> also opens <code>.lbrn2</code> projects.</li>
             <li>Type exact sizes in the X / Y / W / H fields: they accept maths and units (<code>120/3</code>, <code>5cm</code>, <code>+10</code>).</li>
             <li>In the Workbench: right-click the bed for the radial menu, <kbd>Ctrl</kbd>+<kbd>F</kbd> to find any command by name.</li></ul>
           <ul class="it"><li>Strumenti: <kbd>V</kbd> selezione, <kbd>N</kbd> nodi, <kbd>L</kbd> linee, <kbd>R</kbd> rettangolo, <kbd>E</kbd> ellisse, <kbd>P</kbd> poligono, <kbd>S</kbd> stella, <kbd>F</kbd> galleria di forme, <kbd>T</kbd> testo.</li>
-            <li><kbd>Ctrl</kbd>+<kbd>I</kbd> importa SVG, DXF e immagini; <b>File → Apri</b> apre anche i progetti LightBurn.</li>
+            <li><kbd>Ctrl</kbd>+<kbd>I</kbd> importa SVG, DXF e immagini; <b>File → Apri</b> apre anche i progetti <code>.lbrn2</code>.</li>
             <li>Scrivi le misure esatte nei campi X / Y / L / A: accettano calcoli e unità (<code>120/3</code>, <code>5cm</code>, <code>+10</code>).</li>
             <li>Nel Banco: tasto destro sul piano per il menu radiale, <kbd>Ctrl</kbd>+<kbd>F</kbd> per trovare qualsiasi comando per nome.</li></ul></article>
         <article class="step" id="g5"><h3><span class="num">5</span><span class="en">Layers and material</span><span class="it">Strati e materiale</span></h3>
@@ -495,8 +495,8 @@ footer p{margin:0 0 8px}
   <div class="wrap foot">
     <div>
       <p><b style="color:var(--muted)">FreeLaserCut (FLC)</b> · © 2026 fringuello79 · <a href="https://github.com/fringuello79/FreeLaserCut/blob/main/LICENSE">GNU GPL 3.0</a></p>
-      <p class="en">Independent project, not affiliated with LightBurn Software or with any laser manufacturer. Product names are trademarks of their owners and are used only to describe compatibility.</p>
-      <p class="it">Progetto indipendente, non affiliato a LightBurn Software né ad alcun produttore di laser. I nomi dei prodotti sono marchi dei rispettivi titolari e sono citati solo per indicare la compatibilità.</p>
+      <p class="en">Independent project, not affiliated with any laser manufacturer. Product names are trademarks of their owners and are used only to describe compatibility.</p>
+      <p class="it">Progetto indipendente, non affiliato ad alcun produttore di laser. I nomi dei prodotti sono marchi dei rispettivi titolari e sono citati solo per indicare la compatibilità.</p>
     </div>
     <div>
       <p class="en">This page uses no cookies, no trackers and no external services. <a href="privacy.html">Privacy</a></p>
