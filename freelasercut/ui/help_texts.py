@@ -115,6 +115,12 @@ HELP = {
              "riempimento. I dati possono contenere variabili ({n}, {data}, colonne CSV): nelle serie ogni copia ha il suo "
              "codice."), [(tr("In negativo"), tr("per i materiali in cui il laser schiarisce")),
                           (tr("Zona di rispetto"), tr("margine vuoto che serve ai lettori"))]),
+    "sculpt": (tr("Scultura 3D da modello"), tr("Scegli un modello 3D (un file .stl o .obj, o uno di quelli inclusi), "
+               "l'altezza e lo spessore del materiale: FreeLaserCut lo taglia a fette orizzontali da incollare, con inciso "
+               "dove va la fetta sopra e il numero, oppure in sagome a incastro con le fessure. L'anteprima 3D mostra il "
+               "modello, la scultura finita e il montaggio pezzo per pezzo; i pezzi vengono sistemati sui fogli."),
+               [(tr("Spessore"), tr("misuralo con il calibro: fette e fessure dipendono da lui")),
+                (tr("Gioco delle fessure"), tr("più largo se gli incastri sono duri, più stretto se ballano"))]),
     "puzzle": (tr("Puzzle da foto"), tr("Seleziona una foto (e, se vuoi, una forma chiusa che hai disegnato) e scegli "
                "misure e numero di pezzi: FreeLaserCut disegna gli incastri, sempre diversi, e prepara due livelli, la foto "
                "da incidere e i tagli in modalità Linea, con il taglio per ultimo. Nella forma i pezzetti troppo piccoli "

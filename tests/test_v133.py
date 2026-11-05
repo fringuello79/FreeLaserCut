@@ -29,7 +29,7 @@ d = ImageDraw.Draw(im)
 d.ellipse((300, 200, 700, 600), fill=25)
 d.rectangle((800, 300, 1100, 500), fill=200)
 FX = [k for k in photo_fx.EFFECTS if k != "none"]
-check("effetti disponibili (9 della 0.13.3 più il ritratto a matita)", len(FX) == 10, FX)
+check("effetti disponibili (9 della 0.13.3, il ritratto a matita e lo schizzo del soggetto)", len(FX) == 11, FX)
 
 # ------------------------------------------------------------------ ogni effetto: forma, valori, bianco resta bianco
 g = np.asarray(im, np.float32)

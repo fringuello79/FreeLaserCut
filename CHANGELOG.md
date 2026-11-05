@@ -1,5 +1,21 @@
 # Novità di FreeLaserCut
 
+## 0.14.0 — 05/11/2026
+- **Scultura 3D da modello** (*Strumenti → Scultura 3D da modello…*, nel Banco il pulsante *Scultura*): un modello 3D diventa una scultura di legno da tagliare al laser.
+  - Si apre un file `.stl` (binario o di testo) o `.obj`, oppure si usa uno dei modelli inclusi per provare: cuore, stella, sfera, vaso, ciambella. Si scelgono l'asse verticale del modello, l'altezza finita e lo spessore del materiale.
+  - **A strati (da incollare)**: il modello viene tagliato a fette dello spessore del legno. Su ogni fetta è inciso, leggero, il contorno della fetta sopra (così si sa dove appoggiarla) e il suo numero, scritto dove possibile nella parte che la fetta successiva coprirà. Le fette con più parti si chiamano 12A, 12B…
+  - **A incastro (senza colla)**: sagome incrociate lungo X e lungo Y, con le fessure larghe quanto il legno (più il *Gioco delle fessure*, per legni più spessi o più sottili del previsto): le X hanno le fessure dall'alto, le Y dal basso. Il numero di sagome si sceglie o lo calcola *Automatico*. Le sagome che non si incastrerebbero vengono tolte con un avviso.
+  - **Anteprima 3D** fatta da FreeLaserCut, senza bisogno di schede grafiche particolari: si gira trascinando, si avvicina con la rotellina, doppio clic per tornare alla vista iniziale. Tre viste: il modello, la scultura in legno con i bordi bruciati e il montaggio pezzo per pezzo, con il cursore o con ▶ *Monta*.
+  - Anche i modelli scaricati meno curati si aprono: STL con qualche byte in più alla fine, modelli fatti di più corpi sovrapposti (restano pieni dove si toccano), triangoli girati al contrario, piccoli buchi nella superficie (i contorni si chiudono da soli, con un avviso). Con i modelli molto grandi (fino a 2 milioni di triangoli) l'anteprima usa una copia alleggerita, mentre i pezzi si calcolano sempre sul modello vero.
+  - Gli incroci delle sagome sono controllati su tutto lo spessore del legno, non solo sulla linea di mezzo: anche dove due sagome si sfiorano c'è la fessura, e si montano sempre facendo scendere le Y sulle X.
+  - *Crea i pezzi* li sistema sui fogli della misura scelta (di partenza quella del piano), con i fogli numerati. Due livelli nuovi in modalità *Linea*: «Scultura: segni» (leggero) e «Scultura: taglio», eseguiti per ultimi; prima di avviare vanno impostati per il materiale. Un pezzo più grande del foglio viene messo a destra, da sistemare a mano. Tutto si annulla con un solo *Annulla*.
+- **Nuovo effetto «Schizzo del soggetto (sfondo tolto)»** in *Prepara foto* → *Effetto*, per chi trovava il ritratto a matita troppo scuro e voleva il primo piano in risalto.
+  - Il programma trova da solo il soggetto in primo piano (persona, animale, oggetto) usando i colori della foto e toglie lo sfondo: resta carta bianca, niente da incidere.
+  - Il soggetto è disegnato con toni chiari, tratti che seguono il verso del pelo e delle forme e scuri pieni solo dove servono (occhi, naso, ombre profonde).
+  - *Intensità* scurisce la mano, *Dettaglio* aggiunge o toglie tratti. Il risultato è sempre lo stesso fra anteprima e incisione.
+  - Tutti gli altri effetti restano com'erano, compresi «Matita» e «Ritratto a matita».
+- Nuova prova automatica `tests/test_v140.py` (53 controlli).
+
 ## 0.13.6 — 05/11/2026
 - **Puzzle da foto** (*Strumenti → Puzzle da foto…*, nel Banco il pulsante *Puzzle*): la foto selezionata, o una da scegliere, diventa un puzzle da incidere e tagliare.
   - Si scelgono misure, numero di pezzi (da 4 a 1000), grandezza degli incastri e forma: rettangolo, cuore, cerchio, ovale o una forma chiusa disegnata da te (selezionala insieme alla foto).

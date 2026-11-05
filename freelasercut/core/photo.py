@@ -172,7 +172,8 @@ def shape_mask(h, w, mask, fade):
 def process(pil, st):
     """Immagine originale (PIL) + PhotoSettings -> nuova immagine PIL 'L' pronta per il livello Immagine."""
     gray, alpha = to_gray(pil)
-    rgb = np.asarray(pil.convert("RGB")) if (st.bg_remove and pil.mode not in ("L", "1", "I", "F")) else None
+    need_rgb = st.bg_remove or st.effect == "sketch"  # lo schizzo usa i colori per trovare il soggetto
+    rgb = np.asarray(pil.convert("RGB")) if (need_rgb and pil.mode not in ("L", "1", "I", "F")) else None
     gray = orient(gray, st.rotate, st.flip)
     if alpha is not None:
         alpha = orient(alpha, st.rotate, st.flip)
@@ -213,7 +214,8 @@ def process(pil, st):
 
         # dopo le regolazioni, prima di forma e sfondo (che restano bianchi, cioè senza righe né punti)
         g, scale = photo_fx.apply(np.clip(g, 0, 255).astype(np.float32), st.effect, st.width_mm,
-                                  st.effect_strength / 100.0, st.effect_detail / 100.0, st.effect_angle)
+                                  st.effect_strength / 100.0, st.effect_detail / 100.0, st.effect_angle,
+                                  rgb=rgb if st.effect == "sketch" else None)
         if scale != 1.0:  # foto molto definita: l'effetto è stato calcolato più piccolo (basta per il laser)
             h, w = g.shape
             keep = cv2.resize(keep, (w, h), interpolation=cv2.INTER_AREA)

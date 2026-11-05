@@ -60,6 +60,7 @@ SHORT = {
     "code": ("Codici", "Codes", "Códigos", "Codes", "Códigos"),
     "text_path": ("Testo curvo", "Curved text", "Texto curvo", "Texte courbe", "Texto curvo"),
     "puzzle": ("Puzzle", "Puzzle", "Puzle", "Puzzle", "Quebra-cab."),
+    "sculpt": ("Scultura", "Sculpture", "Escultura", "Sculpture", "Escultura"),
     "variables": ("Variabili", "Variables", "Variables", "Variables", "Variáveis"),
     "materials": ("Materiali", "Materials", "Mater.", "Matér.", "Materiais"),
     "material_test": ("Test", "Test", "Prueba", "Test", "Teste"),

@@ -248,6 +248,7 @@ if __name__ == "__main__":
     run_suite("test_v134.py", "Profili macchina da condividere, YouTube, 8 modelli nuovi verificati")
     run_suite("test_v135.py", "Ritratto a matita, partenza delle immagini, retino spiegato, Longer Ray5 10W e 20W")
     run_suite("test_v136.py", "Puzzle da foto, installatore che chiude il collegamento con Claude")
+    run_suite("test_v140.py", "Schizzo del soggetto (sfondo tolto), Scultura 3D da modello a strati e a incastro")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

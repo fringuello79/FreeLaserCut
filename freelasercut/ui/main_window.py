@@ -264,6 +264,9 @@ class MainWindow(QMainWindow):
                              tr("Rettangolo, cerchio, poligono o forma della galleria con larghezza, altezza e posizione precise")),
             "code": A(tr("Codice QR o a barre…"), self.code_dialog, "Ctrl+Alt+Q", "qr",
                       tr("QR, Code 128, EAN-13, EAN-8, UPC-A, Code 39, anche con numeri di serie")),
+            "sculpt": A(tr("Scultura 3D da modello…"), self.sculpt_dialog, None, "sculpt",
+                        tr("Un modello 3D (.stl, .obj o uno di quelli inclusi) diventa pezzi da tagliare, a strati da "
+                           "incollare o a incastro senza colla, con l'anteprima 3D del risultato e del montaggio")),
             "puzzle": A(tr("Puzzle da foto…"), self.puzzle_dialog, None, "puzzle",
                         tr("La foto selezionata (o una da scegliere) diventa un puzzle: incastri sempre diversi, anche "
                            "a forma di cuore, cerchio o di una forma tua; prima si incide la foto, poi si tagliano i pezzi")),
@@ -444,6 +447,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["code"])
         m.addAction(a["text_path"])
         m.addAction(a["puzzle"])
+        m.addAction(a["sculpt"])
         m.addSeparator()
         m.addAction(a["variables"])
         m.addAction(a["photo"])
@@ -1524,6 +1528,11 @@ class MainWindow(QMainWindow):
         s.apply(QTransform.fromTranslate(c.x() - b.center().x(), c.y() - b.center().y()))
         self.editor.add([s], tr("Crea codice"))
         return s
+
+    def sculpt_dialog(self, *_):
+        from .dialogs_sculpt import run_sculpt
+
+        return run_sculpt(self)
 
     def puzzle_dialog(self, *_):
         from .dialogs_puzzle import run_puzzle
