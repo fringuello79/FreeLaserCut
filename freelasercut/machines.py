@@ -55,6 +55,7 @@ VENDORS = (
     ("AlgoLaser", ("ALGO_LASER", "ALGOLASER", "ALGO LASER")),
     ("SainSmart", ("GENMITSU", "SAINSMART", "JINSOKU")),
     ("Makerbase", ("MKS DLC", "MKS_DLC", "MKSDLC", "DLC32")),  # scheda montata su tanti laser e telai fai-da-te
+    ("Mecpow", ("MECPOW",)),
 )
 
 _BAUDS = (115200, 250000, 230400, 57600, 38400, 9600)
@@ -106,9 +107,34 @@ CATALOG = (
     ("Longer Ray5 5W", "Longer", 400, 400, "5,5 W", 10000),
     # scheda di controllo, non una macchina: l'area vera si legge dalla scheda ($130/$131) collegandola
     ("Scheda Makerbase MKS DLC32", "Makerbase", 400, 400, "", 10000),
+    # 0.13.4: dati controllati due volte, in modo indipendente, sulle pagine ufficiali (SOURCES). Se i due lati
+    # dichiarati sono diversi e il produttore non dice quale è X, si usa il più piccolo per tutti e due (AREA_NOTE):
+    # la testa non va mai contro il telaio, e collegando la macchina l'area vera si legge dalla scheda.
+    ("Mecpow X3 5W", "Mecpow", 400, 400, "5 W", 10000),
+    ("Mecpow X3 Pro 10W", "Mecpow", 400, 400, "10 W", 10000),
+    ("Mecpow X4 22W / X4 Pro 22W", "Mecpow", 400, 400, "22 W", 22000),
+    ("Mecpow X4 Pro 40W", "Mecpow", 398, 398, "20–40 W", 30000),
+    ("Mecpow X5 Pro 33W", "Mecpow", 600, 600, "33 W", 28000),
+    ("Longer Ray5 Mini", "Longer", 130, 130, "2,5–3,5 W", 12000),
+    ("Creality CR-Laser Falcon 5W", "Creality", 400, 400, "5 W", 10000),
+    ("Atomstack A70 Max", "Atomstack", 800, 800, "35–70 W", 24000),
 )
+# area dichiarata dal produttore, quando è stata ridotta per prudenza (vedi sopra)
+AREA_NOTE = {
+    "Mecpow X3 5W": (410, 400), "Mecpow X3 Pro 10W": (410, 400), "Mecpow X4 22W / X4 Pro 22W": (410, 400),
+    "Mecpow X4 Pro 40W": (400, 398), "Longer Ray5 Mini": (130, 140), "Creality CR-Laser Falcon 5W": (400, 415),
+    "Atomstack A70 Max": (850, 800),
+}
 # pagine ufficiali da cui vengono i valori dei modelli aggiunti nella 0.12.0
 SOURCES = {
+    "Mecpow X3 5W": "https://mecpow.com/products/mecpow-x3-5w-laser-engraver",
+    "Mecpow X3 Pro 10W": "https://mecpow.com/products/mecpow-x3-pro-10w-laser-engraver",
+    "Mecpow X4 22W / X4 Pro 22W": "https://mecpow.com/products/x4-22w-powerful-laser-engraver",
+    "Mecpow X4 Pro 40W": "https://mecpow.com/products/mecpow-x4-pro-40w-laser-engraving-machine",
+    "Mecpow X5 Pro 33W": "https://mecpow.com/products/x5-pro-33w-laser-engraving-machine-with-air-pump",
+    "Longer Ray5 Mini": "https://www.longer.net/products/longer-ray5-mini-laser-engraver",
+    "Creality CR-Laser Falcon 5W": "https://www.crealityfalcon.com/products/cr-laser-falcon-5w-laser-engraver",
+    "Atomstack A70 Max": "https://atomstack.com/products/atomstack-a70-max",
     "Ortur Aufero Laser 1 (AL1)": "https://ortur.net/pages/support-al1",
     "Ortur Aufero Laser 2 (AL2)": "https://ortur.net/pages/support-al2",
     "Sculpfun SF-A9 40W": "https://www.sculpfun.com/products/sculpfun-sf-a9-40w-laser-engraver-cutting-machine",
@@ -146,7 +172,17 @@ NOTES = {
     "Sculpfun iCube Ultra 12W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
 }
 # spot del laser (mm) dichiarato dal produttore, dove è diverso dal valore comune (0,08 × 0,10)
-SPOTS = {"Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06), "Sculpfun SF-A9 40W": (0.10, 0.15),
+for _n, (_ax, _ay) in AREA_NOTE.items():
+    _bx, _by = next((c[2], c[3]) for c in CATALOG if c[0] == _n)
+    NOTES.setdefault(_n, tr("Area dichiarata dal produttore {0} × {1} mm: qui {2} × {3} per prudenza, perché non è "
+                            "indicato quale lato è l'asse X. Collegando la macchina, l'area vera si legge dalla scheda.",
+                            _ax, _ay, _bx, _by))
+NOTES["Atomstack A70 Max"] = NOTES["Atomstack A70 Max"] + " " + tr(
+    "Velocità massima dichiarata 400 mm/s (24.000 mm/min), senza dire se di incisione o di spostamento.")
+SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpow X4 22W / X4 Pro 22W": (0.08, 0.10),
+         "Mecpow X4 Pro 40W": (0.10, 0.15), "Mecpow X5 Pro 33W": (0.08, 0.10), "Longer Ray5 Mini": (0.04, 0.04),
+         "Creality CR-Laser Falcon 5W": (0.06, 0.06),
+         "Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06), "Sculpfun SF-A9 40W": (0.10, 0.15),
          "Sculpfun iCube Pro Max 10W": (0.08, 0.08), "Sculpfun iCube Ultra 12W": (0.08, 0.08),
          "Atomstack A5 Pro": (0.08, 0.08), "Creality Falcon A1 10W": (0.06, 0.08),
          "Creality Falcon2 Pro 22W / 40W": (0.08, 0.12), "Creality Falcon2 Pro 60W": (0.08, 0.15),

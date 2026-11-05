@@ -185,6 +185,16 @@ HELP = {
         "Poche domande: il modello del laser, l'angolo in cui sta lo 0 della macchina e, con il laser collegato, la "
         "prova delle frecce. Da qui FreeLaserCut ricava il verso degli assi, così la testa e il lavoro compaiono nel "
         "punto giusto del piano. Compare al primo avvio e si può rifare quando vuoi."), None),
+    "profile_export": (tr("Esporta il profilo della macchina"), tr(
+        "Salva il profilo attivo (area di lavoro, velocità, potenza, assi, correzione della scansione) in un file "
+        ".flcprofile, da condividere con chi ha la stessa macchina. Le prove fatte sulla tua macchina (assi provati, "
+        "coordinate dopo l'homing) non vengono esportate."), None),
+    "profile_import": (tr("Importa un profilo macchina"), tr(
+        "Apre un profilo .flcprofile condiviso da un altro utente. Ogni valore viene controllato e il profilo è segnato "
+        "«dalla comunità», separato dai modelli del catalogo verificati sulle pagine dei produttori. Niente viene "
+        "scritto nella scheda. Prima di incidere fai la prova delle frecce."), None),
+    "youtube": (tr("Video tutorial su YouTube"), tr("Apre nel browser il canale YouTube di FreeLaserCut, con i video "
+                                                   "tutorial."), None),
     "phone": (tr("Controllo dal telefono"), tr(
         "Spento di partenza. Se lo accendi, il telefono collegato allo stesso Wi-Fi apre una pagina (codice QR) con "
         "l'avanzamento del lavoro, la camera, Pausa e Stop, e può inviare la foto del test materiale. Dal telefono "

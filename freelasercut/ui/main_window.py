@@ -2,6 +2,7 @@
 """Finestra principale di FreeLaserCut 0.2: editor completo + controllo macchina."""
 import html
 import os
+import re
 import sys
 import time
 
@@ -283,6 +284,14 @@ class MainWindow(QMainWindow):
                         tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
                           tr("Porte USB, chip e driver, lettura della scheda e profilo adattato in automatico")),
+            "profile_export": A(tr("Esporta il profilo della macchina…"), self.export_profile, None, None,
+                                tr("Salva il profilo attivo in un file .flcprofile da condividere con chi ha la stessa "
+                                   "macchina")),
+            "profile_import": A(tr("Importa un profilo macchina…"), self.import_profile, None, None,
+                                tr("Apre un profilo .flcprofile condiviso da un altro utente: i valori vengono controllati "
+                                   "e il profilo è segnato «dalla comunità»")),
+            "youtube": A(tr("Video tutorial su YouTube"), self.open_youtube, None, None,
+                         tr("Apre il canale YouTube di FreeLaserCut con i video tutorial")),
             "help_mode": A(tr("Che cos'è?"), None, None, "help",
                            tr("Guida: passa il mouse su un comando per leggerne descrizione e opzioni (Maiusc+F1)"),
                            checkable=True),
@@ -435,7 +444,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["variables"])
         m.addAction(a["photo"])
         m.addAction(a["trace"])
-        menu(tr("&Laser"), ["connect", "identify", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
+        menu(tr("&Laser"), ["connect", "identify", "profile_export", "profile_import", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
                         "materials", "material_test", "scan_offset", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
@@ -445,7 +454,7 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
-        hm = menu(tr("&Aiuto"), ["help_mode", "-", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
+        hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
                                  "-", "support"])
         hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
         self.acts["update_auto"].setChecked(self.updates.enabled())
@@ -2608,6 +2617,68 @@ class MainWindow(QMainWindow):
         """Il lavoro non avanza e la macchina è ferma: lo dico e salvo il registro (resta tutto com'è)."""
         self.statusBar().showMessage(tr("Il lavoro sembra fermo ({0}). Registro salvato: per farti aiutare usa "
                                         "Aiuto → Crea rapporto per l'assistenza.", msg), 20000)
+
+    YOUTUBE = "https://www.youtube.com/@FreeLaserCut"
+
+    def open_youtube(self, *_):
+        """Aiuto → Video tutorial su YouTube (si apre nel browser)."""
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        QDesktopServices.openUrl(QUrl(self.YOUTUBE))
+
+    def export_profile(self, *_, path=None):
+        """Laser → Esporta il profilo della macchina (file .flcprofile)."""
+        from .. import profile_share
+
+        if not path:
+            start = os.path.join(os.path.expanduser("~"), re.sub(r"[^\w\- ]+", "_", self.profile.name).strip() +
+                                 profile_share.EXT)
+            path, _ = QFileDialog.getSaveFileName(self, tr("Esporta il profilo della macchina"), start,
+                                                  tr("Profilo FreeLaserCut (*{0})", profile_share.EXT))
+        if not path:
+            return None
+        if not path.lower().endswith(profile_share.EXT):
+            path += profile_share.EXT
+        try:
+            profile_share.export_profile(self.profile, path)
+        except OSError as ex:
+            QMessageBox.warning(self, tr("Esporta il profilo della macchina"), tr("Non riesco a salvare il file:\n{0}", ex))
+            return None
+        self.statusBar().showMessage(tr("Profilo «{0}» esportato: {1}", self.profile.name, path), 8000)
+        return path
+
+    def import_profile(self, *_, path=None):
+        """Laser → Importa un profilo macchina: controllato, segnato «dalla comunità», assi da provare."""
+        from .. import profile_share
+
+        if not path:
+            path, _ = QFileDialog.getOpenFileName(self, tr("Importa un profilo macchina"), os.path.expanduser("~"),
+                                                  tr("Profilo FreeLaserCut (*{0})", profile_share.EXT))
+        if not path:
+            return None
+        try:
+            p = profile_share.read_profile(path)
+        except ValueError as ex:
+            QMessageBox.warning(self, tr("Importa un profilo macchina"), tr("Profilo non importato: {0}", ex))
+            return None
+        base, n = p.name, 2
+        while os.path.exists(p.path()):  # non sovrascrivo un profilo che c'è già
+            p.name = f"{base} ({n})"
+            n += 1
+        try:
+            os.makedirs(os.path.dirname(p.path()), exist_ok=True)
+            p.save()
+        except OSError as ex:
+            QMessageBox.warning(self, tr("Importa un profilo macchina"), tr("Non riesco a salvare il profilo:\n{0}", ex))
+            return None
+        r = QMessageBox.question(self, tr("Importa un profilo macchina"), tr(
+            "Profilo «{0}» importato ({1:g} × {2:g} mm, {3}).\n\nViene da un altro utente: prima di incidere controlla "
+            "area di lavoro e potenza e fai la prova delle frecce (Impostazioni → Configurazione guidata).\n\n"
+            "Usarlo adesso?", p.name, p.bed_x, p.bed_y, profile_share.COMMUNITY))
+        if r == QMessageBox.Yes:
+            self.set_active_profile(p)
+        return p
 
     def show_support(self):
         from .dialogs_support import SupportDialog

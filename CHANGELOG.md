@@ -1,5 +1,27 @@
 # Novità di FreeLaserCut
 
+## 0.13.4 — 05/11/2026
+- **8 modelli pronti in più (48 in tutto)**, con i dati controllati due volte, in modo indipendente, sulle pagine ufficiali dei produttori:
+  - Mecpow X3 5W, X3 Pro 10W, X4 22W / X4 Pro 22W, X4 Pro 40W, X5 Pro 33W;
+  - Longer Ray5 Mini;
+  - Creality CR-Laser Falcon 5W;
+  - Atomstack A70 Max.
+
+  Ogni modello ha il link alla sua pagina ufficiale. Quando il produttore dichiara due lati diversi senza dire quale è l'asse X, FreeLaserCut usa il più corto per tutti e due, così la testa non va mai contro il telaio. Collegando la macchina l'area vera si legge comunque dalla scheda, e la nota del modello lo spiega. Le schede Mecpow si riconoscono dal messaggio di avvio.
+- **Esclusi per ora** perché le pagine ufficiali mancano o si contraddicono: Atomstack A24/X24 Ultra e X70 Max, Sculpfun S6 Pro, Ortur LM2 Pro S1, xTool D1, Two Trees TS3, NEJE Max 4, Wainlux. Restano da decidere, con dati parziali: Elegoo PhecdaLaser, Longer Ray5 20W (area diversa dal 10W), Sculpfun S30 Ultra.
+- **Profili macchina da condividere** (*Laser → Esporta il profilo della macchina…* / *Importa un profilo macchina…*, file `.flcprofile`).
+  - Chi ha regolato bene una macchina che non è in catalogo può passare il profilo ad altri.
+  - All'importazione ogni valore viene controllato. Sono rifiutati:
+    - aree o velocità fuori misura;
+    - comandi dell'aria diversi da M7, M8, M9, M106 e M107 (un profilo non può accendere il laser);
+    - file che non sono profili.
+  - Il profilo importato è segnato «dalla comunità», separato dai modelli verificati, e non ne sovrascrive mai uno esistente.
+  - Le prove fatte sulla macchina di chi l'ha esportato (assi provati, coordinate dopo l'homing) ripartono da zero, e il programma chiede la prova delle frecce.
+  - Niente viene scritto nella scheda.
+- **Canale YouTube**: *Aiuto → Video tutorial su YouTube* apre il canale [Free Laser Cut](https://www.youtube.com/@FreeLaserCut); il link è anche nel README e nella pagina web.
+- La pagina web elenca tutti i 48 modelli pronti (prima ne mostrava solo una parte).
+- Nuova prova automatica `tests/test_v134.py` (24 controlli).
+
 ## 0.13.3 — 05/11/2026
 - **Effetti per le foto** in *Prepara foto* → *Effetto*: **Matita**, **Carboncino**, **China (contorni)**, **Fumetto**, **Incisione a linee** (come le banconote), **Linee ondulate**, **Puntinismo**, **Posterizza**, **Rilievo**.
   - Ogni effetto ha due cursori: *Intensità* e un secondo che cambia nome secondo l'effetto (finezza del tratto, dettaglio, righe fitte, punti piccoli, numero di toni). Per le righe si sceglie anche la direzione: orizzontali, verticali o diagonali.

@@ -158,7 +158,7 @@ check("catalogo: almeno 39 modelli pronti più il generico", len(names) >= 40, l
 check("ordine: B1 40W per primo, poi alfabetico, il generico per ultimo",
       names[0] == "Longer B1 40W" and names[-1] == machines.GENERIC and names[1:-1] == sorted(names[1:-1], key=str.lower))
 new = [c[0] for c in machines.CATALOG if c[0] in machines.SOURCES]
-check("ogni modello nuovo ha la pagina ufficiale da cui vengono i valori", len(new) == 20 and
+check("ogni modello nuovo ha la pagina ufficiale da cui vengono i valori", len(new) >= 20 and
       all(machines.SOURCES[n].startswith("https://") for n in new), len(new))
 check("nessuna fonte che non sia del produttore (niente preset di altri programmi)",
       not any("lightburn" in u.lower() or "amazon" in u.lower() for u in machines.SOURCES.values()))
