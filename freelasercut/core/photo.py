@@ -33,6 +33,14 @@ class PhotoSettings:
     sharpen: float = 0.0  # 0..100
     mask: str = "none"  # none | oval | rounded
     edge_fade: float = 0.0  # 0..100: % del lato corto sfumato verso il bianco
+    # effetto artistico (photo_fx.EFFECTS): matita, carboncino, china, fumetto, linee, puntinismo…
+    effect: str = "none"
+    effect_strength: float = 50.0  # 0..100
+    effect_detail: float = 50.0  # 0..100
+    effect_angle: int = 0  # direzione delle righe (0, 45, 90, 135)
+    # larghezza della foto sul materiale (mm): gli effetti la usano per dare a righe e punti le misure giuste;
+    # 0 = non nota (10 punti/mm). Non è una modifica della foto (vedi is_identity)
+    width_mm: float = 0.0
 
     def to_dict(self):
         d = asdict(self)
@@ -49,10 +57,18 @@ class PhotoSettings:
         s.rotate = int(s.rotate) % 360 // 90 * 90
         if s.mask not in MASKS:
             s.mask = "none"
+        from .photo_fx import ANGLES, EFFECTS
+
+        if s.effect not in EFFECTS:
+            s.effect = "none"
+        if s.effect_angle not in ANGLES:
+            s.effect_angle = 0
         return s
 
     def is_identity(self):
-        return self == PhotoSettings()
+        from dataclasses import replace
+
+        return replace(self, width_mm=0.0) == PhotoSettings()
 
 
 # --------------------------------------------------------------------------- preset per materiale
@@ -192,6 +208,15 @@ def process(pil, st):
         sigma = max(1.0, min(h, w) / 600.0)
         blur = cv2.GaussianBlur(g, (0, 0), sigma)
         g = g + (st.sharpen / 50.0) * (g - blur)
+    if st.effect and st.effect != "none":
+        from . import photo_fx
+
+        # dopo le regolazioni, prima di forma e sfondo (che restano bianchi, cioè senza righe né punti)
+        g, scale = photo_fx.apply(np.clip(g, 0, 255).astype(np.float32), st.effect, st.width_mm,
+                                  st.effect_strength / 100.0, st.effect_detail / 100.0, st.effect_angle)
+        if scale != 1.0:  # foto molto definita: l'effetto è stato calcolato più piccolo (basta per il laser)
+            h, w = g.shape
+            keep = cv2.resize(keep, (w, h), interpolation=cv2.INTER_AREA)
     keep = np.minimum(keep, shape_mask(h, w, st.mask, st.edge_fade))
     g = g * keep + 255.0 * (1.0 - keep)
     return Image.fromarray(np.clip(np.rint(g), 0, 255).astype(np.uint8), "L")

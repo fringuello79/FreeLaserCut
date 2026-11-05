@@ -63,6 +63,8 @@ HELP = {
               "farà il laser. La foto originale resta nel progetto: riaprendo la finestra riparti da lì."),
               [(tr("Foto"), tr("ritaglio, rotazione, regolazioni, livelli automatici, nitidezza, rumore, sfondo, forma, "
                                "metodo e risoluzione; preset per materiale")),
+               (tr("Effetto"), tr("matita, carboncino, china, fumetto, incisione a linee, linee ondulate, puntinismo, "
+                                  "posterizza, rilievo; righe e punti hanno misure in mm sul materiale")),
                (tr("Linee e riempimento"), tr("la foto diventa vettoriale: fasce di tono come riempimenti, contorno e linee "
                                               "dei dettagli, ognuno sul suo livello")),
                (tr("Prova foto"), tr("4 quadrati della zona centrale con metodi diversi, per scegliere il migliore"))]),

@@ -261,13 +261,19 @@ w2.editor.dirty = False; w2.close()
 r = RectShape(20, 10); r.apply(QTransform.fromTranslate(100, 100)); w.editor.doc.add(r)
 w.ctl.connect_port(SIM_PORT); w.ctl.sim.speedup = 50
 until(lambda: w.ctl.board_settings and w.canvas.head_pos() is not None)
-w.ctl._wco = [30.0, 40.0, 0.0] if hasattr(w.ctl, "_wco") else None
+# origine utente lontana dal disegno: la fisso sulla scheda (G10 L20), così il dato arriva dalla scheda stessa
+w.ctl.goto_machine(30, 40) if hasattr(w.ctl, "goto_machine") else w.ctl.jog_to(30, 40)
+until(lambda: w.ctl.last_status.get("state") == "Idle" and abs(w.canvas.head_pos().x() - 30) < 0.2, 8)
+w.ctl.set_work_origin()
+until(lambda: abs(w.work_origin_on_bed()[0] - 30) < 0.2 and abs(w.work_origin_on_bed()[1] - 40) < 0.2, 8)
 lp = w.laser
 lp.start_from.setCurrentIndex(lp.start_from.findData("origin"))
 lp.anchor.value = 0
+got = w.goto_anchor()
 ox, oy = w.work_origin_on_bed()
 check("«Origine utente»: Porta la testa qui va sull'origine, dove il lavoro inciderà davvero (non sul disegno)",
-      w.goto_anchor() == (ox, oy) and "origine utente" in w.statusBar().currentMessage(), (w.goto_anchor(), (ox, oy)))
+      got is not None and abs(got[0] - ox) < 0.01 and abs(got[1] - oy) < 0.01 and abs(ox - 30) < 0.2 and
+      "origine utente" in w.statusBar().currentMessage(), (got, (ox, oy)))
 lp.start_from.setCurrentIndex(lp.start_from.findData("absolute"))
 # limiti software con l'asse Y invertito
 class FakeJob:

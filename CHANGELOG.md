@@ -1,5 +1,16 @@
 # Novità di FreeLaserCut
 
+## 0.13.3 — 05/11/2026
+- **Effetti per le foto** in *Prepara foto* → *Effetto*: **Matita**, **Carboncino**, **China (contorni)**, **Fumetto**, **Incisione a linee** (come le banconote), **Linee ondulate**, **Puntinismo**, **Posterizza**, **Rilievo**.
+  - Ogni effetto ha due cursori: *Intensità* e un secondo che cambia nome secondo l'effetto (finezza del tratto, dettaglio, righe fitte, punti piccoli, numero di toni). Per le righe si sceglie anche la direzione: orizzontali, verticali o diagonali.
+  - Righe e punti hanno misure in millimetri sul materiale, quindi l'anteprima mostra quello che verrà inciso anche con foto molto grandi.
+  - Le foto da molti megapixel si elaborano alla risoluzione che serve al laser (fino a 14 punti per mm), così anche gli effetti più pesanti restano veloci.
+  - Il bianco resta bianco: sfondo tolto, forma ovale e bordi sfumati non si incidono con nessun effetto (nel fumetto, nella posterizzazione e nel rilievo il tono più chiaro è bianco pieno).
+  - China e linee sono già in bianco e nero e si incidono veloci senza retinatura. Matita, carboncino e rilievo rendono meglio con i metodi a punti.
+  - La foto originale resta nel progetto: riaprendo *Prepara foto* l'effetto si cambia o si toglie. Funziona anche con *Linee e riempimento* (per esempio China → vettoriale) e con la *Prova foto*.
+- **Corretto (solo nelle prove automatiche):** la prova di «Porta la testa qui» con l'origine utente dipendeva dai tempi e su Windows falliva. Ora fissa l'origine sulla scheda simulata. Il programma era già corretto.
+- Nuova prova automatica `tests/test_v133.py`.
+
 ## 0.13.2 — 04/11/2026
 Versione di controllo: revisione completa delle parti delicate (comunicazione con la scheda, assi, configurazione guidata, foto) con una seconda lettura indipendente del codice. Ogni correzione ha la sua prova automatica (`tests/test_v132.py`, `tests/test_v130.py`).
 

@@ -1,0 +1,189 @@
+# FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
+"""Effetti artistici per le foto da incidere (senza interfaccia: si provano da soli).
+
+Ogni effetto lavora sul grigio della foto (float32 0..255, bianco = niente laser) e restituisce un grigio della
+stessa grandezza. Le misure degli effetti (larghezza delle righe, grandezza dei punti, morbidezza dei tratti)
+sono in millimetri sul materiale: così l'anteprima ridotta e la foto vera danno lo stesso risultato, e il passo
+delle righe resta quello scelto qualunque sia la risoluzione della foto.
+
+strength e detail vanno da 0 a 1 (i due cursori della finestra «Prepara foto»); angle in gradi per le righe.
+"""
+import cv2
+import numpy as np
+
+from freelasercut.i18n import tr  # noqa: E402
+
+# chiave: (nome, ha la direzione delle righe, testo del cursore «dettaglio»)
+EFFECTS = {
+    "none": (tr("Nessuno"), False, ""),
+    "pencil": (tr("Matita"), False, tr("Finezza del tratto")),
+    "charcoal": (tr("Carboncino"), False, tr("Finezza del tratto")),
+    "ink": (tr("China (contorni)"), False, tr("Dettaglio")),
+    "cartoon": (tr("Fumetto"), False, tr("Numero di toni")),
+    "lines": (tr("Incisione a linee"), True, tr("Righe fitte")),
+    "waves": (tr("Linee ondulate"), True, tr("Righe fitte")),
+    "stipple": (tr("Puntinismo"), False, tr("Punti piccoli")),
+    "posterize": (tr("Posterizza"), False, tr("Numero di toni")),
+    "emboss": (tr("Rilievo"), False, tr("Dettaglio")),
+}
+ANGLES = (0, 45, 90, 135)
+# lavoro al massimo a questa risoluzione (punti per mm): oltre i 254-318 dpi del laser non serve, e su una foto da
+# 24 megapixel gli effetti più pesanti (fumetto, carboncino) resterebbero veloci
+WORK_PX_PER_MM = 14.0
+
+
+def _px(mm, ppm, lo=0.5):
+    return max(lo, mm * ppm)
+
+
+def _blur(g, sigma):
+    return cv2.GaussianBlur(g, (0, 0), max(0.3, sigma))
+
+
+def _darkness(g, ppm, contrast=1.0):
+    """0 = bianco, 1 = nero, con i toni allargati (le foto spente danno comunque righe e punti ben distinti)."""
+    s = _blur(g, _px(0.12, ppm))
+    lo, hi = np.percentile(s, (1, 99))
+    if hi - lo > 8:
+        s = (s - lo) * (255.0 / (hi - lo))
+    d = 1.0 - np.clip(s, 0, 255) / 255.0
+    return np.clip(d, 0, 1) ** contrast
+
+
+def _levels(g, levels):
+    """Pochi toni piatti; il più chiaro è bianco pieno (lo sfondo chiaro non si incide), il più scuro nero."""
+    idx = np.clip(np.floor(g / 256.0 * levels), 0, levels - 1)
+    return (255.0 * (1.0 - (levels - 1 - idx) / (levels - 1))).astype(np.float32)
+
+
+def pencil(g, ppm, strength, detail):
+    """Schizzo a matita: la foto divisa per il suo negativo sfocato (si vedono solo i passaggi di tono)."""
+    blur = _px(0.25 + (1.0 - detail) * 1.6, ppm)
+    inv = 255.0 - g
+    b = _blur(inv, blur)
+    sk = np.clip(g * 256.0 / np.maximum(256.0 - b, 1.0), 0, 255)
+    k = 0.6 + strength * 1.8  # più forte = tratti più scuri
+    return np.clip(255.0 - (255.0 - sk) * k, 0, 255)
+
+
+def charcoal(g, ppm, strength, detail, seed=7):
+    """Carboncino: tratti larghi e scuri, ombre della foto e trama della carta."""
+    sk = pencil(g, ppm, 0.5, detail * 0.7) / 255.0
+    sk = sk ** (1.6 + strength * 1.6)
+    tone = cv2.createCLAHE(2.0, (8, 8)).apply(np.clip(_blur(g, _px(0.3, ppm)), 0, 255).astype(np.uint8))
+    base = sk * (0.45 + 0.55 * tone.astype(np.float32) / 255.0)
+    rng = np.random.default_rng(seed)
+    h, w = g.shape
+    grain = _blur(rng.normal(0, 1, (h, w)).astype(np.float32), _px(0.05, ppm, 0.6))
+    streak = cv2.blur(rng.normal(0, 1, (h, w)).astype(np.float32), (1, max(3, int(_px(0.8, ppm)))))
+    out = base + (grain * 0.05 + streak * 0.12) * (1.0 - base)
+    return np.clip(out, 0, 1) * 255.0
+
+
+def ink(g, ppm, strength, detail):
+    """China: solo le linee principali, nere su bianco (differenza di gaussiane «estesa»)."""
+    f = cv2.bilateralFilter(np.clip(g, 0, 255).astype(np.uint8), 7, 30, 5).astype(np.float32) / 255.0
+    sigma = _px(0.06 + (1.0 - detail) * 0.35, ppm, 0.6)
+    a, b = _blur(f, sigma), _blur(f, sigma * 1.6)
+    eps = 0.002 - strength * 0.014  # più forte = più linee
+    d = a - 0.985 * b
+    out = np.where(d >= eps, 1.0, 1.0 + np.tanh(80.0 * (d - eps)))
+    return np.where(out < 0.5, 0.0, 255.0).astype(np.float32)
+
+
+def cartoon(g, ppm, strength, detail):
+    """Fumetto: pochi toni piatti (foto lisciata) con i contorni a china sopra."""
+    u8 = np.clip(g, 0, 255).astype(np.uint8)
+    h, w = u8.shape
+    small = cv2.resize(u8, (max(8, w // 2), max(8, h // 2)), interpolation=cv2.INTER_AREA)
+    for _ in range(3 + int(strength * 6)):
+        small = cv2.bilateralFilter(small, 9, 30, 7)
+    sm = cv2.resize(small, (w, h), interpolation=cv2.INTER_LINEAR)
+    k = max(3, int(_px(0.35, ppm)) | 1)
+    sm = cv2.medianBlur(sm, min(k, 15)).astype(np.float32)
+    levels = 3 + int(round(detail * 4))  # 3..7 toni
+    q = _levels(sm, levels)
+    lines = ink(g, ppm, 0.35 + strength * 0.4, 0.35)
+    return np.minimum(q, lines)
+
+
+def lines(g, ppm, strength, detail, angle=0, wave=False):
+    """Incisione a linee (come le banconote): righe parallele che si ingrossano dove la foto è scura."""
+    h, w = g.shape
+    period = _px(0.45 + (1.0 - detail) * 1.4, ppm, 3.0)  # passo delle righe sul materiale
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    t = np.deg2rad(angle)
+    u = -xx * np.sin(t) + yy * np.cos(t)
+    if wave:
+        v = xx * np.cos(t) + yy * np.sin(t)
+        u = u + period * 0.9 * np.sin(v / (period * 2.2))
+    phase = (u / period) % 1.0
+    dist = np.abs(phase - 0.5) * 2.0  # 0 al centro della riga, 1 tra due righe
+    dark = _darkness(g, ppm, 1.5 - strength)
+    return np.where(dist < dark * 0.95, 0.0, 255.0).astype(np.float32)
+
+
+def stipple(g, ppm, strength, detail, seed=11):
+    """Puntinismo: punti tondi (misura in mm), più fitti dove la foto è scura."""
+    h, w = g.shape
+    dot = _px(0.12 + (1.0 - detail) * 0.35, ppm, 1.0)  # diametro del punto
+    cell = dot * 1.25
+    gw, gh = max(1, int(w / cell)), max(1, int(h / cell))
+    dark = cv2.resize(_darkness(g, ppm, 1.0), (gw, gh), interpolation=cv2.INTER_AREA)
+    rng = np.random.default_rng(seed)
+    p = np.clip(dark ** (1.4 - strength * 0.8), 0, 1)  # più forte = più punti nei mezzitoni
+    on = rng.random((gh, gw)) < p
+    out = np.full((h, w), 255, np.uint8)
+    ys, xs = np.nonzero(on)
+    jit = rng.uniform(-0.18, 0.18, (len(xs), 2)) * cell
+    r = max(1, int(round(dot / 2)))
+    for (x, y), (jx, jy) in zip(zip(xs, ys), jit):
+        cv2.circle(out, (int((x + 0.5) * cell + jx), int((y + 0.5) * cell + jy)), r, 0, -1, cv2.LINE_AA)
+    return out.astype(np.float32)
+
+
+def posterize(g, ppm, strength, detail):
+    """Pochi toni netti: sul legno diventano livelli di bruciatura ben distinti."""
+    u8 = np.clip(g, 0, 255).astype(np.uint8)
+    sm = u8
+    for _ in range(1 + int(strength * 4)):
+        sm = cv2.bilateralFilter(sm, 9, 30, 7)
+    levels = 2 + int(round(detail * 4))  # 2..6 toni
+    return _levels(sm.astype(np.float32), levels)
+
+
+def emboss(g, ppm, strength, detail):
+    """Rilievo: la foto sembra sbalzata, con la luce da in alto a sinistra."""
+    s = _blur(g, _px(0.05 + (1.0 - detail) * 0.4, ppm, 0.6))
+    k = np.array([[-2, -1, 0], [-1, 0, 1], [0, 1, 2]], np.float32)
+    e = cv2.filter2D(s, -1, k) * (0.6 + strength * 2.4) / max(1.0, ppm / 6.0)
+    # solo le ombre si incidono: le zone piatte restano bianche (sul legno un grigio dappertutto brucerebbe tutto),
+    # più un velo leggero della foto perché resti riconoscibile
+    shade = np.minimum(e, 0.0) * 1.4
+    veil = (255.0 - g) * 0.18
+    return np.clip(255.0 + shade - veil, 0, 255)
+
+
+_FUNCS = {"pencil": pencil, "charcoal": charcoal, "ink": ink, "cartoon": cartoon, "stipple": stipple,
+          "posterize": posterize, "emboss": emboss}
+
+
+def apply(g, effect, width_mm, strength=0.5, detail=0.5, angle=0):
+    """g: grigio float32 0..255. width_mm: larghezza della foto sul materiale (0 = sconosciuta, 10 punti/mm).
+    -> (grigio, fattore di scala usato): per le foto molto definite l'effetto si calcola a WORK_PX_PER_MM."""
+    if effect not in EFFECTS or effect == "none":
+        return g, 1.0
+    h, w = g.shape
+    ppm = w / width_mm if width_mm and width_mm > 0 else 10.0
+    scale = 1.0
+    if ppm > WORK_PX_PER_MM:
+        scale = WORK_PX_PER_MM / ppm
+        g = cv2.resize(g, (max(8, int(round(w * scale))), max(8, int(round(h * scale)))), interpolation=cv2.INTER_AREA)
+        ppm = WORK_PX_PER_MM
+    strength = float(min(max(strength, 0.0), 1.0))
+    detail = float(min(max(detail, 0.0), 1.0))
+    if effect in ("lines", "waves"):
+        out = lines(g, ppm, strength, detail, angle if angle in ANGLES else 0, wave=effect == "waves")
+    else:
+        out = _FUNCS[effect](g, ppm, strength, detail)
+    return np.clip(out, 0, 255).astype(np.float32), scale

@@ -390,6 +390,48 @@ class PhotoDialog(QDialog):
             self._val_label(w)
         f.addRow("", self.auto)
 
+        # ---- effetto artistico (matita, china, linee…): la foto originale resta, l'effetto si cambia o si toglie
+        from ..core import photo_fx
+
+        f.addRow(section(tr("Effetto")))
+        self.effect = QComboBox()
+        for k, (lab, _ang, _det) in photo_fx.EFFECTS.items():
+            self.effect.addItem(lab, k)
+        self.effect.setCurrentIndex(max(0, self.effect.findData(st.effect)))
+        self.effect.setToolTip(tr("Trasforma la foto in un disegno da incidere: matita, carboncino, china, fumetto, "
+                                  "righe come le banconote, puntinismo, pochi toni, rilievo. La foto originale resta "
+                                  "nel progetto: l'effetto si cambia o si toglie quando vuoi."))
+        self.effect.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.effect.setMinimumContentsLength(12)
+        f.addRow(tr("Effetto"), self.effect)
+        self.fx_strength = _slider(0, 100, st.effect_strength)
+        self.fx_strength.setToolTip(tr("Quanto è marcato l'effetto: tratti più scuri, più linee, più punti"))
+        self.fx_detail = _slider(0, 100, st.effect_detail)
+        self.fx_rows = []
+        for lab, w, fmt in ((tr("Intensità"), self.fx_strength, "{:d}"), (tr("Dettaglio"), self.fx_detail, "{:d}")):
+            vl = QLabel("")
+            vl.setFixedWidth(40)
+            vl.setFont(style.mono_font(9))
+            self.labels[w] = (vl, fmt)
+            h = QHBoxLayout()
+            h.addWidget(w, 1)
+            h.addWidget(vl)
+            name = QLabel(lab)
+            f.addRow(name, h)
+            self.fx_rows.append((name, w, vl))
+            w.valueChanged.connect(lambda _v, ww=w: self._val_label(ww))
+            self._val_label(w)
+        self.fx_detail_name = self.fx_rows[1][0]
+        self.fx_angle = QComboBox()
+        for a in photo_fx.ANGLES:
+            self.fx_angle.addItem({0: tr("Orizzontali"), 45: tr("Diagonali ↗"), 90: tr("Verticali"),
+                                   135: tr("Diagonali ↘")}[a], a)
+        self.fx_angle.setCurrentIndex(max(0, self.fx_angle.findData(st.effect_angle)))
+        self.fx_angle_name = QLabel(tr("Righe"))
+        f.addRow(self.fx_angle_name, self.fx_angle)
+        self.effect.currentIndexChanged.connect(self._effect_changed)
+        self._effect_changed()
+
         f.addRow(section(tr("Sfondo e forma")))
         self.bg = QCheckBox(tr("Togli lo sfondo uniforme"))
         self.bg.setChecked(st.bg_remove)
@@ -521,8 +563,10 @@ class PhotoDialog(QDialog):
             w.valueChanged.connect(self._later)
         for w in (self.auto, self.bg, self.flip, self.neg, self.real, self.v_outline, self.v_edges):
             w.toggled.connect(self._later)
-        for w in (self.mask, self.dither):
+        for w in (self.mask, self.dither, self.effect, self.fx_angle):
             w.currentIndexChanged.connect(self._later)
+        for w in (self.fx_strength, self.fx_detail):
+            w.valueChanged.connect(self._later)
         self.tones.valueChanged.connect(self._later)
         self.width_mm.valueChanged.connect(self._later)
         self.dpi.valueChanged.connect(self._later)
@@ -571,6 +615,20 @@ class PhotoDialog(QDialog):
         self.gam.setValue(int(round(v["gamma"] * 100)))
         self.con.setValue(int(round(v["contrast"])))
 
+    def _effect_changed(self, *_):
+        """Cursori dell'effetto: visibili solo con un effetto; la direzione solo per le righe."""
+        from ..core import photo_fx
+
+        key = self.effect.currentData() or "none"
+        _lab, has_angle, det = photo_fx.EFFECTS.get(key, photo_fx.EFFECTS["none"])
+        on = key != "none"
+        for name, w, vl in self.fx_rows:
+            for x in (name, w, vl):
+                x.setVisible(on)
+        self.fx_detail_name.setText(det or tr("Dettaglio"))
+        self.fx_angle.setVisible(on and has_angle)
+        self.fx_angle_name.setVisible(on and has_angle)
+
     def _tab(self, *_):
         vec = self.tabs.currentIndex() == 1
         self.ok_btn.setText(tr("Crea linee e riempimenti") if vec else tr("Applica alla foto"))
@@ -582,7 +640,14 @@ class PhotoDialog(QDialog):
                                    bg_remove=self.bg.isChecked(), bg_tolerance=float(self.bg_tol.value()),
                                    denoise=float(self.noise.value()), auto_levels=self.auto.isChecked(),
                                    local_contrast=float(self.local.value()), sharpen=float(self.sharp.value()),
-                                   mask=self.mask.currentData(), edge_fade=float(self.fade.value()))
+                                   mask=self.mask.currentData(), edge_fade=float(self.fade.value()),
+                                   effect=self.effect.currentData() or "none",
+                                   effect_strength=float(self.fx_strength.value()),
+                                   effect_detail=float(self.fx_detail.value()),
+                                   effect_angle=int(self.fx_angle.currentData() or 0),
+                                   # la larghezza serve solo agli effetti (misure di righe e punti in mm)
+                                   width_mm=float(self.width_mm.value()) if self.effect.currentData() not in
+                                   (None, "none") else 0.0)
 
     def adjust(self):
         return dict(brightness=float(self.bri.value()), contrast=float(self.con.value()), gamma=self.gam.value() / 100.0)

@@ -244,6 +244,7 @@ if __name__ == "__main__":
     run_suite("test_v125.py", "Foto da LightBurn uguali in «Prepara foto», maniglie incomplete")
     run_suite("test_v130.py", "Segni del piano spiegati, modalità esperto, configurazione guidata della macchina")
     run_suite("test_v132.py", "Foto e disegni su livelli separati, formati delle immagini")
+    run_suite("test_v133.py", "Effetti per le foto (matita, china, linee, puntinismo…)")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]
