@@ -37,6 +37,13 @@ DITHER_LABELS = {
     "jarvis": tr("Jarvis"), "stucki": tr("Stucki"), "atkinson": tr("Atkinson"), "bayer": tr("Ordinato (Bayer)"),
     "halftone": tr("Mezzetinte (retino)"),
 }
+# punto di partenza delle immagini: chiave -> nome nella finestra
+IMAGE_STARTS = {
+    "top": tr("Dall'alto, righe orizzontali"),
+    "bottom": tr("Dal basso, righe orizzontali"),
+    "left": tr("Da sinistra, righe verticali"),
+    "right": tr("Da destra, righe verticali"),
+}
 
 
 @dataclass
@@ -72,6 +79,7 @@ class CutSettings:
     dot_correction: float = 0.0  # mm
     halftone_cell: float = 1.0  # mm
     halftone_angle: float = 45.0
+    image_start: str = "top"  # immagini: da dove parte (vedi IMAGE_STARTS)
 
     @property
     def color(self):
@@ -86,7 +94,10 @@ class CutSettings:
     @classmethod
     def from_dict(cls, d):
         known = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
-        return cls(**known)
+        cs = cls(**known)
+        if not isinstance(cs.image_start, str) or cs.image_start not in IMAGE_STARTS:  # versione futura o file rovinato
+            cs.image_start = "top"
+        return cs
 
 
 def default_layer(index):

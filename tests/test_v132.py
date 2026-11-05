@@ -2,7 +2,7 @@
 """Versione 0.13.2: foto e disegni su livelli separati, formati delle immagini.
 - un portachiavi con foto e scritta: prima, se finivano sullo stesso livello, se ne incideva una sola;
 - foto su un livello non Immagine: ora c'è l'avviso (prima veniva saltata in silenzio);
-- LightBurn: stesso colore con foto e disegni → la foto su un livello suo, i disegni restano;
+- progetti .lbrn2: stesso colore con foto e disegni → la foto su un livello suo, i disegni restano;
 - immagini a 16 bit, foto dei telefoni ruotate (EXIF), trasparenza nei PNG senza canale alfa."""
 import sys, os, io, tempfile, base64
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -108,7 +108,7 @@ doc.layer(3).mode = "line"
 job = gcode.generate(doc, MachineProfile(), gcode.JobOptions())
 check("foto su un livello Linea (progetto vecchio): avviso chiaro invece del silenzio",
       any("foto su un livello che non è in modalità Immagine" in w for w in job.warnings), job.warnings)
-# ------------------------------------------------------------------ LightBurn: stesso colore, foto e scritta
+# ------------------------------------------------------------------ progetti .lbrn2: stesso colore, foto e scritta
 png = io.BytesIO(); Image.new("L", (20, 10), 0).save(png, "PNG")
 DATA = base64.b64encode(png.getvalue()).decode()
 xml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -122,7 +122,7 @@ fp = os.path.join(D, "misto.lbrn2"); open(fp, "w", encoding="utf-8").write(xml)
 doc, warns = lbrn.load(fp)
 imgs = [l for s in doc.shapes for l, _ in s.leaves() if isinstance(l, ImageShape)]
 vecs = [l for s in doc.shapes for l, _ in s.leaves() if not isinstance(l, ImageShape)]
-check("LightBurn, stesso colore con foto e rettangolo: il rettangolo resta su C00 con le sue impostazioni (riempimento)",
+check(".lbrn2, stesso colore con foto e rettangolo: il rettangolo resta su C00 con le sue impostazioni (riempimento)",
       vecs[0].layer == 0 and doc.layer(0).mode == "fill" and abs(doc.layer(0).power_max - 30) < 1e-6,
       (doc.layer(0).mode, doc.layer(0).power_max))
 check("…la foto va su un livello suo con le impostazioni da immagine", imgs[0].layer != 0 and

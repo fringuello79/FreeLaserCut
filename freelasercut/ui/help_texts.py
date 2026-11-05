@@ -30,10 +30,10 @@ DITHER_HELP = [
 HELP = {
     # ------------------------------------------------------------------ file
     "new": (tr("Nuovo progetto"), tr("Chiude il progetto aperto (chiede se salvarlo) e ne apre uno vuoto."), None),
-    "open": (tr("Apri"), tr("Apre un progetto FreeLaserCut (.flcut, anche i vecchi .fbrn di Freeburn) o LightBurn (.lbrn2, .lbrn) con forme, livelli e impostazioni."), None),
+    "open": (tr("Apri"), tr("Apre un progetto FreeLaserCut (.flcut, anche i vecchi .fbrn di Freeburn) o .lbrn2/.lbrn con forme, livelli e impostazioni."), None),
     "save": (tr("Salva"), tr("Salva il progetto. La prima volta chiede nome e cartella."), None),
     "save_as": (tr("Salva con nome"), tr("Salva una copia del progetto con un altro nome."), None),
-    "import": (tr("Importa"), tr("Aggiunge al progetto aperto disegni e immagini: SVG, DXF, PNG, JPG, BMP e progetti LightBurn. "
+    "import": (tr("Importa"), tr("Aggiunge al progetto aperto disegni e immagini: SVG, DXF, PNG, JPG, BMP e progetti .lbrn2. "
                "Puoi anche trascinare i file sulla tela."), None),
     "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
@@ -140,7 +140,7 @@ HELP = {
     "dither_prev": (tr("Mostra il dithering"), tr("Sulla tela le immagini appaiono già retinate come verranno incise."), None),
     # ------------------------------------------------------------------ laser
     "connect": (tr("Connetti / disconnetti"), tr("Collega FreeLaserCut al laser sulla porta scelta. Una porta USB la può usare un "
-                "solo programma per volta: chiudi LightBurn o LaserGRBL."), None),
+                "solo programma per volta: chiudi gli altri programmi che la usano."), None),
     "home": (tr("Homing"), tr("La testa va ai finecorsa e azzera la posizione: piano, testa e camera usano le stesse coordinate."), None),
     "unlock_m": ("Sblocca macchina ($X)", tr("Toglie l'allarme senza homing. Usalo solo se sai dove si trova la testa."), None),
     "frame": (tr("Contorno"), tr("La testa percorre il perimetro del lavoro, per vedere dove inciderà."),

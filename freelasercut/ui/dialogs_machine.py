@@ -357,7 +357,7 @@ class MachineWizard(QDialog):
     def _done(self, r, port):
         self.btn_probe.setEnabled(True)
         if not r:
-            self.summary.setText(tr("<span style='color:{0}'>La scheda non risponde su {1}.</span> Controlla che il laser sia acceso, che nessun altro programma usi la porta (LightBurn, LaserGRBL) e il driver USB.", C['warn'], port.device))
+            self.summary.setText(tr("<span style='color:{0}'>La scheda non risponde su {1}.</span> Controlla che il laser sia acceso, che nessun altro programma usi la porta e il driver USB.", C['warn'], port.device))
             self._set_result_enabled(False)
             return
         self.result = (r, port)

@@ -398,7 +398,7 @@ class PhotoDialog(QDialog):
         for k, (lab, _ang, _det) in photo_fx.EFFECTS.items():
             self.effect.addItem(lab, k)
         self.effect.setCurrentIndex(max(0, self.effect.findData(st.effect)))
-        self.effect.setToolTip(tr("Trasforma la foto in un disegno da incidere: matita, carboncino, china, fumetto, "
+        self.effect.setToolTip(tr("Trasforma la foto in un disegno da incidere: matita, ritratto a matita, carboncino, china, fumetto, "
                                   "righe come le banconote, puntinismo, pochi toni, rilievo. La foto originale resta "
                                   "nel progetto: l'effetto si cambia o si toglie quando vuoi."))
         self.effect.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)

@@ -17,6 +17,7 @@ from freelasercut.i18n import tr  # noqa: E402
 EFFECTS = {
     "none": (tr("Nessuno"), False, ""),
     "pencil": (tr("Matita"), False, tr("Finezza del tratto")),
+    "drawing": (tr("Ritratto a matita"), False, tr("Dettaglio")),
     "charcoal": (tr("Carboncino"), False, tr("Finezza del tratto")),
     "ink": (tr("China (contorni)"), False, tr("Dettaglio")),
     "cartoon": (tr("Fumetto"), False, tr("Numero di toni")),
@@ -164,7 +165,120 @@ def emboss(g, ppm, strength, detail):
     return np.clip(255.0 + shade - veil, 0, 255)
 
 
-_FUNCS = {"pencil": pencil, "charcoal": charcoal, "ink": ink, "cartoon": cartoon, "stipple": stipple,
+# ------------------------------------------------------------------ ritratto a matita
+# Come un disegno fatto a mano: contorni a tratti di matita che seguono i bordi (un po' più lunghi del bordo, come
+# fa chi disegna), ombre a tratteggio diagonale (incrociato dove è più scuro) e la grana della carta. I chiari
+# restano carta bianca: sul legno si incidono solo i tratti.
+
+def _line_kernel(length, angle_deg, width=1):
+    """Segmento lungo `length` pixel con l'angolo dato, normalizzato (somma 1): un tratto di matita."""
+    n = int(length) | 1
+    k = np.zeros((n, n), np.float32)
+    c = n // 2
+    t = np.deg2rad(angle_deg)
+    dx, dy = np.cos(t) * c, -np.sin(t) * c
+    cv2.line(k, (int(round(c - dx)), int(round(c - dy))), (int(round(c + dx)), int(round(c + dy))), 1.0,
+             max(1, int(width)), cv2.LINE_AA)
+    return k / max(float(k.sum()), 1e-6)
+
+
+def _pencil_strokes(s, ppm, detail):
+    """Contorni a tratti: 1 = carta, 0 = tratto pieno. Ogni bordo è ripassato con un tratto nella sua direzione."""
+    f = _blur(s, _px(0.08 + (1.0 - detail) * 0.25, ppm, 0.6)) / 255.0
+    gx = cv2.Sobel(f, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(f, cv2.CV_32F, 0, 1, ksize=3)
+    mag = np.sqrt(gx * gx + gy * gy)
+    # le piccole variazioni (pelle, grana, rumore della foto) non diventano tratti: soglia relativa alla foto, ma mai
+    # sotto un minimo assoluto (su uno sfondo quasi bianco il rumore non deve sembrare un bordo)
+    mag = np.maximum(mag - max(float(np.percentile(mag, 70)) * (1.2 - detail * 0.8), _EDGE_FLOOR), 0)
+    length = _px(0.9 + (1.0 - detail) * 1.6, ppm, 5)
+    width = max(1, int(round(0.07 * ppm)))
+    kernels = [_line_kernel(length, i * 22.5, width) for i in range(8)]
+    # direzione di ogni bordo: la più forte delle 8 (un filtro alla volta, per non tenere 8 copie della foto)
+    best = np.zeros(mag.shape, np.uint8)
+    top = cv2.filter2D(mag, -1, kernels[0])
+    for i in range(1, 8):
+        r = cv2.filter2D(mag, -1, kernels[i])
+        better = r > top
+        best[better] = i
+        np.maximum(top, r, out=top)
+    del top
+    out = np.zeros_like(mag)
+    for i, k in enumerate(kernels):
+        out += cv2.filter2D(np.where(best == i, mag, 0).astype(np.float32), -1, k)
+    norm = max(float(np.percentile(out, 99.5)), _STROKE_FULL)
+    strokes = 1.0 - np.clip(out / norm, 0, 1)
+    # niente tratti dove intorno è tutto (quasi) bianco: lo sfondo chiaro resta carta
+    k = max(3, int(length) | 1)
+    near = cv2.erode(s.astype(np.float32), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    gate = np.clip((_PAPER - near) / 10.0, 0, 1)
+    return 1.0 - (1.0 - strokes) * gate
+
+
+# soglie assolute dei contorni (gradiente di Sobel sul grigio 0..1 già sfumato)
+_EDGE_FLOOR = 0.04
+_STROKE_FULL = 0.25
+_PAPER = 247.0  # sopra questo grigio, con tutto il vicinato chiaro, è carta
+
+
+def _pencil_tones(strength):
+    """Distribuzione dei toni di un disegno a matita: tanta carta chiara, mezzi toni distesi, poche ombre piene."""
+    v = np.arange(256, dtype=np.float64)
+    bright = np.exp(-(255.0 - v) / 9.0) / 9.0
+    mid = ((v >= 105) & (v <= 225)) / 120.0
+    dark = np.exp(-(v - 90.0) ** 2 / (2 * 11.0 ** 2)) / (11.0 * np.sqrt(2 * np.pi))
+    p = (0.52 - 0.3 * strength) * bright + (0.37 + 0.12 * strength) * mid + (0.11 + 0.18 * strength) * dark
+    p = np.convolve(p, np.ones(9) / 9.0, "same")
+    return np.cumsum(p) / p.sum()
+
+
+def _hatching(shape, ppm, angle, rng):
+    """Trama di tratti paralleli (rumore «strisciato» nella direzione della mano), media 0. Si disegna sempre a
+    WORK_PX_PER_MM e poi si porta alla grandezza della foto: anteprima ridotta e foto vera hanno la stessa trama."""
+    h, w = shape
+    hw, hh = _mm_grid(shape, ppm)
+    t = cv2.filter2D(rng.random((hh, hw), dtype=np.float32), -1,
+                     _line_kernel(_px(2.5, WORK_PX_PER_MM, 9), angle, 1))
+    t = cv2.resize(t, (w, h), interpolation=cv2.INTER_AREA if hw > w else cv2.INTER_LINEAR)
+    return (t - t.mean()) / (t.std() + 1e-6)
+
+
+def _mm_grid(shape, ppm):
+    h, w = shape
+    sc = WORK_PX_PER_MM / ppm
+    return max(8, int(round(w * sc))), max(8, int(round(h * sc)))
+
+
+def drawing(g, ppm, strength, detail, seed=5):
+    """Ritratto a matita: contorni a tratti + ombre a tratteggio + grana della carta."""
+    s = cv2.bilateralFilter(np.clip(g, 0, 255).astype(np.uint8), int(min(max(_px(0.5, ppm), 3), 15)) | 1, 25,
+                            _px(0.35, ppm, 1.0))
+    lo, hi = (float(v) for v in np.percentile(s, (1, 99.5)))
+    sf = s.astype(np.float32)
+    lin = np.clip((sf - lo) * 255.0 / (hi - lo), 0, 255) if hi - lo > 8 else sf
+    # toni: metà quelli della foto, metà quelli tipici di un disegno a matita
+    hist = np.bincount(s.ravel(), minlength=256).astype(np.float64)
+    lut = np.searchsorted(_pencil_tones(strength), np.cumsum(hist) / hist.sum()).clip(0, 255).astype(np.float32)
+    J = _blur(0.5 * lut[s] + 0.5 * lin, _px(0.15, ppm)) / 255.0
+    d = np.clip(1.0 - J, 0, 1)
+    d = d * d * (3 - 2 * d)  # chiari ancora più chiari (carta), ombre piene
+    d = np.clip(d * (0.75 + 0.5 * strength), 0, 1)
+    d = d * np.clip((250.0 - sf) / 12.0, 0, 1)  # il bianco della foto resta carta (lo sfondo non si incide)
+    rng = np.random.default_rng(seed)
+    h1 = _hatching(g.shape, ppm, 45, rng)
+    h2 = _hatching(g.shape, ppm, 135, rng)
+    t1 = 1.0 - np.clip(d * 1.25, 0, 1) * np.clip(0.55 + 0.35 * h1, 0, 1)  # tratteggio dei mezzi toni
+    t2 = 1.0 - np.clip((d - 0.35) * 1.8, 0, 1) * np.clip(0.55 + 0.35 * h2, 0, 1)  # incrociato nelle ombre
+    strokes = _pencil_strokes(sf, ppm, detail) ** (0.6 + strength * 1.2)
+    hw, hh = _mm_grid(g.shape, ppm)
+    paper = cv2.resize(_blur(rng.standard_normal((hh, hw), dtype=np.float32), _px(0.04, WORK_PX_PER_MM, 0.6)),
+                       (g.shape[1], g.shape[0]), interpolation=cv2.INTER_AREA if hw > g.shape[1] else cv2.INTER_LINEAR)
+    paper /= paper.std() + 1e-6
+    out = strokes * t1 * t2 * (1.0 - 0.04 * np.clip(paper, -2, 2) * d)
+    return np.clip(out, 0, 1) * 255.0
+
+
+_FUNCS = {"pencil": pencil, "drawing": drawing, "charcoal": charcoal, "ink": ink, "cartoon": cartoon, "stipple": stipple,
           "posterize": posterize, "emboss": emboss}
 
 

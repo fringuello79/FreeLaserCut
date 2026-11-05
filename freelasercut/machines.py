@@ -10,6 +10,7 @@ Tre livelli di indizi, dal più debole al più forte:
 identify() mette insieme gli indizi e propone nome, profilo di partenza e avvisi.
 probe() apre la porta, trova la velocità giusta e legge banner, $I e $$ (la porta deve essere libera).
 """
+import math
 import re
 import time
 from dataclasses import dataclass, field
@@ -66,7 +67,9 @@ _BAUDS = (115200, 250000, 230400, 57600, 38400, 9600)
 CATALOG = (
     ("Longer B1 40W", "Longer", 450, 440, "44–48 W", 36000),
     ("Longer B1 20W / 30W", "Longer", 450, 440, "20–30 W", 36000),
-    ("Longer Ray5 10W / 20W", "Longer", 400, 400, "10–20 W", 20000),
+    # 0.13.5: la pagina ufficiale Longer distingue le aree (10W 400 × 400, 20W 400 × 365) e dà 10.000 mm/min
+    ("Longer Ray5 10W", "Longer", 400, 400, "10 W", 10000),
+    ("Longer Ray5 20W", "Longer", 365, 365, "20 W", 10000),
     ("Ortur Laser Master 3 (10W)", "Ortur", 400, 400, "10 W", 20000),
     ("Ortur Laser Master 3 (20W / 40W)", "Ortur", 400, 380, "20–40 W", 20000),
     ("Ortur Laser Master 2 Pro S2", "Ortur", 400, 430, "5–10 W", 10000),
@@ -123,7 +126,7 @@ CATALOG = (
 AREA_NOTE = {
     "Mecpow X3 5W": (410, 400), "Mecpow X3 Pro 10W": (410, 400), "Mecpow X4 22W / X4 Pro 22W": (410, 400),
     "Mecpow X4 Pro 40W": (400, 398), "Longer Ray5 Mini": (130, 140), "Creality CR-Laser Falcon 5W": (400, 415),
-    "Atomstack A70 Max": (850, 800),
+    "Atomstack A70 Max": (850, 800), "Longer Ray5 20W": (400, 365),
 }
 # pagine ufficiali da cui vengono i valori dei modelli aggiunti nella 0.12.0
 SOURCES = {
@@ -155,6 +158,8 @@ SOURCES = {
     "Genmitsu L8 40W": "https://www.sainsmart.com/products/l8-laser-engraver",
     "Genmitsu LE5040": "https://www.sainsmart.com/products/genmitsu-le5040-cnc-laser-engraver-machine",
     "Longer Ray5 5W": "https://longer3d.com/products/longer-ray5-laser-engraver",
+    "Longer Ray5 10W": "https://www.longer3d.com/products/longer-ray5-10w-laser-engraver",
+    "Longer Ray5 20W": "https://www.longer.net/products/longer-ray5-laser-engraver-5w-10w-20w",
 }
 # firmware che rispondono error:20 a G55 (visto nel registro di un Acmer S1, firmware 1.0.4 del 2025)
 NO_G55 = {"Acmer S1 (2,5W / 3,5W / 6W)"}
@@ -190,7 +195,7 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "AlgoLaser Alpha 22W": (0.16, 0.14), "AlgoLaser Alpha MK2 20W": (0.16, 0.14),
          "AlgoLaser Alpha MK2 40W": (0.175, 0.15), "AlgoLaser Delta 22W": (0.16, 0.14),
          "Genmitsu Jinsoku LC-40": (0.08, 0.05), "Genmitsu L8 20W": (0.07, 0.13), "Genmitsu L8 40W": (0.07, 0.13),
-         "Longer Ray5 5W": (0.08, 0.08)}
+         "Longer Ray5 5W": (0.08, 0.08), "Longer Ray5 10W": (0.06, 0.06), "Longer Ray5 20W": (0.08, 0.10)}
 GENERIC = tr("Altro laser GRBL (si legge dalla macchina)")
 
 
@@ -367,10 +372,15 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
         ident.notes.append(("info", tr("Longer B1 riconosciuto da firmware e area di lavoro. La potenza del modulo non si "
                                     "legge dalla scheda: confermala nel nome (20, 30 o 40 W).")))
     if ident.vendor and not ident.model and bx and by:
-        same = [n for n, v, cx, cy, *_ in CATALOG if v == ident.vendor and abs(bx - cx) <= 15 and abs(by - cy) <= 15]
+        def gap(n, cx, cy):  # distanza dall'area del catalogo o da quella dichiarata (anche con X e Y scambiati)
+            ax, ay = AREA_NOTE.get(n, (cx, cy))
+            return min(abs(bx - c1) + abs(by - c2) if abs(bx - c1) <= 15 and abs(by - c2) <= 15 else math.inf
+                       for c1, c2 in ((cx, cy), (ax, ay), (ay, ax)))
+
+        same = [n for n, v, cx, cy, *_ in CATALOG if v == ident.vendor and gap(n, cx, cy) < math.inf]
         if len(same) > 1:  # più modelli simili: tengo quelli con l'area più vicina
-            best = min(abs(bx - cx) + abs(by - cy) for n, v, cx, cy, *_ in CATALOG if n in same)
-            same = [n for n, v, cx, cy, *_ in CATALOG if n in same and abs(bx - cx) + abs(by - cy) <= best + 0.5]
+            best = min(gap(n, cx, cy) for n, v, cx, cy, *_ in CATALOG if n in same)
+            same = [n for n, v, cx, cy, *_ in CATALOG if n in same and gap(n, cx, cy) <= best + 0.5]
         if len(same) == 1:
             ident.model = same[0]
         elif same:

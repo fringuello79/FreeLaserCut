@@ -1,5 +1,5 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""Apertura dei progetti LightBurn (.lbrn2, e .lbrn della versione 0.9) con le impostazioni dei livelli.
+"""Apertura dei progetti .lbrn2 (e dei vecchi .lbrn) con le impostazioni dei livelli.
 
 Il formato è XML: impostazioni di taglio (<CutSetting>) e forme (<Shape>) con una matrice
 <XForm> "a b c d e f" (x' = a·x + c·y + e, y' = b·x + d·y + f), coordinate in mm con Y in su,
@@ -70,7 +70,7 @@ def cut_setting(el):
     cs.name = "" if re.fullmatch(r"C\d\d", name or "") else (name or "")
     sp = _f(el, "speed")
     if sp is not None:
-        cs.speed = round(sp * 60.0, 1)  # LightBurn salva sempre mm/s
+        cs.speed = round(sp * 60.0, 1)  # nel file le velocità sono sempre in mm/s
     cs.power_max = _f(el, "maxPower", cs.power_max)
     cs.power_min = _f(el, "minPower", 0.0 if cs.mode != "image" else cs.power_min)
     cs.passes = int(_f(el, "numPasses", 1))
@@ -91,7 +91,7 @@ def cut_setting(el):
     cs.crosshatch = _f(el, "crossHatch", 0) != 0
     cs.bidirectional = _f(el, "bidir", 1) != 0
     ov = _f(el, "overscanning", None)
-    if ov is not None:  # LightBurn la esprime in % della velocità; qui è una distanza (poi limitata ai bordi)
+    if ov is not None:  # nel file è in % della velocità; qui è una distanza (poi limitata ai bordi)
         cs.overscan = 0.0 if ov <= 0 else 2.5
     cs.negative = _f(el, "negImage", 0) != 0
     cs.dot_correction = _f(el, "dotWidth", 0.0) or 0.0
@@ -198,7 +198,7 @@ def _path_of(el, ctx):
 
 
 def _legacy_path(el):
-    """Formato .lbrn (LightBurn 0.9): <V vx= vy= c0x= …/> e <P T="L|B" p0= p1=/>."""
+    """Formato .lbrn (il più vecchio): <V vx= vy= c0x= …/> e <P T="L|B" p0= p1=/>."""
     vs = el.findall("V")
     if not vs:
         return None
@@ -267,7 +267,7 @@ def _text(el, ctx, tf):
                   letter_spacing=float(el.get("LS", 0) or 0) * size / 100.0,
                   line_spacing=1.0 + float(el.get("LnS", 0) or 0) / 100.0)
     t.set_transform(tf)
-    # se c'è il tracciato di riserva (testo già impaginato da LightBurn), allineo il nostro a quello
+    # se c'è il tracciato di riserva (testo già impaginato nel file), allineo il nostro a quello
     backup = el.find("BackupPath")
     if backup is not None:
         bp = _path_of(backup, ctx)
@@ -306,9 +306,9 @@ def _bitmap(el, ctx, tf):
     s.brightness = float(el.get("Brightness", 0) or 0)
     s.contrast = float(el.get("Contrast", 0) or 0)
     s.gamma = float(el.get("Gamma", 1) or 1)
-    # In LightBurn la prima riga di pixel dell'immagine sta a y = −H/2 nelle coordinate della forma (come in un
+    # Nel file .lbrn2 la prima riga di pixel dell'immagine sta a y = −H/2 nelle coordinate della forma (come in un
     # sistema con Y in giù); in FreeLaserCut la prima riga sta in alto (y = h). Senza questo ribaltamento le foto
-    # salvate da LightBurn (che di solito hanno XForm "1 0 0 −1 …") si aprivano specchiate in verticale.
+    # dei progetti .lbrn2 (che di solito hanno XForm "1 0 0 −1 …") si aprivano specchiate in verticale.
     # Se alla fine resta uno specchio (es. XForm "1 0 0 1"), lo sposto nei pixel: sul piano è uguale, ma
     # «Prepara foto», che mostra i pixel, la fa vedere come sul piano invece che specchiata.
     pix, m = bake_mirror(pix, w, h, QTransform(1, 0, 0, -1, -w / 2.0, h / 2.0) * tf)
@@ -319,12 +319,12 @@ def _bitmap(el, ctx, tf):
 
 # ------------------------------------------------------------------ progetto
 def load(path, apply_variables=True):
-    """-> (Document, avvisi). Il documento ha forme, livelli e numerazione del progetto LightBurn."""
+    """-> (Document, avvisi). Il documento ha forme, livelli e numerazione del progetto."""
     with open(path, "rb") as fh:
         raw = fh.read()
     root = ET.fromstring(raw)
     if root.tag not in ("LightBurnProject",):
-        raise ValueError(tr("non è un progetto LightBurn"))
+        raise ValueError(tr("non è un progetto .lbrn2/.lbrn valido"))
     doc = Document()
     ctx = _Ctx(root, doc)
     img_cs = {}
@@ -339,7 +339,7 @@ def load(path, apply_variables=True):
         s = shape_from(el, ctx)
         if s is not None:
             doc.add(s)
-    # In LightBurn lo stesso colore può avere sia disegni (CutSetting) sia foto (CutSetting_Img), con impostazioni
+    # Nei progetti .lbrn2 lo stesso colore può avere sia disegni (CutSetting) sia foto (CutSetting_Img), con impostazioni
     # diverse. In FreeLaserCut un livello ha una sola modalità: le foto di quel colore vanno su un livello libero
     # con le impostazioni da immagine, i disegni restano dove sono con le loro (prima le foto vincevano e i
     # disegni di quel colore sparivano dal lavoro).
@@ -357,7 +357,7 @@ def load(path, apply_variables=True):
             src = img_cs.get(index) or default_layer(free)
             cs = CutSettings(**{**src.to_dict(), "index": free})
             if re.fullmatch(r"C\d\d", cs.name or ""):
-                cs.name = ""  # «C00» di LightBurn su un altro livello confonderebbe: nome automatico
+                cs.name = ""  # «C00» del progetto su un altro livello confonderebbe: nome automatico
             cs.mode = "image"
             doc.layers[free] = cs
             for leaf in imgs:
@@ -389,7 +389,7 @@ def load(path, apply_variables=True):
 
 
 def import_shapes(path, doc):
-    """Importa le forme in un documento esistente; i livelli non ancora usati prendono le impostazioni LightBurn."""
+    """Importa le forme in un documento esistente; i livelli non ancora usati prendono le impostazioni del progetto."""
     src, warnings = load(path, apply_variables=False)
     used = {leaf.layer for s in doc.shapes for leaf, _ in s.leaves()}
     for idx, cs in src.layers.items():

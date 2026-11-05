@@ -161,7 +161,7 @@ new = [c[0] for c in machines.CATALOG if c[0] in machines.SOURCES]
 check("ogni modello nuovo ha la pagina ufficiale da cui vengono i valori", len(new) >= 20 and
       all(machines.SOURCES[n].startswith("https://") for n in new), len(new))
 check("nessuna fonte che non sia del produttore (niente preset di altri programmi)",
-      not any("lightburn" in u.lower() or "amazon" in u.lower() for u in machines.SOURCES.values()))
+      not any(b in u.lower() for b in ("forum", "amazon", "ebay", "aliexpress", "reddit", "facebook") for u in machines.SOURCES.values()))
 p = machines.preset_profile("AlgoLaser Delta 22W")
 check("profilo pronto AlgoLaser Delta 22W: 440 × 415 mm, 30000 mm/min, spot 0,16 × 0,14",
       (p.bed_x, p.bed_y, p.max_rate_x, p.spot_x_mm, p.spot_y_mm) == (440.0, 415.0, 30000.0, 0.16, 0.14))

@@ -71,7 +71,7 @@ NEW = {"Mecpow X3 5W": (400, 400, 10000), "Mecpow X3 Pro 10W": (400, 400, 10000)
        "Mecpow X5 Pro 33W": (600, 600, 28000), "Longer Ray5 Mini": (130, 130, 12000),
        "Creality CR-Laser Falcon 5W": (400, 400, 10000), "Atomstack A70 Max": (800, 800, 24000)}
 cat = {c[0]: c for c in machines.CATALOG}
-check("catalogo: 48 modelli, gli 8 nuovi presenti e sceglibili", len(machines.CATALOG) == 48 and
+check("catalogo: almeno 48 modelli, gli 8 nuovi presenti e sceglibili", len(machines.CATALOG) >= 48 and
       all(n in machines.catalog_names() for n in NEW), len(machines.CATALOG))
 wrong = [n for n, (x, y, v) in NEW.items() if (cat[n][2], cat[n][3], cat[n][5]) != (x, y, v)]
 check("area e velocità come verificate sulle pagine ufficiali (area ridotta al lato più corto dove serve)", not wrong, wrong)

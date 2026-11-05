@@ -795,7 +795,7 @@ class MainWindow(QMainWindow):
             self.lbl_fs.setText("")
             if msg and msg.startswith(("Impossibile", "Connessione persa", "Errore")):
                 QMessageBox.warning(self, tr("Connessione"), msg + tr("\n\nControlla che il cavo USB sia collegato, "
-                                    "la macchina accesa e che nessun altro programma (LightBurn, LaserGRBL) usi la porta."))
+                                    "la macchina accesa e che nessun altro programma usi la porta."))
         else:
             self.set_pill("Idle")
             self.statusBar().showMessage(msg, 4000)

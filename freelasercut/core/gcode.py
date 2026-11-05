@@ -424,13 +424,15 @@ def _clamp_dir(px, py, dx, dy, dist, bed):
     return px + dx * tmax, py + dy * tmax
 
 
-def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None):
-    """Emette righe di scansione: [(y, [(xa, xb, potenza%), ...])] nel sistema ruotato di 'rot'."""
+def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None, first_forward=True, scan_fix=True):
+    """Emette righe di scansione: [(y, [(xa, xb, potenza%), ...])] nel sistema ruotato di 'rot'.
+    first_forward=False: la prima riga va nel verso opposto a 'rot' (es. righe verticali che partono dall'alto).
+    scan_fix=False: niente correzione avanti/indietro (è misurata lungo X: non vale per le righe verticali)."""
     cos_a, sin_a = rot
     # correzione della scansione avanti e indietro: ogni riga si sposta di metà sfasamento contro il proprio verso,
     # così andata e ritorno si incontrano (il laser si accende e si spegne con un piccolo ritardo)
     half = 0.0
-    if cs.bidirectional and w.scan_offset is not None:
+    if cs.bidirectional and scan_fix and w.scan_offset is not None:
         half = 0.5 * float(w.scan_offset(cs.speed))
     shift = [0.0]
 
@@ -446,7 +448,7 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None):
             return x * cos_a - y * sin_a, x * sin_a + y * cos_a
 
     dxu, dyu = cos_a, sin_a  # direzione di scansione nel piano
-    forward = True
+    forward = bool(first_forward)
     for y, segs in lines:
         if not segs:
             continue
@@ -585,11 +587,38 @@ def _moves_of(lines, x0, y0):
     return out
 
 
+def _runs(vals, origin, step, shrink):
+    """Una riga (o colonna) di potenze -> tratti [(da, a, potenza%)]; i buchi spenti li percorre _emit_scan a S0."""
+    nz = np.nonzero(vals > 0)[0]
+    if not len(nz):
+        return []
+    segs = []
+    j, end = nz[0], nz[-1]
+    while j <= end:
+        v = vals[j]
+        k = j
+        while k + 1 <= end and vals[k + 1] == v:
+            k += 1
+        a = origin + (j - 0.5) * step
+        b = origin + (k + 0.5) * step
+        if v > 0:
+            if shrink and b - a > 2 * shrink + 0.02:
+                a += shrink
+                b -= shrink
+            segs.append((a, b, float(v)))
+        j = k + 1
+    return segs
+
+
 def _image_lines(leaf, tf, cs, s_levels, bed):
-    """Una forma immagine -> righe di scansione [(y, [(xa, xb, potenza%), ...])], angolo 0."""
+    """Una forma immagine -> (righe [(y, [(xa, xb, potenza%), ...])], rotazione, verso della prima riga).
+
+    cs.image_start sceglie da dove parte: «top» dall'alto (righe orizzontali, come sempre), «bottom» dal basso,
+    «left» / «right» con righe verticali da sinistra / da destra, la prima riga dall'alto verso il basso.
+    I punti incisi sono gli stessi: cambia solo l'ordine in cui la testa li percorre."""
     img = leaf._doc_image if hasattr(leaf, "_doc_image") else None
     if img is None:
-        return []
+        return [], (1.0, 0.0), True
     dark = imaging.to_dark(img)
     step = 25.4 / max(cs.dpi, 10.0)
     r = tf.map(leaf.local_path()).boundingRect()
@@ -599,7 +628,7 @@ def _image_lines(leaf, tf, cs, s_levels, bed):
     ny = max(1, int(math.ceil((r.bottom() - y0) / step)) + 1)
     inv, ok = tf.inverted()
     if not ok:
-        return []
+        return [], (1.0, 0.0), True
     grid = imaging.sample_to_grid(dark, inv, leaf.w, leaf.h, x0, y0, nx, ny, step)
     grid = imaging.adjust(grid, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
     cell_px = max(cs.halftone_cell / step, 2.0)
@@ -610,34 +639,23 @@ def _image_lines(leaf, tf, cs, s_levels, bed):
         power = np.where(q > 0, pmin + (pmax - pmin) * q, 0.0)
     else:
         power = np.where(vals > 0.5, pmax, 0.0)
-    lines = []
     shrink = cs.dot_correction / 2.0 if cs.dither != "grayscale" else 0.0
-    for i in range(ny - 1, -1, -1):  # dall'alto verso il basso
-        row = power[i]
-        nz = np.nonzero(row > 0)[0]
-        if not len(nz):
-            continue
-        y = y0 + i * step
-        segs = []
-        j = nz[0]
-        end = nz[-1]
-        while j <= end:
-            v = row[j]
-            k = j
-            while k + 1 <= end and row[k + 1] == v:
-                k += 1
-            xa = x0 + (j - 0.5) * step
-            xb = x0 + (k + 0.5) * step
-            if v > 0:
-                if shrink and xb - xa > 2 * shrink + 0.02:
-                    xa += shrink
-                    xb -= shrink
-                segs.append((xa, xb, float(v)))
-            j = k + 1
-        # i tratti spenti fra quelli accesi vengono percorsi a S0 da _emit_scan
+    start = getattr(cs, "image_start", "top")
+    lines = []
+    if start in ("left", "right"):
+        # righe verticali: nel sistema ruotato di 90° la riga è a v = −x e i tratti corrono lungo y
+        cols = range(nx) if start == "left" else range(nx - 1, -1, -1)
+        for j in cols:
+            segs = _runs(power[:, j], y0, step, shrink)
+            if segs:
+                lines.append((-(x0 + j * step), segs))
+        return lines, (0.0, 1.0), False
+    rows = range(ny - 1, -1, -1) if start != "bottom" else range(ny)  # di partenza dall'alto verso il basso
+    for i in rows:
+        segs = _runs(power[i], x0, step, shrink)
         if segs:
-            lines.append((y, segs))
-    return lines
+            lines.append((y0 + i * step, segs))
+    return lines, (1.0, 0.0), True
 
 
 # ======================================================================= lavoro
@@ -744,9 +762,10 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
                 job.warnings.append(tr("{0}: in modalità Immagine le forme vettoriali vengono ignorate", cs.label()))
             for leaf, tf in imgs:
                 leaf._doc_image = doc.images.get(leaf.image_id)
-                lines = _image_lines(leaf, tf, cs, opts.gray_levels, bed)
+                lines, rot, first = _image_lines(leaf, tf, cs, opts.gray_levels, bed)
                 for _ in range(max(1, cs.passes)):
-                    _emit_scan(w, lines, (1.0, 0.0), cs, bed, opts.raster_gap_g1)
+                    _emit_scan(w, lines, rot, cs, bed, opts.raster_gap_g1, first_forward=first,
+                               scan_fix=rot == (1.0, 0.0))
         else:
             if any(isinstance(l, ImageShape) for l, _ in items):
                 job.warnings.append(tr("{0}: le foto su un livello che non è in modalità Immagine non vengono incise: "

@@ -106,9 +106,9 @@ TOOLS = [
            "thickness_mm": N}, ["layer", "name"])),
     ("flc_set_variables", "set_variables", "Testo variabile: prossimo numero di serie, incremento, cifre, avanzamento "
      "automatico, file CSV.", _obj({"serial": I, "step": I, "pad": I, "auto": B, "csv_path": S})),
-    ("flc_import_file", "import_file", "Importa un file dal PC: SVG, DXF, PNG/JPG/BMP, progetti LightBurn .lbrn2.",
+    ("flc_import_file", "import_file", "Importa un file dal PC: SVG, DXF, PNG/JPG/BMP, progetti .lbrn2.",
      _obj({"path": S, "x": N, "y": N}, ["path"])),
-    ("flc_open_project", "open_project", "Apre un progetto .flcut o LightBurn .lbrn2/.lbrn.", _obj({"path": S}, ["path"])),
+    ("flc_open_project", "open_project", "Apre un progetto .flcut, .lbrn2 o .lbrn.", _obj({"path": S}, ["path"])),
     ("flc_save_project", "save_project", "Salva il progetto (.flcut).", _obj({"path": S})),
     ("flc_new_project", "new_project", "Nuovo progetto vuoto (rifiuta se ci sono modifiche non salvate).", _obj({})),
     ("flc_trace_image", "trace_image", "Vettorizza un'immagine: mode outline (contorni) o centerline (linea centrale).",

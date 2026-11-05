@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from ..core import ops, text as textmod
 from ..core import shapes_lib
 from ..core.document import (
-    DITHER_LABELS, DITHERS, LAYER_COLORS, MODE_LABELS, MODES, EllipseShape, GroupShape, ImageShape, PathShape,
+    DITHER_LABELS, DITHERS, IMAGE_STARTS, LAYER_COLORS, MODE_LABELS, MODES, EllipseShape, GroupShape, ImageShape, PathShape,
     CodeShape, PolygonShape, RectShape, SpecialShape, TextPathShape, TextShape,
 )
 from freelasercut.i18n import tr  # noqa: E402
@@ -426,9 +426,29 @@ class CutSettingsDialog(QDialog):
         self.dotc.setToolTip(tr("Accorcia ogni punto acceso: compensa lo spot del laser (circa metà della sua larghezza)."))
         iff.addRow(tr("Correzione punto"), self.dotc)
         self.hcell = _spin(0.2, 10, cs.halftone_cell, 2, 0.1, " mm")
+        self.hcell.setToolTip(tr("Solo con il metodo «Mezzetinte (retino)»: la foto diventa punti tondi, come nelle foto "
+                                 "dei giornali. La cella è la distanza fra un punto e l'altro: più grande = punti grossi e "
+                                 "ben visibili, più piccola = immagine più fine. Sul legno di solito 0,5–1 mm."))
         self.hangle = _spin(0, 90, cs.halftone_angle, 0, 5, " °")
-        iff.addRow(tr("Retino: cella"), self.hcell)
-        iff.addRow(tr("Retino: angolo"), self.hangle)
+        self.hangle.setToolTip(tr("Solo con il metodo «Mezzetinte (retino)»: inclinazione della griglia dei punti. "
+                                  "45° è il classico e si nota meno a occhio. Non cambia il movimento della testa."))
+        self.hcell_name = QLabel(tr("Retino: cella"))
+        self.hangle_name = QLabel(tr("Retino: angolo"))
+        for lab_, w_ in ((self.hcell_name, self.hcell), (self.hangle_name, self.hangle)):
+            lab_.setToolTip(w_.toolTip())
+            iff.addRow(lab_, w_)
+        self.dither.currentIndexChanged.connect(self._dither_changed)
+        self._dither_changed()
+        self.istart = QComboBox()
+        for k, lab in IMAGE_STARTS.items():
+            self.istart.addItem(lab, k)
+        self.istart.setCurrentIndex(max(0, self.istart.findData(cs.image_start)))
+        self.istart.setToolTip(tr("Da dove comincia l'incisione della foto e in che verso vanno le righe. I punti incisi "
+                                  "sono gli stessi, cambia solo il percorso della testa. Di solito le righe orizzontali "
+                                  "sono più veloci: lungo X si muove solo la testa, lungo Y tutto il portale. La "
+                                  "correzione della scansione avanti e indietro, misurata lungo X, vale per le righe "
+                                  "orizzontali."))
+        iff.addRow(tr("Partenza della foto"), self.istart)
         self.bidir_i = QCheckBox(tr("Bidirezionale"))
         self.bidir_i.setChecked(cs.bidirectional)
         iff.addRow("", self.bidir_i)
@@ -443,6 +463,12 @@ class CutSettingsDialog(QDialog):
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         v.addWidget(bb)
+
+    def _dither_changed(self, *_):
+        """Cella e angolo del retino servono solo alle mezzetinte: con gli altri metodi restano grigi."""
+        on = self.dither.currentData() == "halftone"
+        for w_ in (self.hcell, self.hangle, self.hcell_name, self.hangle_name):
+            w_.setEnabled(on)
 
     def _mode_tab(self):
         m = self.mode.currentData()
@@ -463,7 +489,8 @@ class CutSettingsDialog(QDialog):
                     overscan=(self.overscan_i if img else self.overscan).value(),
                     fill_grouping=self.grouping.currentData(), dpi=self.dpi.value(), dither=self.dither.currentData(),
                     negative=self.negative.isChecked(), dot_correction=self.dotc.value(),
-                    halftone_cell=self.hcell.value(), halftone_angle=self.hangle.value())
+                    halftone_cell=self.hcell.value(), halftone_angle=self.hangle.value(),
+                    image_start=self.istart.currentData() or "top")
 
 
 # colonne della tabella livelli

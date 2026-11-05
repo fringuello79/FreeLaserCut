@@ -1,5 +1,5 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""v0.4: progetti LightBurn, galleria forme, comandi remoti / MCP, correzione dell'errore 'not callable'."""
+"""v0.4: progetti .lbrn2, galleria forme, comandi remoti / MCP, correzione dell'errore 'not callable'."""
 import json
 import os
 import subprocess
@@ -29,7 +29,7 @@ def check(name, ok, info=""):
     print(("  OK  " if ok else "  KO  ") + name, info)
 
 
-# ------------------------------------------------------------ LightBurn
+# ------------------------------------------------------------ .lbrn2
 SAMPLE = """<?xml version="1.0" encoding="UTF-8"?>
 <LightBurnProject AppVersion="2.1.04" DeviceName="LONGER B1" FormatVersion="1">
   <VariableText><Start Value="0"/><End Value="999"/><Current Value="12"/><Increment Value="1"/><AutoAdvance Value="1"/></VariableText>
@@ -52,28 +52,28 @@ with open(fp, "w", encoding="utf-8") as fh:
     fh.write(SAMPLE)
 doc, warn = lbrn.load(fp)
 l0, l1 = doc.layers[0], doc.layers[1]
-check("LightBurn: impostazioni dei livelli (mm/s → mm/min, passate, uscita, riempimento)",
+check(".lbrn2: impostazioni dei livelli (mm/s → mm/min, passate, uscita, riempimento)",
       l0.mode == "line" and l0.speed == 600 and l0.power_max == 90 and l0.power_min == 10 and l0.passes == 2
       and l0.name == "Taglio" and l1.mode == "fill" and l1.speed == 7200 and abs(l1.interval - 0.08) < 1e-9
       and l1.crosshatch and not l1.output, f"{l0.speed}, {l1.speed}")
 rect = doc.shapes[0]
 b = rect.bounds()
-check("LightBurn: rettangolo centrato sull'XForm, con raggio", isinstance(rect, RectShape) and rect.radius == 2
+check(".lbrn2: rettangolo centrato sull'XForm, con raggio", isinstance(rect, RectShape) and rect.radius == 2
       and abs(b.center().x() - 100) < 1e-6 and abs(b.center().y() - 50) < 1e-6 and abs(b.width() - 40) < 1e-6)
 g = doc.shapes[2]
 gb = g.bounds()
-check("LightBurn: gruppo scalato e geometria condivisa (VertID)", isinstance(g, GroupShape) and len(g.children) == 2
+check(".lbrn2: gruppo scalato e geometria condivisa (VertID)", isinstance(g, GroupShape) and len(g.children) == 2
       and abs(gb.left() - 10) < 1e-6 and abs(gb.width() - 60) < 1e-6 and abs(gb.height() - 20) < 1e-6,
       f"{gb.left():.2f} {gb.width():.2f}×{gb.height():.2f}")
 curve = doc.shapes[3]
 el = [curve.path().elementAt(i) for i in range(curve.path().elementCount())]
-check("LightBurn: curva di Bézier con maniglie c0/c1", isinstance(curve, PathShape) and len(el) == 4
+check(".lbrn2: curva di Bézier con maniglie c0/c1", isinstance(curve, PathShape) and len(el) == 4
       and abs(el[1].x - 3) < 1e-6 and abs(el[2].x - 7) < 1e-6 and abs(el[1].y - 5) < 1e-6)
 from freelasercut.core import variables  # noqa: E402
 
-check("LightBurn: numerazione del progetto", variables.STATE["serial"] == 12 and variables.STATE["auto"])
+check(".lbrn2: numerazione del progetto", variables.STATE["serial"] == 12 and variables.STATE["auto"])
 job = gcode.generate(doc, MachineProfile(), gcode.JobOptions())
-check("LightBurn: il progetto genera il G-code", job.lines and not [w for w in job.warnings if "esce" in w],
+check(".lbrn2: il progetto genera il G-code", job.lines and not [w for w in job.warnings if "esce" in w],
       f"{len(job.lines)} righe")
 
 # ------------------------------------------------------------ galleria

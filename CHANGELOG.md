@@ -1,5 +1,26 @@
 # Novità di FreeLaserCut
 
+## 0.13.5 — 05/11/2026
+- **Nuovo effetto «Ritratto a matita»** in *Prepara foto* → *Effetto*, per chi voleva un vero disegno a matita come i ritratti fatti a mano. «Matita» resta com'era.
+  - Contorni a tratti di matita che seguono le forme e sbordano un poco, come fa chi disegna.
+  - Ombre a tratteggio diagonale, incrociato nelle zone più scure, e una leggera grana della carta.
+  - I chiari restano carta bianca: lo sfondo non si incide, nemmeno quando è quasi bianco con il rumore della foto.
+  - *Intensità* scurisce la mano, *Dettaglio* sceglie tratti più fini o più morbidi. Misure in millimetri, anche per tratteggio e grana: anteprima e incisione uguali.
+- **Partenza delle immagini a scelta**: *Impostazioni di taglio* → scheda *Immagine* → *Partenza*.
+  - Dall'alto (come sempre) o dal basso, con righe orizzontali.
+  - Da sinistra o da destra, con righe verticali.
+  - La foto incisa è la stessa: cambia solo il percorso della testa. Di solito le righe orizzontali sono più veloci, perché lungo X si muove solo la testa e lungo Y tutto il portale.
+  - La correzione della scansione avanti e indietro (*Laser → Correzione della scansione…*) è misurata lungo X, quindi vale per le righe orizzontali; con le righe verticali non viene applicata.
+- **Retino spiegato**: passando con il cursore su *Retino: cella* e *Retino: angolo* compare la spiegazione. I due campi sono attivi solo con il metodo *Mezzetinte (retino)*, l'unico che li usa.
+- **Longer Ray5 10W e 20W separati** (49 modelli pronti), con i dati della pagina ufficiale Longer:
+  - Ray5 10W: 400 × 400 mm, 10.000 mm/min, spot 0,06 mm;
+  - Ray5 20W: dichiarati 400 × 365 mm, qui 365 × 365 per prudenza perché non è indicato quale lato è l'asse X; spot 0,08 × 0,10 mm. Collegandolo, il Ray5 20W viene riconosciuto dall'area letta dalla scheda.
+
+  Chi aveva già scelto la vecchia voce «Longer Ray5 10W / 20W» tiene il suo profilo così com'è.
+- **Testi più neutri**: il programma non cita più altri programmi in modo particolare. I progetti `.lbrn2` e `.lbrn` si aprono come prima (*File → Apri*, *Importa*).
+- **Logo con il bordo bianco** intorno all'icona, ai suoi elementi e alla scritta: più definito sugli sfondi grigi e scuri. La firma nascosta nel logo è stata reinserita e controllata.
+- Nuova prova automatica `tests/test_v135.py` (50 controlli).
+
 ## 0.13.4 — 05/11/2026
 - **8 modelli pronti in più (48 in tutto)**, con i dati controllati due volte, in modo indipendente, sulle pagine ufficiali dei produttori:
   - Mecpow X3 5W, X3 Pro 10W, X4 22W / X4 Pro 22W, X4 Pro 40W, X5 Pro 33W;
@@ -71,7 +92,7 @@ Versione di controllo: revisione completa delle parti delicate (comunicazione co
   - spostando insieme foto e scritta su un livello.
   Quello che si sposta va sempre su un livello nuovo, con le impostazioni di base (mai su un livello già usato, che potrebbe essere un taglio), e la barra di stato dice dove è finito.
 - Una foto rimasta su un livello che non è in modalità Immagine (progetti vecchi) ora dà un avviso prima dell'avvio; prima veniva saltata in silenzio.
-- **LightBurn:** se lo stesso colore ha sia foto sia disegni, la foto va su un livello suo con le impostazioni da immagine e i disegni restano con le loro. Prima i disegni di quel colore sparivano dal lavoro.
+- **Progetti .lbrn2:** se lo stesso colore ha sia foto sia disegni, la foto va su un livello suo con le impostazioni da immagine e i disegni restano con le loro. Prima i disegni di quel colore sparivano dal lavoro.
 - **Formati delle immagini:**
   - le foto dei telefoni scattate in verticale arrivano dritte (rotazione EXIF);
   - le immagini a 16 bit non diventano più bianche;
@@ -111,10 +132,10 @@ Versione di controllo: revisione completa delle parti delicate (comunicazione co
 - Nuova prova automatica `tests/test_v130.py` (38 controlli).
 
 ## 0.12.6 — 03/11/2026
-- **Corretto: foto dei progetti LightBurn specchiate in *Prepara foto*.** Sul piano la foto era giusta, ma la finestra mostrava i pixel senza lo specchio contenuto nella posizione della foto, quindi la vedeva capovolta.
+- **Corretto: foto dei progetti .lbrn2 specchiate in *Prepara foto*.** Sul piano la foto era giusta, ma la finestra mostrava i pixel senza lo specchio contenuto nella posizione della foto, quindi la vedeva capovolta.
   - Ora lo specchio viene spostato nei pixel all'apertura del progetto: sul piano ogni pixel resta esattamente dov'era e *Prepara foto* la mostra uguale al piano.
   - Le foto già aperte con la 0.12.5 e salvate nel progetto si raddrizzano da sole quando si apre *Prepara foto* (si può annullare).
-- **Corretto: alcuni progetti LightBurn non si aprivano** con l'errore «Impossibile aprire il file: 'c0x'». Erano tracciati con maniglie di curva incomplete (solo una delle due coordinate): ora quelle maniglie si ignorano e il tracciato si apre.
+- **Corretto: alcuni progetti .lbrn2 non si aprivano** con l'errore «Impossibile aprire il file: 'c0x'». Erano tracciati con maniglie di curva incomplete (solo una delle due coordinate): ora quelle maniglie si ignorano e il tracciato si apre.
 - Nuova prova automatica `tests/test_v125.py` (21 controlli); `tests/test_v108.py` aggiornata.
 
 ## 0.12.5 — 03/11/2026
@@ -230,9 +251,9 @@ Tre funzioni nuove, tutte scritte da zero per FreeLaserCut.
 
 ## 0.10.8 — 03/11/2026
 Dalle segnalazioni di chi lo usa (issue #3):
-- **Corretto: le foto dei progetti LightBurn (.lbrn2) si aprivano specchiate in verticale**, e bisognava rifletterle a mano (e poi ancora in *Prepara foto*). In LightBurn la prima riga di pixel di una foto sta dalla parte opposta rispetto a FreeLaserCut: ora l'apertura ne tiene conto e la foto arriva dritta, al suo posto e con le sue misure, anche se in LightBurn era ruotata.
-- **Corretto: i testi dei progetti LightBurn** con il tracciato di riserva finivano lontani dal loro posto (lo spostamento veniva applicato due volte). Ora restano esattamente dove li aveva messi LightBurn, con la stessa altezza.
-- Nuova prova automatica `tests/test_v108.py` (7 controlli), più la verifica su progetti LightBurn veri confrontati con l'anteprima salvata da LightBurn nel file.
+- **Corretto: le foto dei progetti .lbrn2 si aprivano specchiate in verticale**, e bisognava rifletterle a mano (e poi ancora in *Prepara foto*). Nei progetti .lbrn2 la prima riga di pixel di una foto sta dalla parte opposta rispetto a FreeLaserCut: ora l'apertura ne tiene conto e la foto arriva dritta, al suo posto e con le sue misure, anche se nel progetto era ruotata.
+- **Corretto: i testi dei progetti .lbrn2** con il tracciato di riserva finivano lontani dal loro posto (lo spostamento veniva applicato due volte). Ora restano esattamente dove erano nel progetto, con la stessa altezza.
+- Nuova prova automatica `tests/test_v108.py` (7 controlli), più la verifica su progetti .lbrn2 veri confrontati con l'anteprima salvata nel file.
 
 ## 0.10.7 — 03/11/2026
 Dalla segnalazione di chi lo usa:
@@ -400,7 +421,7 @@ Avvio più robusto, dalle segnalazioni di chi lo ha provato:
 - Barra numerica compatta, livelli modificabili direttamente in tabella, guida "?" su ogni comando, riconoscimento automatico della macchina e del driver USB, anteprima adattiva.
 
 ## 0.4
-- Apertura dei progetti LightBurn (`.lbrn2`, `.lbrn`), galleria di 22 forme parametriche, collegamento a Claude, calibrazione della camera con bersagli incisi.
+- Apertura dei progetti `.lbrn2` e `.lbrn`, galleria di 22 forme parametriche, collegamento a Claude, calibrazione della camera con bersagli incisi.
 
 ## 0.3
 - Libreria materiali per il Longer B1 40W, test materiale, vettorizzazione delle immagini, testo variabile (date, numerazione, CSV) e testo curvo.

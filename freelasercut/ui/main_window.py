@@ -36,8 +36,8 @@ ASSETS = style.ASSETS
 STATE_IT = {"Idle": tr("Pronta"), "Run": tr("In lavoro"), "Jog": "Jog", "Hold": tr("In pausa"), "Door": tr("Porta aperta"),
             "Home": tr("Homing"), "Alarm": tr("Allarme"), "Check": tr("Verifica"), "Sleep": tr("Riposo"), "Disconnesso": tr("Disconnessa")}
 FILE_FILTER = tr("Progetto FreeLaserCut (*.flcut)")
-OPEN_FILTER = (tr("Progetti FreeLaserCut, Freeburn e LightBurn (*.flcut *.fbrn *.lbrn2 *.lbrn)") + ";;"
-               + tr("Progetto FreeLaserCut (*.flcut *.fbrn)") + ";;" + tr("Progetto LightBurn (*.lbrn2 *.lbrn)"))
+OPEN_FILTER = (tr("Tutti i progetti (*.flcut *.fbrn *.lbrn2 *.lbrn)") + ";;"
+               + tr("Progetto FreeLaserCut (*.flcut *.fbrn)") + ";;" + tr("Progetti .lbrn2 e .lbrn (*.lbrn2 *.lbrn)"))
 IMPORT_FILTER = (tr("Tutti i formati supportati (*.svg *.dxf *.lbrn2 *.lbrn *.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)")
                  + ";;SVG (*.svg);;DXF (*.dxf);;" + tr("Immagini (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)"))
 
@@ -1059,9 +1059,9 @@ class MainWindow(QMainWindow):
         self._add_recent(path)
         self._update_title()
         self.canvas.fit_bed()
-        if warnings is not None:  # progetto LightBurn: si salva come nuovo progetto FreeLaserCut
+        if warnings is not None:  # progetto .lbrn2/.lbrn: si salva come nuovo progetto FreeLaserCut
             n = len(doc.used_layers())
-            msg = (tr("Progetto LightBurn aperto: {0} oggetti, {1} livelli con le loro impostazioni (velocità convertite da mm/s a mm/min). Salvandolo diventa un progetto FreeLaserCut.", len(doc.shapes), n))
+            msg = (tr("Progetto aperto: {0} oggetti, {1} livelli con le loro impostazioni (velocità convertite da mm/s a mm/min). Salvandolo diventa un progetto FreeLaserCut.", len(doc.shapes), n))
             if warnings:
                 msg += tr("  Avvisi: ") + "; ".join(sorted(set(warnings)))
             self.statusBar().showMessage(msg, 15000)
@@ -1142,7 +1142,7 @@ class MainWindow(QMainWindow):
                 except Exception as exc:  # noqa: BLE001
                     QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}", os.path.basename(p), exc))
                     continue
-                self.editor.add(shapes, tr("Importa da LightBurn"))  # posizioni originali, come in LightBurn
+                self.editor.add(shapes, tr("Importa progetto .lbrn2"))  # posizioni originali, come nel progetto
                 continue
             if ext in (".gcode", ".nc", ".gc", ".ngc"):
                 self.run_gcode_file(p)
@@ -1283,7 +1283,7 @@ class MainWindow(QMainWindow):
         return free[:n]
 
     def _unmirror_photo(self, img):
-        """Foto con uno specchio nella trasformazione (es. aperta da LightBurn con una versione precedente):
+        """Foto con uno specchio nella trasformazione (es. da un progetto .lbrn2 aperto con una versione precedente):
         sposta lo specchio nei pixel, così «Prepara foto» la mostra come appare sul piano. Sul piano non cambia nulla."""
         import uuid
 
@@ -1427,7 +1427,7 @@ class MainWindow(QMainWindow):
                 for k, (m, li) in enumerate(zip(methods, free)):
                     c = doc.layer(li)
                     for f_ in ("speed", "power_max", "power_min", "passes", "air", "dpi", "negative", "dot_correction",
-                               "halftone_cell", "halftone_angle", "bidirectional", "overscan"):
+                               "halftone_cell", "halftone_angle", "bidirectional", "overscan", "image_start"):
                         setattr(c, f_, getattr(cs, f_))
                     c.mode, c.dither, c.dpi, c.negative = "image", m, lay["dpi"], lay["negative"]
                     c.name = DITHER_LABELS[m]
@@ -1628,7 +1628,7 @@ class MainWindow(QMainWindow):
             self.lbl_fs.setText("")
             if msg and msg.startswith(("Impossibile", "Connessione persa", "Errore")) and not getattr(self, "_quiet_connect", False):
                 QMessageBox.warning(self, tr("Connessione"), msg + tr("\n\nControlla il cavo USB, che la macchina sia accesa "
-                                    "e che nessun altro programma (LightBurn, LaserGRBL) usi la porta."))
+                                    "e che nessun altro programma usi la porta."))
         else:
             self._quiet_connect = False
             self.set_pill("Idle")

@@ -1,5 +1,5 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""Versione 0.12.6: foto dei progetti LightBurn.
+"""Versione 0.12.6: foto dei progetti .lbrn2.
 - «Prepara foto» mostra la foto come appare sul piano (prima, con alcune XForm, compariva specchiata);
 - sul piano non cambia nulla: ogni pixel resta esattamente dov'era;
 - i tracciati con maniglie incomplete (solo c0y o solo c1y) non bloccano più l'apertura (errore «c0x»)."""
@@ -62,7 +62,7 @@ def straight_pixels(pix, tf, w, h):
     vx, vy = a[0] - c[0], a[1] - c[1]
     return ux * vy - uy * vx > 0
 
-cases = {"1 0 0 -1 50 60": "tipica di LightBurn", "1 0 0 1 50 60": "Y senza ribaltamento",
+cases = {"1 0 0 -1 50 60": "tipica dei progetti .lbrn2", "1 0 0 1 50 60": "Y senza ribaltamento",
          "-1 0 0 1 50 60": "specchiata in orizzontale", "-1 0 0 -1 50 60": "ruotata di 180°",
          "0 1 -1 0 50 60": "ruotata di 90°", "0 1 1 0 50 60": "ruotata e specchiata",
          "2 0 0 1.5 50 60": "ingrandita, Y senza ribaltamento"}

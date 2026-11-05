@@ -29,7 +29,7 @@ d = ImageDraw.Draw(im)
 d.ellipse((300, 200, 700, 600), fill=25)
 d.rectangle((800, 300, 1100, 500), fill=200)
 FX = [k for k in photo_fx.EFFECTS if k != "none"]
-check("9 effetti disponibili", len(FX) == 9, FX)
+check("effetti disponibili (9 della 0.13.3 più il ritratto a matita)", len(FX) == 10, FX)
 
 # ------------------------------------------------------------------ ogni effetto: forma, valori, bianco resta bianco
 g = np.asarray(im, np.float32)
@@ -97,8 +97,8 @@ check("progetti di prima (senza effetto): si aprono come prima", photo.PhotoSett
 from freelasercut.ui.dialogs_photo import PhotoDialog
 shape = ImageShape("x", 120, 80)
 dlg = PhotoDialog(shape, im.convert("RGB"), CutSettings(index=0), (120.0, 80.0))
-check("Prepara foto: menu «Effetto» con i 9 effetti, di partenza «Nessuno», cursori nascosti",
-      dlg.effect.count() == 10 and dlg.effect.currentData() == "none" and not dlg.fx_strength.isVisibleTo(dlg))
+check("Prepara foto: menu «Effetto» con gli effetti, di partenza «Nessuno», cursori nascosti",
+      dlg.effect.count() == len(photo_fx.EFFECTS) and dlg.effect.currentData() == "none" and not dlg.fx_strength.isVisibleTo(dlg))
 dlg.effect.setCurrentIndex(dlg.effect.findData("lines"))
 check("scegliendo «Incisione a linee»: compaiono intensità, «Righe fitte» e la direzione",
       dlg.fx_strength.isVisibleTo(dlg) and dlg.fx_detail_name.text() == "Righe fitte" and dlg.fx_angle.isVisibleTo(dlg))
