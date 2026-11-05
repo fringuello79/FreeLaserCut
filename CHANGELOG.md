@@ -1,5 +1,17 @@
 # Novità di FreeLaserCut
 
+## 0.13.6 — 05/11/2026
+- **Puzzle da foto** (*Strumenti → Puzzle da foto…*, nel Banco il pulsante *Puzzle*): la foto selezionata, o una da scegliere, diventa un puzzle da incidere e tagliare.
+  - Si scelgono misure, numero di pezzi (da 4 a 1000), grandezza degli incastri e forma: rettangolo, cuore, cerchio, ovale o una forma chiusa disegnata da te (selezionala insieme alla foto).
+  - Gli incastri (testa e collo) sono disegnati da FreeLaserCut con piccole differenze di grandezza, posizione e inclinazione, e le linee sono leggermente mosse, come nei puzzle veri. *Rimescola* dà un altro puzzle; lo stesso puzzle si ritrova sempre uguale fra anteprima e lavoro.
+  - Dentro una forma, gli incastri che uscirebbero dal bordo diventano lati dritti e i pezzetti troppo piccoli si uniscono al vicino. Nessun pezzo resta attaccato a un altro per un filo sottile.
+  - La finestra mostra il collo più stretto degli incastri e avvisa se pezzi o colli sono troppo piccoli per il legno.
+  - Due livelli: la foto in modalità *Immagine* (se era già su un livello Immagine resta lì, con il suo metodo) e i tagli in modalità *Linea* («Puzzle: taglio»), messi per ultimi. Il lavoro incide prima la foto, poi taglia i lati interni e per ultimo il contorno, così il foglio non si sposta. Fuori dalla forma la foto non si incide.
+  - Con *Senza foto* si creano solo i tagli, per un puzzle da dipingere o da incidere dopo.
+  - Una foto ruotata o dentro un gruppo non si usa: il programma dice come sistemarla. Una forma disegnata che si incrocia (una stella a cinque punte fatta con una linea sola) diventa il suo bordo esterno; le forme senza area vengono rifiutate con un messaggio chiaro. I pezzi hanno sempre almeno 3 mm di lato.
+- **Aggiornamenti non più bloccati dal collegamento con Claude.** Chi usa FreeLaserCut con l'app Claude ha un piccolo programma (il server MCP) che usa il Python di FreeLaserCut: l'installatore lo vedeva occupato e chiedeva di chiudere FreeLaserCut anche se era già chiuso. Ora l'installatore chiude da solo solo quel processo, anche a ogni «Riprova»; il collegamento torna attivo riaprendo Claude (o da solo, se Claude lo riavvia). FreeLaserCut aperto non viene mai chiuso senza chiedere. Se l'avviso resta, il messaggio dice di chiudere anche Claude.
+- Nuova prova automatica `tests/test_v136.py` (49 controlli).
+
 ## 0.13.5 — 05/11/2026
 - **Nuovo effetto «Ritratto a matita»** in *Prepara foto* → *Effetto*, per chi voleva un vero disegno a matita come i ritratti fatti a mano. «Matita» resta com'era.
   - Contorni a tratti di matita che seguono le forme e sbordano un poco, come fa chi disegna.

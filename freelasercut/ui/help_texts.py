@@ -115,6 +115,12 @@ HELP = {
              "riempimento. I dati possono contenere variabili ({n}, {data}, colonne CSV): nelle serie ogni copia ha il suo "
              "codice."), [(tr("In negativo"), tr("per i materiali in cui il laser schiarisce")),
                           (tr("Zona di rispetto"), tr("margine vuoto che serve ai lettori"))]),
+    "puzzle": (tr("Puzzle da foto"), tr("Seleziona una foto (e, se vuoi, una forma chiusa che hai disegnato) e scegli "
+               "misure e numero di pezzi: FreeLaserCut disegna gli incastri, sempre diversi, e prepara due livelli, la foto "
+               "da incidere e i tagli in modalità Linea, con il taglio per ultimo. Nella forma i pezzetti troppo piccoli "
+               "vicino al bordo si uniscono al vicino."),
+               [(tr("Rimescola"), tr("un altro puzzle con le stesse misure")),
+                (tr("Collo più stretto"), tr("sotto i 2 mm nel compensato si può spezzare: meno pezzi o puzzle più grande"))]),
     "text_path": (tr("Testo su tracciato"), tr("Seleziona un testo e una linea o forma: il testo ne segue la curva. Restano "
                   "modificabili testo, carattere, posizione sulla curva, distanza e verso."), None),
     "rotary": (tr("Rotativo"), tr("Accessorio a rulli o a mandrino collegato al posto dell'asse Y, per bicchieri, borracce e "

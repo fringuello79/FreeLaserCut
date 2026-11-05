@@ -59,6 +59,7 @@ SHORT = {
     "exact_shape": ("Misure", "Exact", "Medidas", "Mesures", "Medidas"),
     "code": ("Codici", "Codes", "Códigos", "Codes", "Códigos"),
     "text_path": ("Testo curvo", "Curved text", "Texto curvo", "Texte courbe", "Texto curvo"),
+    "puzzle": ("Puzzle", "Puzzle", "Puzle", "Puzzle", "Quebra-cab."),
     "variables": ("Variabili", "Variables", "Variables", "Variables", "Variáveis"),
     "materials": ("Materiali", "Materials", "Mater.", "Matér.", "Materiais"),
     "material_test": ("Test", "Test", "Prueba", "Test", "Teste"),

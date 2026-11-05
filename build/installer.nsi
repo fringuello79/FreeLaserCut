@@ -95,10 +95,27 @@ FunctionEnd
 !insertmacro FLC_IN_USO_FN ""
 !insertmacro FLC_IN_USO_FN "un."
 
+;--- Collegamento con Claude (server MCP): l'app Claude tiene acceso il python.exe del programma e
+; l'aggiornamento non potrebbe sostituirlo. Si chiude solo quel processo (l'app Claude lo riavvia da sola);
+; FreeLaserCut aperto (pythonw.exe) e la finestra di diagnostica non si toccano mai: per quelli si chiede, come prima.
+; La cartella passa da una variabile d'ambiente: niente problemi con apostrofi o spazi nel percorso.
+!macro FLC_CHIUDI_MCP_FN UN
+Function ${UN}FlcChiudiMcp
+  System::Call 'Kernel32::SetEnvironmentVariable(t "FLC_PYDIR", t "$INSTDIR\python")i.r0'
+  nsExec::Exec `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$$d = $$env:FLC_PYDIR + [IO.Path]::DirectorySeparatorChar; Get-CimInstance Win32_Process | Where-Object { $$_.Name -eq 'python.exe' -and $$_.ExecutablePath -and $$_.ExecutablePath.StartsWith($$d, [StringComparison]::OrdinalIgnoreCase) -and $$_.CommandLine -match 'mcp_server|server[\\/]main\.py' } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force }"`
+  Pop $R3
+  Sleep 700
+FunctionEnd
+!macroend
+!insertmacro FLC_CHIUDI_MCP_FN ""
+!insertmacro FLC_CHIUDI_MCP_FN "un."
+
 ; finché FreeLaserCut è aperto chiede di chiuderlo; con «Annulla» esegue ABORT.
 ; Durante un aggiornamento dal programma prima aspetta fino a 30 secondi che FreeLaserCut finisca di chiudersi.
 !macro FLC_ASPETTA_CHIUSO UN ABORT
   StrCpy $R2 0
+  flc_chiudi_mcp:
+  Call ${UN}FlcChiudiMcp  ; anche a ogni «Riprova»: il collegamento con Claude può essere ripartito nel frattempo
   flc_riprova:
   Call ${UN}FlcInUso
   StrCmp $R0 1 0 flc_chiuso
@@ -108,7 +125,7 @@ FunctionEnd
   Sleep 500
   Goto flc_riprova
   flc_chiedi:
-  MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL "FreeLaserCut è aperto (oppure un suo file è in uso).$\r$\n$\r$\nSalva il lavoro, chiudi FreeLaserCut e premi «Riprova»." /SD IDCANCEL IDRETRY flc_riprova
+  MessageBox MB_ICONEXCLAMATION|MB_RETRYCANCEL "FreeLaserCut è aperto (oppure un suo file è in uso).$\r$\n$\r$\nSalva il lavoro, chiudi FreeLaserCut e premi «Riprova».$\r$\nSe usi FreeLaserCut con l'app Claude e l'avviso resta, chiudi anche Claude." /SD IDCANCEL IDRETRY flc_chiudi_mcp
   ${ABORT}
   flc_chiuso:
 !macroend

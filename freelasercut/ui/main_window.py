@@ -264,6 +264,9 @@ class MainWindow(QMainWindow):
                              tr("Rettangolo, cerchio, poligono o forma della galleria con larghezza, altezza e posizione precise")),
             "code": A(tr("Codice QR o a barre…"), self.code_dialog, "Ctrl+Alt+Q", "qr",
                       tr("QR, Code 128, EAN-13, EAN-8, UPC-A, Code 39, anche con numeri di serie")),
+            "puzzle": A(tr("Puzzle da foto…"), self.puzzle_dialog, None, "puzzle",
+                        tr("La foto selezionata (o una da scegliere) diventa un puzzle: incastri sempre diversi, anche "
+                           "a forma di cuore, cerchio o di una forma tua; prima si incide la foto, poi si tagliano i pezzi")),
             "text_path": A(tr("Testo su tracciato…"), self.text_path_dialog, "Ctrl+Alt+T", "text_path",
                            tr("Seleziona un testo e una linea o forma: il testo ne segue la curva")),
             "variables": A(tr("Testo variabile…"), self.variables_dialog, None, "variable",
@@ -440,6 +443,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["exact_shape"])
         m.addAction(a["code"])
         m.addAction(a["text_path"])
+        m.addAction(a["puzzle"])
         m.addSeparator()
         m.addAction(a["variables"])
         m.addAction(a["photo"])
@@ -1520,6 +1524,11 @@ class MainWindow(QMainWindow):
         s.apply(QTransform.fromTranslate(c.x() - b.center().x(), c.y() - b.center().y()))
         self.editor.add([s], tr("Crea codice"))
         return s
+
+    def puzzle_dialog(self, *_):
+        from .dialogs_puzzle import run_puzzle
+
+        return run_puzzle(self)
 
     def text_path_dialog(self, *_):
         from .dialogs_textpath import run_text_path
