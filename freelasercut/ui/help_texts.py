@@ -120,7 +120,9 @@ HELP = {
                "dove va la fetta sopra e il numero, oppure in sagome a incastro con le fessure. L'anteprima 3D mostra il "
                "modello, la scultura finita e il montaggio pezzo per pezzo; i pezzi vengono sistemati sui fogli."),
                [(tr("Spessore"), tr("misuralo con il calibro: fette e fessure dipendono da lui")),
-                (tr("Gioco delle fessure"), tr("più largo se gli incastri sono duri, più stretto se ballano"))]),
+                (tr("Gioco delle fessure"), tr("più largo se gli incastri sono duri, più stretto se ballano")),
+                (tr("Usa la scheda grafica"), tr("anteprima fluida e definita; se si vede male, togli la spunta e si "
+                                                 "usa l'anteprima semplice"))]),
     "puzzle": (tr("Puzzle da foto"), tr("Seleziona una foto (e, se vuoi, una forma chiusa che hai disegnato) e scegli "
                "misure e numero di pezzi: FreeLaserCut disegna gli incastri, sempre diversi, e prepara due livelli, la foto "
                "da incidere e i tagli in modalità Linea, con il taglio per ultimo. Nella forma i pezzetti troppo piccoli "

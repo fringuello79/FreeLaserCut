@@ -5,10 +5,10 @@ import math
 import os
 
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QPointF, QRectF, QSettings, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QTransform
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QMessageBox, QPushButton, QSlider, QSpinBox, QVBoxLayout, QWidget,
 )
 
@@ -21,12 +21,36 @@ VIEWS = (("model", tr("Modello")), ("sculpture", tr("Scultura")), ("assembly", t
 LABEL_FONT = "futural"  # carattere a linea singola: i numeri si incidono veloci
 
 
+def _settings():
+    """Impostazioni del programma (FLC_SETTINGS_INI: un file a parte, per le prove automatiche)."""
+    ini = os.environ.get("FLC_SETTINGS_INI")
+    if ini:
+        return QSettings(ini, QSettings.IniFormat)
+    return QSettings("FreeLaserCut", "FreeLaserCut")
+
+
+def _set(key, value):
+    qs = _settings()
+    qs.setValue(key, value)
+    qs.sync()  # subito su disco: serve anche se il driver chiude il programma un attimo dopo
+
+
+def gpu_probe():
+    """(True, nome) se l'anteprima con la scheda grafica funziona su questo PC (vedi viewer_gl.probe)."""
+    try:
+        from .viewer_gl import probe
+    except Exception as ex:  # noqa: BLE001 - PySide6 senza i moduli OpenGL
+        return False, str(ex)[:80]
+    return probe()
+
+
 # ==================================================================== visore 3D
 class Viewer3D(QWidget):
-    """Anteprima 3D: trascina per girare, rotella per avvicinare, doppio clic per tornare alla vista di partenza.
+    """Anteprima 3D fatta in casa, senza scheda grafica (si usa se OpenGL manca o è stato spento): trascina per girare, rotella per avvicinare, doppio clic per tornare alla vista di partenza.
     Mentre si trascina la resa è più leggera; appena ci si ferma torna piena."""
 
     changed = Signal()
+    backend = "software"
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -70,6 +94,9 @@ class Viewer3D(QWidget):
         self.yaw, self.pitch, self.zoom = -35.0, 22.0, 1.0
         self._key = None
         self.update()
+
+    def stop(self):
+        self._idle.stop()
 
     def _cached(self, key, make):
         if key not in self._scenes:
@@ -272,8 +299,40 @@ class SculptDialog(QDialog):
             tabs.addWidget(b)
         tabs.addStretch(1)
         right.addLayout(tabs)
-        self.viewer = Viewer3D(self)
-        right.addWidget(self.viewer, 1)
+        self._viewer_box = QVBoxLayout()
+        self._viewer_box.setContentsMargins(0, 0, 0, 0)
+        right.addLayout(self._viewer_box, 1)
+        gpu_row = QHBoxLayout()
+        self.gpu = QCheckBox(tr("Usa la scheda grafica"))
+        self.gpu.setToolTip(tr("Anteprima disegnata dalla scheda grafica: si gira in tempo reale, con i bordi lisci. "
+                               "Se l'anteprima si vede male o il programma si blocca, toglila: si usa l'anteprima "
+                               "semplice, più lenta ma che funziona su ogni PC."))
+        self.backend_lbl = QLabel("")
+        self.backend_lbl.setObjectName("muted")
+        self.backend_lbl.setWordWrap(True)
+        gpu_row.addWidget(self.gpu)
+        gpu_row.addWidget(self.backend_lbl, 1)
+        right.addLayout(gpu_row)
+        self.viewer = None
+        qs = _settings()
+        want = str(qs.value("sculpt/gpu", "1")) != "0"
+        note = ""
+        if str(qs.value("sculpt/gpu_trial", "0")) == "1":
+            # l'ultima volta il programma si è chiuso mentre si usava la scheda grafica (driver che chiude il
+            # programma): si riparte con l'anteprima semplice, la spunta si può rimettere a mano
+            _set("sculpt/gpu_trial", "0")
+            _set("sculpt/gpu", "0")
+            want = False
+            note = tr("l'ultima volta la scheda grafica ha chiuso il programma")
+        ok = False
+        if want:  # la prova della scheda grafica si fa solo se serve, ed è già sotto controllo
+            _set("sculpt/gpu_trial", "1")
+            ok, _why = gpu_probe()
+            if not ok:
+                _set("sculpt/gpu_trial", "0")
+        self.gpu.setChecked(ok)
+        self._make_viewer(ok, note)
+        self.gpu.toggled.connect(self._gpu_toggled)
         play_row = QHBoxLayout()
         self.play = QPushButton(tr("▶ Monta"))
         self.play.setToolTip(tr("I pezzi arrivano uno alla volta, nell'ordine di montaggio"))
@@ -298,7 +357,7 @@ class SculptDialog(QDialog):
         self.ok_btn = bb.button(QDialogButtonBox.Ok)
         v.addWidget(bb)
         self._anim = QTimer(self)
-        self._anim.setInterval(70)
+        self._anim.setInterval(70 if self.viewer.backend != "gpu" else 30)
         self._anim.timeout.connect(self._anim_tick)
         self._frame = 0
         self._timer = QTimer(self)
@@ -327,6 +386,92 @@ class SculptDialog(QDialog):
         s_.setSuffix(suffix)
         s_.setToolTip(tip)
         return s_
+
+    # ---------------------------------------------------------------- anteprima: scheda grafica o fatta in casa
+    def _make_viewer(self, gpu, note=""):
+        old = self.viewer
+        new = None
+        if gpu:
+            from .viewer_gl import GLViewer, is_emulated
+
+            _set("sculpt/gpu_trial", "1")  # resta così finché la finestra non si chiude bene
+            new = GLViewer(self)
+            new.failed.connect(self._gpu_failed)
+            new.painted.connect(self._gpu_painted)
+        if new is None:
+            new = Viewer3D(self)
+            _set("sculpt/gpu_trial", "0")
+        if old is not None:
+            new.yaw, new.pitch, new.zoom = old.yaw, old.pitch, old.zoom
+            new.set_view(old.view)
+            new.set_step(old.step, old.lift)
+            new.set_data(old.mesh, old.sculpture)
+            old.stop()
+            if hasattr(old, "release_gl"):
+                old.release_gl()  # prima di toglierla: buffer liberati con il loro contesto
+            self._viewer_box.removeWidget(old)
+            old.hide()
+            old.deleteLater()
+        self._viewer_box.addWidget(new, 1)
+        self.viewer = new
+        if new.backend == "gpu":
+            if is_emulated(new.renderer_name):
+                self.backend_lbl.setText(tr("Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di "
+                                            "una scheda grafica vera", new.renderer_name))
+            else:
+                self.backend_lbl.setText(tr("Anteprima con la scheda grafica ({0})", new.renderer_name))
+            QTimer.singleShot(5000, lambda v=new: self._watchdog(v))
+        else:
+            txt = tr("Anteprima semplice, senza scheda grafica: più lenta")
+            if note:
+                txt += " — " + note
+            elif self.gpu.isChecked() is False and str(_settings().value("sculpt/gpu", "1")) != "0":
+                okp, why = gpu_probe()
+                if not okp:
+                    txt += " — " + tr("OpenGL non disponibile ({0})", why)
+            self.backend_lbl.setText(txt)
+        if getattr(self, "_anim", None) is not None:
+            self._anim.setInterval(30 if new.backend == "gpu" else 70)
+
+    def _watchdog(self, viewer):
+        """Se l'anteprima con la scheda grafica non disegna nulla (driver che non crea l'immagine), si passa a
+        quella semplice."""
+        try:
+            if self.viewer is not viewer or viewer._painted_once:
+                return
+            if not self.isVisible():
+                QTimer.singleShot(3000, lambda: self._watchdog(viewer))
+                return
+        except RuntimeError:  # finestra già chiusa
+            return
+        self._gpu_failed(tr("non disegna nulla"))
+
+    def _gpu_painted(self):
+        pass  # la prova resta aperta fino alla chiusura della finestra: anche un errore dopo il primo disegno conta
+
+    def _gpu_toggled(self, on):
+        _set("sculpt/gpu", "1" if on else "0")
+        if on and self.viewer.backend != "gpu":
+            _set("sculpt/gpu_trial", "1")
+            ok, why = gpu_probe()
+            if not ok:
+                _set("sculpt/gpu_trial", "0")
+                self.gpu.blockSignals(True)
+                self.gpu.setChecked(False)
+                self.gpu.blockSignals(False)
+                self.backend_lbl.setText(tr("Anteprima semplice, senza scheda grafica: più lenta") + " — " +
+                                         tr("OpenGL non disponibile ({0})", why))
+                return
+        if (self.viewer.backend == "gpu") != on:
+            self._make_viewer(on)
+
+    def _gpu_failed(self, why):
+        """OpenGL non funziona davvero su questo PC: si torna all'anteprima fatta in casa."""
+        self.gpu.blockSignals(True)
+        self.gpu.setChecked(False)
+        self.gpu.blockSignals(False)
+        self._make_viewer(False, tr("la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila "
+                                    "e riaprila", why))
 
     # ---------------------------------------------------------------- valori
     def source_mesh(self):
@@ -475,7 +620,7 @@ class SculptDialog(QDialog):
             self.play.setText(tr("▶ Monta"))
             self.viewer.set_step(k)
             return
-        frames = 6
+        frames = 12 if self.viewer.backend == "gpu" else 6
         self._frame += 1
         hgt = float(self.sculpture.size()[2]) * 0.5
         if self._frame < frames:
@@ -499,7 +644,8 @@ class SculptDialog(QDialog):
         """Chiusa in qualsiasi modo (anche Esc): niente calcoli o animazioni rimasti in sospeso."""
         self._timer.stop()
         self._anim.stop()
-        self.viewer._idle.stop()
+        self.viewer.stop()
+        _set("sculpt/gpu_trial", "0")  # chiusa bene: la scheda grafica non ha chiuso il programma
         super().done(r)
 
     def values(self):

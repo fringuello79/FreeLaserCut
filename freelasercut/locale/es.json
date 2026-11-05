@@ -1942,5 +1942,16 @@
  "Il modello ha dei buchi (non è chiuso): {0} contorni non si chiudono e sono stati lasciati fuori. Controlla l'anteprima o ripara il modello.": "El modelo tiene agujeros (no está cerrado): {0} contornos no se cierran y se han dejado fuera. Revisa la vista previa o repara el modelo.",
  "Il modello ha dei piccoli buchi (non è chiuso): i contorni sono stati chiusi da soli. Controlla l'anteprima.": "El modelo tiene pequeños agujeros (no está cerrado): los contornos se han cerrado solos. Revisa la vista previa.",
  "Non riesco a calcolare la scultura con questo modello ({0}).": "No puedo calcular la escultura con este modelo ({0}).",
- "<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² (un foglio)": "<b>{0} piezas</b> · escultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>material: unos {4:.0f} cm² (una hoja)"
+ "<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² (un foglio)": "<b>{0} piezas</b> · escultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>material: unos {4:.0f} cm² (una hoja)",
+ "Usa la scheda grafica": "Usar la tarjeta gráfica",
+ "Anteprima disegnata dalla scheda grafica: si gira in tempo reale, con i bordi lisci. Se l'anteprima si vede male o il programma si blocca, toglila: si usa l'anteprima semplice, più lenta ma che funziona su ogni PC.": "Vista previa dibujada por la tarjeta gráfica: gira en tiempo real, con bordes suaves. Si se ve mal o el programa se bloquea, desmárcala: se usa la vista previa sencilla, más lenta pero que funciona en cualquier PC.",
+ "Anteprima con la scheda grafica ({0})": "Vista previa con la tarjeta gráfica ({0})",
+ "Anteprima semplice, senza scheda grafica: più lenta": "Vista previa sencilla, sin tarjeta gráfica: más lenta",
+ "OpenGL non disponibile ({0})": "OpenGL no disponible ({0})",
+ "la scheda grafica ha dato un errore ({0})": "la tarjeta gráfica ha dado un error ({0})",
+ "l'ultima volta la scheda grafica ha chiuso il programma": "la última vez la tarjeta gráfica cerró el programa",
+ "anteprima fluida e definita; se si vede male, togli la spunta e si usa l'anteprima semplice": "vista previa fluida y nítida; si se ve mal, desmárcala y se usa la vista previa sencilla",
+ "Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di una scheda grafica vera": "Vista previa con OpenGL hecho por el procesador ({0}): funciona, pero más lenta que una tarjeta gráfica de verdad",
+ "non disegna nulla": "no dibuja nada",
+ "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "la tarjeta gráfica ha dado un error ({0}); si la ventana se ve mal, ciérrala y vuelve a abrirla"
 }

@@ -336,9 +336,9 @@ def _decimate(V, F, limit=PREVIEW_TRIS):
     return V2, F2
 
 
-def mesh_scene(mesh, color=CLAY):
+def mesh_scene(mesh, color=CLAY, limit=PREVIEW_TRIS):
     sc = Scene()
-    V, F = _decimate(mesh.vertices, mesh.faces)
+    V, F = _decimate(mesh.vertices, mesh.faces, limit)
     fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])  # pesate con l'area
     acc = np.zeros_like(V)
     for k in range(3):
@@ -354,35 +354,53 @@ def mesh_scene(mesh, color=CLAY):
     return sc
 
 
-def sculpture_scene(sculpt, upto=None, lift=None, highlight=None):
-    """Scultura in legno: ogni pezzo estruso con lo spessore del materiale, facce chiare con le venature e bordi
-    bruciati. upto: solo i primi pezzi (montaggio); lift: (indice, altezza) pezzo sollevato che sta arrivando."""
+def sculpture_parts(sculpt):
+    """Pezzi in ordine di montaggio, pronti da disegnare: (triangoli dei bordi (T,3,3), [(anelli 3D, normale verso
+    fuori)] per le due facce). Li usano sia questa resa sia quella con la scheda grafica."""
     from . import sculpt as S
 
-    sc = Scene()
     t = sculpt.thickness
-    pieces = sorted(sculpt.pieces, key=lambda p: p.order)
-    if upto is not None:
-        pieces = pieces[:upto]
-    for k, pc in enumerate(pieces):
-        dz = lift[1] if (lift is not None and k == lift[0]) else 0.0
+    out = []
+    z1, o1 = np.zeros(1), np.ones(1)
+    for pc in sorted(sculpt.pieces, key=lambda p: p.order):
         w0, w1 = S.piece_span(pc, t)
-        face = WOOD * (1.06 if highlight is not None and k == highlight else 1.0)
-        for wv in (w0, w1):
-            rings3 = [S.to_world(pc, r[:, 0], r[:, 1], np.full(len(r), wv)) + np.array([0, 0, dz])
-                      for r in (np.asarray(x) for x in pc.island.rings)]
-            nrm = S.to_world(pc, np.zeros(1), np.zeros(1), np.ones(1))[0] - S.to_world(pc, np.zeros(1), np.zeros(1),
-                                                                                       np.zeros(1))[0]
-            sc.add_cap(rings3, nrm, np.minimum(face, 1.0), grain=True)
+        ax = S.to_world(pc, z1, z1, o1)[0] - S.to_world(pc, z1, z1, z1)[0]
+        rings = [np.asarray(x, np.float64) for x in pc.island.rings]
+        caps = [([S.to_world(pc, r[:, 0], r[:, 1], np.full(len(r), wv)) for r in rings], ax * sign)
+                for wv, sign in ((w0, -1.0), (w1, 1.0))]
         tris = []
-        for r in (np.asarray(x) for x in pc.island.rings):
-            a = S.to_world(pc, r[:, 0], r[:, 1], np.full(len(r), w0)) + np.array([0, 0, dz])
-            b = S.to_world(pc, r[:, 0], r[:, 1], np.full(len(r), w1)) + np.array([0, 0, dz])
+        for r in rings:
+            a = S.to_world(pc, r[:, 0], r[:, 1], np.full(len(r), w0))
+            b = S.to_world(pc, r[:, 0], r[:, 1], np.full(len(r), w1))
             a2, b2 = np.roll(a, -1, 0), np.roll(b, -1, 0)
             tris.append(np.stack([a, a2, b2], 1))
             tris.append(np.stack([a, b2, b], 1))
-        sc.add_tris(np.concatenate(tris), BURNT)
-    zs = [c[0][0][:, 2].min() for c in sc.caps if c[0] and len(c[0][0])]
-    # il pavimento sotto il pezzo più basso (una punta troppo piccola per essere tagliata non lascia sospeso nulla)
-    sc.ground = float(min(zs)) if zs and lift is None else float(sculpt.mesh.vertices[:, 2].min())
+        out.append((np.concatenate(tris) if tris else np.zeros((0, 3, 3)), caps))
+    return out
+
+
+def sculpture_ground(sculpt, parts=None):
+    """Quota del pavimento: sotto il pezzo più basso (una punta troppo piccola per essere tagliata non lascia sospeso
+    nulla)."""
+    parts = sculpture_parts(sculpt) if parts is None else parts
+    zs = [r[:, 2].min() for _t, caps in parts for rings, _n in caps for r in rings[:1] if len(r)]
+    return float(min(zs)) if zs else float(sculpt.mesh.vertices[:, 2].min())
+
+
+def sculpture_scene(sculpt, upto=None, lift=None, highlight=None, parts=None):
+    """Scultura in legno: ogni pezzo estruso con lo spessore del materiale, facce chiare con le venature e bordi
+    bruciati. upto: solo i primi pezzi (montaggio); lift: (indice, altezza) pezzo sollevato che sta arrivando."""
+    sc = Scene()
+    parts = sculpture_parts(sculpt) if parts is None else parts
+    ground = sculpture_ground(sculpt, parts)
+    if upto is not None:
+        parts = parts[:upto]
+    for k, (tris, caps) in enumerate(parts):
+        dz = np.array([0.0, 0.0, lift[1] if (lift is not None and k == lift[0]) else 0.0])
+        face = WOOD * (1.06 if highlight is not None and k == highlight else 1.0)
+        for rings3, nrm in caps:
+            sc.add_cap([r + dz for r in rings3], nrm, np.minimum(face, 1.0), grain=True)
+        if len(tris):
+            sc.add_tris(tris + dz, BURNT)
+    sc.ground = ground
     return sc

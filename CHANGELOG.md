@@ -1,5 +1,20 @@
 # Novità di FreeLaserCut
 
+## 0.14.1 — 06/11/2026
+- **Anteprima 3D della Scultura disegnata dalla scheda grafica** (*Strumenti → Scultura 3D da modello…*). Prima la disegnava il processore, punto per punto: era lenta (fino a qualche secondo a ogni movimento) e, mentre si girava, sgranata. Ora:
+  - si gira e si avvicina in tempo reale, anche con centinaia di pezzi o modelli da milioni di triangoli (oltre i 900.000 l'anteprima usa una copia alleggerita; i pezzi si calcolano sempre sul modello vero);
+  - bordi lisci, luce calcolata punto per punto che segue la vista (le facce verso di te sono sempre illuminate), venature del compensato, bordi bruciati dal laser e, negli strati, la riga fra una fetta e l'altra;
+  - pavimento con la griglia, ombra morbida che cade dietro la scultura e ombra di contatto dove la scultura tocca terra;
+  - le facce con i fori e le forme concave sono disegnate esatte;
+  - *Monta* è più fluido: ogni pezzo scende con più passaggi.
+- La scheda grafica si usa tramite OpenGL, già compreso in FreeLaserCut: niente da installare. Sotto l'anteprima c'è scritto quale si sta usando, con il nome della scheda grafica; se OpenGL è fatto dal processore (desktop remoto, macchine virtuali) lo dice, perché è più lento.
+- **Anteprima semplice sempre di riserva**, quella di prima, che funziona su ogni PC:
+  - si usa da sola se OpenGL manca o non va (PC vecchi, desktop remoto, macchine virtuali) o se la scheda grafica dà un errore, e lo dice;
+  - si può scegliere a mano togliendo la spunta *Usa la scheda grafica*; la scelta si ricorda;
+  - se il driver della scheda grafica chiudesse il programma, alla volta successiva la finestra riparte da sola con l'anteprima semplice e lo scrive; se l'anteprima non disegna nulla entro pochi secondi, si passa da soli a quella semplice;
+  - la prova della scheda grafica si fa solo quando serve: con la spunta tolta OpenGL non viene nemmeno toccato.
+- Nuova prova automatica `tests/test_v141.py` (33 controlli: anche il disegno vero con la scheda grafica, confrontato con l'anteprima semplice, i fori, le forme concave, il montaggio e i modelli enormi).
+
 ## 0.14.0 — 05/11/2026
 - **Scultura 3D da modello** (*Strumenti → Scultura 3D da modello…*, nel Banco il pulsante *Scultura*): un modello 3D diventa una scultura di legno da tagliare al laser.
   - Si apre un file `.stl` (binario o di testo) o `.obj`, oppure si usa uno dei modelli inclusi per provare: cuore, stella, sfera, vaso, ciambella. Si scelgono l'asse verticale del modello, l'altezza finita e lo spessore del materiale.

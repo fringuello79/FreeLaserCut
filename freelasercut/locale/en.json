@@ -1942,5 +1942,16 @@
  "Il modello ha dei buchi (non è chiuso): {0} contorni non si chiudono e sono stati lasciati fuori. Controlla l'anteprima o ripara il modello.": "The model has holes (it is not closed): {0} outlines do not close and have been left out. Check the preview or repair the model.",
  "Il modello ha dei piccoli buchi (non è chiuso): i contorni sono stati chiusi da soli. Controlla l'anteprima.": "The model has small holes (it is not closed): the outlines have been closed automatically. Check the preview.",
  "Non riesco a calcolare la scultura con questo modello ({0}).": "I can't compute the sculpture with this model ({0}).",
- "<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² (un foglio)": "<b>{0} pieces</b> · sculpture {1:.0f} × {2:.0f} × {3:.0f} mm<br>material: about {4:.0f} cm² (one sheet)"
+ "<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² (un foglio)": "<b>{0} pieces</b> · sculpture {1:.0f} × {2:.0f} × {3:.0f} mm<br>material: about {4:.0f} cm² (one sheet)",
+ "Usa la scheda grafica": "Use the graphics card",
+ "Anteprima disegnata dalla scheda grafica: si gira in tempo reale, con i bordi lisci. Se l'anteprima si vede male o il programma si blocca, toglila: si usa l'anteprima semplice, più lenta ma che funziona su ogni PC.": "Preview drawn by the graphics card: it turns in real time, with smooth edges. If the preview looks wrong or the program freezes, untick it: the simple preview is used, slower but working on every PC.",
+ "Anteprima con la scheda grafica ({0})": "Preview with the graphics card ({0})",
+ "Anteprima semplice, senza scheda grafica: più lenta": "Simple preview, without the graphics card: slower",
+ "OpenGL non disponibile ({0})": "OpenGL not available ({0})",
+ "la scheda grafica ha dato un errore ({0})": "the graphics card gave an error ({0})",
+ "l'ultima volta la scheda grafica ha chiuso il programma": "last time the graphics card closed the program",
+ "anteprima fluida e definita; se si vede male, togli la spunta e si usa l'anteprima semplice": "smooth, sharp preview; if it looks wrong, untick it and the simple preview is used",
+ "Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di una scheda grafica vera": "Preview with OpenGL done by the processor ({0}): it works, but slower than a real graphics card",
+ "non disegna nulla": "draws nothing",
+ "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "the graphics card gave an error ({0}); if the window looks wrong, close it and open it again"
 }

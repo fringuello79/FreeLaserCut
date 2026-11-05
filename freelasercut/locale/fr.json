@@ -1942,5 +1942,16 @@
  "Il modello ha dei buchi (non è chiuso): {0} contorni non si chiudono e sono stati lasciati fuori. Controlla l'anteprima o ripara il modello.": "Le modèle a des trous (il n'est pas fermé) : {0} contours ne se ferment pas et ont été laissés de côté. Vérifiez l'aperçu ou réparez le modèle.",
  "Il modello ha dei piccoli buchi (non è chiuso): i contorni sono stati chiusi da soli. Controlla l'anteprima.": "Le modèle a de petits trous (il n'est pas fermé) : les contours ont été fermés automatiquement. Vérifiez l'aperçu.",
  "Non riesco a calcolare la scultura con questo modello ({0}).": "Impossible de calculer la sculpture avec ce modèle ({0}).",
- "<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² (un foglio)": "<b>{0} pièces</b> · sculpture {1:.0f} × {2:.0f} × {3:.0f} mm<br>matériau : environ {4:.0f} cm² (une feuille)"
+ "<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² (un foglio)": "<b>{0} pièces</b> · sculpture {1:.0f} × {2:.0f} × {3:.0f} mm<br>matériau : environ {4:.0f} cm² (une feuille)",
+ "Usa la scheda grafica": "Utiliser la carte graphique",
+ "Anteprima disegnata dalla scheda grafica: si gira in tempo reale, con i bordi lisci. Se l'anteprima si vede male o il programma si blocca, toglila: si usa l'anteprima semplice, più lenta ma che funziona su ogni PC.": "Aperçu dessiné par la carte graphique : il tourne en temps réel, avec des bords lisses. S'il s'affiche mal ou si le programme se bloque, décochez-le : l'aperçu simple est utilisé, plus lent mais il fonctionne sur tous les PC.",
+ "Anteprima con la scheda grafica ({0})": "Aperçu avec la carte graphique ({0})",
+ "Anteprima semplice, senza scheda grafica: più lenta": "Aperçu simple, sans la carte graphique : plus lent",
+ "OpenGL non disponibile ({0})": "OpenGL non disponible ({0})",
+ "la scheda grafica ha dato un errore ({0})": "la carte graphique a renvoyé une erreur ({0})",
+ "l'ultima volta la scheda grafica ha chiuso il programma": "la dernière fois, la carte graphique a fermé le programme",
+ "anteprima fluida e definita; se si vede male, togli la spunta e si usa l'anteprima semplice": "aperçu fluide et net ; s'il s'affiche mal, décochez-le et l'aperçu simple est utilisé",
+ "Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di una scheda grafica vera": "Aperçu avec OpenGL calculé par le processeur ({0}) : il fonctionne, mais plus lentement qu'une vraie carte graphique",
+ "non disegna nulla": "ne dessine rien",
+ "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "la carte graphique a renvoyé une erreur ({0}) ; si la fenêtre s'affiche mal, fermez-la et rouvrez-la"
 }
