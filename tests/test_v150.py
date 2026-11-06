@@ -757,4 +757,6 @@ w.close()
 
 print(f"\n{sum(results)}/{len(results)} verifiche superate")
 sys.stdout.flush()
-os._exit(0 if all(results) else 1)  # il simulatore della scheda gira in un altro thread: uscita senza attese
+if sys.platform == "win32":  # su Windows l'uscita brusca con Qt ancora attivo chiude male il processo
+    sys.exit(0 if all(results) else 1)
+os._exit(0 if all(results) else 1)  # su Linux invece la chiusura normale di Qt a volte si blocca: uscita diretta
