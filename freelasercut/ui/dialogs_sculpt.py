@@ -26,10 +26,9 @@ LABEL_FONT = "futural"  # carattere a linea singola: i numeri si incidono veloci
 
 def _settings():
     """Impostazioni del programma (FLC_SETTINGS_INI: un file a parte, per le prove automatiche)."""
-    ini = os.environ.get("FLC_SETTINGS_INI")
-    if ini:
-        return QSettings(ini, QSettings.IniFormat)
-    return QSettings("FreeLaserCut", "FreeLaserCut")
+    from ..settings_store import app_settings
+
+    return app_settings()
 
 
 def _set(key, value):

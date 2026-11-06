@@ -757,4 +757,15 @@ w.close()
 
 print(f"\n{sum(results)}/{len(results)} verifiche superate")
 sys.stdout.flush()
-os._exit(0 if all(results) else 1)  # il simulatore della scheda gira in un altro thread: uscita senza attese
+code = 0 if all(results) else 1
+if sys.platform == "win32":
+    # su Windows sia l'uscita normale sia os._exit fanno partire le pulizie di Qt a programma già smontato (e il
+    # processo finisce con «access violation» dopo che tutte le prove sono passate): si chiude subito, senza pulizie
+    import ctypes
+    from ctypes import wintypes
+
+    k32 = ctypes.windll.kernel32
+    k32.GetCurrentProcess.restype = wintypes.HANDLE  # handle a 64 bit: senza questo arriverebbe troncato
+    k32.TerminateProcess.argtypes = (wintypes.HANDLE, wintypes.UINT)
+    k32.TerminateProcess(k32.GetCurrentProcess(), code)
+os._exit(code)  # il simulatore della scheda gira in un altro thread: uscita senza attese

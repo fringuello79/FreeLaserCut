@@ -87,7 +87,9 @@ QFrame#bcPalette {{ background: #121826; border: 1px solid #2E3A56; border-radiu
 
 # ============================================================ scelta dell'interfaccia
 def settings():
-    return QSettings("FreeLaserCut", "FreeLaserCut")
+    from ..settings_store import app_settings
+
+    return app_settings()
 
 
 def ui_mode(qs=None):

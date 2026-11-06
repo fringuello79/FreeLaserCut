@@ -194,7 +194,9 @@ def run_suite(name, label, *args):
 
     print(label)
     # UTF-8 esplicito: su Windows l'uscita catturata sarebbe in cp1252 e "×", "Δ", "→" farebbero cadere la suite
-    env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONIOENCODING="utf-8", PYTHONUTF8="1", PYTHONFAULTHANDLER="1")
+    # preferenze pulite per ogni prova: su Windows il registro è in comune e una prova lasciava valori alla successiva
+    env.setdefault("FLC_SETTINGS_INI", os.path.join(tempfile.mkdtemp(), "prova.ini"))
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
     r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8", errors="replace",
                        env=env, timeout=900)
@@ -203,7 +205,7 @@ def run_suite(name, label, *args):
             print("  " + line.strip())
             results.append((line.strip(), line.strip().startswith("OK")))
     if r.returncode != 0 and not any(l.strip().startswith("KO") for l in r.stdout.splitlines()):
-        print("  KO  la suite si è interrotta:\n" + (r.stderr or "")[-1500:])
+        print(f"  KO  la suite si è interrotta (codice {r.returncode}):\n" + (r.stderr or "")[-2500:])
         results.append((name, False))
 
 

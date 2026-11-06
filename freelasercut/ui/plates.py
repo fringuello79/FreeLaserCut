@@ -484,6 +484,7 @@ class PlateOverview(QWidget):
             return
         self._timer.stop()
         self.hide()
+        self._pix.clear()  # le immagini dei piani servono solo mentre è aperta: memoria liberata
         self.win.canvas.setFocus()
         self.win.plate_bar.overview_changed(False)
 

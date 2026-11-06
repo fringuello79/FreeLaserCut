@@ -93,18 +93,18 @@ def system_language():
 
 def saved_language():
     try:
-        from PySide6.QtCore import QSettings
+        from .settings_store import app_settings
 
-        v = QSettings("FreeLaserCut", "FreeLaserCut").value("language")
+        v = app_settings().value("language")
         return v if v in LANGUAGES else None
     except Exception:  # noqa: BLE001
         return None
 
 
 def save_language(lang):
-    from PySide6.QtCore import QSettings
+    from .settings_store import app_settings
 
-    qs = QSettings("FreeLaserCut", "FreeLaserCut")
+    qs = app_settings()
     qs.setValue("language", lang)
     qs.sync()
 

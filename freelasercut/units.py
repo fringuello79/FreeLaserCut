@@ -20,9 +20,9 @@ def speed_unit():
 
 def _saved():
     try:
-        from PySide6.QtCore import QSettings
+        from .settings_store import app_settings
 
-        return str(QSettings("FreeLaserCut", "FreeLaserCut").value("unit_speed", "mm/min"))
+        return str(app_settings().value("unit_speed", "mm/min"))
     except Exception:  # noqa: BLE001
         return "mm/min"
 

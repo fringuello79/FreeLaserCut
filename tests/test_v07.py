@@ -35,7 +35,7 @@ check("la finestra di scelta spiega che si cambia da Impostazioni", "Impostazion
     l.text() for l in d.findChildren(__import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel)))
 d._pick("classica"); d.accept()
 check("scelta Classica salvata", B.ui_mode(qs) == "classica" and not B.needs_choice(qs))
-d = B.ChoiceDialog(); d.reject()
+d2 = B.ChoiceDialog(); d2.reject()  # variabile nuova: la prima finestra (di cui sopra si sono letti i figli) resta viva
 check("chiusa con la X vale la scelta evidenziata (Banco, consigliata)", B.ui_mode(qs) == "banco")
 os.environ["FLC_UI"] = "classica"
 check("la variabile FLC_UI ha la precedenza", B.ui_mode(qs) == "classica" and not B.needs_choice(qs))
