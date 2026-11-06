@@ -124,9 +124,9 @@ def chosen():
     theme, accent = os.environ.get("FLC_THEME"), os.environ.get("FLC_ACCENT")
     if theme is None or accent is None:
         try:
-            from PySide6.QtCore import QSettings
+            from .settings_store import app_settings
 
-            qs = QSettings("FreeLaserCut", "FreeLaserCut")
+            qs = app_settings()
             theme = theme or str(qs.value("ui_theme", "scuro"))
             accent = accent or str(qs.value("ui_accent", "blu"))
         except Exception:  # noqa: BLE001

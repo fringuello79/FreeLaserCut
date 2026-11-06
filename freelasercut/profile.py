@@ -37,7 +37,9 @@ def migrate_qsettings():
     """Copia una volta le preferenze (porta, finestre, cartelle) dal vecchio nome Freeburn."""
     from PySide6.QtCore import QSettings
 
-    new = QSettings("FreeLaserCut", "FreeLaserCut")
+    from .settings_store import app_settings
+
+    new = app_settings()
     if new.value("_migrato_da_freeburn") or new.allKeys():
         return new
     old = QSettings(LEGACY_DIR, LEGACY_DIR)

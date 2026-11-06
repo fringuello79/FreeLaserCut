@@ -107,7 +107,9 @@ check("…e il profilo parte dai suoi valori di targa", bp.optical_power == "10 
 # ------------------------------------------------------------------ nel programma
 os.environ["FLC_UI"] = "classica"
 from freelasercut.ui.dialogs_machine import use_preset
-qs = QSettings("FreeLaserCut", "FreeLaserCut")
+from freelasercut.settings_store import app_settings
+
+qs = app_settings()
 old_prof = qs.value("profile_path", "")
 pp = use_preset(qs, "Sculpfun S30 / S30 Pro / S30 Pro Max")
 check("scegliere un modello crea il profilo e lo rende attivo", pp is not None and os.path.exists(qs.value("profile_path"))
