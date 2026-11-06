@@ -261,7 +261,8 @@ def prepared(mesh, up="z", height=100.0):
 
 # ==================================================================== sezioni
 def _to_int(path):
-    return [(int(round(x * SCALE)), int(round(y * SCALE))) for x, y in path]
+    a = np.asarray(path, np.float64).reshape(-1, 2)
+    return np.round(a * SCALE).astype(np.int64).tolist()  # tutto in una volta: svelto anche con migliaia di punti
 
 
 def _from_int(path):
@@ -269,7 +270,11 @@ def _from_int(path):
 
 
 def _area(ring):
-    return abs(pyclipper.Area(_to_int(ring))) / SCALE / SCALE
+    a = np.asarray(ring, np.float64).reshape(-1, 2)
+    if len(a) < 3:
+        return 0.0
+    x, y = a[:, 0], a[:, 1]
+    return abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))) / 2.0
 
 
 def _tri_index(mesh, axis):
@@ -556,7 +561,13 @@ def _letters(k):
     return s
 
 
-def layered(mesh, thickness=3.0, min_area=None):
+def _tick(tick, done, total):
+    """Avanzamento per i modelli grandi: tick(frazione) -> True se chi aspetta ha premuto Annulla."""
+    if tick is not None and tick(done / max(total, 1)):
+        raise InterruptedError
+
+
+def layered(mesh, thickness=3.0, min_area=None, tick=None):
     """Fette orizzontali: una ogni `thickness` mm, presa a metà dello strato."""
     t = float(thickness)
     if t < 0.5:
@@ -573,9 +584,11 @@ def layered(mesh, thickness=3.0, min_area=None):
     for i in range(n):
         z = lo[2] + (i + 0.5) * (hi[2] - lo[2]) / n
         layers.append(islands(section(mesh, 2, z, info), min_area))
+        _tick(tick, i + 1, 2 * n)
     _open_warning(sc, info)
     order = 0
     for i, isls in enumerate(layers):
+        _tick(tick, n + i, 2 * n)
         isls = sorted(isls, key=lambda s: -s.area())
         above = layers[i + 1] if i + 1 < len(layers) else []
         for k, isl in enumerate(isls):
@@ -638,7 +651,7 @@ def _clip_rings(rings, inside):
     return [np.array(_from_int(p)) for p in pyclipper.OpenPathsFromPolyTree(tree) if len(p) >= 2]
 
 
-def interlocking(mesh, thickness=3.0, nx=6, ny=6, slot_fit=0.0, min_area=None):
+def interlocking(mesh, thickness=3.0, nx=6, ny=6, slot_fit=0.0, min_area=None, tick=None):
     """Sagome a incastro: nx sagome lungo X (piani x = costante) e ny lungo Y, con fessure larghe lo spessore più
     `slot_fit` (positivo = più larghe, per un incastro più morbido)."""
     t = float(thickness)
@@ -657,8 +670,13 @@ def interlocking(mesh, thickness=3.0, nx=6, ny=6, slot_fit=0.0, min_area=None):
     if nx > 1 and (xs[1] - xs[0]) < 2.5 * t or ny > 1 and (ys[1] - ys[0]) < 2.5 * t:
         raise ValueError(tr("Sagome troppo vicine per questo spessore: diminuiscile o ingrandisci la scultura."))
     info = {}
-    X = [(x, islands(section(mesh, 0, x, info), min_area)) for x in xs]  # (y, z)
-    Y = [(y, islands(section(mesh, 1, y, info), min_area)) for y in ys]  # (x, z)
+    X, Y = [], []
+    for k, x in enumerate(xs):
+        X.append((x, islands(section(mesh, 0, x, info), min_area)))  # (y, z)
+        _tick(tick, k + 1, 2 * (nx + ny))
+    for k, y in enumerate(ys):
+        Y.append((y, islands(section(mesh, 1, y, info), min_area)))  # (x, z)
+        _tick(tick, nx + k + 1, 2 * (nx + ny))
     slots_x = {(i, a): [] for i, (_x, isl) in enumerate(X) for a in range(len(isl))}
     slots_y = {(j, b): [] for j, (_y, isl) in enumerate(Y) for b in range(len(isl))}
     links_x = {k: 0 for k in slots_x}
@@ -666,6 +684,7 @@ def interlocking(mesh, thickness=3.0, nx=6, ny=6, slot_fit=0.0, min_area=None):
     big = (hi[2] - lo[2]) + 10.0
     half = w / 2 + 0.05
     for i, (x, xis) in enumerate(X):
+        _tick(tick, nx + ny + i * (nx + ny) / max(nx, 1), 2 * (nx + ny))
         for j, (y, yis) in enumerate(Y):
             for a, A in enumerate(xis):
                 ia = _strip_spans(A, y, half)      # lungo z, dove passa la sagoma Y (tutto il suo spessore)

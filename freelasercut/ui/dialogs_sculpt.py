@@ -9,10 +9,13 @@ from PySide6.QtCore import QPointF, QRectF, QSettings, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QTransform
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
-    QHBoxLayout, QLabel, QMessageBox, QPushButton, QSlider, QSpinBox, QVBoxLayout, QWidget,
+    QHBoxLayout, QLabel, QMessageBox, QProgressDialog, QPushButton, QSlider, QSpinBox, QVBoxLayout, QWidget,
 )
 
-from ..core import geom, nesting, render3d, sculpt as sc
+BIG_SHEETS = 10    # oltre, prima di creare i pezzi si chiede conferma
+BIG_PIECES = 300
+
+from ..core import nesting, render3d, sculpt as sc
 from ..core.document import GroupShape, PathShape, RectShape, TextShape, default_layer
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -230,7 +233,7 @@ class SculptDialog(QDialog):
             self.up.addItem(lab, k)
         self.up.setToolTip(tr("Quale asse del file va in verticale: se il modello appare sdraiato, cambia questa voce."))
         f.addRow(tr("Verticale"), self.up)
-        self.height_mm = self._spin(20, 1000, 120, 1, " mm", tr("Altezza della scultura finita"))
+        self.height_mm = self._spin(5, 1000, 120, 1, " mm", tr("Altezza della scultura finita"))
         f.addRow(tr("Altezza"), self.height_mm)
         self.style = QComboBox()
         for k, lab in STYLES.items():
@@ -369,7 +372,9 @@ class SculptDialog(QDialog):
         for w in (self.height_mm, self.thick, self.fit, self.nx, self.ny):
             w.valueChanged.connect(self._later)
         self.model.currentIndexChanged.connect(lambda *_: self._auto_counts(quiet=True))
-        self.up.currentIndexChanged.connect(lambda *_: self._auto_counts(quiet=True))
+        self.up.currentIndexChanged.connect(self._up_changed)
+        for w in (self.sheet_w, self.sheet_h):
+            w.valueChanged.connect(lambda *_: self._update_info())
         self.style.currentIndexChanged.connect(self._style_changed)
         self.view_buttons["sculpture"].setChecked(True)
         self.play_row.setVisible(False)
@@ -484,6 +489,77 @@ class SculptDialog(QDialog):
         for w in (self.counts_box, self.counts_name, self.fit, self.fit_name):
             w.setVisible(inter)
 
+    def _up_changed(self, *_):
+        if self.model.currentData() == "file":
+            self._fit_height()
+        self._auto_counts(quiet=True)
+
+    def _fit_height(self):
+        """Altezza di partenza per un modello aperto da file: la sua vera (in mm), ma con la base che entra nel
+        foglio, così un oggetto basso e largo (un portachiavi) non diventa una scultura di metri."""
+        m = self.file_mesh
+        if m is None:
+            return
+        ax = {"x": 0, "y": 1, "z": 2}.get(self.up.currentData(), 2)
+        lo, hi = m.bounds()
+        ext = hi - lo
+        h0 = float(ext[ax])
+        foot = float(max(ext[k] for k in range(3) if k != ax))
+        if h0 <= 0:
+            return
+        room = 0.9 * min(self.sheet_w.value(), self.sheet_h.value())
+        h = h0 if foot <= 0 else min(h0, h0 * room / foot)
+        h = max(self.height_mm.minimum(), min(self.height_mm.maximum(), h))
+        self.height_mm.blockSignals(True)
+        self.height_mm.setValue(round(h, 1))
+        self.height_mm.blockSignals(False)
+
+    def _oversize(self):
+        """(pezzi più grandi del foglio, misure del più grande): ogni pezzo si può girare di 90°."""
+        s = self.sculpture
+        if s is None:
+            return 0, (0.0, 0.0)
+        W, H = self.sheet_w.value() - 4.0, self.sheet_h.value() - 4.0  # 2 mm di margine per lato
+        big, worst = 0, (0.0, 0.0)
+        for p in s.pieces:
+            o = np.asarray(p.island.outer)
+            w, h = (o.max(0) - o.min(0)).tolist()
+            if not ((w <= W and h <= H) or (h <= W and w <= H)):
+                big += 1
+                if w * h > worst[0] * worst[1]:
+                    worst = (w, h)
+        return big, worst
+
+    def _sheets(self):
+        s = self.sculpture
+        sheet = self.sheet_w.value() * self.sheet_h.value()
+        return max(1, math.ceil(s.area_mm2() * 1.35 / max(sheet, 1.0))) if s is not None else 0
+
+    def _risks(self):
+        """Avvisi prima di creare i pezzi (scultura enorme o pezzi che non entrano nel foglio)."""
+        out = []
+        big, worst = self._oversize()
+        if big:
+            out.append(tr("{0} pezzi sono più grandi del foglio (il più grande {1:.0f} × {2:.0f} mm): riduci "
+                          "l'altezza o cambia l'asse verticale.", big, worst[0], worst[1]))
+        n = self._sheets()
+        if n > BIG_SHEETS:
+            out.append(tr("Servono circa {0} fogli: controlla l'altezza (sistemare tanti pezzi richiede tempo).", n))
+        if self.sculpture is not None and len(self.sculpture.pieces) > BIG_PIECES:
+            out.append(tr("{0} pezzi: sistemarli sui fogli può richiedere qualche minuto.", len(self.sculpture.pieces)))
+        return out
+
+    def _confirm_big(self, risks):
+        box = QMessageBox(QMessageBox.Warning, tr("Scultura 3D"),
+                          tr("La scultura così è molto grande:") + "\n\n• " + "\n• ".join(risks) + "\n\n" +
+                          tr("Forse l'altezza o l'asse verticale non sono quelli giusti. Se vai avanti, puoi sempre "
+                             "annullare mentre i pezzi vengono sistemati."), parent=self)
+        go = box.addButton(tr("Crea comunque"), QMessageBox.AcceptRole)
+        back = box.addButton(tr("Torna alle misure"), QMessageBox.RejectRole)
+        box.setDefaultButton(back)
+        box.exec()
+        return box.clickedButton() is go
+
     def _auto_counts(self, quiet=False):
         try:
             m = sc.prepared(self.source_mesh(), self.up.currentData(), self.height_mm.value())
@@ -512,6 +588,7 @@ class SculptDialog(QDialog):
             return False
         QApplication.restoreOverrideCursor()
         self.file_name = os.path.basename(path)
+        self._fit_height()
         i = self.model.findData("file")
         if i < 0:
             self.model.addItem(self.file_name, "file")
@@ -529,15 +606,34 @@ class SculptDialog(QDialog):
 
     def _rebuild(self):
         self._timer.stop()
+        if getattr(self, "_busy", False):  # già al lavoro (l'avanzamento lascia girare la finestra): dopo
+            self._timer.start()
+            return
+        self._busy = True
         QApplication.setOverrideCursor(Qt.WaitCursor)
+        prog = QProgressDialog(tr("Calcolo la scultura…"), tr("Annulla"), 0, 1000, self)
+        prog.setWindowTitle(tr("Scultura 3D"))
+        prog.setWindowModality(Qt.WindowModal)
+        prog.setMinimumDuration(900)  # compare solo se il calcolo è lungo
+        prog.setAutoClose(False)
+        prog.setAutoReset(False)
+
+        def tick(frac):
+            prog.setValue(int(frac * 1000))
+            QApplication.processEvents()
+            return prog.wasCanceled()
+
         try:
             self.error = ""
             self.mesh = sc.prepared(self.source_mesh(), self.up.currentData(), self.height_mm.value())
             if self.style.currentData() == "layers":
-                self.sculpture = sc.layered(self.mesh, self.thick.value())
+                self.sculpture = sc.layered(self.mesh, self.thick.value(), tick=tick)
             else:
                 self.sculpture = sc.interlocking(self.mesh, self.thick.value(), self.nx.value(), self.ny.value(),
-                                                 self.fit.value())
+                                                 self.fit.value(), tick=tick)
+        except InterruptedError:
+            self.sculpture = None
+            self.error = tr("Calcolo annullato: prova un'altezza più piccola o un materiale più spesso.")
         except (ValueError, MemoryError) as ex:
             self.sculpture = None
             self.error = str(ex)
@@ -545,7 +641,10 @@ class SculptDialog(QDialog):
             self.sculpture = None
             self.error = tr("Non riesco a calcolare la scultura con questo modello ({0}).", ex)
         finally:
+            prog.close()
+            prog.deleteLater()
             QApplication.restoreOverrideCursor()
+            self._busy = False
         self.viewer.set_data(self.mesh, self.sculpture)
         n = len(self.sculpture.pieces) if self.sculpture else 0
         self.slider.blockSignals(True)
@@ -563,16 +662,16 @@ class SculptDialog(QDialog):
         self.ok_btn.setEnabled(True)
         s = self.sculpture
         size = s.size()
-        sheet = self.sheet_w.value() * self.sheet_h.value()
-        sheets = max(1, math.ceil(s.area_mm2() * 1.35 / max(sheet, 1.0)))
+        sheets = self._sheets()
         if sheets == 1:
             text = tr("<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² "
                       "(un foglio)", len(s.pieces), size[0], size[1], size[2], s.area_mm2() / 100.0)
         else:
             text = tr("<b>{0} pezzi</b> · scultura {1:.0f} × {2:.0f} × {3:.0f} mm<br>materiale: circa {4:.0f} cm² "
                       "(circa {5} fogli)", len(s.pieces), size[0], size[1], size[2], s.area_mm2() / 100.0, sheets)
-        if s.warnings:
-            text += "<br><span style='color:#E5484D'>" + "<br>".join(dict.fromkeys(s.warnings)) + "</span>"
+        warn = list(dict.fromkeys(s.warnings)) + ["⚠ " + r for r in self._risks()]
+        if warn:
+            text += "<br><span style='color:#E5484D'>" + "<br>".join(warn) + "</span>"
         self.info.setText(text)
 
     # ---------------------------------------------------------------- viste
@@ -638,6 +737,9 @@ class SculptDialog(QDialog):
             self._rebuild()
         if self.sculpture is None:
             return
+        risks = self._risks()
+        if risks and not self._confirm_big(risks):
+            return
         super().accept()
 
     def done(self, r):
@@ -699,21 +801,32 @@ def run_sculpt(win):
         return None
     mark_layer, cut_layer = free
     sw, sh = val["sheet"]
-    area = [geom.Poly([(0.0, 0.0), (sw, 0.0), (sw, sh), (0.0, sh)], True)]
     groups = []
     for pc in sorted(s.pieces, key=lambda p: p.order):
         grp = GroupShape(piece_shapes(pc, cut_layer, mark_layer), layer=cut_layer)
         grp._sculpt_name = pc.name
         groups.append(grp)
-    QApplication.setOverrideCursor(Qt.WaitCursor)
+    prog = QProgressDialog(tr("Sistemo i pezzi sui fogli…"), tr("Annulla"), 0, 1000, win)
+    prog.setWindowTitle(tr("Scultura 3D"))
+    prog.setWindowModality(Qt.WindowModal)
+    prog.setMinimumDuration(600)
+    prog.setAutoClose(False)
+    prog.setAutoReset(False)
+
+    def tick(frac, sheets, done, total):
+        prog.setValue(int(frac * 1000))
+        prog.setLabelText(tr("Sistemo i pezzi sui fogli: {0} di {1} (fogli pieni: {2})…", done, total, sheets))
+        QApplication.processEvents()
+        return prog.wasCanceled()
+
     try:
-        results, shifts = nesting.nest_sheets(groups, area, (), max_sheets=len(groups), keep_touching=False,
-                                              spacing=2.5, margin=2.0,
-                                              rotations="90", tick=lambda: (QApplication.processEvents(), False)[1])
+        results, shifts, left = nesting.nest_pieces(groups, sw, sh, spacing=2.5, margin=2.0, tick=tick)
+    except InterruptedError:
+        win.statusBar().showMessage(tr("Scultura annullata: nessun pezzo aggiunto al progetto."), 10000)
+        return None
     finally:
-        QApplication.restoreOverrideCursor()
-    placed = {g for r in results for grp in r.placements for g in grp}
-    left = [g for g in groups if g not in placed]
+        prog.close()
+        prog.deleteLater()
     win.editor.begin(tr("Scultura 3D"))
     try:
         for i in (cut_layer, mark_layer):

@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.14.2 — 06/11/2026
+- **Scultura 3D: niente più blocchi con i modelli scomodi.** Un portachiavi 3D (basso e largo) con l'altezza di partenza di 120 mm diventava una scultura larga più di 2 metri, di centinaia di pezzi più grandi del foglio: «Crea i pezzi» restava fermo per decine di minuti e, chiusa la finestra, il programma continuava a lavorare in sottofondo.
+  - **Altezza giusta da subito:** aprendo un file `.stl` o `.obj` l'altezza è quella vera del modello (in mm), ridotta solo se la base non entrerebbe nel foglio. Lo stesso quando si cambia l'asse verticale. L'altezza minima ora è 5 mm, così un oggetto basso resta basso.
+  - **Avvisi prima:** sotto le misure compare in rosso se ci sono pezzi più grandi del foglio (con le misure del più grande), se servono più di 10 fogli o se i pezzi sono più di 300. Premendo *Crea i pezzi* in questi casi il programma chiede conferma: *Crea comunque* oppure *Torna alle misure*.
+  - **Sempre interrompibile:** i calcoli lunghi della scultura e la sistemazione dei pezzi sui fogli mostrano l'avanzamento con il pulsante *Annulla*. Annullando non viene aggiunto nulla al progetto e i livelli restano come prima.
+  - **Molto più veloce:** i pezzi vengono preparati una volta sola, quelli più grandi del foglio si mettono subito da parte (a destra, come prima), su un foglio pieno non si provano i pezzi che non ci starebbero e i pezzi uguali (le fette di un oggetto estruso, come un portachiavi o una targa) si riconoscono. Il caso del portachiavi da 168 pezzi passa da oltre mezz'ora a circa 30 secondi; con l'altezza giusta, circa un secondo. Anche il calcolo delle fette è circa 7 volte più veloce.
+- Nuova prova automatica `tests/test_v142.py` (21 controlli).
+
 ## 0.14.1 — 06/11/2026
 - **Anteprima 3D della Scultura disegnata dalla scheda grafica** (*Strumenti → Scultura 3D da modello…*). Prima la disegnava il processore, punto per punto: era lenta (fino a qualche secondo a ogni movimento) e, mentre si girava, sgranata. Ora:
   - si gira e si avvicina in tempo reale, anche con centinaia di pezzi o modelli da milioni di triangoli (oltre i 900.000 l'anteprima usa una copia alleggerita; i pezzi si calcolano sempre sul modello vero);

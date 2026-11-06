@@ -1953,5 +1953,17 @@
  "anteprima fluida e definita; se si vede male, togli la spunta e si usa l'anteprima semplice": "pré-visualização fluida e nítida; se aparecer mal, desmarque e usa-se a pré-visualização simples",
  "Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di una scheda grafica vera": "Pré-visualização com OpenGL feito pelo processador ({0}): funciona, mas mais lenta do que uma placa gráfica real",
  "non disegna nulla": "não desenha nada",
- "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "a placa gráfica deu um erro ({0}); se a janela aparecer mal, feche-a e abra-a de novo"
+ "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "a placa gráfica deu um erro ({0}); se a janela aparecer mal, feche-a e abra-a de novo",
+ "{0} pezzi sono più grandi del foglio (il più grande {1:.0f} × {2:.0f} mm): riduci l'altezza o cambia l'asse verticale.": "{0} peças são maiores que a chapa (a maior mede {1:.0f} × {2:.0f} mm): reduza a altura ou mude o eixo vertical.",
+ "Servono circa {0} fogli: controlla l'altezza (sistemare tanti pezzi richiede tempo).": "São necessárias cerca de {0} chapas: verifique a altura (organizar muitas peças leva tempo).",
+ "{0} pezzi: sistemarli sui fogli può richiedere qualche minuto.": "{0} peças: organizá-las nas chapas pode levar alguns minutos.",
+ "La scultura così è molto grande:": "Assim a escultura é muito grande:",
+ "Forse l'altezza o l'asse verticale non sono quelli giusti. Se vai avanti, puoi sempre annullare mentre i pezzi vengono sistemati.": "Talvez a altura ou o eixo vertical não estejam certos. Se continuar, você sempre pode cancelar enquanto as peças são organizadas.",
+ "Crea comunque": "Criar mesmo assim",
+ "Torna alle misure": "Voltar às medidas",
+ "Calcolo la scultura…": "Calculando a escultura…",
+ "Calcolo annullato: prova un'altezza più piccola o un materiale più spesso.": "Cálculo cancelado: tente uma altura menor ou um material mais espesso.",
+ "Sistemo i pezzi sui fogli…": "Organizando as peças nas chapas…",
+ "Sistemo i pezzi sui fogli: {0} di {1} (fogli pieni: {2})…": "Organizando as peças nas chapas: {0} de {1} (chapas cheias: {2})…",
+ "Scultura annullata: nessun pezzo aggiunto al progetto.": "Escultura cancelada: nenhuma peça adicionada ao projeto."
 }

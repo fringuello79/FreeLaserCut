@@ -126,7 +126,7 @@ def _transform(part, ang, x, y):
 
 
 # ------------------------------------------------------------------ piazzamento
-def _place_all(order, parts, angles, free, obst, cell, gap_r, margin_r, tick=None):
+def _place_all(order, parts, angles, free, obst, cell, gap_r, margin_r, tick=None, skip_full=False):
     """free: uint8 H×W (1 = materiale); obst: uint8 H×W (1 = ostacolo). Ritorna (piazzati, non piazzati, estensioni, area).
 
     Due griglie: «corpo» (fuori dal materiale, col margine dal bordo, + ostacoli + pezzi) che il pezzo non deve
@@ -141,9 +141,17 @@ def _place_all(order, parts, angles, free, obst, cell, gap_r, margin_r, tick=Non
     items_p = cv2.copyMakeBorder(items, gap_r, gap_r, gap_r, gap_r, cv2.BORDER_CONSTANT, value=0.0)
     ex = ey = 0
     placed, unplaced, area = {}, [], 0.0
+    free_cells = float((body < 0.5).sum()) if skip_full else 0.0
+    failed = set()  # forme identiche a una che non è entrata: non entrano nemmeno loro (il foglio si riempie soltanto)
     for idx in order:
         part = parts[idx]
         best = None
+        sig = getattr(part, "sig", None) if skip_full else None
+        if skip_full and (float(part.masks[angles[0]][0].sum()) > free_cells or (sig is not None and sig in failed)):
+            unplaced.append(idx)
+            if tick is not None and tick():
+                raise InterruptedError
+            continue
         for ang in angles:
             m, d, *_ = part.masks[ang]
             h, w = m.shape
@@ -166,6 +174,8 @@ def _place_all(order, parts, angles, free, obst, cell, gap_r, margin_r, tick=Non
                 best = (score[i, j], ang, i, j, h, w)
         if best is None:
             unplaced.append(idx)
+            if sig is not None:
+                failed.add(sig)
         else:
             _, ang, i, j, h, w = best
             m = part.masks[ang][0].astype(np.float32)
@@ -174,6 +184,7 @@ def _place_all(order, parts, angles, free, obst, cell, gap_r, margin_r, tick=Non
             items_p[i + gap_r:i + gap_r + h, j + gap_r:j + gap_r + w] = items[i:i + h, j:j + w]
             ex, ey = max(ex, j + w), max(ey, i + h)
             placed[idx] = (ang, i, j)
+            free_cells -= float(m.sum())
             area += part.area_mm2
         if tick is not None and tick():
             raise InterruptedError
@@ -325,6 +336,68 @@ def nest_sheets(shapes, area_polys, obstacle_shapes=(), max_sheets=20, sheet_gap
         placed = {s for g in res.placements for s in g}
         remaining = [s for s in remaining if s not in placed]
     return results, shifts
+
+
+def nest_pieces(shapes, sheet_w, sheet_h, spacing=2.0, margin=1.0, angles=(0, 90), sheet_gap=20.0, tick=None):
+    """Tanti pezzi singoli su fogli rettangolari uguali, affiancati a destra (come nest_sheets, ma svelto anche con
+    centinaia di pezzi): ogni pezzo si prepara una volta sola, i pezzi più grandi del foglio si saltano subito, su un
+    foglio ormai pieno non si provano i pezzi che non ci starebbero comunque.
+    tick(frazione, fogli fatti, pezzi sistemati, pezzi) -> True per annullare (InterruptedError).
+    Ritorna (Result per foglio, spostamenti in X dei fogli, forme rimaste fuori)."""
+    cell = min(2.0, max(0.2, math.sqrt(sheet_w * sheet_h / 300000.0)))
+    gap_r = int(math.ceil(spacing / cell)) + (1 if spacing > 0 else 0)
+    margin_r = int(math.ceil(margin / cell)) if margin > 0 else 0
+    W = int(math.ceil(sheet_w / cell)) + 1
+    H = int(math.ceil(sheet_h / cell)) + 1
+    sheet = [geom.Poly([(0.0, 0.0), (sheet_w, 0.0), (sheet_w, sheet_h), (0.0, sheet_h)], True)]
+    free = _raster(sheet, 0.0, 0.0, cell, W, H, fill_holes=False, stroke=0)
+    obst = np.zeros((H, W), np.uint8)
+    total = len(shapes)
+
+    def report(frac, sheets, done):
+        if tick is not None and tick(min(1.0, frac), sheets, done, total):
+            raise InterruptedError
+
+    parts, left = [], []
+    for n, s in enumerate(shapes):
+        p = make_part((s,), shape_polys(s))
+        if p is None:
+            left.append(s)
+        else:
+            _prepare(p, angles, cell, gap_r, True)
+            m0 = p.masks[angles[0]][0]
+            p.sig = (m0.shape, hash(m0.tobytes()))  # pezzi uguali (fette di un oggetto estruso) si riconoscono
+            fits = any(p.masks[a][0].shape[0] <= H - 2 * margin_r and p.masks[a][0].shape[1] <= W - 2 * margin_r
+                       for a in angles)
+            (parts if fits else left).append(p if fits else s)
+        report(0.25 * (n + 1) / max(total, 1), 0, 0)
+    pitch = sheet_w + sheet_gap
+    results, shifts = [], []
+    remaining = list(range(len(parts)))
+    done = 0
+    while remaining:
+        k = len(results)
+        order = sorted(remaining, key=lambda i: -parts[i].area_mm2)
+        tried = [0]
+
+        def step():
+            tried[0] += 1
+            report(0.25 + 0.75 * (done + tried[0] / len(order) * 0.5) / max(len(parts), 1), k, done)
+            return False
+
+        placed, unplaced, (ex, ey), area = _place_all(order, parts, angles, free, obst, cell, gap_r, margin_r,
+                                                      tick=step, skip_full=True)
+        if not placed:
+            break
+        tfs = {parts[i].key: _transform(parts[i], ang, k * pitch + j * cell, r * cell)
+               for i, (ang, r, j) in placed.items()}
+        results.append(Result(tfs, [], ex * cell, ey * cell, area, cell))
+        shifts.append(k * pitch)
+        done += len(placed)
+        remaining = unplaced
+        report(0.25 + 0.75 * done / max(len(parts), 1), k + 1, done)
+    left += [parts[i].key[0] for i in remaining]
+    return results, shifts, left
 
 
 # ------------------------------------------------------------------ linee di taglio comuni

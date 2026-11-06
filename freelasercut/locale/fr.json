@@ -1953,5 +1953,17 @@
  "anteprima fluida e definita; se si vede male, togli la spunta e si usa l'anteprima semplice": "aperçu fluide et net ; s'il s'affiche mal, décochez-le et l'aperçu simple est utilisé",
  "Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di una scheda grafica vera": "Aperçu avec OpenGL calculé par le processeur ({0}) : il fonctionne, mais plus lentement qu'une vraie carte graphique",
  "non disegna nulla": "ne dessine rien",
- "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "la carte graphique a renvoyé une erreur ({0}) ; si la fenêtre s'affiche mal, fermez-la et rouvrez-la"
+ "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "la carte graphique a renvoyé une erreur ({0}) ; si la fenêtre s'affiche mal, fermez-la et rouvrez-la",
+ "{0} pezzi sono più grandi del foglio (il più grande {1:.0f} × {2:.0f} mm): riduci l'altezza o cambia l'asse verticale.": "{0} pièces sont plus grandes que la plaque (la plus grande mesure {1:.0f} × {2:.0f} mm) : réduisez la hauteur ou changez l'axe vertical.",
+ "Servono circa {0} fogli: controlla l'altezza (sistemare tanti pezzi richiede tempo).": "Il faut environ {0} plaques : vérifiez la hauteur (placer beaucoup de pièces prend du temps).",
+ "{0} pezzi: sistemarli sui fogli può richiedere qualche minuto.": "{0} pièces : les placer sur les plaques peut prendre quelques minutes.",
+ "La scultura così è molto grande:": "Telle quelle, la sculpture est très grande :",
+ "Forse l'altezza o l'asse verticale non sono quelli giusti. Se vai avanti, puoi sempre annullare mentre i pezzi vengono sistemati.": "Peut-être que la hauteur ou l'axe vertical ne sont pas les bons. Si vous continuez, vous pouvez toujours annuler pendant le placement des pièces.",
+ "Crea comunque": "Créer quand même",
+ "Torna alle misure": "Revenir aux mesures",
+ "Calcolo la scultura…": "Calcul de la sculpture…",
+ "Calcolo annullato: prova un'altezza più piccola o un materiale più spesso.": "Calcul annulé : essayez une hauteur plus petite ou un matériau plus épais.",
+ "Sistemo i pezzi sui fogli…": "Placement des pièces sur les plaques…",
+ "Sistemo i pezzi sui fogli: {0} di {1} (fogli pieni: {2})…": "Placement des pièces sur les plaques : {0} sur {1} (plaques pleines : {2})…",
+ "Scultura annullata: nessun pezzo aggiunto al progetto.": "Sculpture annulée : aucune pièce ajoutée au projet."
 }

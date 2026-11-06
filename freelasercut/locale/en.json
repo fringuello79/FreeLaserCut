@@ -1953,5 +1953,17 @@
  "anteprima fluida e definita; se si vede male, togli la spunta e si usa l'anteprima semplice": "smooth, sharp preview; if it looks wrong, untick it and the simple preview is used",
  "Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di una scheda grafica vera": "Preview with OpenGL done by the processor ({0}): it works, but slower than a real graphics card",
  "non disegna nulla": "draws nothing",
- "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "the graphics card gave an error ({0}); if the window looks wrong, close it and open it again"
+ "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "the graphics card gave an error ({0}); if the window looks wrong, close it and open it again",
+ "{0} pezzi sono più grandi del foglio (il più grande {1:.0f} × {2:.0f} mm): riduci l'altezza o cambia l'asse verticale.": "{0} pieces are bigger than the sheet (the biggest is {1:.0f} × {2:.0f} mm): reduce the height or change the vertical axis.",
+ "Servono circa {0} fogli: controlla l'altezza (sistemare tanti pezzi richiede tempo).": "About {0} sheets are needed: check the height (laying out many pieces takes time).",
+ "{0} pezzi: sistemarli sui fogli può richiedere qualche minuto.": "{0} pieces: laying them out on the sheets can take a few minutes.",
+ "La scultura così è molto grande:": "As it is, the sculpture is very large:",
+ "Forse l'altezza o l'asse verticale non sono quelli giusti. Se vai avanti, puoi sempre annullare mentre i pezzi vengono sistemati.": "Perhaps the height or the vertical axis is not right. If you go ahead, you can always cancel while the pieces are being laid out.",
+ "Crea comunque": "Create anyway",
+ "Torna alle misure": "Back to the sizes",
+ "Calcolo la scultura…": "Computing the sculpture…",
+ "Calcolo annullato: prova un'altezza più piccola o un materiale più spesso.": "Computation cancelled: try a smaller height or a thicker material.",
+ "Sistemo i pezzi sui fogli…": "Laying out the pieces on the sheets…",
+ "Sistemo i pezzi sui fogli: {0} di {1} (fogli pieni: {2})…": "Laying out the pieces on the sheets: {0} of {1} (full sheets: {2})…",
+ "Scultura annullata: nessun pezzo aggiunto al progetto.": "Sculpture cancelled: no pieces added to the project."
 }

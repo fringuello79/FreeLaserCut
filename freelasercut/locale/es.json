@@ -1953,5 +1953,17 @@
  "anteprima fluida e definita; se si vede male, togli la spunta e si usa l'anteprima semplice": "vista previa fluida y nítida; si se ve mal, desmárcala y se usa la vista previa sencilla",
  "Anteprima con OpenGL fatto dal processore ({0}): funziona, ma più lenta di una scheda grafica vera": "Vista previa con OpenGL hecho por el procesador ({0}): funciona, pero más lenta que una tarjeta gráfica de verdad",
  "non disegna nulla": "no dibuja nada",
- "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "la tarjeta gráfica ha dado un error ({0}); si la ventana se ve mal, ciérrala y vuelve a abrirla"
+ "la scheda grafica ha dato un errore ({0}); se la finestra si vede male, chiudila e riaprila": "la tarjeta gráfica ha dado un error ({0}); si la ventana se ve mal, ciérrala y vuelve a abrirla",
+ "{0} pezzi sono più grandi del foglio (il più grande {1:.0f} × {2:.0f} mm): riduci l'altezza o cambia l'asse verticale.": "{0} piezas son más grandes que la plancha (la mayor mide {1:.0f} × {2:.0f} mm): reduce la altura o cambia el eje vertical.",
+ "Servono circa {0} fogli: controlla l'altezza (sistemare tanti pezzi richiede tempo).": "Hacen falta unas {0} planchas: revisa la altura (colocar muchas piezas lleva tiempo).",
+ "{0} pezzi: sistemarli sui fogli può richiedere qualche minuto.": "{0} piezas: colocarlas en las planchas puede llevar unos minutos.",
+ "La scultura così è molto grande:": "Así la escultura es muy grande:",
+ "Forse l'altezza o l'asse verticale non sono quelli giusti. Se vai avanti, puoi sempre annullare mentre i pezzi vengono sistemati.": "Quizá la altura o el eje vertical no son los correctos. Si sigues, siempre puedes cancelar mientras se colocan las piezas.",
+ "Crea comunque": "Crear de todos modos",
+ "Torna alle misure": "Volver a las medidas",
+ "Calcolo la scultura…": "Calculando la escultura…",
+ "Calcolo annullato: prova un'altezza più piccola o un materiale più spesso.": "Cálculo cancelado: prueba una altura menor o un material más grueso.",
+ "Sistemo i pezzi sui fogli…": "Colocando las piezas en las planchas…",
+ "Sistemo i pezzi sui fogli: {0} di {1} (fogli pieni: {2})…": "Colocando las piezas en las planchas: {0} de {1} (planchas llenas: {2})…",
+ "Scultura annullata: nessun pezzo aggiunto al progetto.": "Escultura cancelada: no se ha añadido ninguna pieza al proyecto."
 }
