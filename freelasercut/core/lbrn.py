@@ -391,7 +391,9 @@ def load(path, apply_variables=True):
 def import_shapes(path, doc):
     """Importa le forme in un documento esistente; i livelli non ancora usati prendono le impostazioni del progetto."""
     src, warnings = load(path, apply_variables=False)
-    used = {leaf.layer for s in doc.shapes for leaf, _ in s.leaves()}
+    # i livelli sono di tutti i piani di lavoro: uno usato su un altro piano tiene le sue impostazioni
+    used = (doc.used_layer_indices() if hasattr(doc, "used_layer_indices")
+            else {leaf.layer for s in doc.shapes for leaf, _ in s.leaves()})
     for idx, cs in src.layers.items():
         if idx not in used:
             doc.layers[idx] = cs

@@ -281,6 +281,7 @@ class Canvas(QGraphicsView):
     tool_changed = Signal(str)
     status = Signal(str)
     zoom_changed = Signal(float)
+    view_changed = Signal()  # zoom, spostamento, misure o colore del piano: le linguette dei piani si riposizionano
 
     def __init__(self, editor, bed=(450.0, 440.0), parent=None):
         super().__init__(parent)
@@ -310,6 +311,8 @@ class Canvas(QGraphicsView):
         self.snap_grid = False
         self.snap_objects = True
         self.dither_preview = False
+        self.show_ghosts = True  # gli oggetti degli altri piani di lavoro, in grigio
+        self._ghost_cache = (None, None)
         self.grid_step = 10.0
         # elementi macchina / camera / anteprima (coordinate scena)
         self._cam_item = None
@@ -712,9 +715,15 @@ class Canvas(QGraphicsView):
     def drawBackground(self, p, rect):
         vp = self.viewport()
         if p.device() is not vp:  # disegno su un'altra superficie (stampa, immagine): niente cache
-            self._paint_background(p, rect)
+            self._paint_background(p, rect)  # niente altri piani in grigio nelle immagini e nelle stampe
             return
         key = self._view_key() + (self.light_bed, self.show_grid, self.snap_grid, self.bed_x, self.bed_y)
+        vk = key[:9] + (self.light_bed, self.bed_x, self.bed_y)
+        if vk != getattr(self, "_last_vk", None):
+            self._last_vk = vk
+            QTimer.singleShot(0, self, self.view_changed.emit)  # non durante il disegno
+        gp = self.ghost_path()  # gli altri piani in grigio sono nello sfondo già pronto: niente lavoro a ogni ridisegno
+        key += (id(gp) if gp is not None else None,)
         ck, pix, step = self._bg_cache
         if ck != key or pix is None:
             dpr = vp.devicePixelRatioF()
@@ -725,6 +734,7 @@ class Canvas(QGraphicsView):
             q.setRenderHints(self.renderHints())
             q.setTransform(self.viewportTransform())
             self._paint_background(q, self.mapToScene(vp.rect()).boundingRect())
+            self._paint_ghosts(q, gp)
             q.end()
             self._bg_cache = (key, pix, self.grid_step)
         else:
@@ -732,6 +742,54 @@ class Canvas(QGraphicsView):
         p.save()
         p.resetTransform()
         p.drawPixmap(0, 0, pix)
+        p.restore()
+
+    # ================================================================ altri piani di lavoro (riferimento in grigio)
+    def set_ghosts(self, on):
+        self.show_ghosts = bool(on)
+        self.viewport().update()
+
+    def ghost_path(self):
+        """Contorni degli oggetti degli altri piani (nel sistema del piano), ricalcolati solo quando cambiano."""
+        doc = self.editor.doc
+        if not self.show_ghosts or len(doc.plates) < 2:
+            return None
+        others = [s for s in doc.other_shapes() if not s.hidden]
+        if not others:
+            return None
+        key = (doc.current, tuple((id(s), id(s.path())) for s in others))
+        ck, path = self._ghost_cache
+        if ck != key:
+            path = QPainterPath()
+            for s in others:
+                path.addPath(s.path())
+            if path.elementCount() > 60000:  # foto vettorializzate, serie enormi: per il grigio basta meno dettaglio
+                polys = path.toSubpathPolygons()
+                step = max(1, -(-sum(len(q) for q in polys) // 60000))
+                light = QPainterPath()
+                for q in polys:
+                    pts = [q[j] for j in range(0, len(q), step)] + ([q[len(q) - 1]] if len(q) > 1 else [])
+                    if len(pts) > 1:
+                        light.moveTo(pts[0])
+                        for pt in pts[1:]:
+                            light.lineTo(pt)
+                path = light
+            self._ghost_cache = (key, path)
+        return path
+
+    def _paint_ghosts(self, p, path):
+        if path is None:
+            return
+        p.save()
+        p.setTransform(QTransform.fromScale(1, -1), True)
+        small = path.elementCount() <= 20000
+        p.setRenderHint(QPainter.Antialiasing, small)  # tanti punti: più veloce senza smussatura
+        col = QColor(70, 80, 95, 95) if self.light_bed else QColor(220, 228, 240, 85)
+        pen = QPen(col, 1.2 if small else 0)  # spessore 0 = linea di un pixel, la più veloce da disegnare
+        pen.setCosmetic(True)
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(path)
         p.restore()
 
     def _paint_background(self, p, rect):

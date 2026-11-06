@@ -189,14 +189,14 @@ def test_camera():
     spin(0.3)
 
 
-def run_suite(name, label):
+def run_suite(name, label, *args):
     import subprocess
 
     print(label)
     # UTF-8 esplicito: su Windows l'uscita catturata sarebbe in cp1252 e "×", "Δ", "→" farebbero cadere la suite
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
-    r = subprocess.run([sys.executable, path], capture_output=True, text=True, encoding="utf-8", errors="replace",
+    r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8", errors="replace",
                        env=env, timeout=900)
     for line in r.stdout.splitlines():
         if line.strip().startswith(("OK", "KO")):
@@ -251,6 +251,8 @@ if __name__ == "__main__":
     run_suite("test_v140.py", "Schizzo del soggetto (sfondo tolto), Scultura 3D da modello a strati e a incastro")
     run_suite("test_v141.py", "Anteprima 3D con la scheda grafica, con l'anteprima semplice di riserva")
     run_suite("test_v142.py", "Scultura 3D: niente blocchi con i modelli scomodi, avvisi, Annulla, sistemazione veloce")
+    run_suite("test_v150.py", "Piani di lavoro: più lavori in un progetto, si prepara il prossimo mentre il laser incide")
+    run_suite("test_v150.py", "Piani di lavoro nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

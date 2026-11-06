@@ -169,7 +169,7 @@ class Shape:
     def clone(self, new_id=True):
         c = shape_from_dict(self.to_dict(), getattr(self, "_doc_images", None))
         if new_id:
-            c.id = uuid.uuid4().hex[:12]
+            renew_ids(c)
         return c
 
     def describe(self):
@@ -595,14 +595,79 @@ def shape_from_dict(d, images=None):
     return s
 
 
+def renew_ids(shape):
+    """Id nuovi alla forma e a tutto quello che contiene, gruppi dentro i gruppi compresi: una copia non deve mai
+    avere lo stesso id dell'originale (separando i gruppi due forme diverse avrebbero lo stesso id)."""
+    shape.id = uuid.uuid4().hex[:12]
+    for ch in getattr(shape, "children", None) or ():
+        renew_ids(ch)
+    return shape
+
+
 # ======================================================================= documento
+class Plate:
+    """Un piano di lavoro del progetto: le sue forme. Macchina, piano e livelli (impostazioni di taglio) sono in
+    comune a tutti i piani; ogni piano è un lavoro a sé (si incide il piano attivo)."""
+
+    def __init__(self, shapes=None, name=""):
+        self.shapes = list(shapes or [])
+        self.name = name  # vuoto = nome predefinito («Piano 2»)
+        self.uid = uuid.uuid4().hex[:12]
+
+
 class Document:
     def __init__(self):
-        self.shapes = []
+        self.plates = [Plate()]
+        self.current = 0  # piano attivo: quello che si vede, si modifica e si incide
         self.layers = {}  # indice colore -> CutSettings
         self.images = {}  # id -> PIL.Image (modalità L o RGBA)
         self.name = tr("Senza titolo")
         self.path = None
+
+    # ---- piani di lavoro
+    @property
+    def shapes(self):
+        """Le forme del piano attivo (tutto il programma lavora su queste)."""
+        return self.plates[self.current].shapes
+
+    @shapes.setter
+    def shapes(self, value):
+        self.plates[self.current].shapes = list(value)
+
+    @property
+    def plate(self):
+        return self.plates[self.current]
+
+    def plate_name(self, i):
+        return self.plates[i].name or tr("Piano {0}", i + 1)
+
+    def plate_index(self, uid):
+        return next((i for i, p in enumerate(self.plates) if p.uid == uid), None)
+
+    def add_plate(self, name=""):
+        self.plates.append(Plate(name=name))
+        return len(self.plates) - 1
+
+    def remove_plate(self, i):
+        """Toglie il piano i (con le sue forme). Il primo piano rimasto prende il posto di quello attivo se serve."""
+        if len(self.plates) < 2 or not 0 <= i < len(self.plates):
+            return False
+        del self.plates[i]
+        if self.current > i or self.current >= len(self.plates):
+            self.current = max(0, self.current - 1)
+        return True
+
+    def all_shapes(self):
+        return [s for p in self.plates for s in p.shapes]
+
+    def other_shapes(self):
+        """Le forme degli altri piani (si vedono in grigio come riferimento)."""
+        return [s for i, p in enumerate(self.plates) if i != self.current for s in p.shapes]
+
+    def used_layer_indices(self):
+        """Livelli usati in qualsiasi piano (i livelli sono in comune: un livello «libero» non deve esserlo solo
+        nel piano attivo)."""
+        return {leaf.layer for s in self.all_shapes() for leaf, _ in s.leaves()}
 
     # ---- livelli
     def layer(self, index):
@@ -624,7 +689,7 @@ class Document:
         insieme all'altro tipo vengono messe su un livello adatto. Chi resta: sul livello in modalità Immagine le
         foto, sugli altri i disegni. -> [(foglia, livello di prima, livello nuovo)]."""
         ids = {id(leaf) for s in batch for leaf, _ in s.leaves()}
-        others = [leaf for s in self.shapes for leaf, _ in s.leaves() if id(leaf) not in ids]
+        others = [leaf for s in self.all_shapes() for leaf, _ in s.leaves() if id(leaf) not in ids]
         mine = [leaf for s in batch for leaf, _ in s.leaves()]
         used = {leaf.layer for leaf in others} | {leaf.layer for leaf in mine}
 
@@ -706,20 +771,100 @@ class Document:
 
     # ---- istantanee (annulla/ripeti)
     def snapshot(self):
+        """Forme del piano attivo e livelli (che sono di tutti i piani)."""
         return {"shapes": [s.to_dict() for s in self.shapes],
-                "layers": {str(k): v.to_dict() for k, v in self.layers.items()}}
+                "layers": {str(k): v.to_dict() for k, v in self.layers.items()},
+                "plate": self.plate.uid}
+
+    def _plate_of(self, snap):
+        i = self.plate_index(snap.get("plate"))
+        return self.plates[self.current if i is None else i]
 
     def restore(self, snap):
-        self.shapes = [shape_from_dict(d, self.images) for d in snap["shapes"]]
+        self._plate_of(snap).shapes = [shape_from_dict(d, self.images) for d in snap["shapes"]]
         self.layers = {int(k): CutSettings.from_dict(v) for k, v in snap["layers"].items()}
+
+    def restore_step(self, target, other, skip=()):
+        """Annulla/ripeti un passo: target è lo stato da rimettere, other quello da cui si parte. Le forme del suo
+        piano tornano come in target; dei livelli cambiano solo quelli che il passo aveva cambiato (un livello
+        modificato dopo, lavorando su un altro piano, resta com'è; quelli in skip non si toccano). -> livelli
+        lasciati com'erano. Un passo «sposta sull'altro piano» toglie o
+        rimette le forme anche nel piano di arrivo."""
+        self._plate_of(target).shapes = [shape_from_dict(d, self.images) for d in target["shapes"]]
+        lt, lo = target["layers"], other["layers"]
+        for snap, put in ((other, False), (target, True)):
+            mv = snap.get("moved")
+            if not mv:
+                continue
+            ids = {d["id"] for d in mv["shapes"]}
+            i = self.plate_index(mv["plate"])
+            if i is not None:
+                dest = self.plates[i]
+                pos = {s.id: k for k, s in enumerate(dest.shapes) if s.id in ids}
+                if not put and pos:
+                    mv["_pos"] = pos  # dove stavano: ripetendo tornano lì (conta l'ordine di disegno e di taglio)
+                    # e come erano diventate là (spostate, ruotate…): ripetendo tornano così
+                    mv["_cur"] = [s.to_dict() for s in dest.shapes if s.id in ids]
+                dest.shapes = [s for s in dest.shapes if s.id not in ids]
+            else:  # piano di arrivo eliminato nel frattempo: le forme restano sul piano di partenza, non si perdono
+                dest = self._plate_of(target)
+            if put:
+                here = {s.id for s in dest.shapes}
+                src = mv.get("_cur") if i is not None and mv.get("_cur") else mv["shapes"]
+                new = [shape_from_dict(d, self.images) for d in src if d["id"] not in here]
+                where = mv.get("_pos", {}) if i is not None else {}
+                for sh in sorted(new, key=lambda sh: where.get(sh.id, 1 << 30)):
+                    dest.shapes.insert(min(where.get(sh.id, len(dest.shapes)), len(dest.shapes)), sh)
+        used = None
+        kept = set()
+        for k in set(lt) | set(lo):
+            if lt.get(k) == lo.get(k):
+                continue
+            now = self.layers.get(int(k))
+            if k in skip or (now.to_dict() if now is not None else None) != lo.get(k):
+                kept.add(k)  # cambiato dopo, lavorando su un altro piano: vale l'ultima modifica
+                continue
+            if k in lt:
+                self.layers[int(k)] = CutSettings.from_dict(lt[k])
+            else:  # livello nato con il passo: si toglie solo se nessun piano lo usa (i livelli sono di tutti)
+                used = self.used_layer_indices() if used is None else used
+                if int(k) not in used:
+                    self.layers.pop(int(k), None)
+        # mai la stessa forma su due piani: se una forma ripresa dalla cronologia vive già su un altro piano (vi è
+        # stata spostata e il piano di passaggio è stato eliminato), vale quella dell'altro piano
+        here = self._plate_of(target)
+        elsewhere = set()
+        for p in self.plates:
+            if p is not here:
+                elsewhere.update(leaf.id for sh in p.shapes for leaf, _ in sh.leaves())
+                elsewhere.update(sh.id for sh in p.shapes)
+        if elsewhere:
+            here.shapes = [sh for sh in here.shapes
+                           if sh.id not in elsewhere and not any(leaf.id in elsewhere for leaf, _ in sh.leaves())]
+        for p in self.plates:  # ogni livello usato ha le sue impostazioni (anche se un altro piano lo aveva tolto)
+            for sh in p.shapes:
+                for leaf, _ in sh.leaves():
+                    if leaf.layer not in self.layers:
+                        d = lt.get(str(leaf.layer))
+                        self.layers[leaf.layer] = CutSettings.from_dict(d) if d else default_layer(leaf.layer)
+        return kept
 
     # ---- file
     def save(self, path):
-        meta = {"format": "freelasercut", "version": FORMAT_VERSION, "name": self.name, **self.snapshot(),
+        # "shapes" è il primo piano: le versioni precedenti di FreeLaserCut aprono quello; gli altri piani sono in
+        # "plates" (il primo lì ha solo il nome)
+        meta = {"format": "freelasercut", "version": FORMAT_VERSION, "name": self.name,
+                "shapes": [s.to_dict() for s in self.plates[0].shapes],
+                "layers": {str(k): v.to_dict() for k, v in self.layers.items()},
                 "variables": variables.to_dict()}
+        if len(self.plates) > 1 or self.plates[0].name:
+            meta["plates"] = [{"name": p.name, **({"shapes": [s.to_dict() for s in p.shapes]} if i else {})}
+                              for i, p in enumerate(self.plates)]
+            meta["current"] = self.current
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr("project.json", json.dumps(meta, indent=1))
-            used = {i for s in self.shapes for leaf, _ in s.leaves() if isinstance(leaf, ImageShape) for i in leaf.image_ids()}
+            used = {i for s in self.all_shapes() for leaf, _ in s.leaves() if isinstance(leaf, ImageShape)
+                    for i in leaf.image_ids()}
             for iid in used:
                 img = self.images.get(iid)
                 if img is None:
@@ -742,6 +887,14 @@ class Document:
                     doc.images[iid] = Image.open(io.BytesIO(z.read(name))).copy()
         doc.name = meta.get("name", "Progetto")
         variables.from_dict(meta.get("variables"))
-        doc.restore(meta)
+        doc.restore({"shapes": meta.get("shapes", []), "layers": meta.get("layers", {})})
+        plates = meta.get("plates")
+        if isinstance(plates, list) and plates:
+            doc.plates[0].name = str(plates[0].get("name") or "")
+            for p in plates[1:]:
+                doc.plates.append(Plate([shape_from_dict(d, doc.images) for d in p.get("shapes", [])],
+                                        str(p.get("name") or "")))
+            cur = meta.get("current", 0)
+            doc.current = cur if isinstance(cur, int) and 0 <= cur < len(doc.plates) else 0
         doc.path = path
         return doc

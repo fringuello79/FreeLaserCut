@@ -5,14 +5,13 @@ Tela e pannelli non modificano mai il documento direttamente: passano da qui,
 così ogni modifica è annullabile e tutte le viste restano sincronizzate.
 """
 import json
-import uuid
 
-from PySide6.QtCore import QObject, QPointF, QRectF, Signal
+from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QTransform
 from PySide6.QtCore import QMimeData
 
 from ..core import ops
-from ..core.document import Document, GroupShape, ImageShape, PathShape, TextShape, shape_from_dict
+from ..core.document import Document, GroupShape, ImageShape, PathShape, TextShape, renew_ids, shape_from_dict
 from freelasercut.i18n import tr  # noqa: E402
 
 MIME = "application/x-freelasercut-shapes"
@@ -24,6 +23,7 @@ class Editor(QObject):
     live = Signal()  # anteprima durante un trascinamento (solo la tela si aggiorna)
     selection_changed = Signal()
     history_changed = Signal()
+    plates_changed = Signal()  # piano attivo cambiato, piano aggiunto, tolto o rinominato
     message = Signal(str)
 
     MAX_HISTORY = 300
@@ -33,13 +33,32 @@ class Editor(QObject):
         self.doc = doc or Document()
         self.selection = []  # forme di primo livello, ultima = più recente
         self.current_layer = 1
-        self.undo_stack = []
-        self.redo_stack = []
+        self._hist = {}  # piano (uid) -> (annulla, ripeti): ogni piano ha la sua cronologia
         self._pending = None
         self.dirty = False
         self.clipboard = None
 
     # ================================================================ cronologia
+    def _stacks(self):
+        return self._hist.setdefault(self.doc.plate.uid, ([], []))
+
+    @property
+    def undo_stack(self):
+        return self._stacks()[0]
+
+    @property
+    def redo_stack(self):
+        return self._stacks()[1]
+
+    def _push(self, entry):
+        self.undo_stack.append(entry)
+        if len(self.undo_stack) > self.MAX_HISTORY:
+            self.undo_stack.pop(0)
+        self.redo_stack.clear()
+        self.dirty = True
+        self.history_changed.emit()
+        self.changed.emit()
+
     def begin(self, label):
         if self._pending is None:
             self._pending = (label, self.doc.snapshot(), [s.id for s in self.selection])
@@ -52,13 +71,7 @@ class Editor(QObject):
         after = self.doc.snapshot()
         if after == before:
             return
-        self.undo_stack.append((label, before, sel_before, after, [s.id for s in self.selection]))
-        if len(self.undo_stack) > self.MAX_HISTORY:
-            self.undo_stack.pop(0)
-        self.redo_stack.clear()
-        self.dirty = True
-        self.history_changed.emit()
-        self.changed.emit()
+        self._push((label, before, sel_before, after, [s.id for s in self.selection]))
 
     def cancel(self):
         if self._pending is None:
@@ -78,12 +91,38 @@ class Editor(QObject):
         self.selection = [by[i] for i in ids if i in by]
         self.selection_changed.emit()
 
+    def _cross_plate(self, after):
+        """Un passo «sposta su un altro piano»: la cronologia del piano di arrivo non vale più (le sue istantanee
+        non sanno delle forme arrivate o ripartite), quindi riparte da qui. -> uid del piano di arrivo o None."""
+        mv = after.get("moved")
+        if mv:
+            self._hist.pop(mv["plate"], None)
+        return mv["plate"] if mv else None
+
+    def _move_blocked(self, after):
+        """Annullare uno spostamento si può solo se le forme sono ancora sul piano di arrivo come sono arrivate
+        (non raggruppate né eliminate là): altrimenti tornerebbero qui e resterebbero anche là."""
+        mv = after.get("moved")
+        i = self.doc.plate_index(mv["plate"]) if mv else None
+        if i is None:
+            return False
+        there = {s.id for s in self.doc.plates[i].shapes}
+        return any(d["id"] not in there for d in mv["shapes"])
+
     def undo(self):
         if not self.undo_stack:
             return
+        if self._move_blocked(self.undo_stack[-1][3]):
+            self.undo_stack.clear()  # anche i passi prima: rimetterebbero qui le forme che ora sono di là
+            self.redo_stack.clear()
+            self.history_changed.emit()
+            self.message.emit(tr("Lo spostamento su un altro piano non si può più annullare: gli oggetti sono stati "
+                                 "cambiati là. Riportali qui con «Sposta la selezione su un altro piano»."))
+            return
         label, before, sel_before, after, sel_after = self.undo_stack.pop()
         self.redo_stack.append((label, before, sel_before, after, sel_after))
-        self.doc.restore(before)
+        after["_kept"] = self.doc.restore_step(before, after)  # livelli non toccati: neanche il ripeti li tocca
+        self._cross_plate(after)
         self._reselect(sel_before)
         self.dirty = True
         self.history_changed.emit()
@@ -95,7 +134,8 @@ class Editor(QObject):
             return
         label, before, sel_before, after, sel_after = self.redo_stack.pop()
         self.undo_stack.append((label, before, sel_before, after, sel_after))
-        self.doc.restore(after)
+        self.doc.restore_step(after, before, after.pop("_kept", ()))
+        self._cross_plate(after)
         self._reselect(sel_after)
         self.dirty = True
         self.history_changed.emit()
@@ -121,14 +161,110 @@ class Editor(QObject):
 
     # ================================================================ documento
     def set_document(self, doc):
+        self._pending = None
         self.doc = doc
         self.selection = []
-        self.undo_stack.clear()
-        self.redo_stack.clear()
+        self._hist = {}
         self.dirty = False
         self.history_changed.emit()
         self.selection_changed.emit()
+        self.plates_changed.emit()
         self.changed.emit()
+
+    # ================================================================ piani di lavoro
+    def set_plate(self, i):
+        """Rende attivo il piano i: si vede, si modifica e si incide quello; gli altri restano in grigio."""
+        if not 0 <= i < len(self.doc.plates) or i == self.doc.current:
+            return False
+        from PySide6.QtWidgets import QApplication
+
+        if QApplication.mouseButtons() != Qt.NoButton and self._pending is not None:
+            return False  # a metà di un trascinamento sulla tela (Ctrl+PagGiù col mouse premuto): si finisce prima
+        self.commit()  # un'azione a metà resta sul piano dove è cominciata
+        self.doc.current = i
+        self.selection = []
+        self.selection_changed.emit()
+        self.history_changed.emit()
+        self.plates_changed.emit()
+        self.changed.emit()
+        return True
+
+    def add_plate(self):
+        i = self.doc.add_plate()
+        self.dirty = True
+        self.set_plate(i)
+        self.history_changed.emit()  # il titolo mostra le modifiche non salvate
+        self.message.emit(tr("Nuovo piano di lavoro: {0}. Macchina e livelli sono gli stessi degli altri piani.",
+                             self.doc.plate_name(i)))
+        return i
+
+    def remove_plate(self, i):
+        if not 0 <= i < len(self.doc.plates) or len(self.doc.plates) < 2:
+            return False
+        self.commit()
+        uid = self.doc.plates[i].uid
+        was = self.doc.current
+        self.doc.remove_plate(i)
+        self._hist.pop(uid, None)
+        self.dirty = True
+        if i == was:
+            self.selection = []
+            self.selection_changed.emit()
+        self.history_changed.emit()
+        self.plates_changed.emit()
+        self.changed.emit()
+        return True
+
+    def rename_plate(self, i, name):
+        name = (name or "").strip()
+        if not 0 <= i < len(self.doc.plates) or name == self.doc.plates[i].name:
+            return
+        self.doc.plates[i].name = "" if name == tr("Piano {0}", i + 1) else name
+        self.dirty = True
+        self.history_changed.emit()
+        self.plates_changed.emit()
+
+    def duplicate_plate(self, i):
+        """Un piano nuovo, in fondo, con una copia degli oggetti del piano i (nelle stesse posizioni)."""
+        if not 0 <= i < len(self.doc.plates):
+            return None
+        self.commit()
+        src = self.doc.plates[i]
+        copies = []
+        for s in src.shapes:
+            copies.append(renew_ids(shape_from_dict(s.to_dict(), self.doc.images)))
+        from ..core.document import Plate
+
+        self.doc.plates.append(Plate(copies, tr("{0} (copia)", self.doc.plate_name(i))))
+        k = len(self.doc.plates) - 1  # in fondo: gli altri piani tengono il loro numero
+        self.dirty = True
+        self.plates_changed.emit()
+        self.set_plate(k)
+        self.history_changed.emit()
+        return k
+
+    def move_to_plate(self, shapes, i):
+        """Sposta le forme (di primo livello, del piano attivo) sul piano i, nella stessa posizione. Si annulla
+        dal piano di partenza: le forme tornano qui e spariscono dall'altro."""
+        here = {id(s) for s in self.doc.shapes}
+        shapes = [s for s in shapes if id(s) in here]
+        if not shapes or not 0 <= i < len(self.doc.plates) or i == self.doc.current:
+            return 0
+        self.commit()
+        name = self.doc.plate_name(i)
+        before = self.doc.snapshot()
+        sel_before = [s.id for s in self.selection]
+        moved = [s.to_dict() for s in shapes]
+        self.doc.remove(shapes)
+        self.doc.plates[i].shapes.extend(shapes)
+        after = self.doc.snapshot()
+        after["moved"] = {"plate": self.doc.plates[i].uid, "shapes": moved}
+        self._cross_plate(after)
+        self.selection = []
+        self._push((tr("Sposta su «{0}»", name), before, sel_before, after, []))
+        self.selection_changed.emit()
+        self.message.emit(tr("{0} oggetti spostati su «{1}»", len(shapes), name))
+        return len(shapes)
 
     # ================================================================ selezione
     def select(self, shapes, mode="replace"):
@@ -306,12 +442,7 @@ class Editor(QObject):
                 self.doc.images[iid] = im
         shapes = []
         for d in data["shapes"]:
-            s = shape_from_dict(d, self.doc.images)
-            s.id = uuid.uuid4().hex[:12]
-            if isinstance(s, GroupShape):
-                for leaf, _ in s.leaves():
-                    leaf.id = uuid.uuid4().hex[:12]
-            shapes.append(s)
+            shapes.append(renew_ids(shape_from_dict(d, self.doc.images)))  # anche i gruppi dentro i gruppi
         if not in_place:
             b = ops.union_bounds(shapes)
             if at is not None:

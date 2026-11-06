@@ -135,7 +135,7 @@ w.ctl.sim.no_g55 = True
 w.profile.no_g55 = False
 started = []
 orig_run = w._run
-w._run = lambda lines: started.append(list(lines))
+w._run = lambda lines, plate=None: started.append(list(lines))
 w.ctl.homed = True
 job = w.build_job()
 w._pending_start = job  # come «Verifica e avvia»

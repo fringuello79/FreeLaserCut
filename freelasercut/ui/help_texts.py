@@ -146,6 +146,26 @@ HELP = {
     "zoom_out": (tr("Riduci"), tr("Rimpicciolisce la tela."), None),
     "fit": (tr("Adatta al piano"), tr("Mostra tutto il piano di lavoro."), None),
     "fit_sel": (tr("Adatta alla selezione"), tr("Ingrandisce sulla selezione."), None),
+    "plate_new": (tr("Nuovo piano di lavoro"), tr("Aggiunge un piano al progetto: un altro lavoro con la stessa macchina "
+                  "e gli stessi livelli. Mentre il laser incide un piano puoi preparare il successivo, con gli oggetti "
+                  "degli altri piani visibili in grigio. Si passa da un piano all'altro con le linguette in alto a sinistra "
+                  "sul bordo del piano o con Ctrl+PagSu / Ctrl+PagGiù; si incide sempre il piano attivo. Tutti i piani si salvano nello "
+                  "stesso progetto."), None),
+    "plate_next": (tr("Piano successivo"), tr("Passa al piano di lavoro seguente (dall'ultimo torna al primo)."), None),
+    "plate_prev": (tr("Piano precedente"), tr("Passa al piano di lavoro precedente."), None),
+    "plate_dup": (tr("Duplica il piano"), tr("Un piano nuovo, in fondo, con una copia degli oggetti di questo nelle "
+                  "stesse posizioni: comodo per rifare lo stesso lavoro cambiando solo qualcosa."), None),
+    "plate_rename": (tr("Rinomina il piano"), tr("Dà un nome al piano di lavoro (per esempio «Coperchio»). Anche con "
+                     "doppio clic sulla sua scheda."), None),
+    "plate_delete": (tr("Elimina il piano"), tr("Toglie il piano attivo con i suoi oggetti (chiede conferma; non si "
+                     "può annullare). Il piano che il laser sta incidendo non si elimina."), None),
+    "plate_overview": (tr("Vista d'insieme dei piani"), tr("Mostra tutti i piani di lavoro affiancati, nell'ordine "
+                       "(Piano 1, Piano 2…), ognuno con il suo piano, il nome, il numero di oggetti e, se è in "
+                       "incisione, l'avanzamento e il punto in cui passa il laser. Serve per guardarli insieme: rotella "
+                       "= zoom, trascina = sposta, doppio clic sul vuoto = tutti in vista. Un clic su un piano lo apre "
+                       "per modificarlo; Esc torna alla vista normale."), None),
+    "plate_ghosts": (tr("Mostra gli altri piani"), tr("Gli oggetti degli altri piani di lavoro in grigio sotto il piano "
+                     "attivo, come riferimento: non si selezionano e non vengono incisi con questo piano."), None),
     "filled": (tr("Vista riempita"), tr("Mostra i riempimenti pieni invece del solo contorno."), None),
     "grid": (tr("Griglia"), tr("Mostra o nasconde la griglia del piano."), None),
     "snap_grid": (tr("Aggancia alla griglia"), tr("Mentre disegni o sposti, i punti si attaccano alla griglia. Alt lo sospende."), None),

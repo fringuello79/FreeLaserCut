@@ -84,6 +84,15 @@ class MainWindow(QMainWindow):
         cv.setSpacing(0)
         self.banner = self._build_banner()
         cv.addWidget(self.banner)
+        from .plates import PlateBar
+
+        self._job_plate = None  # piano di lavoro che il laser sta incidendo (uid), None = lavoro non da un piano
+        self._interrupted_plate = None
+        self.canvas.show_ghosts = self.qs.value("plates/ghosts", "true") in (True, "true")
+        self.plate_bar = PlateBar(self)  # linguette sul bordo del piano, sopra la tela
+        from .plates import PlateOverview
+
+        self.plate_overview = PlateOverview(self)  # tutti i piani affiancati (si apre dalle linguette)
         cv.addWidget(self.canvas, 1)
         self.setCentralWidget(central)
 
@@ -179,6 +188,20 @@ class MainWindow(QMainWindow):
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
+            "plate_new": A(tr("Nuovo piano di lavoro"), lambda: self.plate_bar.new_plate(), "Ctrl+Shift+N", None,
+                           tr("Un altro lavoro nello stesso progetto, con la stessa macchina e gli stessi livelli: puoi "
+                              "prepararlo mentre il laser incide un altro piano")),
+            "plate_next": A(tr("Piano successivo"), lambda: self.plate_bar.step(1), "Ctrl+PgDown"),
+            "plate_prev": A(tr("Piano precedente"), lambda: self.plate_bar.step(-1), "Ctrl+PgUp"),
+            "plate_dup": A(tr("Duplica il piano"), lambda: self.plate_bar.duplicate(), None, None,
+                           tr("Un piano nuovo con una copia degli oggetti di questo, nelle stesse posizioni")),
+            "plate_rename": A(tr("Rinomina il piano…"), lambda: self.plate_bar.rename()),
+            "plate_overview": A(tr("Vista d'insieme dei piani"), lambda on: self.plate_bar.overview.setChecked(on),
+                                "Ctrl+Shift+O", None, tr("Tutti i piani di lavoro affiancati, in ordine, da guardare "
+                                                         "insieme; clic su un piano per modificarlo"), checkable=True),
+            "plate_delete": A(tr("Elimina il piano…"), lambda: self.plate_bar.delete()),
+            "plate_ghosts": A(tr("Mostra gli altri piani"), lambda on: self.plate_bar.ghosts.setChecked(on), None, None,
+                              tr("Gli oggetti degli altri piani di lavoro in grigio, come riferimento"), checkable=True),
             "undo": A(tr("Annulla {0}", "").strip(), e.undo, "Ctrl+Z", "undo"),
             "redo": A(tr("Ripeti"), e.redo, ["Ctrl+Y", "Ctrl+Shift+Z"], "redo"),
             "cut": A(tr("Taglia"), e.cut, "Ctrl+X", "cut"),
@@ -415,10 +438,25 @@ class MainWindow(QMainWindow):
         self.m_file.insertMenu(a["save"], self.m_recent)
         self.m_file.insertSeparator(a["save"])
         self._refresh_recent()
-        menu(tr("&Modifica"), ["undo", "redo", "-", "cut", "copy", "paste", "paste_in_place", "duplicate", "delete", "-",
+        m_edit = menu(tr("&Modifica"), ["undo", "redo", "-", "cut", "copy", "paste", "paste_in_place", "duplicate", "delete", "-",
                            "select_all", "invert_sel", (tr("Seleziona speciale"), ["sel_open", "sel_open_fill", "sel_contained"]),
                            "-", "to_path", "trace", "close_paths", "join", "break", "reverse", "duplicates", "offset", "-",
                            "lock", "unlock"])
+        m_edit.addSeparator()
+        self.m_plates = m_edit.addMenu(tr("Piani di lavoro"))
+        for k in ("plate_new", "plate_dup", "-", "plate_next", "plate_prev", "-"):
+            self.m_plates.addSeparator() if k == "-" else self.m_plates.addAction(a[k])
+        self.m_plate_move = self.m_plates.addMenu(tr("Sposta la selezione su un altro piano"))
+        self.m_plate_move.aboutToShow.connect(lambda: self.plate_bar.move_menu(self.m_plate_move))
+        self.plate_bar.move_menu(self.m_plate_move)
+        for sig in (self.editor.plates_changed, self.editor.selection_changed):  # la ricerca comandi del Banco lo legge
+            sig.connect(lambda *_: self.plate_bar.move_menu(self.m_plate_move))
+        for k in ("-", "plate_overview", "plate_ghosts", "-", "plate_rename", "plate_delete"):
+            self.m_plates.addSeparator() if k == "-" else self.m_plates.addAction(a[k])
+        self.m_plates.aboutToShow.connect(self._plates_menu_state)
+        self.editor.plates_changed.connect(self._plates_menu_state)  # le scorciatoie valgono solo se l'azione è attiva
+        self._plates_menu_state()
+        a["plate_ghosts"].setChecked(self.canvas.show_ghosts)
 
         def anchors_move(sub):
             for i, n in enumerate(gcode.ANCHOR_NAMES):
@@ -983,6 +1021,13 @@ class MainWindow(QMainWindow):
         self.acts["trace"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
         self.acts["photo"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
 
+    def _plates_menu_state(self):
+        n = len(self.editor.doc.plates)
+        for k in ("plate_next", "plate_prev", "plate_delete"):
+            self.acts[k].setEnabled(n > 1)
+        self.acts["plate_overview"].setEnabled(n > 1 or self.acts["plate_overview"].isChecked())
+        self.acts["plate_ghosts"].setEnabled(n > 1)
+
     def _doc_changed(self):
         self._update_title()
         self.job = None  # il lavoro va rigenerato
@@ -1029,7 +1074,7 @@ class MainWindow(QMainWindow):
 
     # ================================================================ file
     def _confirm_discard(self):
-        if not self.editor.dirty or not self.editor.doc.shapes:
+        if not self.editor.dirty or not self.editor.doc.all_shapes():
             return True
         r = QMessageBox.question(self, tr("Modifiche non salvate"), tr("Il progetto ha modifiche non salvate. Salvarle?"),
                                  QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
@@ -1140,7 +1185,7 @@ class MainWindow(QMainWindow):
                 self.file_open(p)
                 return
             if ext in (".lbrn2", ".lbrn"):
-                if not doc.shapes:
+                if not doc.all_shapes():  # progetto vuoto (tutti i piani): si apre come progetto
                     self.file_open(p)
                     return
                 from ..core import lbrn
@@ -1187,7 +1232,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)
 
     def autosave(self):
-        if not self.editor.dirty or not self.editor.doc.shapes:
+        if not self.editor.dirty or not self.editor.doc.all_shapes():
             return
         try:
             d = self.editor.doc
@@ -1286,7 +1331,7 @@ class MainWindow(QMainWindow):
 
     def _free_layers(self, n):
         """n livelli colorati liberi (nessuna forma sopra), dal più basso."""
-        used = {cs.index for cs in self.editor.doc.used_layers()}
+        used = self.editor.doc.used_layer_indices()  # di tutti i piani: i livelli sono in comune
         free = [i for i in range(1, 30) if i not in used]
         return free[:n]
 
@@ -1496,7 +1541,7 @@ class MainWindow(QMainWindow):
         for cs in doc.used_layers():
             if cs.index != 30 and cs.mode == "fill" and cs.output:
                 return cs.index, False
-        used = {cs.index for cs in doc.used_layers()}
+        used = doc.used_layer_indices()  # libero in tutti i piani: le impostazioni dei livelli sono in comune
         for i in range(1, 30):
             if i not in used:
                 return i, True
@@ -1623,6 +1668,8 @@ class MainWindow(QMainWindow):
     def on_connection(self, ok, msg):
         if not ok and self.ctl.job_active is False and self.ctl.job_lines and 0 < self.ctl.job_acked < len(self.ctl.job_lines):
             self._interrupted = (list(self.ctl.job_lines), self.ctl.job_acked)
+            if self._job_plate is not None:  # la ripresa è del piano che si stava incidendo
+                self._interrupted_plate = self._job_plate
         self.btn_connect.setText(tr("Disconnetti") if ok else tr("Connetti"))
         self.btn_connect.setObjectName("danger" if ok else "primary")
         self.btn_connect.setIcon(style.icon("disconnect" if ok else "connect", "#FFFFFF"))
@@ -1982,9 +2029,15 @@ class MainWindow(QMainWindow):
             QApplication.restoreOverrideCursor()
         self.job, self.job_preview, self.job_preview_off = job, pv, pv_off
         if show:
-            self.canvas.set_preview(pv, pv_off)
+            # durante un lavoro sul piano resta il percorso del lavoro in corso (si può preparare un altro piano
+            # e guardarne l'anteprima, ma il segno arancione sulla tela è quello che il laser sta facendo)
+            busy = (self.ctl.job_active or self.ctl.checking) and self._job_plate is not None \
+                and self._job_plate != self.editor.doc.plate.uid
+            if not busy:
+                self.canvas.set_preview(pv, pv_off)
             self.laser.show_job(job, self.profile)
-            self._update_anchor_marker(opts)
+            if not busy:
+                self._update_anchor_marker(opts)
         return job
 
     def anchor_point(self, opts=None):
@@ -2102,6 +2155,8 @@ class MainWindow(QMainWindow):
             return
         if not isinstance(job, gcode.GcodeJob):
             self._job_is_external = False
+        # il piano che verrà inciso (un G-code esterno o una prova non vengono da un piano)
+        plate = None if isinstance(job, gcode.GcodeJob) else self.editor.doc.plate.uid
         job = job if isinstance(job, gcode.GcodeJob) else self.build_job()
         if job is None:
             return
@@ -2125,20 +2180,25 @@ class MainWindow(QMainWindow):
         box.exec()
         if box.clickedButton() is not go:
             return
+        self._start_ctx = (plate, tuple(s.id for s in self.editor.selection))  # cosa è stato confermato
         if verify:
             self._pending_start = job
+            self._pending_plate = plate
             self.laser.start_progress("check")
             if not self.ctl.check_job(job.lines):  # macchina non ferma, riga troppo lunga…: lo dice la barra di stato
                 self._pending_start = None
                 self.laser.update_running()
         else:
-            self._run(job.lines)
+            self._run(job.lines, plate)
 
-    def _run(self, lines):
+    def _run(self, lines, plate=None):
+        """plate: uid del piano di lavoro da cui viene il lavoro (None: G-code esterno, prove)."""
+        self._job_plate = plate
         self.canvas.clear_trail()
         self.laser.start_progress("job")
         self.ctl.stream_job(lines)
         self.laser.update_running()
+        self.plate_bar.job_started()
 
     def verify_job(self):
         if not self.ctl.connected or self.ctl.job_active:
@@ -2176,7 +2236,8 @@ class MainWindow(QMainWindow):
             return
         if job is not None and not errors:
             self.statusBar().showMessage(tr("Verifica superata: avvio il lavoro"), 4000)
-            QTimer.singleShot(1200, lambda: self._run(job.lines))  # la scheda ha appena fatto il reset del check mode
+            plate = getattr(self, "_pending_plate", None)
+            QTimer.singleShot(1200, lambda: self._run(job.lines, plate))  # la scheda ha appena fatto il reset del check mode
             return
         n = len(self.job.lines) if self.job else 0
         self.laser.eta.setText(tr("Verifica superata") if not errors else tr("Verifica: {0} errori", len(errors)))
@@ -2184,10 +2245,19 @@ class MainWindow(QMainWindow):
 
     def _reverify(self, then_start):
         """Rifà il lavoro (per esempio senza G55) e lo fa verificare di nuovo alla scheda."""
+        ctx = (self.editor.doc.plate.uid, tuple(s.id for s in self.editor.selection))
+        want = getattr(self, "_start_ctx", None)
+        if then_start and want is not None and ctx != want:
+            # nel frattempo si è passati a un altro piano (o cambiata la selezione): non parte da solo un lavoro
+            # diverso da quello confermato
+            self.statusBar().showMessage(tr("La scheda non conosce G55: il lavoro va riavviato. Torna sul piano da "
+                                            "incidere e premi di nuovo Avvia."), 12000)
+            return
         job = self.build_job()
         if job is None or not job.lines or not self.ctl.connected:
             return
         self._pending_start = job if then_start else None
+        self._pending_plate = ctx[0]
         self.laser.start_progress("check")
         if not self.ctl.check_job(job.lines):
             self._pending_start = None
@@ -2208,13 +2278,16 @@ class MainWindow(QMainWindow):
 
     def _job_finished(self, ok, msg):
         self.laser.update_running()
+        plate, self._job_plate = self._job_plate, None
+        self.plate_bar.refresh()
         if ok:
             self._interrupted = None
             self.statusBar().showMessage(msg, 8000)
             QApplication.beep()
-            self._advance_variables()
+            self._advance_variables(plate)
         elif self.ctl.job_lines and 0 < self.ctl.job_acked < len(self.ctl.job_lines):
             self._interrupted = (list(self.ctl.job_lines), self.ctl.job_acked)
+            self._interrupted_plate = plate
 
     def resume_job(self):
         if not self._interrupted or not self.ctl.connected:
@@ -2234,7 +2307,7 @@ class MainWindow(QMainWindow):
         prog = resume.resume_program(lines, at, back)
         self.banner.hide()
         self._interrupted = None
-        self._run(prog)
+        self._run(prog, self._interrupted_plate)
 
     def _drop_interrupted(self):
         self._interrupted = None
@@ -2342,9 +2415,9 @@ class MainWindow(QMainWindow):
         return job.out_to_bed
 
     # ================================================================ testo variabile
-    def _variable_texts(self, output_only=False):
+    def _variable_texts(self, output_only=False, shapes=None):
         out = []
-        for s in self.editor.doc.shapes:
+        for s in (self.editor.doc.shapes if shapes is None else shapes):
             cs = self.editor.doc.layers.get(s.layer)
             if output_only and (s.hidden or cs is None or not cs.output):
                 continue
@@ -2354,15 +2427,19 @@ class MainWindow(QMainWindow):
     def _vars_changed(self):
         for t in self._variable_texts():
             t.invalidate()
-        for s in self.editor.doc.shapes:
+        for s in self.editor.doc.all_shapes():  # anche negli altri piani (si vedono in grigio)
+            for t in ops.variable_texts(s):
+                t.invalidate()
             if any(True for _ in ops.variable_texts(s)):
                 s.invalidate()
         self.editor.preview_changed()
 
-    def _advance_variables(self):
+    def _advance_variables(self, plate=None):
+        """plate: uid del piano inciso (i suoi testi variabili), anche se intanto se ne sta preparando un altro."""
         if not variables.STATE.get("auto") or getattr(self, "_job_is_external", False):
             return
-        texts = self._variable_texts(output_only=True)
+        i = self.editor.doc.plate_index(plate) if plate is not None else None
+        texts = self._variable_texts(output_only=True, shapes=None if i is None else self.editor.doc.plates[i].shapes)
         if not texts:
             return
         copies = max(t.var_offset for t in texts) + 1
@@ -2820,7 +2897,9 @@ ANTEPRIMA
 Rotella zoom verso il cursore · trascina per spostare · doppio clic o 0 adatta alla finestra""") + "\n\n" + tr("""DISPONI
 Alt+N ottimizza lo spazio (nesting): i pezzi si sistemano sul materiale con il minimo spreco""") + "\n\n" + tr("""INTERFACCIA BANCO
 Ctrl+F o F3 cerca un comando · Ctrl+Maiusc+W apre/chiude l'Officina · tasto destro sul piano: menu radiale
-Durante l'incisione: Pausa e Stop restano sempre nello stesso posto, in basso al centro""")
+Durante l'incisione: Pausa e Stop restano sempre nello stesso posto, in basso al centro""") + "\n\n" + tr("""PIANI DI LAVORO
+Ctrl+PagSu / Ctrl+PagGiù piano precedente / successivo · Ctrl+Maiusc+N nuovo piano · Ctrl+Maiusc+O vista d'insieme
+Linguette in alto a sinistra sul bordo del piano: doppio clic rinomina · tasto destro: sposta qui la selezione, duplica, elimina""")
 
 
 def main(app=None, splash=None):

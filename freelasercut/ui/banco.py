@@ -1030,7 +1030,7 @@ class ContextBar(QFrame):
 
     def place(self, canvas, rail_w, right_w):
         ed = self.win.editor
-        if not ed.selection or self.win.banco.dragging or self.win.banco.cockpit_on:
+        if not ed.selection or self.win.banco.dragging or self.win.banco.locked():
             self.hide()
             return
         r = ed.selection_bounds()
@@ -1177,10 +1177,11 @@ class Cockpit:
 
     def progress(self, done, total):
         pct = 100.0 * done / max(total, 1)
-        self.detail.setText(tr("{0:.0f}% · riga {1} di {2}", pct, done, total))
-        cv = self.win.canvas
-        self.top.adjustSize()
-        self.top.move((cv.width() - self.top.width()) // 2, RULER + 10)
+        doc = self.win.editor.doc
+        i = doc.plate_index(getattr(self.win, "_job_plate", None))
+        where = doc.plate_name(i) + " · " if i is not None and len(doc.plates) > 1 else ""  # quale piano di lavoro
+        self.detail.setText(where + tr("{0:.0f}% · riga {1} di {2}", pct, done, total))
+        self._place_top(self.win.canvas)
         if done:
             el = time.time() - self._t0
             rest = el / done * (total - done)
@@ -1188,14 +1189,35 @@ class Cockpit:
             self.eta.setText(tr("finisce verso le {0}", time.strftime("%H:%M", time.localtime(time.time() + rest))))
         self.lines.setText(tr("trascorso {0}", _hms(time.time() - self._t0)))
 
-    def place(self, cv):
+    def _place_top(self, cv):
+        """La scritta «Incisione in corso» in alto al centro, ma mai sopra le linguette dei piani di lavoro."""
         self.top.adjustSize()
-        self.top.move((cv.width() - self.top.width()) // 2, RULER + 10)
+        x, y = (cv.width() - self.top.width()) // 2, RULER + 10
+        bar = getattr(self.win, "plate_bar", None)
+        if bar is not None and bar.isVisible():
+            g = bar.geometry().translated(cv.viewport().pos())
+            if g.right() + 12 > x and g.top() < y + self.top.height() and g.bottom() > y:
+                x = g.right() + 12
+                right = cv.width() - getattr(cv, "fit_insets", (0, 0, 0, 0))[2]
+                if x + self.top.width() > right:  # tante linguette: la scritta va sotto, senza coprire i pannelli
+                    x, y = (cv.width() - self.top.width()) // 2, g.bottom() + 8
+        self.top.move(x, y)
+
+    def place(self, cv, editing=False, above=None):
+        """editing: si sta preparando un altro piano di lavoro; la scheda dei tempi si nasconde (lascia il posto
+        alle proprietà) e Pausa/Stop salgono sopra la barra degli strumenti."""
+        self._place_top(cv)
         self.side.setFixedWidth(300)
         self.side.adjustSize()
         self.side.move(cv.width() - 316, 70)
+        self.side.setVisible(not editing)
         self.bottom.adjustSize()
-        self.bottom.move((cv.width() - self.bottom.width()) // 2, cv.height() - self.bottom.height() - 18)
+        y = cv.height() - self.bottom.height() - 18
+        if editing and above is not None:
+            y = above - self.bottom.height() - 10
+        self.bottom.move((cv.width() - self.bottom.width()) // 2, y)
+        for w in (self.top, self.bottom):
+            w.raise_()
 
 
 # ============================================================ Officina (laser, camera, console…)
@@ -1379,6 +1401,7 @@ class Banco(QObject):
         cv.tool_changed.connect(self._tool_changed)
         win.ctl.job_progress.connect(self._job_progress)
         win.ctl.job_finished.connect(self._job_finished)
+        ed.plates_changed.connect(self._plate_changed)
         win.ctl.status_changed.connect(self._status)
         win.ctl.connection_changed.connect(lambda ok, msg: self._status(None))
         app = QGuiApplication.instance()
@@ -1578,7 +1601,8 @@ class Banco(QObject):
             self.props_card.setFixedHeight(props_h)
             right_h = props_h + 10 + flow_h
         self.right.setGeometry(W - right_w - 14, top_pad, right_w, right_h)
-        self.right.setVisible(not drawer and not self.cockpit_on)
+        locked = self.locked()
+        self.right.setVisible(not drawer and not locked)
         self.island.adjustSize()
         self.island.move((W - self.island.width()) // 2, H - self.island.height() - 16)
         self.view_box.adjustSize()
@@ -1586,16 +1610,30 @@ class Banco(QObject):
         self.hint.adjustSize()
         self.hint.move((W - self.hint.width()) // 2, self.island.y() - self.hint.height() - 6)
         for w in (self.island, self.view_box):
-            w.setVisible(not self.cockpit_on)
+            w.setVisible(not locked)
             w.raise_()
         self.hint.setVisible(not self.cockpit_on and W > 900)
-        self.rail.setVisible(not self.cockpit_on)
+        self.rail.setVisible(not locked)
         cv.fit_insets = (rail_w + 24, 0, (OFF_W if drawer else right_w) + 24, 110)
+        if getattr(self.win, "plate_bar", None) is not None:
+            QTimer.singleShot(0, self.win.plate_bar, self.win.plate_bar.place)  # linguette dei piani fuori dai pannelli
         if not getattr(cv, "_user_zoomed", False):
             cv.fit_bed()
         if self.cockpit_on:
-            self.cockpit.place(cv)
+            self.cockpit.place(cv, editing=not locked, above=self.island.y())
         self._place_ctx()
+
+    def locked(self):
+        """Durante l'incisione il piano in lavoro non si tocca col mouse (cabina di comando). Su un altro piano di
+        lavoro invece si disegna: restano in vista solo l'avanzamento in alto e Pausa/Stop."""
+        if not self.cockpit_on:
+            return False
+        uid = getattr(self.win, "_job_plate", None)
+        return uid is None or self.win.editor.doc.plate.uid == uid
+
+    def _plate_changed(self):
+        if self.cockpit_on:
+            self.relayout()
 
     def _props_visible(self):
         return bool(self.win.editor.selection) or self.current_tool() in ("rect", "ellipse", "polygon", "star", "special", "text")
@@ -1626,7 +1664,7 @@ class Banco(QObject):
             QTimer.singleShot(0, self.relayout)
         elif obj is vp:
             if t == QEvent.MouseButtonPress:
-                if self.cockpit_on and e.button() == Qt.LeftButton:
+                if self.locked() and e.button() == Qt.LeftButton:
                     return True  # durante il lavoro il piano non si modifica col mouse
                 if e.button() == Qt.LeftButton:
                     self.dragging = True
@@ -1637,7 +1675,7 @@ class Banco(QObject):
                 if e.button() == Qt.LeftButton and self.dragging:
                     self.dragging = False
                     self._place_ctx_later()
-                if e.button() == Qt.RightButton and not self.cockpit_on:
+                if e.button() == Qt.RightButton and not self.locked():
                     p0 = self._rpress
                     if p0 is not None and self.current_tool() in ("select", "nodes") \
                             and (e.position() - p0).manhattanLength() < 6:

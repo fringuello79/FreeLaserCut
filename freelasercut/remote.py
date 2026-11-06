@@ -180,6 +180,9 @@ class RemoteServer:
         ctl = self.win.ctl
         st = ctl.last_status or {}
         return {"document": self.doc.name, "shapes": len(self.doc.shapes), "selection": [s.id for s in self.ed.selection],
+                # piani di lavoro: forme, selezione e lavori sono quelli del piano attivo
+                "plate": self.doc.plate_name(self.doc.current),
+                "plates": [self.doc.plate_name(i) for i in range(len(self.doc.plates))],
                 "bed_mm": [p.bed_x, p.bed_y], "units": "mm, origine in basso a sinistra (davanti a sinistra), Y verso l'alto",
                 "machine": {"connected": ctl.connected, "state": st.get("state"), "homed": ctl.homed,
                             "head_bed_mm": (lambda h: [round(h.x(), 2), round(h.y(), 2)] if h is not None else None)(
@@ -487,7 +490,7 @@ class RemoteServer:
     def c_open_project(self, path):
         if not os.path.exists(path):
             raise RemoteError(f"file non trovato: {path}")
-        if self.ed.dirty and self.doc.shapes:
+        if self.ed.dirty and self.doc.all_shapes():  # anche gli altri piani di lavoro
             raise RemoteError("il progetto aperto ha modifiche non salvate: salvalo prima (save_project) "
                               "o chiedi all'utente")
         self.ed.dirty = False
@@ -511,7 +514,7 @@ class RemoteServer:
         return {"saved": self.doc.path}
 
     def c_new_project(self):
-        if self.ed.dirty and self.doc.shapes:
+        if self.ed.dirty and self.doc.all_shapes():  # anche gli altri piani di lavoro
             raise RemoteError("ci sono modifiche non salvate: salva prima o chiedi all'utente")
         from .core.document import Document
 
