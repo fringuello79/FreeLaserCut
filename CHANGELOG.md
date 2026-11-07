@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.17.5 — 07/11/2026
+- **Calibrazione della camera con i punti messi a mano.** Con il bersaglio inciso (i dischi da 4 mm sul cartone) il riconoscimento automatico poteva prendere per dischi anche macchie fuori dal cartone, e la calibrazione veniva sbagliata. Ora i cerchietti si possono mettere a mano sulla foto:
+  - **alla fine della calibrazione** con il bersaglio inciso c'è il pulsante *Controlla i punti a mano…* (e, se la calibrazione non è riuscita, FreeLaserCut chiede se vuoi mettere tu i punti);
+  - **in qualunque momento**: pannello *Camera* → *Metti i punti a mano sui dischi incisi…*. Il cartone deve essere ancora dove è stato inciso: la testa si sposta fuori dall'inquadratura (laser spento) e la camera fa una foto. Il punto di parcheggio della testa si ricorda dalla calibrazione precedente.
+  - **FreeLaserCut dice quale disco cercare**: numero (lo stesso ordine in cui sono stati incisi, a serpentina dallo zero), riga e colonna, posizione sul piano e uno schema del piano con il disco in rosso. Si comincia dai quattro angoli: il n° 1 è quello vicino allo zero, davanti a sinistra.
+  - Il cerchietto si **aggancia da solo** al centro del disco scuro vicino al clic. Dopo i primi 4, FreeLaserCut **trova da solo gli altri** (arancioni, da controllare): si trascinano quelli fuori posto, tasto destro per toglierne uno, *Questo disco non si vede* per saltarne uno.
+  - *Calcola e usa la calibrazione* (servono almeno 9 dischi): se un cerchietto è sul disco sbagliato la precisione è troppo bassa e il più sospetto viene indicato in rosso, invece di salvare una calibrazione sbagliata.
+- Nuova prova automatica `tests/test_v175.py` (19 controlli, Classica e Banco): foto simulata con 36 dischi e 6 macchie estranee, riconoscimento automatico sbagliato apposta, 4 angoli messi a mano un po' storti, calibrazione precisa entro 0,6 mm.
+
 ## 0.17.4 — 07/11/2026
 - **Profilo salvato con un'area di lavoro assurda.** Un utente vedeva il piano 365 × 32764 mm anche senza il laser collegato: le versioni precedenti avevano salvato nel profilo un valore letto male dalla scheda, e il profilo resta anche disinstallando (sta nella cartella nascosta `%APPDATA%\FreeLaserCut\profiles`). La 0.17.2 controllava solo le nuove letture. Ora, all'apertura, un profilo con un'area non credibile torna all'area dichiarata dal produttore del modello (o 400 mm per il laser generico; l'asse buono resta), si salva così e un avviso dice cosa è cambiato, con il pulsante *Area di lavoro*.
 - **Area di lavoro a mano, anche senza laser collegato**: nel pannello *Macchina* (nel Banco dentro l'Officina) ci sono i due campi X × Y e *Usa questa area*, che salva il profilo e ridisegna il piano. Prima si poteva solo da *Riconosci la macchina*, con il laser collegato.

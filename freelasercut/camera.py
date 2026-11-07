@@ -239,6 +239,7 @@ class AutoCam(QObject):
     detected = Signal(object)  # lista di (u, v) trovati finora, per disegnarli sull'anteprima
     need_user = Signal(str)  # serve un'azione dell'utente (poi continue_() o cancel())
     finished = Signal(object, str)  # CameraModel | None, messaggio
+    photo_ready = Signal(object)  # 0.17.5, metodo "photo": foto dei dischi incisi per metterli a mano
 
     def __init__(self, ctl, cam, profile, grid_n=5, method="auto"):
         super().__init__()
@@ -253,6 +254,11 @@ class AutoCam(QObject):
         self.used_method = None
         self.visible = None
         self.target_grid = None
+        # 0.17.5: per la correzione a mano dei dischi incisi
+        self.last_photo = None  # foto finale (testa parcheggiata) del bersaglio inciso
+        self.park = None  # dove è stata parcheggiata la testa
+        self.park_hint = None  # parcheggio già noto (dalla calibrazione salvata): niente giro per cercarlo
+        self.guess = {}  # {indice del disco: (u, v)} trovati da soli, anche quelli scartati
 
     # ---- controllo dall'interfaccia
     def start(self):
@@ -314,6 +320,23 @@ class AutoCam(QObject):
 
     # ---- procedura
     def _run(self):
+        if self.method == "photo":  # 0.17.5: solo la foto dei dischi già incisi, per metterli a mano
+            try:
+                self._check()
+                park = tuple(self.park_hint) if self.park_hint else self._park()[0]
+                self.progress.emit(0, 1, tr("Sposto la testa fuori dall'inquadratura e faccio la foto…"))
+                self._goto_bed(*park)
+                self._wait_idle()
+                self.park = park
+                self.last_photo = cc._avg(self.cam.frames(3, after=time.time() + 0.3))
+                self.target_grid = [g[:2] for g in cc.seq_grid(self.profile.bed_x, self.profile.bed_y)]
+                self.photo_ready.emit(self)
+                self.finished.emit(None, "")
+            except CalibrationCancelled:
+                self.finished.emit(None, tr("Annullato"))
+            except Exception as exc:  # noqa: BLE001
+                self.finished.emit(None, tr("Foto non riuscita: {0}", exc))
+            return
         try:
             model, msg = self._calibrate()
             self.finished.emit(model, msg)
@@ -350,13 +373,10 @@ class AutoCam(QObject):
             return None, (tr("Trovati solo {0} cerchi su {1}: controlla che il cartone sia nella zona inquadrata e ben illuminato", len(pairs), tot))
         model = cc.fit_with_validation([p[0] for p in pairs], [p[1] for p in pairs], (bx, by), self.cam.size or size)
         if self.visible is not None:
-            bp = np.array([p[0] for p in pairs])
-            g = 18.0  # oltre l'ultimo cerchio la correzione vale ancora per poco
-            x0, y0 = max(0.0, bp[:, 0].min() - g), max(0.0, bp[:, 1].min() - g)
-            x1, y1 = min(bx, bp[:, 0].max() + g), min(by, bp[:, 1].max() + g)
-            if (x1 - x0) * (y1 - y0) < 0.93 * bx * by:
-                model.valid = (x0, y0, x1 - x0, y1 - y0)
-                self.visible = model.valid
+            # oltre l'ultimo cerchio la correzione vale ancora per poco
+            vis = cc.limit_to_points(model, [p[0] for p in pairs], bx, by)
+            if vis is not None:
+                self.visible = vis
         self.used_method = "bersaglio inciso"
         return model, self._result_text(model, len(pairs), tot)
 
@@ -510,13 +530,10 @@ class AutoCam(QObject):
         bx, by = self.profile.bed_x, self.profile.bed_y
         self._ask(tr("Metti sul piano un cartone o un compensato chiaro, ben piatto e a fuoco, il più grande possibile.\nFreeLaserCut inciderà fino a {0} dischi (Ø 4 mm, 40%) uno alla volta e dopo ognuno farà una foto con la testa parcheggiata: i dischi fuori dall'inquadratura vengono semplicemente ignorati.\n\nOcchiali protettivi indossati e aspirazione accesa?", n * n))
         park, cover = self._park()
-        m = 14.0
-        xs = np.linspace(m, bx - m, n)
-        ys = np.linspace(m, by - m, n)
-        grid = []
-        for j, y in enumerate(ys):
-            grid += [(float(x), float(y)) for x in (xs if j % 2 == 0 else xs[::-1])]
+        self.park = park
+        grid = [g[:2] for g in cc.seq_grid(bx, by, n)]  # stesso ordine di prima (serpentina dallo zero)
         self.target_grid = grid
+        self.guess = {}
         self._goto_bed(*park)
         self._wait_idle()
         prev = cc._avg(self.cam.frames(3, after=time.time() + 0.25))
@@ -540,6 +557,7 @@ class AutoCam(QObject):
                 continue
             if not (3 < u < W_img - 3 and 3 < v < H_img - 3):
                 continue
+            self.guess[i] = (u, v)
             pairs.append(((x, y), (u, v)))
             self.detected.emit([p[1] for p in pairs])
         if len(pairs) >= 6:  # scarto le associazioni sbagliate (riflessi, polvere): devono stare su una prospettiva
@@ -548,6 +566,9 @@ class AutoCam(QObject):
             _H, inl = cv2.findHomography(bp, ip, cv2.RANSAC, 0.025 * math.hypot(W_img, H_img))
             if inl is not None:
                 pairs = [p for p, k in zip(pairs, inl.ravel()) if k]
+                keep = {p[0] for p in pairs}
+                self.guess = {i: uv for i, uv in self.guess.items() if grid[i] in keep}
+        self.last_photo = prev  # foto finale, testa parcheggiata: serve per correggere i punti a mano
         self.visible = (0.0, 0.0, bx, by)  # attiva il calcolo della zona vista in _calibrate
         self.progress.emit(len(grid), len(grid), "Calcolo lente e prospettiva…")
         return pairs

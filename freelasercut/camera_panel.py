@@ -8,7 +8,7 @@ import cv2
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QHBoxLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QSlider,
+    QCheckBox, QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QProgressBar, QPushButton, QSlider,
     QToolButton, QVBoxLayout, QWidget,
 )
 
@@ -112,6 +112,13 @@ class CameraPanel(QWidget):
         brow.addWidget(self.btn_cal, 1)
         brow.addWidget(self.btn_cancel)
         kl.addLayout(brow)
+        # 0.17.5: se il riconoscimento dei dischi incisi sbaglia (macchie fuori dal cartone), i punti si mettono a mano
+        self.btn_manual = QPushButton(tr("Metti i punti a mano sui dischi incisi…"))
+        self.btn_manual.setToolTip(tr("Il cartone con i dischi della calibrazione deve essere ancora dove è stato inciso: "
+                                      "la testa si sposta fuori dall'inquadratura, la camera fa una foto e tu metti i "
+                                      "cerchietti sui dischi, uno alla volta, con FreeLaserCut che ti dice quale"))
+        self.btn_manual.clicked.connect(self.manual_points)
+        kl.addWidget(self.btn_manual)
         self.cal_bar = QProgressBar()
         self.cal_bar.hide()
         kl.addWidget(self.cal_bar)
@@ -274,6 +281,7 @@ class CameraPanel(QWidget):
         self.chk_live.setEnabled(cam_ok and cal_ok)
         self.btn_shot.setEnabled(cam_ok and cal_ok)
         self.btn_cal.setEnabled(cam_ok and self.ctl.connected and self.autocam is None)
+        self.btn_manual.setEnabled(cam_ok and self.ctl.connected and self.autocam is None)
         if not cam_ok:
             self.state.setText(tr("Nessuna telecamera selezionata"))
         elif cal_ok:
@@ -327,6 +335,89 @@ class CameraPanel(QWidget):
             self.snapshot()
 
     # ---------------------------------------------------------------- calibrazione
+    def _ready_for_machine(self, after_home):
+        """Controlli comuni prima di muovere la testa per la camera. after_home: cosa rifare dopo l'homing."""
+        if self.src is None or not self.ctl.connected:
+            return False
+        if self.ctl.job_active:
+            QMessageBox.warning(self, tr("AutoCam"), tr("C'è un lavoro in corso."))
+            return False
+        if not self.ctl.homed:
+            ans = QMessageBox.question(
+                self, tr("AutoCam"),
+                tr("Prima serve l'homing: la calibrazione si basa sulle coordinate assolute della macchina.\n\n"
+                "Faccio l'homing adesso? Al termine la calibrazione parte da sola."))
+            if ans == QMessageBox.Yes:
+                self._cal_after_home = after_home
+                self.ctl.home()
+            return False
+        if self.ctl.last_status.get("state") == "Alarm":
+            QMessageBox.warning(self, tr("AutoCam"), tr("La macchina è in allarme: sblocca o fai l'homing prima."))
+            return False
+        return True
+
+    def manual_points(self):
+        """0.17.5: foto dei dischi già incisi (testa parcheggiata) e punti messi a mano."""
+        if not self._ready_for_machine(self.manual_points):
+            return
+        ans = QMessageBox.question(
+            self, tr("Punti a mano"),
+            tr("Il cartone con i dischi incisi dalla calibrazione deve essere ancora dove è stato inciso, e la camera "
+               "non deve essersi spostata.\n\nLa testa si sposta fuori dall'inquadratura (laser spento), la camera fa "
+               "una foto e poi metti tu i cerchietti sui dischi: FreeLaserCut ti dice quale cercare.\n\nProcedo?"))
+        if ans != QMessageBox.Yes:
+            return
+        self._start_autocam("photo")
+
+    def _start_autocam(self, method):
+        self.detected = []
+        self.autocam = AutoCam(self.ctl, self.src, self.win.profile, grid_n=5, method=method)
+        park = (self.saved or {}).get("park")
+        if method == "photo" and isinstance(park, (list, tuple)) and len(park) == 2:
+            self.autocam.park_hint = tuple(float(v) for v in park)
+        self.autocam.progress.connect(self.on_progress)
+        self.autocam.detected.connect(self.on_detected)
+        self.autocam.need_user.connect(self.on_need_user)
+        self.autocam.photo_ready.connect(self.open_points)
+        self.autocam.finished.connect(self.on_finished)
+        self.chk_live.setChecked(False)
+        self.btn_cal.setEnabled(False)
+        self.btn_manual.setEnabled(False)
+        self.btn_cancel.show()
+        self.cal_bar.show()
+        self.cal_bar.setValue(0)
+        self.method.setEnabled(False)
+        self.combo.setEnabled(False)
+        self.autocam.start()
+
+    def open_points(self, ac):
+        """Finestra dei punti a mano sulla foto dei dischi (dopo la calibrazione o dalla foto nuova)."""
+        from .camera_calib import seq_grid
+        from .ui.dialogs_campoints import CameraPointsDialog
+
+        if ac is None or ac.last_photo is None:
+            return None
+        p = self.win.profile
+        dlg = CameraPointsDialog(ac.last_photo, seq_grid(p.bed_x, p.bed_y), (p.bed_x, p.bed_y), ac.guess, self)
+        self._points_dlg = dlg
+        ok = dlg.exec() == QDialog.Accepted and dlg.model is not None
+        self._points_dlg = None
+        if not ok:
+            return None
+        model = dlg.model
+        extra = {"camera_index": self.combo.currentData(), "method": "punti a mano"}
+        if ac.park is not None:
+            extra["park"] = [float(v) for v in ac.park]
+        model.save(camera_file(), extra)
+        self.model, self.saved = CameraModel.load(camera_file())
+        self.chk_live.setChecked(True)
+        msg = tr("Calibrazione con i punti a mano: {0} punti, precisione ±{1:.2f} mm (peggiore {2:.2f} mm)",
+                 model.n_points or len(dlg.pairs()), model.rms_mm, model.max_mm)
+        self.cal_text.setText(msg)
+        self.update_state()
+        QMessageBox.information(self, tr("AutoCam"), msg + tr("\n\nLa foto del piano ora è raddrizzata e in scala 1:1."))
+        return model
+
     def calibrate(self):
         if self.src is None or not self.ctl.connected:
             return
@@ -358,25 +449,13 @@ class CameraPanel(QWidget):
                   "•  occhiali protettivi per 450 nm indossati\n\nIniziare?"))
         if ans != QMessageBox.Yes:
             return
-        self.detected = []
-        self.autocam = AutoCam(self.ctl, self.src, self.win.profile, grid_n=5, method=method)
-        self.autocam.progress.connect(self.on_progress)
-        self.autocam.detected.connect(self.on_detected)
-        self.autocam.need_user.connect(self.on_need_user)
-        self.autocam.finished.connect(self.on_finished)
-        self.chk_live.setChecked(False)
-        self.btn_cal.setEnabled(False)
-        self.btn_cancel.show()
-        self.cal_bar.show()
-        self.cal_bar.setValue(0)
-        self.method.setEnabled(False)
-        self.combo.setEnabled(False)
-        self.autocam.start()
+        self._start_autocam(method)
 
     def _on_homed(self, homed, _negative):
         if homed and self._cal_after_home:
+            then = self._cal_after_home
             self._cal_after_home = False
-            QTimer.singleShot(500, self.calibrate)
+            QTimer.singleShot(500, then if callable(then) else self.calibrate)
 
     def cancel_calibration(self):
         if self.autocam is not None:
@@ -410,16 +489,43 @@ class CameraPanel(QWidget):
         self.btn_cancel.hide()
         self.method.setEnabled(True)
         self.combo.setEnabled(True)
+        if ac is not None and ac.method == "photo":  # la finestra dei punti l'ha già aperta photo_ready
+            self.cal_bar.hide()
+            if msg:
+                self.cal_text.setText(msg)
+            self.update_state()
+            return
         self.cal_text.setText(msg)
+        can_fix = ac is not None and ac.last_photo is not None  # bersaglio inciso: i punti si possono correggere
         if model is not None:
             extra = {"camera_index": self.combo.currentData(), "method": ac.used_method}
+            if ac.park is not None:
+                extra["park"] = [float(v) for v in ac.park]
             model.save(camera_file(), extra)
             self.model, self.saved = CameraModel.load(camera_file())
             self.cal_bar.setValue(self.cal_bar.maximum())
             self.chk_live.setChecked(True)
-            QMessageBox.information(self, tr("AutoCam"), msg + tr("\n\nLa foto del piano ora è raddrizzata e in scala 1:1."))
+            box = QMessageBox(self)
+            box.setWindowTitle(tr("AutoCam"))
+            box.setIcon(QMessageBox.Information)
+            box.setText(msg + tr("\n\nLa foto del piano ora è raddrizzata e in scala 1:1."))
+            fix = None
+            if can_fix:
+                box.setInformativeText(tr("Se sulla foto del piano qualcosa non torna (per esempio macchie fuori dal "
+                                          "cartone prese per dischi), controlla e correggi i punti a mano."))
+                fix = box.addButton(tr("Controlla i punti a mano…"), QMessageBox.ActionRole)
+            box.addButton(QMessageBox.Ok)
+            box.exec()
+            if fix is not None and box.clickedButton() is fix:
+                self.update_state()
+                self.open_points(ac)
         else:
             self.cal_bar.hide()
+            if can_fix and not ac._cancel.is_set() and QMessageBox.question(
+                    self, tr("AutoCam"), msg + tr("\n\nI dischi sono stati incisi: vuoi mettere tu i punti sulla foto?"),
+                    QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+                self.update_state()
+                self.open_points(ac)
         self.update_state()
 
     def shutdown(self):

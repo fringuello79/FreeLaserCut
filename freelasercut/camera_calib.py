@@ -354,3 +354,108 @@ def calibration_grid(bed_x, bed_y, n=5, margin=15.0):
         row = xs if j % 2 == 0 else xs[::-1]
         pts += [(float(x), float(y)) for x in row]
     return pts
+
+
+# --------------------------------------------------------------------- punti a mano (0.17.5)
+SEQ_N = 6  # bersaglio inciso un disco alla volta: griglia 6 × 6
+SEQ_MARGIN = 14.0  # mm dal bordo del piano
+
+
+def seq_grid(bed_x, bed_y, n=SEQ_N, margin=SEQ_MARGIN):
+    """Dischi del bersaglio inciso nell'ordine in cui vengono incisi (a serpentina, dal primo vicino allo zero):
+    [(x, y, riga, colonna)], riga 1 = la più vicina allo zero (davanti), colonna 1 = la più a sinistra."""
+    xs = np.linspace(margin, bed_x - margin, n)
+    ys = np.linspace(margin, bed_y - margin, n)
+    out = []
+    for j, y in enumerate(ys):
+        cols = range(n) if j % 2 == 0 else range(n - 1, -1, -1)
+        out += [(float(xs[i]), float(y), j + 1, i + 1) for i in cols]
+    return out
+
+
+def darkness(photo):
+    """Quanto è più scuro ogni pixel del fondo intorno (cartone con dischi incisi): mappa float32 ≥ 0."""
+    img = np.asarray(photo)
+    if img.ndim == 3:
+        img = cv2.cvtColor(np.clip(img, 0, 255).astype(np.uint8), cv2.COLOR_BGR2GRAY)
+    # «black top-hat»: mette in risalto solo le macchie scure più piccole del nucleo (i dischi), non le zone scure
+    # grandi come il bordo del piano o lo sfondo fuori dal cartone
+    k = int(max(15, 0.03 * max(img.shape[:2]))) | 1
+    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    d = cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, ker).astype(np.float32)
+    return cv2.GaussianBlur(d, (0, 0), 1.0)
+
+
+def snap_dark(dark, u, v, radius, min_dark=10.0):
+    """Centro del disco scuro più vicino a (u, v) entro radius pixel; None se lì non c'è niente di scuro."""
+    h, w = dark.shape
+    r = int(max(4, radius))
+    x0, y0 = max(0, int(u) - r), max(0, int(v) - r)
+    x1, y1 = min(w, int(u) + r + 1), min(h, int(v) + r + 1)
+    if x1 - x0 < 3 or y1 - y0 < 3:
+        return None
+    win = dark[y0:y1, x0:x1]
+    peak = float(win.max())
+    if peak < min_dark:
+        return None
+    mask = (win >= 0.5 * peak).astype(np.uint8)
+    n, labels, stats, cents = cv2.connectedComponentsWithStats(mask, 8)
+    if n <= 1:
+        return None
+    best, best_d = None, math.inf
+    for k in range(1, n):
+        cx, cy = cents[k][0] + x0, cents[k][1] + y0
+        dd = math.hypot(cx - u, cy - v)
+        if dd < best_d:
+            best, best_d = k, dd
+    sub = labels == best
+    wt = win * sub
+    tot = float(wt.sum())
+    if tot <= 0:
+        return None
+    ys, xs = np.mgrid[y0:y1, x0:x1]
+    return float((xs * wt).sum() / tot), float((ys * wt).sum() / tot)
+
+
+def fill_from_anchors(dark, grid_bed, known, frame_size):
+    """Dai dischi messi a mano (almeno 4, {indice: (u, v)}) stima dove sono gli altri con una prospettiva e li
+    aggancia al disco scuro più vicino. Ritorna {indice: (u, v)} per i dischi trovati (quelli noti esclusi)."""
+    idx = sorted(known)
+    if len(idx) < 4:
+        return {}
+    G = np.float32([grid_bed[i][:2] for i in idx])
+    P = np.float32([known[i] for i in idx])
+    H, _ = cv2.findHomography(G, P, 0 if len(idx) < 8 else cv2.RANSAC, 0.02 * math.hypot(*frame_size))
+    if H is None:
+        return {}
+    allg = np.float32([g[:2] for g in grid_bed])
+    pred = cv2.perspectiveTransform(allg.reshape(-1, 1, 2), H).reshape(-1, 2)
+    # distanza fra dischi vicini in pixel, per il raggio di ricerca
+    n = int(round(math.sqrt(len(grid_bed))))
+    steps = []
+    for i in range(len(grid_bed)):
+        for j in range(len(grid_bed)):
+            if i < j and abs(grid_bed[i][2] - grid_bed[j][2]) + abs(grid_bed[i][3] - grid_bed[j][3]) == 1:
+                steps.append(float(np.linalg.norm(pred[i] - pred[j])))
+    sp = float(np.median(steps)) if steps else 0.1 * max(frame_size)
+    W, Hh = frame_size
+    out = {}
+    for i, (u, v) in enumerate(pred):
+        if i in known or not (2 < u < W - 2 and 2 < v < Hh - 2):
+            continue
+        s = snap_dark(dark, u, v, 0.3 * sp)
+        if s is not None and math.hypot(s[0] - u, s[1] - v) <= 0.3 * sp:
+            out[i] = s
+    return out
+
+
+def limit_to_points(model, bed_pts, bed_x, bed_y, margin=18.0):
+    """Zona del piano coperta dai punti usati (più un margine): fuori la correzione non vale. Imposta model.valid se
+    la zona è più piccola del piano e la ritorna (x, y, w, h), altrimenti None."""
+    bp = np.asarray(bed_pts, float)
+    x0, y0 = max(0.0, bp[:, 0].min() - margin), max(0.0, bp[:, 1].min() - margin)
+    x1, y1 = min(bed_x, bp[:, 0].max() + margin), min(bed_y, bp[:, 1].max() + margin)
+    if (x1 - x0) * (y1 - y0) < 0.93 * bed_x * bed_y:
+        model.valid = (x0, y0, x1 - x0, y1 - y0)
+        return model.valid
+    return None
