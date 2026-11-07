@@ -2122,5 +2122,7 @@
  "Velocità: la scheda non va oltre {0:g} mm/min ($110/$111): il livello a {1:g} mm/min sale al massimo del {2:.0f}%.": "Velocidade: a placa não passa de {0:g} mm/min ($110/$111): a camada a {1:g} mm/min sobe no máximo a {2:.0f}%.",
  "Velocità: sui tratti corti (foto, testi piccoli) le accelerazioni della scheda ($120/$121) possono tenere la testa più lenta di quanto chiesto.": "Velocidade: nos trechos curtos (fotos, textos pequenos) as acelerações da placa ($120/$121) podem manter a cabeça mais lenta do que o pedido.",
  "Verifica e avvia così": "Verificar e iniciar assim",
- "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0}: foto com pontos muito densos, a {1:g} mm/min a porta não envia os comandos depressa o suficiente (cerca de {2:g} mm/min no máximo): a cabeça pode andar aos trancos"
+ "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0}: foto com pontos muito densos, a {1:g} mm/min a porta não envia os comandos depressa o suficiente (cerca de {2:g} mm/min no máximo): a cabeça pode andar aos trancos",
+ "(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)": "(mensagem de inicialização da placa em outra velocidade: ilegível, é normal)",
+ "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "A placa não responde nem ao Ctrl+X: vou reiniciá-la pela porta USB, como o botão de reset"
 }

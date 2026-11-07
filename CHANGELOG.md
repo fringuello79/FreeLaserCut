@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.17.3 — 07/11/2026
+- **Schede ESP32 che restano mute anche dopo il reset morbido.** Dalle immagini di un utente su GitHub (grblHAL su ESP32 con chip USB CH9102): all'apertura della porta l'ESP32 restava in **modalità di programmazione**, dove GRBL non gira, e ripartiva solo premendo il pulsante sulla scheda. Il Ctrl+X della 0.16.3 lì non arriva. Ora, se dopo il Ctrl+X la scheda è ancora muta, FreeLaserCut la **riavvia dalle linee DTR/RTS** della porta USB: è la stessa sequenza dello strumento ufficiale di programmazione delle ESP32 e fa come il pulsante, con la scheda che riparte normale. Poi le due linee restano spente. Una volta sola e solo se la scheda è muta: le schede che rispondono subito, il Wi-Fi e il simulatore non cambiano.
+  - Lo stesso anche in **Riconosci la macchina**: se la scheda non risponde, la riavvia una volta dalla porta e riprova.
+  - L'avviso «la scheda non risponde» arriva dopo 9 secondi invece di 6, per lasciare a FreeLaserCut il tempo di provare da solo.
+  - Nella console il messaggio di avvio dell'ESP32, che a un'altra velocità è una riga di simboli illeggibili, diventa «(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)».
+- **Strumento Misura leggibile.** La linea gialla chiara e sottile sul piano chiaro si vedeva appena. Ora la linea è arancio scuro con un bordo scuro, i due punti sono pieni e la misura sta su un'etichetta scura con il testo bianco, accanto alla linea senza coprirla. Sotto la distanza si leggono anche ΔX, ΔY e l'angolo.
+- Nuova prova automatica `tests/test_v173.py` (14 controlli, Classica e Banco), con una scheda simulata che resta in programmazione finché non viene riavviata dalle linee.
+
 ## 0.17.2 — 07/11/2026
 Dalle prove di un utente.
 - **Area di lavoro non credibile ignorata.** Collegando il laser, il piano era diventato 400 × 234500 mm: la scheda aveva risposto `$131=234500`, probabilmente «234.500» arrivato senza il punto. Ora un'area ($130/$131) sotto 10 mm o sopra 3000 mm non diventa il piano: FreeLaserCut lo dice e rilegge le impostazioni una volta. Se il valore resta, un avviso mostra il valore, il piano che resta in uso e i pulsanti *Impostazioni della scheda* e *Rileggi*. Lo zero (corsa non impostata) resta normale, come prima.

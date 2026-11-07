@@ -893,6 +893,11 @@ class TextTool(Tool):
 
 
 # ======================================================================= misura
+MEASURE_LINE = "#E8590C"  # arancio scuro: si vede sul piano chiaro e sul legno
+MEASURE_HALO = "#1A2233"  # bordo scuro sotto la linea
+MEASURE_LABEL_BG = "#1A2233"  # etichetta della misura: testo bianco su fondo scuro, sempre leggibile
+
+
 class MeasureTool(Tool):
     name = "measure"
     label = tr("Misura")
@@ -943,17 +948,54 @@ class MeasureTool(Tool):
     def draw(self, p, tf):
         if self.a is None or self.b is None:
             return
+        # 0.17.3: prima giallo chiaro sottile, sul piano chiaro si vedeva appena. Ora linea arancio scuro con un bordo
+        # scuro sotto (si legge sul legno chiaro e sulle foto scure) e la misura su un'etichetta piena
         va, vb = tf.map(self.a), tf.map(self.b)
-        p.setPen(_pen("#FFD43B", 1.5))
+        p.save()
+        p.setRenderHint(p.RenderHint.Antialiasing, True)
+        halo = QColor(MEASURE_HALO)
+        halo.setAlpha(200)
+        p.setPen(_pen(halo, 4.5))
         p.drawLine(va, vb)
+        p.setPen(_pen(MEASURE_LINE, 2.0))
+        p.drawLine(va, vb)
+        p.setBrush(QColor(MEASURE_LINE))
+        p.setPen(_pen(MEASURE_HALO, 1.5))
         for v in (va, vb):
-            p.drawEllipse(v, 3, 3)
+            p.drawEllipse(v, 4, 4)
         dx, dy = self.b.x() - self.a.x(), self.b.y() - self.a.y()
         txt = f"{math.hypot(dx, dy):.2f} mm"
-        p.setFont(style.ui_font(9, style.QFont.Weight.DemiBold))
-        m = (va + vb) / 2
-        p.setPen(QColor("#FFD43B"))
-        p.drawText(QPointF(m.x() + 8, m.y() - 8), txt)
+        sub = f"ΔX {dx:+.2f}  ΔY {dy:+.2f}  {math.degrees(math.atan2(dy, dx)):.1f}°"
+        f1 = style.ui_font(10, style.QFont.Weight.Bold)
+        f2 = style.ui_font(8)
+        from PySide6.QtGui import QFontMetricsF
+
+        m1, m2 = QFontMetricsF(f1), QFontMetricsF(f2)
+        w = max(m1.horizontalAdvance(txt), m2.horizontalAdvance(sub)) + 14
+        h = m1.height() + m2.height() + 8
+        # etichetta accanto al centro della linea, dalla parte di sopra, senza coprirla
+        mid = (va + vb) / 2
+        lx, ly = vb.x() - va.x(), vb.y() - va.y()
+        ln = math.hypot(lx, ly) or 1.0
+        nx, ny = -ly / ln, lx / ln
+        if ny > 0 or (abs(ny) < 1e-6 and nx < 0):
+            nx, ny = -nx, -ny
+        off = abs(nx) * w / 2 + abs(ny) * h / 2 + 10
+        box = QRectF(0, 0, w, h)
+        box.moveCenter(QPointF(mid.x() + nx * off, mid.y() + ny * off))
+        vp = QRectF(p.viewport())
+        if box.top() < vp.top() + 22 or box.left() < vp.left() + 22 or box.right() > vp.right() - 4:
+            box.moveCenter(QPointF(mid.x() - nx * off, mid.y() - ny * off))  # vicino al bordo: dall'altra parte
+        p.setPen(_pen(MEASURE_LINE, 1.2))
+        p.setBrush(QColor(MEASURE_LABEL_BG))
+        p.drawRoundedRect(box, 5, 5)
+        p.setPen(QColor("#FFFFFF"))
+        p.setFont(f1)
+        p.drawText(QRectF(box.left() + 7, box.top() + 3, w, m1.height()), Qt.AlignLeft | Qt.AlignVCenter, txt)
+        p.setPen(QColor("#D6DEEC"))
+        p.setFont(f2)
+        p.drawText(QRectF(box.left() + 7, box.top() + 3 + m1.height(), w, m2.height()), Qt.AlignLeft | Qt.AlignVCenter, sub)
+        p.restore()
 
 
 # ======================================================================= posiziona laser

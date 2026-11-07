@@ -46,7 +46,9 @@ IMPORT_FILTER = (tr("Tutti i formati supportati (*.svg *.dxf *.lbrn2 *.lbrn *.pn
 BIG_PHOTO_DOTS = 5_000_000  # oltre: chiede conferma prima di preparare il lavoro (tempo, memoria)
 
 class MainWindow(QMainWindow):
-    SILENT_MS = 6000  # dopo la connessione: se la scheda non ha ancora risposto, avviso (velocità della porta)
+    # dopo la connessione: se la scheda non ha ancora risposto, avviso (velocità della porta). 0.17.3: 9 s, perché prima
+    # FreeLaserCut prova da solo Ctrl+X (2,5 s) e il riavvio dalla porta USB (4 s, poi 3 s per l'avvio della scheda)
+    SILENT_MS = 9000
 
     def __init__(self):
         super().__init__()

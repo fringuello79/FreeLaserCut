@@ -481,6 +481,24 @@ def _read_until(ser, deadline, done=None):
     return lines
 
 
+def hard_reset(ser, pulse=0.12):
+    """Riavvio di una scheda ESP32 dalle linee della porta USB, come il suo pulsante di reset (0.17.3).
+    È la sequenza «hard reset» dello strumento ufficiale di programmazione delle ESP32: DTR spento (pin di avvio
+    libero, la scheda riparte normale e non in programmazione), RTS acceso per un attimo (reset), poi spento.
+    Con alcuni chip USB (visto con il CH9102) all'apertura della porta l'ESP32 resta in programmazione e GRBL non
+    parte finché non si preme il pulsante. True se le linee si sono potute muovere."""
+    if not hasattr(ser, "dtr") or not hasattr(ser, "rts"):
+        return False
+    try:
+        ser.dtr = False
+        ser.rts = True
+        time.sleep(pulse)
+        ser.rts = False
+    except Exception:  # noqa: BLE001  porta che non gestisce le linee
+        return False
+    return True
+
+
 def probe(port, bauds=_BAUDS, opener=None, settle=1.6, log=None):
     """Apre la porta e legge avvio, $I e $$.  Ritorna dict(baud, banner, info, settings) o None.
 
@@ -497,6 +515,8 @@ def probe(port, bauds=_BAUDS, opener=None, settle=1.6, log=None):
                 return netport.NetSerial.from_port(p)
             return serial.Serial(p, b, timeout=0.1, write_timeout=1)
     end_ok = lambda l: l == "ok" or l.startswith("error")  # noqa: E731
+    sensible = lambda lines: any(end_ok(l) or l.startswith("[") or "grbl" in l.lower() for l in lines)  # noqa: E731
+    reset_done = netport.is_net(port)  # in rete le linee della porta non ci sono
     for baud in bauds:
         if log:
             log(f"Provo {port} a {baud} baud…")
@@ -512,7 +532,20 @@ def probe(port, bauds=_BAUDS, opener=None, settle=1.6, log=None):
             banner += _read_until(ser, time.time() + 0.4)
             ser.write(b"$I\n")
             info = _read_until(ser, time.time() + 2.5, end_ok)
-            if not any(end_ok(l) or l.startswith("[") or "grbl" in l.lower() for l in banner + info):
+            if not sensible(banner + info) and not reset_done:
+                # 0.17.3: nessuna risposta sensata: forse un ESP32 rimasto in programmazione all'apertura della
+                # porta. Un riavvio dalle linee DTR/RTS (una volta sola), poi riprovo; se la velocità è sbagliata
+                # la scheda almeno ora sta girando GRBL e le velocità successive la trovano
+                reset_done = True
+                if hard_reset(ser):
+                    if log:
+                        log("Nessuna risposta: riavvio la scheda dalla porta USB (come il pulsante di reset)…")
+                    banner += _read_until(ser, time.time() + 3.0)
+                    ser.write(b"\r\n\r\n")
+                    banner += _read_until(ser, time.time() + 0.4)
+                    ser.write(b"$I\n")
+                    info = _read_until(ser, time.time() + 2.5, end_ok)
+            if not sensible(banner + info):
                 continue  # niente di sensato: velocità sbagliata
             ser.write(b"$$\n")
             raw = _read_until(ser, time.time() + 4.0, end_ok)

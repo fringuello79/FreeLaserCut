@@ -2122,5 +2122,7 @@
  "Velocità: la scheda non va oltre {0:g} mm/min ($110/$111): il livello a {1:g} mm/min sale al massimo del {2:.0f}%.": "Vitesse : la carte ne dépasse pas {0:g} mm/min ($110/$111) : le calque à {1:g} mm/min monte au maximum à {2:.0f} %.",
  "Velocità: sui tratti corti (foto, testi piccoli) le accelerazioni della scheda ($120/$121) possono tenere la testa più lenta di quanto chiesto.": "Vitesse : sur les trajets courts (photos, petits textes) les accélérations de la carte ($120/$121) peuvent garder la tête plus lente que demandé.",
  "Verifica e avvia così": "Vérifier et lancer tel quel",
- "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0} : photo aux points très serrés, à {1:g} mm/min le port n'envoie pas les commandes assez vite (environ {2:g} mm/min au maximum) : la tête peut avancer par à-coups"
+ "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0} : photo aux points très serrés, à {1:g} mm/min le port n'envoie pas les commandes assez vite (environ {2:g} mm/min au maximum) : la tête peut avancer par à-coups",
+ "(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)": "(message de démarrage de la carte à une autre vitesse : illisible, c'est normal)",
+ "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "La carte ne répond même pas à Ctrl+X : je la redémarre depuis le port USB, comme le bouton reset"
 }

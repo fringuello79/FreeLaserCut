@@ -266,6 +266,8 @@ if __name__ == "__main__":
     run_suite("test_v170.py", "Schizzo del soggetto nell'interfaccia Banco", "banco")
     run_suite("test_v172.py", "Area di lavoro non credibile, foto troppo fitte per la porta, override, Mecpow X3S")
     run_suite("test_v172.py", "Area non credibile, foto fitte e override nell'interfaccia Banco", "banco")
+    run_suite("test_v173.py", "ESP32 muto dopo la connessione: riavvio dalle linee DTR/RTS; strumento Misura leggibile")
+    run_suite("test_v173.py", "Riavvio dalle linee DTR/RTS e strumento Misura nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

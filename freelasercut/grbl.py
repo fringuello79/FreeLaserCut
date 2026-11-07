@@ -98,6 +98,14 @@ def parse_status(text, last_wco):
     return st
 
 
+def _garbled(line):
+    """Riga illeggibile: soprattutto caratteri sostituiti (�) o di controllo."""
+    if len(line) < 6:
+        return False
+    bad = sum(1 for ch in line if ch == "\ufffd" or (ord(ch) < 32 and ch not in "\t"))
+    return bad >= 0.25 * len(line)
+
+
 class GrblController(QObject):
     connection_changed = Signal(bool, str)  # connesso?, messaggio
     line_received = Signal(str)
@@ -149,6 +157,7 @@ class GrblController(QObject):
         self.board_info = []  # ultimo $I
         self._backup_done = False  # copia delle impostazioni già fatta in questa connessione
         self._travel_retry = False  # $130/$131 non credibili: ho già riletto $$ una volta
+        self.line_resets = 0  # riavvii dalle linee DTR/RTS (0.17.3)
         self.baud = 115200  # velocità della porta seriale aperta
         self.last_backup = None
         self.auto_backup = True
@@ -225,10 +234,41 @@ class GrblController(QObject):
         self._clear_queues()  # $I e $$ mandati prima sono persi: li richiedo quando la scheda è ripartita
 
         def again():
+            if not self.connected:
+                return
+            if self.status_time <= t0 and self.last_reply <= t0 and self._line_reset():
+                # 0.17.3: muta anche dopo il Ctrl+X (visto con CH9102 + grblHAL: all'apertura della porta l'ESP32
+                # finisce in modalità di programmazione, dove GRBL non gira). Riavvio vero dalle linee della porta,
+                # come il pulsante: poi la scheda ha bisogno di qualche secondo per ripartire.
+                threading.Timer(self.BOOT_WAIT_S, again_info).start()
+                return
+            again_info()
+
+        def again_info():
             if self.connected:
                 self.request_info()
                 self.request_settings()
         threading.Timer(1.5, again).start()
+        return True
+
+    BOOT_WAIT_S = 3.0  # dopo il riavvio dalle linee DTR/RTS: avvio dell'ESP32 e di GRBL
+
+    def _line_reset(self):
+        """Riavvio dalla porta USB, come il pulsante di reset di una scheda ESP32: è la sequenza dello strumento
+        ufficiale di programmazione (esptool, «hard reset»). DTR spento = pin di avvio libero, quindi la scheda
+        riparte normale e non in programmazione; RTS acceso per un attimo = reset. Le due linee restano spente.
+        Solo porte seriali vere; False se la porta non le gestisce."""
+        from .machines import hard_reset
+
+        ser = self._ser
+        if ser is None or self.port == SIM_PORT or netport.is_net(self.port or "") \
+                or not hasattr(ser, "dtr") or not hasattr(ser, "rts"):
+            return False
+        self.message.emit(tr("La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante "
+                             "di reset"))
+        if not hard_reset(ser):  # porta che non gestisce le linee: resta l'avviso della finestra
+            return False
+        self.line_resets += 1
         return True
 
     def _after_connect(self):
@@ -680,6 +720,11 @@ class GrblController(QObject):
             self._pump()
             return
 
+        if _garbled(line):
+            # 0.17.3: l'ESP32 all'avvio scrive i suoi messaggi a 115200 baud: a un'altra velocità sono caratteri
+            # illeggibili. Nella console una riga che lo spiega, invece di una riga di simboli
+            self.line_received.emit(tr("(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)"))
+            return
         self.line_received.emit(line)
         if line.startswith("ALARM"):
             code = _code(line)

@@ -2122,5 +2122,7 @@
  "Velocità: la scheda non va oltre {0:g} mm/min ($110/$111): il livello a {1:g} mm/min sale al massimo del {2:.0f}%.": "Speed: the board doesn't go beyond {0:g} mm/min ($110/$111): the layer at {1:g} mm/min goes up to at most {2:.0f}%.",
  "Velocità: sui tratti corti (foto, testi piccoli) le accelerazioni della scheda ($120/$121) possono tenere la testa più lenta di quanto chiesto.": "Speed: on short moves (photos, small text) the board's accelerations ($120/$121) may keep the head slower than requested.",
  "Verifica e avvia così": "Check and start as is",
- "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0}: photo with very dense dots, at {1:g} mm/min the port can't send the commands fast enough (about {2:g} mm/min at most): the head may stutter"
+ "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0}: photo with very dense dots, at {1:g} mm/min the port can't send the commands fast enough (about {2:g} mm/min at most): the head may stutter",
+ "(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)": "(board startup message at a different speed: unreadable, this is normal)",
+ "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "The board doesn't respond even to Ctrl+X: restarting it from the USB port, like the reset button"
 }
