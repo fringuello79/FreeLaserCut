@@ -7,7 +7,15 @@ Tutto dentro FreeLaserCut, con GrabCut di OpenCV (già incluso), senza modelli n
 2. senza aiuti, il riquadro centrale della foto con tre prove a maggioranza (come prima).
 
 Gli aiuti sono in frazioni dell'immagine (0..1): {"rect": [x0, y0, x1, y1] | None,
-"keep": [[raggio, [x, y, x, y, ...]], ...], "remove": [...]}, raggio in frazioni della diagonale.
+"keep": [[raggio, [x, y, x, y, ...], ordine, segui_bordi], ...], "remove": [...], "auto": bool},
+raggio in frazioni della diagonale.
+
+0.17.6 (dalle prove di un utente: «togli toglie molto più di quello selezionato»): di partenza i pennelli sono
+**precisi**, come una gomma: tengono o tolgono esattamente dove passano, nell'ordine in cui sono stati dati.
+Il comportamento «intelligente» di prima (si allarga ai pezzi attaccati con colori simili) resta per i tratti
+dati con «Segui i bordi» (segui_bordi = 1). Il riquadro di partenza tiene tutto quello che sta dentro; con
+"auto" il soggetto si cerca da solo dentro il riquadro, come prima. Gli aiuti salvati prima della 0.17.6 (senza
+questi campi) si comportano come allora.
 """
 import json
 
@@ -40,6 +48,63 @@ def _paint(lab, strokes, value, w, h):
             cv2.circle(lab, (int(xy[0, 0]), int(xy[0, 1])), max(1, t // 2), value, -1)
         else:
             cv2.polylines(lab, [np.round(xy).astype(np.int32)], False, value, t, cv2.LINE_8)
+
+
+def _smart(item):
+    """Tratto «intelligente» (segue i bordi)? Quelli salvati prima della 0.17.6 non hanno il campo: sì, come allora."""
+    try:
+        return bool(item[3]) if len(item) > 3 else True
+    except TypeError:
+        return True
+
+
+def _ordered(hints, smart):
+    """Tratti di un tipo (intelligenti o precisi) nell'ordine in cui sono stati dati: [(valore, tratto)]."""
+    out = []
+    for kind, val in (("keep", 1), ("remove", 0)):
+        for i, item in enumerate(hints.get(kind) or []):
+            if _smart(item) != smart:
+                continue
+            try:
+                n = float(item[2]) if len(item) > 2 else (i if val else 1e6 + i)
+            except (TypeError, ValueError):
+                n = 1e6 + i
+            out.append((n, val, item))
+    return [(v, it) for _n, v, it in sorted(out, key=lambda t: t[0])]
+
+
+def _rect_auto(hints):
+    """Riquadro con ricerca automatica del soggetto dentro? Gli aiuti di prima della 0.17.6 non hanno il campo: sì."""
+    return bool(hints.get("auto", True)) if "auto" in hints else True
+
+
+def _rect_px(rect, w, h):
+    x0, y0, x1, y1 = (float(v) for v in rect)
+    a, b = int(min(x0, x1) * w), int(min(y0, y1) * h)
+    c, d = int(np.ceil(max(x0, x1) * w)), int(np.ceil(max(y0, y1) * h))
+    return max(0, a), max(0, b), min(w, c), min(h, d)
+
+
+def _apply_precise(mask, hints):
+    """Riquadro e tratti precisi sulla maschera alla grandezza vera (bordi netti, esattamente dove passa il
+    pennello). mask: float32 h×w, modificata e restituita."""
+    h, w = mask.shape
+    r = hints.get("rect")
+    if r:
+        a, b, c, d = _rect_px(r, w, h)
+        inside = np.zeros((h, w), np.uint8)
+        inside[b:d, a:c] = 1
+    else:
+        inside = None
+    tr_ = _ordered(hints, smart=False)
+    if tr_:
+        lab = np.full((h, w), 255, np.uint8)  # 255 = non toccato
+        for val, item in tr_:
+            _paint(lab, [item], val, w, h)
+        mask = np.where(lab == 1, 1.0, np.where(lab == 0, 0.0, mask)).astype(np.float32)
+    if inside is not None:
+        mask = mask * inside
+    return mask
 
 
 def _clean(fg, keep_seeds=None):
@@ -87,6 +152,8 @@ def subject_mask(rgb, hints=None):
         out = _compute(small, hints if has_hints(hints) else None)
         if out is not None:
             out = cv2.resize(out.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+            if has_hints(hints):
+                out = _apply_precise(out, hints)
     except cv2.error:
         out = None
     if len(_CACHE) > 8:
@@ -132,25 +199,24 @@ def _compute(small, hints):
     inside = np.ones((sh, sw), np.uint8)
     r = hints.get("rect")
     if r:
-        x0, y0, x1, y1 = (float(v) for v in r)
-        a, b = int(min(x0, x1) * sw), int(min(y0, y1) * sh)
-        c, d = int(np.ceil(max(x0, x1) * sw)), int(np.ceil(max(y0, y1) * sh))
+        a, b, c, d = _rect_px(r, sw, sh)
         inside[:] = 0
-        inside[max(0, b):min(sh, d), max(0, a):min(sw, c)] = 1
-        lab = np.where(inside > 0, cv2.GC_PR_FGD, cv2.GC_BGD).astype(np.uint8)
-        fg = _grabcut(small, lab)
-        base = _clean(fg) if fg is not None else None
-        if base is None or (base & inside).sum() < 0.12 * inside.sum():
-            base = inside.copy()  # GrabCut non ha trovato un soggetto: vale il riquadro così com'è
-        base &= inside
+        inside[b:d, a:c] = 1
+        base = inside.copy()  # 0.17.6: di partenza dentro il riquadro resta tutto
+        if _rect_auto(hints):  # il soggetto si cerca da solo dentro il riquadro
+            lab = np.where(inside > 0, cv2.GC_PR_FGD, cv2.GC_BGD).astype(np.uint8)
+            fg = _grabcut(small, lab)
+            found = _clean(fg) if fg is not None else None
+            if found is not None and (found & inside).sum() >= 0.12 * inside.sum():
+                base = found & inside  # altrimenti vale il riquadro così com'è
     else:
         base = _rect_only(small)
         if base is None:
             base = np.ones((sh, sw), np.uint8)
     seeds = np.zeros((sh, sw), np.uint8)
-    _paint(seeds, hints.get("keep"), 1, sw, sh)
     rem = np.zeros((sh, sw), np.uint8)
-    _paint(rem, hints.get("remove"), 1, sw, sh)
+    for val, item in _ordered(hints, smart=True):  # solo i tratti «Segui i bordi»: i precisi dopo, a grandezza vera
+        _paint(seeds if val else rem, [item], 1, sw, sh)
     if seeds.any() or rem.any():
         lab = np.where(base > 0, cv2.GC_PR_FGD, cv2.GC_PR_BGD).astype(np.uint8)
         lab[inside == 0] = cv2.GC_BGD
@@ -205,13 +271,15 @@ def hints_to_crop(hints, crop):
             out += [(xs[i] - x0) / cw, (xs[i + 1] - y0) / ch]
         return out
     res = {"rect": None, "keep": [], "remove": []}
+    if "auto" in hints:
+        res["auto"] = hints["auto"]
     r = hints.get("rect")
     if r:
         res["rect"] = [(r[0] - x0) / cw, (r[1] - y0) / ch, (r[2] - x0) / cw, (r[3] - y0) / ch]
     for kind in ("keep", "remove"):
         for item in hints.get(kind) or []:
-            try:
-                res[kind].append([float(item[0]) * diag_k, pt([float(v) for v in item[1]])])
+            try:  # ordine e «Segui i bordi» (item[2:]) restano
+                res[kind].append([float(item[0]) * diag_k, pt([float(v) for v in item[1]])] + list(item[2:]))
             except (TypeError, ValueError, IndexError):
                 continue
     return res
@@ -233,11 +301,13 @@ def rotate_hints(hints, d):
             out += list(f(xs[i], xs[i + 1]))
         return out
     res = {"rect": None, "keep": [], "remove": []}
+    if "auto" in hints:
+        res["auto"] = hints["auto"]
     r = hints.get("rect")
     if r:
         a, b = f(r[0], r[1])
         c, e = f(r[2], r[3])
         res["rect"] = [min(a, c), min(b, e), max(a, c), max(b, e)]
     for kind in ("keep", "remove"):
-        res[kind] = [[item[0], pts(item[1])] for item in hints.get(kind) or []]
+        res[kind] = [[item[0], pts(item[1])] + list(item[2:]) for item in hints.get(kind) or []]
     return res

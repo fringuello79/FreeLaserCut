@@ -172,8 +172,9 @@ wz.run_probe()
 t_end = time.time() + 20
 while wz.ident is None and time.time() < t_end:
     spin(0.1)
-check("procedura guidata: riconosce il simulatore", wz.ident is not None and wz.name.text() == "Longer B1 40W",
-      wz.name.text())
+# dalla 0.17.6 il profilo del simulatore si chiama «Simulatore»: non finisce sopra quello della macchina vera
+check("procedura guidata: riconosce il simulatore", wz.ident is not None and wz.ident.name() == "Longer B1 40W"
+      and wz.name.text() == "Simulatore", (wz.ident and wz.ident.name(), wz.name.text()))
 wz.close()
 
 # ---------------------------------------------------------------- anteprima

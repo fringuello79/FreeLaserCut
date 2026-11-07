@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.17.6 — 08/11/2026
+Dalle prove di un utente.
+- **Il simulatore non tocca più il profilo della macchina vera.** Collegandosi al simulatore, le sue impostazioni finte (area 450 × 440, scheda «LS_ESP32-SIM», accelerazioni) entravano nel profilo della macchina, e l'homing lo salvava. Ora con il simulatore la tabella delle impostazioni si vede ma il profilo non cambia, l'homing non lo salva, staccando il simulatore torna il profilo salvato e *Riconosci la macchina* chiama il profilo «Simulatore», così non finisce mai sopra quello della macchina vera.
+- **Schizzo del soggetto, pennelli precisi.** *Togli* toglieva «molto più di quello selezionato» e *Tieni* sembrava non fare niente: i pennelli si allargavano da soli ai pezzi con colori simili. Ora di partenza **Tieni e Togli agiscono esattamente dove passa il pennello**, come una gomma, con bordi netti; dove due pennellate si sovrappongono vince l'ultima. Il comportamento di prima resta con la casella **Segui i bordi** (una pennellata e sparisce un oggetto intero), e vale per le pennellate date da quel momento.
+- **Riquadro**: di partenza dentro resta tutto e fuori sparisce, niente viene tolto all'interno. Con la casella **Cerca il soggetto nel riquadro** FreeLaserCut cerca da solo il soggetto dentro il riquadro, come prima.
+- **Velo rosso** sulla foto originale, a sinistra: si vede subito quali parti spariscono, senza guardare il risultato.
+- Gli aiuti salvati nei progetti con le versioni precedenti funzionano come allora.
+- Nuova prova automatica `tests/test_v176.py` (23 controlli, Classica e Banco); `tests/test_v05.py` aggiornata (il profilo del simulatore ora si chiama «Simulatore»).
+
 ## 0.17.5 — 07/11/2026
 - **Calibrazione della camera con i punti messi a mano.** Con il bersaglio inciso (i dischi da 4 mm sul cartone) il riconoscimento automatico poteva prendere per dischi anche macchie fuori dal cartone, e la calibrazione veniva sbagliata. Ora i cerchietti si possono mettere a mano sulla foto:
   - **alla fine della calibrazione** con il bersaglio inciso c'è il pulsante *Controlla i punti a mano…* (e, se la calibrazione non è riuscita, FreeLaserCut chiede se vuoi mettere tu i punti);

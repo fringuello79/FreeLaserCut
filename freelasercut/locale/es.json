@@ -2166,5 +2166,11 @@
  "angolo {0}": "esquina {0}",
  "davanti": "delante",
  "dietro": "detrás",
- "punti a mano": "puntos a mano"
+ "punti a mano": "puntos a mano",
+ "Aiuti attivi. Le parti velate di rosso a sinistra spariscono: correggi con Tieni e Togli (l'ultima pennellata vince).": "Ayudas activas. Las partes veladas de rojo a la izquierda desaparecen: corrige con Mantener y Quitar (gana la última pincelada).",
+ "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare. Sulla foto a sinistra le parti tolte sono velate di rosso.": "Ayudas para el sujeto: arrastra sobre la foto original un Recuadro alrededor del sujeto, luego pasa el pincel Quitar sobre lo que debe desaparecer (sombras, objetos detrás) y Mantener sobre lo que debe quedarse. En la foto de la izquierda las partes quitadas aparecen veladas de rojo.",
+ "Cerca il soggetto nel riquadro": "Buscar el sujeto en el recuadro",
+ "Segui i bordi": "Seguir los bordes",
+ "Spento: Tieni e Togli agiscono esattamente dove passi il pennello, come una gomma.\nAcceso: si allargano ai pezzi attaccati con colori simili (con una pennellata sparisce un oggetto intero). Vale per le pennellate che dai da ora.": "Apagado: Mantener y Quitar actúan exactamente donde pasas el pincel, como una goma.\nEncendido: se extienden a las partes unidas con colores parecidos (con una pincelada desaparece un objeto entero). Vale para las pinceladas que des a partir de ahora.",
+ "Spento: dentro il Riquadro resta tutto, fuori sparisce.\nAcceso: dentro il Riquadro FreeLaserCut cerca da solo il soggetto e toglie lo sfondo intorno.": "Apagado: dentro del Recuadro queda todo, fuera desaparece.\nEncendido: dentro del Recuadro FreeLaserCut busca solo el sujeto y quita el fondo de alrededor."
 }

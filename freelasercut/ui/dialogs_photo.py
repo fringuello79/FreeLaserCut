@@ -63,6 +63,9 @@ class _View(QWidget):
         self.hint_mode = None  # None | "rect" | "keep" | "remove": il trascinamento disegna gli aiuti, non il ritaglio
         self.hints = None  # dict di core/subject (frazioni dell'immagine)
         self.brush = 0.02  # raggio del pennello in frazioni della diagonale
+        self.edges = False  # 0.17.6: i nuovi tratti seguono i bordi (comportamento «intelligente»)?
+        self.auto_rect = False  # 0.17.6: nel riquadro il soggetto si cerca da solo?
+        self.veil = None  # QImage RGBA: velo rosso sulle parti tolte dallo Schizzo del soggetto
         self._hdrag = None
         if croppable:
             self.setCursor(Qt.CrossCursor)
@@ -156,6 +159,8 @@ class _View(QWidget):
             p.setRenderHint(QPainter.SmoothPixmapTransform, t.width() / max(self.qimg.width(), 1) < 1.5)
             p.drawImage(t, self.qimg)
             p.setOpacity(1.0)
+            if self.veil is not None:  # parti che lo Schizzo del soggetto toglie
+                p.drawImage(t, self.veil)
             if self.detail is not None:
                 dimg, (x0, y0, x1, y1) = self.detail
                 r = QRectF(t.left() + x0 * t.width(), t.top() + y0 * t.height(), (x1 - x0) * t.width(), (y1 - y0) * t.height())
@@ -255,12 +260,15 @@ class _View(QWidget):
             h.setdefault("rect", None)
             h.setdefault("keep", [])
             h.setdefault("remove", [])
+            h.setdefault("auto", self.auto_rect)
             self.hints = h
             if self.hint_mode == "rect":
                 self._hdrag = f
                 h["rect"] = [f[0], f[1], f[0], f[1]]
             else:
-                h[self.hint_mode].append([round(self.brush, 5), [round(f[0], 5), round(f[1], 5)]])
+                n = len(h["keep"]) + len(h["remove"])  # ordine dei tratti: l'ultimo vince dove si sovrappongono
+                h[self.hint_mode].append([round(self.brush, 5), [round(f[0], 5), round(f[1], 5)], n,
+                                          1 if self.edges else 0])
                 self._hdrag = f
             self.update()
             return
@@ -648,6 +656,7 @@ class PhotoDialog(QDialog):
         self.v_orig.crop = self.crop
         self.v_orig.crop_changed.connect(self._set_crop)
         self.v_orig.hints = self.hints
+        self.v_orig.auto_rect = self.subj_auto.isChecked()
         self.v_orig.hints_changed.connect(self._hints_changed)
         self.subj_brush.valueChanged.connect(lambda val: setattr(self.v_orig, "brush", 0.006 * val))
         self.flip.toggled.connect(self._flip_hints)
@@ -772,6 +781,24 @@ class PhotoDialog(QDialog):
         r3.addWidget(QLabel(tr("Pennello")))
         r3.addWidget(self.subj_brush, 1)
         v.addLayout(r3)
+        # 0.17.6: pennelli precisi di partenza; «Segui i bordi» per il comportamento intelligente
+        r4 = QHBoxLayout()
+        self.subj_edges = QCheckBox(tr("Segui i bordi"))
+        self.subj_edges.setToolTip(tr("Spento: Tieni e Togli agiscono esattamente dove passi il pennello, come una gomma.\n"
+                                      "Acceso: si allargano ai pezzi attaccati con colori simili (con una pennellata "
+                                      "sparisce un oggetto intero). Vale per le pennellate che dai da ora."))
+        self.subj_edges.toggled.connect(self._subject_edges)
+        r4.addWidget(self.subj_edges)
+        self.subj_auto = QCheckBox(tr("Cerca il soggetto nel riquadro"))
+        self.subj_auto.setToolTip(tr("Spento: dentro il Riquadro resta tutto, fuori sparisce.\n"
+                                     "Acceso: dentro il Riquadro FreeLaserCut cerca da solo il soggetto e toglie lo "
+                                     "sfondo intorno."))
+        self.subj_auto.setChecked(bool(self.hints) and bool(self.hints.get("rect"))
+                                  and bool(self.hints.get("auto", True)))
+        self.subj_auto.toggled.connect(self._subject_auto)
+        r4.addWidget(self.subj_auto)
+        r4.addStretch(1)
+        v.addLayout(r4)
         self.subj_note = QLabel()
         self.subj_note.setWordWrap(True)
         self.subj_note.setObjectName("muted")
@@ -792,8 +819,10 @@ class PhotoDialog(QDialog):
             return
         self.subj_note.setText(tr("Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, "
                                   "poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e "
-                                  "Tieni su quello che deve restare.") if not hints else
-                               tr("Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli."))
+                                  "Tieni su quello che deve restare. Sulla foto a sinistra le parti tolte sono velate "
+                                  "di rosso.") if not hints else
+                               tr("Aiuti attivi. Le parti velate di rosso a sinistra spariscono: correggi con Tieni e "
+                                  "Togli (l'ultima pennellata vince)."))
 
     def _subject_tool(self, key, on):
         if on:
@@ -808,6 +837,43 @@ class PhotoDialog(QDialog):
         v.hint_mode = key if on else None
         v.brush = 0.006 * self.subj_brush.value()
         v.setCursor(Qt.CrossCursor)
+
+    def _subject_edges(self, on):
+        v = getattr(self, "v_orig", None)
+        if v is not None:
+            v.edges = bool(on)
+
+    def _subject_auto(self, on):
+        v = getattr(self, "v_orig", None)
+        if v is not None:
+            v.auto_rect = bool(on)
+        if isinstance(self.hints, dict):
+            self.hints["auto"] = bool(on)
+            if v is not None:
+                v.hints = self.hints
+            self._later()
+
+    def _veil(self, rgb):
+        """Velo rosso sulle parti che lo Schizzo del soggetto toglie, sulla foto originale a sinistra."""
+        from ..core import subject
+
+        v = self.v_orig
+        eff = getattr(self, "effect", None)
+        if eff is None or (eff.currentData() or "none") != "sketch" or rgb is None:
+            v.veil = None
+            return
+        try:
+            m = subject.subject_mask(rgb, self.hints)
+        except Exception:  # noqa: BLE001  il velo è un aiuto: se non riesce, niente velo
+            m = None
+        if m is None:
+            v.veil = None
+            return
+        h, w = m.shape
+        rgba = np.zeros((h, w, 4), np.uint8)
+        rgba[..., 0], rgba[..., 1], rgba[..., 2] = 235, 60, 60
+        rgba[..., 3] = (np.clip(1.0 - m, 0, 1) * 130).astype(np.uint8)
+        v.veil = QImage(rgba.data, w, h, 4 * w, QImage.Format_RGBA8888).copy()
 
     def _hints_changed(self):
         from ..core import subject
@@ -937,11 +1003,13 @@ class PhotoDialog(QDialog):
     def _show_original(self):
         g, _a = photo.to_gray(self.prev_src)
         if self.prev_src.mode not in ("L", "1"):
-            rgb = np.asarray(self.prev_src.convert("RGB"))
-            img = _qimage_rgb(photo.orient(rgb, self.rotate, self.flip.isChecked()))
+            rgb = photo.orient(np.asarray(self.prev_src.convert("RGB")), self.rotate, self.flip.isChecked())
+            img = _qimage_rgb(rgb)
         else:
-            img = _qimage_gray(photo.orient(g, self.rotate, self.flip.isChecked()))
+            rgb = photo.orient(g, self.rotate, self.flip.isChecked())
+            img = _qimage_gray(rgb)
         self.v_orig.qimg = img
+        self._veil(np.asarray(rgb))
         self.v_orig.update()
 
     def _refresh(self):

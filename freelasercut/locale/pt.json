@@ -2166,5 +2166,11 @@
  "angolo {0}": "canto {0}",
  "davanti": "frente",
  "dietro": "trás",
- "punti a mano": "pontos à mão"
+ "punti a mano": "pontos à mão",
+ "Aiuti attivi. Le parti velate di rosso a sinistra spariscono: correggi con Tieni e Togli (l'ultima pennellata vince).": "Ajudas ativas. As partes veladas de vermelho à esquerda desaparecem: corrija com Manter e Tirar (a última pincelada vence).",
+ "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare. Sulla foto a sinistra le parti tolte sono velate di rosso.": "Ajudas para o assunto: arraste na foto original um Quadro em volta do assunto, depois passe o pincel Tirar no que deve sumir (sombras, objetos atrás) e Manter no que deve ficar. Na foto à esquerda as partes removidas ficam veladas de vermelho.",
+ "Cerca il soggetto nel riquadro": "Procurar o assunto no quadro",
+ "Segui i bordi": "Seguir as bordas",
+ "Spento: Tieni e Togli agiscono esattamente dove passi il pennello, come una gomma.\nAcceso: si allargano ai pezzi attaccati con colori simili (con una pennellata sparisce un oggetto intero). Vale per le pennellate che dai da ora.": "Desligado: Manter e Tirar agem exatamente onde o pincel passa, como uma borracha.\nLigado: se estendem às partes ligadas com cores parecidas (com uma pincelada some um objeto inteiro). Vale para as pinceladas feitas a partir de agora.",
+ "Spento: dentro il Riquadro resta tutto, fuori sparisce.\nAcceso: dentro il Riquadro FreeLaserCut cerca da solo il soggetto e toglie lo sfondo intorno.": "Desligado: dentro do Quadro fica tudo, fora some.\nLigado: dentro do Quadro o FreeLaserCut procura sozinho o assunto e remove o fundo em volta."
 }

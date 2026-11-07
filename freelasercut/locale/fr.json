@@ -2166,5 +2166,11 @@
  "angolo {0}": "coin {0}",
  "davanti": "devant",
  "dietro": "derrière",
- "punti a mano": "points à la main"
+ "punti a mano": "points à la main",
+ "Aiuti attivi. Le parti velate di rosso a sinistra spariscono: correggi con Tieni e Togli (l'ultima pennellata vince).": "Aides actives. Les parties voilées de rouge à gauche disparaissent : corrigez avec Garder et Enlever (le dernier coup de pinceau l'emporte).",
+ "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare. Sulla foto a sinistra le parti tolte sono velate di rosso.": "Aides pour le sujet : tracez sur la photo originale un Cadre autour du sujet, puis passez le pinceau Enlever sur ce qui doit disparaître (ombres, objets derrière) et Garder sur ce qui doit rester. Sur la photo de gauche, les parties retirées sont voilées de rouge.",
+ "Cerca il soggetto nel riquadro": "Chercher le sujet dans le cadre",
+ "Segui i bordi": "Suivre les bords",
+ "Spento: Tieni e Togli agiscono esattamente dove passi il pennello, come una gomma.\nAcceso: si allargano ai pezzi attaccati con colori simili (con una pennellata sparisce un oggetto intero). Vale per le pennellate che dai da ora.": "Désactivé : Garder et Enlever agissent exactement là où passe le pinceau, comme une gomme.\nActivé : ils s'étendent aux parties attenantes de couleur proche (un coup de pinceau fait disparaître un objet entier). S'applique aux coups de pinceau donnés à partir de maintenant.",
+ "Spento: dentro il Riquadro resta tutto, fuori sparisce.\nAcceso: dentro il Riquadro FreeLaserCut cerca da solo il soggetto e toglie lo sfondo intorno.": "Désactivé : tout ce qui est dans le Cadre reste, l'extérieur disparaît.\nActivé : dans le Cadre, FreeLaserCut cherche le sujet tout seul et retire le fond autour."
 }

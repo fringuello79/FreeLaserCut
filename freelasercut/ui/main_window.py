@@ -1701,6 +1701,15 @@ class MainWindow(QMainWindow):
         self.btn_connect.setEnabled(True)
 
     def on_connection(self, ok, msg):
+        # 0.17.6: con il simulatore il profilo della macchina vera può cambiare solo in memoria (per provare la
+        # configurazione guidata): staccando il simulatore torna quello salvato
+        if ok:
+            self._on_sim = self.ctl.port == SIM_PORT
+        elif getattr(self, "_on_sim", False):
+            self._on_sim = False
+            p = self._load_active_profile()
+            self.on_profile(p)
+            self.machine.profile = p
         if not ok and self.ctl.job_active is False and self.ctl.job_lines and 0 < self.ctl.job_acked < len(self.ctl.job_lines):
             self._interrupted = (list(self.ctl.job_lines), self.ctl.job_acked)
             if self._job_plate is not None:  # la ripresa è del piano che si stava incidendo
@@ -1809,10 +1818,11 @@ class MainWindow(QMainWindow):
                 # ricalcolo il verso degli assi NON provati con le frecce (quelli provati restano)
                 if p.recompute_untested_axes():
                     self._sync_axes()
-                try:
-                    p.save()
-                except OSError:
-                    pass
+                if self.ctl.port != SIM_PORT:  # 0.17.6: con il simulatore non si salva (e allo stacco si ricarica)
+                    try:
+                        p.save()
+                    except OSError:
+                        pass
             if self._banner_kind == "info":
                 self.banner.hide()
             self.machine.refresh_profile()
@@ -1901,6 +1911,9 @@ class MainWindow(QMainWindow):
         """Dopo ogni lettura di $$: se la scheda collegata non corrisponde al profilo attivo, lo dice e propone
         il riconoscimento (una sola volta per firmware)."""
         from .. import machines
+
+        if self.ctl.port == SIM_PORT:  # il simulatore non è una macchina da riconoscere
+            return
 
         port = next((p for p in machines.describe_ports() if p.device == self.ctl.port), None)
         ident = machines.identify((), self.machine.info, settings, port, self.profile.baud)

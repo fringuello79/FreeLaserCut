@@ -2166,5 +2166,11 @@
  "angolo {0}": "{0} corner",
  "davanti": "front",
  "dietro": "back",
- "punti a mano": "points by hand"
+ "punti a mano": "points by hand",
+ "Aiuti attivi. Le parti velate di rosso a sinistra spariscono: correggi con Tieni e Togli (l'ultima pennellata vince).": "Helpers active. The parts veiled in red on the left disappear: fix them with Keep and Remove (the last stroke wins).",
+ "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare. Sulla foto a sinistra le parti tolte sono velate di rosso.": "Subject helpers: drag a Box around the subject on the original photo, then brush Remove over what must disappear (shadows, objects behind) and Keep over what must stay. On the photo on the left the removed parts are veiled in red.",
+ "Cerca il soggetto nel riquadro": "Find the subject in the box",
+ "Segui i bordi": "Follow the edges",
+ "Spento: Tieni e Togli agiscono esattamente dove passi il pennello, come una gomma.\nAcceso: si allargano ai pezzi attaccati con colori simili (con una pennellata sparisce un oggetto intero). Vale per le pennellate che dai da ora.": "Off: Keep and Remove act exactly where you brush, like an eraser.\nOn: they spread to attached parts with similar colours (one stroke removes a whole object). Applies to the strokes you make from now on.",
+ "Spento: dentro il Riquadro resta tutto, fuori sparisce.\nAcceso: dentro il Riquadro FreeLaserCut cerca da solo il soggetto e toglie lo sfondo intorno.": "Off: everything inside the Box stays, everything outside disappears.\nOn: inside the Box FreeLaserCut finds the subject by itself and removes the background around it."
 }

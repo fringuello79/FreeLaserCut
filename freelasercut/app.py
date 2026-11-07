@@ -459,6 +459,10 @@ class MachinePanel(QWidget):
             self.table.setItem(r, 1, it_v)
             self.table.setItem(r, 2, it_d)
         self.table.blockSignals(False)
+        if self.ctl.port == SIM_PORT:
+            # 0.17.6: i valori finti del simulatore non entrano mai nel profilo della macchina vera (un utente si era
+            # ritrovato il profilo del suo laser con area, scheda e accelerazioni del simulatore)
+            return
         self.profile = MachineProfile.from_machine(data, self.info, base=_main(self).profile)
         self.refresh_profile()
         self.on_profile(self.profile)

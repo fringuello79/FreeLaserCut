@@ -368,7 +368,8 @@ class MachineWizard(QDialog):
         notes = "".join(f"<li>{icons.get(k, '•')} {t}</li>" for k, t in ident.notes)
         self.summary.setText(
             tr("<b style='font-size:10.5pt'>{0}</b> &nbsp;<span style='background:{1}; color:white; border-radius:6px; padding:1px 6px'>affidabilità {2}</span><br>{3} · {4} baud", ident.name(), conf_col, {"alta": tr("alta"), "media": tr("media"), "bassa": tr("bassa")}.get(ident.confidence, ident.confidence), ident.summary() or tr("nessun dettaglio dalla scheda"), r['baud']) + (tr("<ul style='margin-left:-18px'>{0}</ul>", notes) if notes else ""))
-        self.name.setText(ident.name())
+        # 0.17.6: con il simulatore il profilo si chiama «Simulatore», così non sovrascrive quello della macchina vera
+        self.name.setText(tr("Simulatore") if port.device == SIM_PORT else ident.name())
         bx, by = ident.bed
         self.bed_x.setValue(bx or self.main.profile.bed_x)
         self.bed_y.setValue(by or self.main.profile.bed_y)
@@ -384,6 +385,8 @@ class MachineWizard(QDialog):
             return
         r, port = self.result
         name = self.name.text().strip() or self.ident.name()
+        if port.device == SIM_PORT:  # 0.17.6: mai sopra il profilo di una macchina vera
+            name = tr("Simulatore")
         p = machines.build_profile(self.ident, r["settings"], r["info"], name)
         p.bed_x, p.bed_y = self.bed_x.value(), self.bed_y.value()
         try:
