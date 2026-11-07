@@ -46,6 +46,8 @@ IMPORT_FILTER = (tr("Tutti i formati supportati (*.svg *.dxf *.lbrn2 *.lbrn *.pn
 BIG_PHOTO_DOTS = 5_000_000  # oltre: chiede conferma prima di preparare il lavoro (tempo, memoria)
 
 class MainWindow(QMainWindow):
+    SILENT_MS = 6000  # dopo la connessione: se la scheda non ha ancora risposto, avviso (velocità della porta)
+
     def __init__(self):
         super().__init__()
         self.qs = migrate_qsettings()
@@ -316,6 +318,9 @@ class MainWindow(QMainWindow):
                         tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
                           tr("Porte USB, chip e driver, lettura della scheda e profilo adattato in automatico")),
+            "serial_speed": A(tr("Velocità della porta seriale…"), self.serial_speed_dialog, None, None,
+                              tr("Solo se la tua scheda non usa 115200 baud: la velocità scelta a mano, da provare prima "
+                                 "di salvarla nel profilo")),
             "profile_export": A(tr("Esporta il profilo della macchina…"), self.export_profile, None, None,
                                 tr("Salva il profilo attivo in un file .flcprofile da condividere con chi ha la stessa "
                                    "macchina")),
@@ -493,7 +498,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["variables"])
         m.addAction(a["photo"])
         m.addAction(a["trace"])
-        menu(tr("&Laser"), ["connect", "identify", "profile_export", "profile_import", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
+        menu(tr("&Laser"), ["connect", "identify", "serial_speed", "profile_export", "profile_import", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
                         "materials", "material_test", "learned", "scan_offset", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
@@ -703,6 +708,9 @@ class MainWindow(QMainWindow):
         self.btn_connect.setIcon(style.icon("connect", "#FFFFFF"))
         self.btn_connect.setToolTip(tr("Collega FreeLaserCut al laser (Ctrl+K)"))
         self.btn_connect.clicked.connect(self.toggle_connection)
+        # tasto destro su Connetti: riconoscimento e velocità della porta scelta a mano (per chi ne ha bisogno)
+        self.btn_connect.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.btn_connect.customContextMenuRequested.connect(self._connect_menu)
         self.pill = QLabel()
         self.pill.setObjectName("pill")
         self.pill.setFixedHeight(20)
@@ -1709,6 +1717,8 @@ class MainWindow(QMainWindow):
             self.set_pill("Idle")
             self.statusBar().showMessage(msg, 4000)
             QTimer.singleShot(2500, self._after_connect)
+            t0 = time.time()
+            QTimer.singleShot(self.SILENT_MS, lambda: self._check_silent(t0))
 
     def _after_connect(self):
         if not self.ctl.connected:
@@ -1808,6 +1818,35 @@ class MainWindow(QMainWindow):
         self.machine.profile = p
         self.machine.refresh_profile()
         self.statusBar().showMessage(tr("Profilo macchina: {0}", p.name), 5000)
+
+    def _connect_menu(self, pos):
+        m = QMenu(self)
+        m.addAction(self.acts["identify"])
+        m.addAction(self.acts["serial_speed"])
+        m.exec(self.btn_connect.mapToGlobal(pos))
+
+    def serial_speed_dialog(self, *_):
+        from .dialogs_serial import SerialSpeedDialog
+
+        dlg = SerialSpeedDialog(self)
+        self._serial_dlg = dlg
+        dlg.exec()
+        self._serial_dlg = None
+
+    def _check_silent(self, t0):
+        """Collegato ma la scheda non ha mai risposto: quasi sempre velocità sbagliata (o non è una scheda GRBL)."""
+        from .. import netport
+
+        ctl = self.ctl
+        port = ctl.port or ""
+        if not ctl.connected or ctl.status_time >= t0 or ctl.last_reply > t0 + 0.5 or port == SIM_PORT \
+                or netport.is_net(port):
+            return
+        self.show_banner(tr("Collegato a {0}, ma la scheda non risponde a {1} baud. Di solito è la velocità della porta: "
+                            "«Riconosci la macchina» prova da solo quelle più comuni; se sai quale usa la tua scheda, "
+                            "sceglila a mano.", port, self.profile.baud), "warn",
+                         [(tr("Riconosci la macchina"), self.identify_machine),
+                          (tr("Velocità a mano…"), self.serial_speed_dialog), (tr("Ok"), self.banner.hide)])
 
     def identify_machine(self, *_):
         from .dialogs_machine import MachineWizard

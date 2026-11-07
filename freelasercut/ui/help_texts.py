@@ -193,6 +193,11 @@ HELP = {
     "materials": (tr("Libreria materiali"), tr("Valori pronti per il Longer B1 40W (incisioni e tagli) più le tue voci: "
                   "scegli il materiale e applicalo al livello."), None),
     "material_test": (tr("Test materiale"), tr("Incide una griglia potenza × velocità con le etichette per trovare i valori giusti."), None),
+    "serial_speed": (tr("Velocità della porta seriale"), tr("Di solito non serve: le schede GRBL usano 115200 baud e "
+                                                             "«Riconosci la macchina» trova da solo la velocità giusta. "
+                                                             "Qui la scegli o la scrivi a mano, la provi sulla porta "
+                                                             "senza cambiare niente e la salvi nel profilo della macchina. "
+                                                             "Si apre anche con il tasto destro su Connetti."), None),
     "learned": (tr("Materiali imparati"), tr("FreeLaserCut impara come risponde il tuo materiale dalle foto dei test "
                                              "(Leggi la foto del test → Impara questo materiale) e ogni foto lo affina. "
                                              "Poi prevede il risultato nell'anteprima realistica, ti dice che potenza "

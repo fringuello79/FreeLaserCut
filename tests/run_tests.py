@@ -257,6 +257,8 @@ if __name__ == "__main__":
     run_suite("test_v150.py", "Piani di lavoro nell'interfaccia Banco", "banco")
     run_suite("test_v160.py", "Materiali imparati: la curva del tuo legno dalle foto dei test, toni e anteprima")
     run_suite("test_v160.py", "Materiali imparati nell'interfaccia Banco", "banco")
+    run_suite("test_v161.py", "Velocità della porta seriale a mano, avviso se la scheda non risponde")
+    run_suite("test_v161.py", "Velocità della porta seriale nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

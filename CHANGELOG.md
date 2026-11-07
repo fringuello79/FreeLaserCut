@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.16.1 — 07/11/2026
+- **Velocità della porta seriale anche a mano.** Di partenza resta 115200 baud (quella standard di GRBL) e *Laser → Riconosci la macchina…* continua a provare da sola 115200, 250000, 230400, 57600, 38400 e 9600 e a salvare quella giusta. Per chi sa che la sua scheda usa un'altra velocità c'è ora *Laser → Velocità della porta seriale…* (anche con il **tasto destro su Connetti**): si sceglie dall'elenco o si scrive il valore (da 1200 a 2000000), si prova con **Prova questa velocità** (apre la porta e chiede alla scheda chi è, senza muovere niente e senza cambiare il profilo) e solo con **Salva nel profilo** diventa quella che usa Connetti. In Wi-Fi e con il simulatore la velocità non conta e la finestra lo dice.
+- **Avviso se la scheda non risponde:** se dopo la connessione la scheda resta muta per qualche secondo (di solito velocità sbagliata), compare un avviso con *Riconosci la macchina* e *Velocità a mano…*. Prima sembrava collegata ma non succedeva niente.
+- Nuova prova automatica `tests/test_v161.py` (17 controlli, Classica e Banco).
+
 ## 0.16.0 — 07/11/2026
 - **Materiali imparati: FreeLaserCut impara il tuo legno.** Ogni materiale, e ogni tavola, risponde al laser a modo suo. Dalla foto di un test materiale FreeLaserCut misura come ha risposto il tuo materiale e se lo ricorda; poi lo usa per prevedere il risultato, scegliere la potenza e correggere le foto. Funziona con qualsiasi laser GRBL e non serve niente in più: bastano il test con i riferimenti e una foto (dal telefono, da un file o dalla camera).
   - **Impara:** nel risultato di *Leggi la foto del test* c'è il pulsante **Impara questo materiale…**: un nome nuovo (per esempio «Tiglio 3 mm») oppure **affina** un materiale già imparato. Da ogni quadrato FreeLaserCut ricava quanto diventa scuro il materiale con quella energia (potenza, velocità e interlinea insieme) e il suo colore vero. La curva è sempre crescente: più energia non dà mai un tono più chiaro.
