@@ -2639,7 +2639,10 @@ class MainWindow(QMainWindow):
     def phone_dialog(self, *_):
         """Laser → Controllo dal telefono (acceso/spento, codice QR, mini guida)."""
         if getattr(self, "_ph_dlg", None) is not None:
+            if self._ph_dlg.isMinimized():
+                self._ph_dlg.showNormal()
             self._ph_dlg.raise_()
+            self._ph_dlg.activateWindow()
             return self._ph_dlg
         from .phone_ui import PhoneDialog
 
@@ -2649,6 +2652,8 @@ class MainWindow(QMainWindow):
         dlg.destroyed.connect(lambda *_: setattr(self, "_ph_dlg", None))
         self._ph_dlg = dlg
         dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
         return dlg
 
     def photo_from_phone(self, data):

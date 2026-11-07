@@ -2085,5 +2085,6 @@
  "Collegato a {0}, ma la scheda non risponde a {1} baud. Di solito è la velocità della porta: «Riconosci la macchina» prova da solo quelle più comuni; se sai quale usa la tua scheda, sceglila a mano.": "Connected to {0}, but the board doesn't answer at {1} baud. It's usually the port speed: “Detect machine” tries the most common ones by itself; if you know which one your board uses, choose it by hand.",
  "Velocità della porta seriale…": "Serial port speed…",
  "Solo se la tua scheda non usa 115200 baud: la velocità scelta a mano, da provare prima di salvarla nel profilo": "Only if your board doesn't use 115200 baud: the speed chosen by hand, to try before saving it in the profile",
- "Velocità a mano…": "Speed by hand…"
+ "Velocità a mano…": "Speed by hand…",
+ "Lavoro interrotto dall'allarme {0}: {1}": "Job stopped by alarm {0}: {1}"
 }

@@ -134,6 +134,8 @@ class GrblController(QObject):
         self.homed = False
         self.negative_space = None
         self._check_space = False
+        self._home_alarm = False  # allarme arrivato mentre l'homing era in corso: quell'homing non vale
+        self._last_alarm = (0, 0.0)  # (codice, ora): un riavvio subito dopo un allarme ne è la conseguenza
         self._job_total = 0
         self._job_done = 0
         self._job_active = False
@@ -288,6 +290,7 @@ class GrblController(QObject):
         self.send_line(f"${number}={value}")
 
     def home(self):
+        self._home_alarm = False
         self.send_line("$H")
 
     def unlock(self):
@@ -642,6 +645,14 @@ class GrblController(QObject):
         self.line_received.emit(line)
         if line.startswith("ALARM"):
             code = _code(line)
+            with self._lock:
+                homing = any(c.line.strip().upper().replace(" ", "") == "$H" for c in list(self._inflight) + list(self._pending))
+            self._last_alarm = (code, time.time())
+            if homing or self._check_space:
+                # homing non riuscito (es. 6 = reset durante l'homing, 8/9 = finecorsa non trovato): la posizione letta
+                # dopo non è lo zero della macchina e non deve decidere come sono le coordinate
+                self._home_alarm = True
+                self._check_space = False
             check = self._check
             if check is not None:
                 # allarme durante la verifica (es. 2 = limiti software): la scheda ha scartato tutto e aspetta un
@@ -669,8 +680,9 @@ class GrblController(QObject):
                 self.check_finished.emit(errs)
             return
         if line.lower().startswith("grbl"):
-            # la scheda si è riavviata: tutto ciò che era in volo è perso
+            # la scheda si è riavviata: tutto ciò che era in volo è perso (anche un homing a metà)
             self._clear_queues()
+            self._check_space = False
             self.stale_check_exit = False
             chk = self._check
             if chk is not None:
@@ -679,7 +691,12 @@ class GrblController(QObject):
             if self._job_active:
                 # riavvio a metà lavoro (calo di tensione, watchdog): il lavoro è perso, non «ancora in corso»
                 self._job_active = False
-                self.job_finished.emit(False, tr("La scheda si è riavviata durante il lavoro: lavoro interrotto"))
+                code, t = self._last_alarm
+                if code and time.time() - t < 3.0:  # la scheda si è riavviata da sola dopo un allarme: dico quale
+                    self.job_finished.emit(False, tr("Lavoro interrotto dall'allarme {0}: {1}", code,
+                                                     ALARMS.get(code, "Allarme sconosciuto")))
+                else:
+                    self.job_finished.emit(False, tr("La scheda si è riavviata durante il lavoro: lavoro interrotto"))
             self.message.emit(line)
             return
         if line.startswith("[MSG:"):
@@ -723,7 +740,10 @@ class GrblController(QObject):
             self.board_info = list(cmd.data)
             self.info_ready.emit(list(cmd.data))
         elif ok and cmd.line.upper().replace(" ", "") == "$H":
-            self._check_space = True  # al prossimo stato Idle capisco come sono le coordinate
+            if self._home_alarm:  # «ok» arrivato dopo un allarme: l'homing non è riuscito
+                self._home_alarm = False
+            else:
+                self._check_space = True  # al prossimo stato Idle capisco come sono le coordinate
         elif cmd.tag == "check_enter":
             chk = self._check
             if chk is None:

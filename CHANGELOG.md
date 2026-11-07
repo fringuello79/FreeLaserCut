@@ -1,5 +1,11 @@
 # Novità di FreeLaserCut
 
+## 0.16.2 — 07/11/2026
+- **Corretto: homing non riuscito preso per buono.** Se l'homing veniva interrotto da un allarme (per esempio 6, «Homing interrotto da un reset») e la scheda si riavviava e si sbloccava da sola, come fa la scheda LGT del Longer B1, FreeLaserCut prendeva la posizione di quel momento per lo zero della macchina. Pensava di avere le coordinate «negative» e mandava contorno e lavoro fuori dall'area: la macchina rispondeva con l'errore 15 e l'allarme 2 e il lavoro si fermava subito in partenza. Ora un homing con un allarme (o con un riavvio della scheda a metà) non vale: resta l'avviso dell'allarme con *Homing* per rifarlo. Visto in un rapporto per l'assistenza.
+- **Messaggio più chiaro:** se un lavoro si ferma per un allarme e subito dopo la scheda si riavvia, il messaggio dice l'allarme (per esempio «Comando oltre l'area di lavoro») invece di «La scheda si è riavviata durante il lavoro».
+- **Foto del test dal telefono:** la finestra con il codice QR si apre davanti. Su Windows restava dietro la finestra del Test materiale e bisognava spostarla per vederla.
+- Nuova prova automatica `tests/test_v162.py` (11 controlli, Classica e Banco), con la sequenza vera del rapporto.
+
 ## 0.16.1 — 07/11/2026
 - **Velocità della porta seriale anche a mano.** Di partenza resta 115200 baud (quella standard di GRBL) e *Laser → Riconosci la macchina…* continua a provare da sola 115200, 250000, 230400, 57600, 38400 e 9600 e a salvare quella giusta. Per chi sa che la sua scheda usa un'altra velocità c'è ora *Laser → Velocità della porta seriale…* (anche con il **tasto destro su Connetti**): si sceglie dall'elenco o si scrive il valore (da 1200 a 2000000), si prova con **Prova questa velocità** (apre la porta e chiede alla scheda chi è, senza muovere niente e senza cambiare il profilo) e solo con **Salva nel profilo** diventa quella che usa Connetti. In Wi-Fi e con il simulatore la velocità non conta e la finestra lo dice.
 - **Avviso se la scheda non risponde:** se dopo la connessione la scheda resta muta per qualche secondo (di solito velocità sbagliata), compare un avviso con *Riconosci la macchina* e *Velocità a mano…*. Prima sembrava collegata ma non succedeva niente.

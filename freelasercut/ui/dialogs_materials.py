@@ -613,12 +613,17 @@ class MaterialTestDialog(QDialog):
         return self.analyze_image(frame)
 
     def photo_from_phone(self):
-        win = self.parent()
-        if win is not None and hasattr(win, "phone_dialog"):
-            win.phone_dialog()
+        # prima la spiegazione, poi la finestra con il codice QR: aperta dopo, resta davanti (su Windows il messaggio
+        # riportava in primo piano questa finestra e il codice QR restava nascosto dietro)
         QMessageBox.information(self, tr("Foto del test dal telefono"), tr(
             "Apri la pagina di controllo sul telefono (inquadra il codice QR) e tocca «Invia la foto del test»: "
             "la foto arriva qui da sola."))
+        win = self.parent()
+        dlg = win.phone_dialog() if win is not None and hasattr(win, "phone_dialog") else None
+        if dlg is not None:
+            dlg.raise_()
+            dlg.activateWindow()
+        return dlg
 
     def analyze_image(self, img):
         from ..core import test_photo

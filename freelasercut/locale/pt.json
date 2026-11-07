@@ -2085,5 +2085,6 @@
  "Collegato a {0}, ma la scheda non risponde a {1} baud. Di solito è la velocità della porta: «Riconosci la macchina» prova da solo quelle più comuni; se sai quale usa la tua scheda, sceglila a mano.": "Conectado a {0}, mas a placa não responde a {1} baud. Normalmente é a velocidade da porta: «Reconhecer a máquina» testa sozinho as mais comuns; se você sabe qual a sua placa usa, escolha à mão.",
  "Velocità della porta seriale…": "Velocidade da porta serial…",
  "Solo se la tua scheda non usa 115200 baud: la velocità scelta a mano, da provare prima di salvarla nel profilo": "Só se a sua placa não usa 115200 baud: a velocidade escolhida à mão, para testar antes de salvar no perfil",
- "Velocità a mano…": "Velocidade à mão…"
+ "Velocità a mano…": "Velocidade à mão…",
+ "Lavoro interrotto dall'allarme {0}: {1}": "Trabalho interrompido pelo alarme {0}: {1}"
 }
