@@ -2099,5 +2099,6 @@
  "Passa il pennello su quello che deve sparire (ombre, oggetti dietro)": "Brush over what must disappear (shadows, objects behind)",
  "Pennello": "Brush",
  "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare.": "Subject hints: drag a Box around the subject on the original photo, then brush Remove over what must disappear (shadows, objects behind) and Keep over what must stay.",
- "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Hints active: the subject is searched from there. You can add more or clear them."
+ "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Hints active: the subject is searched from there. You can add more or clear them.",
+ "Lo sfondo non si è trovato da solo (la foto è tutta disegnata): trascina un Riquadro intorno al soggetto, poi se serve usa Togli e Tieni.": "The background wasn't found automatically (the whole photo is drawn): drag a Box around the subject, then use Remove and Keep if needed."
 }

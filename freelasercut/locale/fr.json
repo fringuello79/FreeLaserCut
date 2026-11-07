@@ -2099,5 +2099,6 @@
  "Passa il pennello su quello che deve sparire (ombre, oggetti dietro)": "Passez le pinceau sur ce qui doit disparaître (ombres, objets derrière)",
  "Pennello": "Pinceau",
  "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare.": "Aides pour le sujet : tracez sur la photo d'origine un Cadre autour du sujet, puis passez le pinceau Enlever sur ce qui doit disparaître (ombres, objets derrière) et Garder sur ce qui doit rester.",
- "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Aides actives : le sujet est cherché à partir de là. Vous pouvez en ajouter ou les effacer."
+ "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Aides actives : le sujet est cherché à partir de là. Vous pouvez en ajouter ou les effacer.",
+ "Lo sfondo non si è trovato da solo (la foto è tutta disegnata): trascina un Riquadro intorno al soggetto, poi se serve usa Togli e Tieni.": "L'arrière-plan n'a pas été trouvé tout seul (toute la photo est dessinée) : tracez un Cadre autour du sujet, puis utilisez Enlever et Garder si besoin."
 }

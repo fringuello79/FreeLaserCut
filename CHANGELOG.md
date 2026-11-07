@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.17.1 — 07/11/2026
+- **Aiuti per il soggetto dello Schizzo più prevedibili**, dopo le prove di un utente su foto vere (un'auto, un coccodrillo):
+  - **Riquadro**: quello che sta fuori è sempre sfondo. Prima, se dentro il riquadro non si trovava un soggetto, si disegnava tutta la foto; ora resta il riquadro.
+  - **Togli** fa sparire la parte sotto il pennello e quello che le è attaccato con colori simili (il canestro intero, l'ombra), solo intorno al pennello. Prima, se lo sfondo non si era trovato da solo, *Togli* non faceva niente.
+  - **Tieni** riporta la parte sotto il pennello e quello che le è attaccato, solo intorno al pennello: non aggiunge più pezzi lontani. Su una parte che c'è già (per esempio una ruota) non cambia nulla. Prima un *Tieni* su una foto difficile poteva lasciare solo il pezzo dipinto.
+  - Quando lo sfondo non si trova da solo, il riquadro *Soggetto* lo dice e suggerisce il *Riquadro*.
+- **Schizzo un po' più leggero**: meno grafite nei mezzi toni, più carta (era ancora un po' «coprente»).
+- `tests/test_v170.py`: 30 controlli (6 nuovi sugli aiuti).
+
 ## 0.17.0 — 07/11/2026
 - **«Schizzo del soggetto» rifatto**, dopo le prove di un utente: sui volti era poco riconoscibile, il tratto era troppo «riempitivo» e lo sfondo non sempre spariva (in una foto di un'auto restavano l'ombra sul ghiaino e il canestro dietro). Tutto dentro FreeLaserCut, senza intelligenza artificiale né file scaricati.
   - **Tratto a matita più realistico:** grafite sfumata a tratti nella direzione della mano (tratti lunghi e corti sovrapposti), un secondo strato incrociato solo nelle ombre più scure, la grana della carta, contorni puliti, occhi e ombre profonde pieni e tanta carta bianca. I volti restano riconoscibili. *Intensità* rende più scuro, *Dettaglio* fa i contorni più fini.

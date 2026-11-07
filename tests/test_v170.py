@@ -125,6 +125,41 @@ cropd = photo.PhotoSettings(effect="sketch", width_mm=50.0, subject_hints=rem, c
 check("con il ritaglio gli aiuti restano sulla stessa parte della foto", photo.process(pil, cropd).size[0] == W // 2)
 
 
+# ---------------------------------------------------------------- aiuti prevedibili (prove di un utente su foto vere)
+tex = np.clip(rng.normal(128, 40, (300, 400, 3)), 0, 255).astype(np.uint8)  # foto «tutta uguale»: niente soggetto chiaro
+tex = cv2.GaussianBlur(tex, (0, 0), 1.2)
+subject._CACHE.clear()
+auto = subject.subject_mask(tex, None)
+check("foto senza un soggetto chiaro: nessuna maschera e la finestra lo può dire", auto is None and subject.last["auto_failed"])
+box = {"rect": [0.6, 0.1, 0.9, 0.35], "keep": [], "remove": []}
+mb = subject.subject_mask(tex, box)
+yy, xx = np.mgrid[0:300, 0:400]
+inbox = (xx >= 240) & (xx < 360) & (yy >= 30) & (yy < 105)
+away = ~cv2.dilate(inbox.astype(np.uint8), np.ones((9, 9), np.uint8)).astype(bool)
+check("riquadro: fuori è sempre sfondo, anche quando dentro non si trova niente (resta il riquadro)",
+      mb is not None and mb[away].max() < 0.05 and mb[inbox].mean() > 0.5,
+      None if mb is None else (round(float(mb[away].max()), 2), round(float(mb[inbox].mean()), 2)))
+rm = {"rect": None, "keep": [], "remove": [[0.03, [0.1, 0.5, 0.3, 0.5]]]}
+mr = subject.subject_mask(tex, rm)
+stroke = (np.abs(yy - 150) < 6) & (xx > 50) & (xx < 110)
+far_r = ~cv2.dilate(stroke.astype(np.uint8), np.ones((120, 120), np.uint8)).astype(bool)
+check("«togli» su una foto dove lo sfondo non si trovava: sparisce dove passi il pennello, il resto resta",
+      mr is not None and mr[stroke].mean() < 0.1 and mr[far_r].mean() > 0.9,
+      None if mr is None else (round(float(mr[stroke].mean()), 2), round(float(mr[far_r].mean()), 2)))
+outr = photo_fx.apply(cv2.cvtColor(tex, cv2.COLOR_RGB2GRAY).astype(np.float32), "sketch", 60.0, 0.5, 0.5, 0, rgb=tex, hints=rm)[0]
+check("…e nello schizzo quella parte è carta bianca", outr[stroke].min() >= 250)
+base = subject.subject_mask(scene, rect)
+k1 = {"rect": rect["rect"], "keep": [[0.02, [190 / W, 360 / H]]], "remove": []}
+mk1 = subject.subject_mask(scene, k1)
+check("«tieni» su una parte che c'è già (la ruota): non cambia niente altrove", mk1 is not None and
+      np.abs(mk1 - base).mean() < 0.01, round(float(np.abs(mk1 - base).mean()), 4))
+YY, XX = np.mgrid[0:H, 0:W]
+far = (YY < 120) & (XX < 300)
+k2 = {"rect": None, "keep": [[0.01, [476 / W, 70 / H, 476 / W, 150 / H]]], "remove": []}
+mk2 = subject.subject_mask(scene, k2)
+check("«tieni» aggiunge solo intorno al pennello (il cielo lontano resta sfondo)", mk2[pole].mean() > 0.6
+      and mk2[far].mean() < 0.05, (round(float(mk2[pole].mean()), 2), round(float(mk2[far].mean()), 3)))
+
 # ---------------------------------------------------------------- Prepara foto
 from freelasercut.core.document import ImageShape
 from freelasercut.ui.dialogs_photo import PhotoDialog

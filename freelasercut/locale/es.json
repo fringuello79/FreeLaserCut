@@ -2099,5 +2099,6 @@
  "Passa il pennello su quello che deve sparire (ombre, oggetti dietro)": "Pasa el pincel sobre lo que debe desaparecer (sombras, objetos detrás)",
  "Pennello": "Pincel",
  "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare.": "Ayudas para el sujeto: arrastra en la foto original un Recuadro alrededor del sujeto, luego pasa el pincel Quitar sobre lo que debe desaparecer (sombras, objetos detrás) y Mantener sobre lo que debe quedarse.",
- "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Ayudas activas: el sujeto se busca a partir de ellas. Puedes añadir más o quitarlas."
+ "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Ayudas activas: el sujeto se busca a partir de ellas. Puedes añadir más o quitarlas.",
+ "Lo sfondo non si è trovato da solo (la foto è tutta disegnata): trascina un Riquadro intorno al soggetto, poi se serve usa Togli e Tieni.": "El fondo no se ha encontrado solo (se dibuja toda la foto): arrastra un Recuadro alrededor del sujeto y luego, si hace falta, usa Quitar y Mantener."
 }

@@ -786,6 +786,10 @@ class PhotoDialog(QDialog):
 
         hints = subject.has_hints(self.hints)
         self.subj_clear.setEnabled(hints)
+        if not hints and subject.last.get("auto_failed") and (self.effect.currentData() == "sketch"):
+            self.subj_note.setText(tr("Lo sfondo non si è trovato da solo (la foto è tutta disegnata): trascina un "
+                                      "Riquadro intorno al soggetto, poi se serve usa Togli e Tieni."))
+            return
         self.subj_note.setText(tr("Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, "
                                   "poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e "
                                   "Tieni su quello che deve restare.") if not hints else
@@ -948,6 +952,8 @@ class PhotoDialog(QDialog):
         except Exception as ex:  # noqa: BLE001
             self.info.setText(tr("Errore: {0}", ex))
             return
+        if st.effect == "sketch":
+            self._subject_state()  # dice se lo sfondo non si è trovato da solo
         a = self.adjust()
         w_mm, h_mm = self.target_size(proc)
         dpi = float(self.dpi.value())

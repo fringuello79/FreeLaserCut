@@ -61,6 +61,10 @@ def _clean(fg, keep_seeds=None):
     return keep | (1 - ff)
 
 
+# ultimo calcolo senza aiuti: il soggetto non si è trovato da solo (la finestra lo dice)
+last = {"auto_failed": False}
+
+
 def subject_mask(rgb, hints=None):
     """1 = soggetto, 0 = sfondo (float32, grandezza di rgb), o None se non c'è un soggetto chiaro."""
     rgb = np.asarray(rgb)
@@ -75,6 +79,8 @@ def subject_mask(rgb, hints=None):
     small = cv2.resize(rgb, (max(8, int(round(w * k))), max(8, int(round(h * k)))), interpolation=cv2.INTER_AREA)
     key = (w, h, hash(small.tobytes()), json.dumps(hints or {}, sort_keys=True))
     if key in _CACHE:  # l'anteprima si ricalcola a ogni cursore: la maschera resta la stessa
+        if not has_hints(hints):
+            last["auto_failed"] = _CACHE[key] is None
         return _CACHE[key]
     out = None
     try:
@@ -86,36 +92,85 @@ def subject_mask(rgb, hints=None):
     if len(_CACHE) > 8:
         _CACHE.clear()
     _CACHE[key] = out
+    if not has_hints(hints):
+        last["auto_failed"] = out is None
     return out
 
 
+def _grabcut(small, lab, iters=5):
+    if not ((lab == cv2.GC_FGD) | (lab == cv2.GC_PR_FGD)).any() or not ((lab == cv2.GC_BGD) | (lab == cv2.GC_PR_BGD)).any():
+        return None
+    lab = lab.copy()
+    cv2.setRNGSeed(11)
+    cv2.grabCut(np.ascontiguousarray(small), lab, None, np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64),
+                iters, cv2.GC_INIT_WITH_MASK)
+    return ((lab == cv2.GC_FGD) | (lab == cv2.GC_PR_FGD)).astype(np.uint8)
+
+
+def _touching(region, seeds):
+    """Le parti di `region` (componenti connesse) che toccano i segni del pennello."""
+    if not seeds.any() or not region.any():
+        return np.zeros_like(region)
+    n, lab = cv2.connectedComponents(region, connectivity=8)
+    ids = [int(i) for i in np.unique(lab[seeds > 0]) if i > 0]
+    return np.isin(lab, ids).astype(np.uint8)
+
+
 def _compute(small, hints):
+    """Gli aiuti sono modifiche prevedibili di quello che si vede:
+    - riquadro: il soggetto sta dentro (fuori è sempre sfondo); dentro, GrabCut trova i bordi; se non trova
+      niente di sensato resta tutto il riquadro;
+    - «togli»: sparisce la parte sotto il pennello e quello che le sta attaccato con colori simili (il canestro
+      intero, l'ombra), solo intorno a dove hai passato il pennello;
+    - «tieni»: torna la parte sotto il pennello e quello che le sta attaccato con colori simili.
+    Mai «tutta la foto» perché un calcolo non è riuscito: si parte sempre da quello che c'era."""
     sh, sw = small.shape[:2]
     if hints is None:
-        return _rect_only(small)  # riquadro centrale, tre prove a maggioranza
-    lab = np.full((sh, sw), cv2.GC_BGD, np.uint8)
-    mx, my = max(1, int(sw * 0.04)), max(1, int(sh * 0.04))
-    lab[my:sh - my, mx:sw - mx] = cv2.GC_PR_FGD
+        out = _rect_only(small)  # riquadro centrale, tre prove a maggioranza
+        last["auto_failed"] = out is None
+        return out
+    inside = np.ones((sh, sw), np.uint8)
     r = hints.get("rect")
     if r:
         x0, y0, x1, y1 = (float(v) for v in r)
         a, b = int(min(x0, x1) * sw), int(min(y0, y1) * sh)
         c, d = int(np.ceil(max(x0, x1) * sw)), int(np.ceil(max(y0, y1) * sh))
-        lab[:] = cv2.GC_BGD  # fuori dal riquadro: sfondo; dentro: probabile soggetto
-        lab[max(0, b):min(sh, d), max(0, a):min(sw, c)] = cv2.GC_PR_FGD
+        inside[:] = 0
+        inside[max(0, b):min(sh, d), max(0, a):min(sw, c)] = 1
+        lab = np.where(inside > 0, cv2.GC_PR_FGD, cv2.GC_BGD).astype(np.uint8)
+        fg = _grabcut(small, lab)
+        base = _clean(fg) if fg is not None else None
+        if base is None or (base & inside).sum() < 0.12 * inside.sum():
+            base = inside.copy()  # GrabCut non ha trovato un soggetto: vale il riquadro così com'è
+        base &= inside
+    else:
+        base = _rect_only(small)
+        if base is None:
+            base = np.ones((sh, sw), np.uint8)
     seeds = np.zeros((sh, sw), np.uint8)
     _paint(seeds, hints.get("keep"), 1, sw, sh)
     rem = np.zeros((sh, sw), np.uint8)
     _paint(rem, hints.get("remove"), 1, sw, sh)
-    lab[seeds > 0] = cv2.GC_FGD
-    lab[rem > 0] = cv2.GC_BGD
-    if not ((lab == cv2.GC_FGD) | (lab == cv2.GC_PR_FGD)).any() or not ((lab == cv2.GC_BGD) | (lab == cv2.GC_PR_BGD)).any():
-        return None
-    cv2.setRNGSeed(11)
-    cv2.grabCut(np.ascontiguousarray(small), lab, None, np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64), 5,
-                cv2.GC_INIT_WITH_MASK)
-    fg = ((lab == cv2.GC_FGD) | (lab == cv2.GC_PR_FGD)).astype(np.uint8)
-    return _clean(fg, seeds)
+    if seeds.any() or rem.any():
+        lab = np.where(base > 0, cv2.GC_PR_FGD, cv2.GC_PR_BGD).astype(np.uint8)
+        lab[inside == 0] = cv2.GC_BGD
+        lab[seeds > 0] = cv2.GC_FGD
+        lab[rem > 0] = cv2.GC_BGD
+        gc = _grabcut(small, lab)
+        if gc is None:
+            gc = base.copy()
+        # solo vicino al pennello: il resto del disegno non cambia
+        near = max(5, int(0.12 * (sw * sw + sh * sh) ** 0.5))
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (near | 1, near | 1))
+        added = _touching(((gc > 0) & (base == 0)).astype(np.uint8), seeds) & cv2.dilate(seeds, k)
+        removed = _touching(((gc == 0) & (base > 0)).astype(np.uint8), rem) & cv2.dilate(rem, k)
+        base = ((base > 0) | (added > 0)) & (removed == 0)
+        base = base.astype(np.uint8)
+        base[seeds > 0] = 1
+        base[rem > 0] = 0
+        base &= inside
+    last["auto_failed"] = False
+    return base
 
 
 def _rect_only(small):

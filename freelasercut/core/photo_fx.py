@@ -319,7 +319,7 @@ def sketch(g, ppm, strength, detail, rgb=None, seed=3, hints=None):
     lin = np.clip((sf - lo) * 255.0 / max(hi - lo, 8.0), 0, 255) / 255.0  # toni del soggetto, non dello sfondo
     lin = _blur(lin, _px(0.25, ppm, 0.6))
     # quanta grafite: i chiari restano carta, le ombre vere si scuriscono (Intensità = più scuro)
-    d = np.clip((1.0 - lin) ** (1.5 - 0.5 * strength) * (0.55 + 0.35 * strength), 0, 1)
+    d = np.clip((1.0 - lin) ** (1.5 - 0.5 * strength) * (0.45 + 0.35 * strength), 0, 1)
     rng = np.random.default_rng(seed)
     # tratti lunghi e corti nella stessa direzione della mano; nelle ombre più scure un secondo strato incrociato
     t1 = np.clip(0.5 + 0.22 * (0.6 * _streaks(sf.shape, ppm, 60, rng, 3.0) + 0.4 * _streaks(sf.shape, ppm, 60, rng, 1.2)),
@@ -331,7 +331,7 @@ def sketch(g, ppm, strength, detail, rgb=None, seed=3, hints=None):
                        (sf.shape[1], sf.shape[0]), interpolation=cv2.INTER_AREA if hw > sf.shape[1] else cv2.INTER_LINEAR)
     paper = np.clip(0.5 + 0.18 * paper / (paper.std() + 1e-6), 0, 1)
     # la grafite copre in proporzione allo scuro; tratti e carta la rendono irregolare (mai un grigio piatto)
-    l1 = np.clip(d * 1.5 * (0.15 + 0.85 * t1) * (0.7 + 0.6 * (paper - 0.5)), 0, 1)
+    l1 = np.clip(d * 1.35 * (0.15 + 0.85 * t1) * (0.7 + 0.6 * (paper - 0.5)), 0, 1)
     l2 = np.clip(np.clip((d - 0.45) * 1.8, 0, 1) * (0.1 + 0.9 * t2) * 1.3, 0, 1)
     tone = (1.0 - 0.85 * l1) * (1.0 - 0.6 * l2)
     # contorni: differenza di sfocature (lineamenti) e tratti di matita lungo i bordi più forti (Dettaglio = più fini)
