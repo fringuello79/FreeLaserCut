@@ -2086,5 +2086,18 @@
  "Velocità della porta seriale…": "Vitesse du port série…",
  "Solo se la tua scheda non usa 115200 baud: la velocità scelta a mano, da provare prima di salvarla nel profilo": "Seulement si votre carte n'utilise pas 115200 bauds : la vitesse choisie à la main, à essayer avant de l'enregistrer dans le profil",
  "Velocità a mano…": "Vitesse à la main…",
- "Lavoro interrotto dall'allarme {0}: {1}": "Travail interrompu par l'alarme {0} : {1}"
+ "Lavoro interrotto dall'allarme {0}: {1}": "Travail interrompu par l'alarme {0} : {1}",
+ "La scheda non risponde: le mando un reset (Ctrl+X), come il pulsante sulla scheda": "La carte ne répond pas : je lui envoie un reset (Ctrl+X), comme le bouton sur la carte",
+ "Togli gli aiuti": "Effacer les aides",
+ "Grandezza del pennello": "Taille du pinceau",
+ "Soggetto": "Sujet",
+ "Riquadro": "Cadre",
+ "Trascina sulla foto a sinistra un riquadro intorno al soggetto: quello che resta fuori è sfondo": "Tracez sur la photo de gauche un cadre autour du sujet : ce qui reste dehors est l'arrière-plan",
+ "Tieni": "Garder",
+ "Passa il pennello su quello che fa parte del soggetto": "Passez le pinceau sur ce qui fait partie du sujet",
+ "Togli": "Enlever",
+ "Passa il pennello su quello che deve sparire (ombre, oggetti dietro)": "Passez le pinceau sur ce qui doit disparaître (ombres, objets derrière)",
+ "Pennello": "Pinceau",
+ "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare.": "Aides pour le sujet : tracez sur la photo d'origine un Cadre autour du sujet, puis passez le pinceau Enlever sur ce qui doit disparaître (ombres, objets derrière) et Garder sur ce qui doit rester.",
+ "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Aides actives : le sujet est cherché à partir de là. Vous pouvez en ajouter ou les effacer."
 }

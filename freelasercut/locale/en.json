@@ -2086,5 +2086,18 @@
  "Velocità della porta seriale…": "Serial port speed…",
  "Solo se la tua scheda non usa 115200 baud: la velocità scelta a mano, da provare prima di salvarla nel profilo": "Only if your board doesn't use 115200 baud: the speed chosen by hand, to try before saving it in the profile",
  "Velocità a mano…": "Speed by hand…",
- "Lavoro interrotto dall'allarme {0}: {1}": "Job stopped by alarm {0}: {1}"
+ "Lavoro interrotto dall'allarme {0}: {1}": "Job stopped by alarm {0}: {1}",
+ "La scheda non risponde: le mando un reset (Ctrl+X), come il pulsante sulla scheda": "The board isn't answering: sending it a reset (Ctrl+X), like the button on the board",
+ "Togli gli aiuti": "Clear the hints",
+ "Grandezza del pennello": "Brush size",
+ "Soggetto": "Subject",
+ "Riquadro": "Box",
+ "Trascina sulla foto a sinistra un riquadro intorno al soggetto: quello che resta fuori è sfondo": "Drag a box around the subject on the photo on the left: what stays outside is background",
+ "Tieni": "Keep",
+ "Passa il pennello su quello che fa parte del soggetto": "Brush over what belongs to the subject",
+ "Togli": "Remove",
+ "Passa il pennello su quello che deve sparire (ombre, oggetti dietro)": "Brush over what must disappear (shadows, objects behind)",
+ "Pennello": "Brush",
+ "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare.": "Subject hints: drag a Box around the subject on the original photo, then brush Remove over what must disappear (shadows, objects behind) and Keep over what must stay.",
+ "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Hints active: the subject is searched from there. You can add more or clear them."
 }

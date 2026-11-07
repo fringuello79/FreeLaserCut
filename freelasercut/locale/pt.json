@@ -2086,5 +2086,18 @@
  "Velocità della porta seriale…": "Velocidade da porta serial…",
  "Solo se la tua scheda non usa 115200 baud: la velocità scelta a mano, da provare prima di salvarla nel profilo": "Só se a sua placa não usa 115200 baud: a velocidade escolhida à mão, para testar antes de salvar no perfil",
  "Velocità a mano…": "Velocidade à mão…",
- "Lavoro interrotto dall'allarme {0}: {1}": "Trabalho interrompido pelo alarme {0}: {1}"
+ "Lavoro interrotto dall'allarme {0}: {1}": "Trabalho interrompido pelo alarme {0}: {1}",
+ "La scheda non risponde: le mando un reset (Ctrl+X), come il pulsante sulla scheda": "A placa não responde: envio um reset (Ctrl+X), como o botão na placa",
+ "Togli gli aiuti": "Tirar as ajudas",
+ "Grandezza del pennello": "Tamanho do pincel",
+ "Soggetto": "Assunto",
+ "Riquadro": "Quadro",
+ "Trascina sulla foto a sinistra un riquadro intorno al soggetto: quello che resta fuori è sfondo": "Arraste na foto à esquerda um quadro em volta do assunto: o que fica fora é fundo",
+ "Tieni": "Manter",
+ "Passa il pennello su quello che fa parte del soggetto": "Passe o pincel no que faz parte do assunto",
+ "Togli": "Tirar",
+ "Passa il pennello su quello che deve sparire (ombre, oggetti dietro)": "Passe o pincel no que deve sumir (sombras, objetos atrás)",
+ "Pennello": "Pincel",
+ "Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e Tieni su quello che deve restare.": "Ajudas para o assunto: arraste na foto original um Quadro em volta do assunto, depois passe o pincel Tirar no que deve sumir (sombras, objetos atrás) e Manter no que deve ficar.",
+ "Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli.": "Ajudas ativas: o assunto é procurado a partir delas. Você pode adicionar mais ou tirá-las."
 }

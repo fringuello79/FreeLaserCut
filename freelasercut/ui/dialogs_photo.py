@@ -40,6 +40,7 @@ class _View(QWidget):
 
     crop_changed = Signal(tuple)
     view_changed = Signal()  # zoom o spostamento cambiati
+    hints_changed = Signal()  # aiuti per il soggetto (riquadro, «tieni», «togli») cambiati
     ZMAX = 32.0
 
     def __init__(self, title, croppable=False, zoomable=False):
@@ -59,6 +60,10 @@ class _View(QWidget):
         self.mm = None  # (w, h) dei tracciati
         self.faint = False
         self.note = ""
+        self.hint_mode = None  # None | "rect" | "keep" | "remove": il trascinamento disegna gli aiuti, non il ritaglio
+        self.hints = None  # dict di core/subject (frazioni dell'immagine)
+        self.brush = 0.02  # raggio del pennello in frazioni della diagonale
+        self._hdrag = None
         if croppable:
             self.setCursor(Qt.CrossCursor)
         elif zoomable:
@@ -200,7 +205,38 @@ class _View(QWidget):
             p.setPen(pen)
             p.setBrush(Qt.NoBrush)
             p.drawRect(r)
+        self._paint_hints(p, t)
         p.end()
+
+    def _paint_hints(self, p, t):
+        h = self.hints
+        if not h:
+            return
+        p.save()
+        p.setClipRect(self._area())
+        diag = (t.width() ** 2 + t.height() ** 2) ** 0.5
+        for kind, col in (("keep", QColor(48, 200, 110, 120)), ("remove", QColor(235, 70, 70, 120))):
+            for item in h.get(kind) or []:
+                try:
+                    r, xs = float(item[0]), item[1]
+                except (TypeError, ValueError, IndexError):
+                    continue
+                pen = QPen(col, max(2.0, r * diag * 2), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                p.setPen(pen)
+                pts = [QPointF(t.left() + xs[i] * t.width(), t.top() + xs[i + 1] * t.height()) for i in range(0, len(xs) - 1, 2)]
+                if len(pts) == 1:
+                    p.drawPoint(pts[0])
+                else:
+                    for a, b in zip(pts, pts[1:]):
+                        p.drawLine(a, b)
+        r = h.get("rect")
+        if r:
+            rr = QRectF(t.left() + r[0] * t.width(), t.top() + r[1] * t.height(), (r[2] - r[0]) * t.width(),
+                        (r[3] - r[1]) * t.height())
+            p.setPen(QPen(QColor(255, 200, 40), 2.0, Qt.DashLine))
+            p.setBrush(Qt.NoBrush)
+            p.drawRect(rr)
+        p.restore()
 
     def _frac(self, pos):
         t = self._target()
@@ -213,6 +249,21 @@ class _View(QWidget):
             self._pan = (e.position(), self.center)
             self.setCursor(Qt.ClosedHandCursor)
             return
+        if self.hint_mode and e.button() == Qt.LeftButton:
+            f = self._frac(e.position())
+            h = self.hints if isinstance(self.hints, dict) else {}
+            h.setdefault("rect", None)
+            h.setdefault("keep", [])
+            h.setdefault("remove", [])
+            self.hints = h
+            if self.hint_mode == "rect":
+                self._hdrag = f
+                h["rect"] = [f[0], f[1], f[0], f[1]]
+            else:
+                h[self.hint_mode].append([round(self.brush, 5), [round(f[0], 5), round(f[1], 5)]])
+                self._hdrag = f
+            self.update()
+            return
         if self.croppable and e.button() == Qt.LeftButton:
             self._drag = self._frac(e.position())
 
@@ -222,6 +273,17 @@ class _View(QWidget):
             d = e.position() - p0
             self.center = (cx - d.x() / max(t.width(), 1e-9), cy - d.y() / max(t.height(), 1e-9))
             self._sync_center()
+            self.update()
+            return
+        if self._hdrag is not None:
+            f = self._frac(e.position())
+            if self.hint_mode == "rect":
+                a = self._hdrag
+                self.hints["rect"] = [min(a[0], f[0]), min(a[1], f[1]), max(a[0], f[0]), max(a[1], f[1])]
+            elif self.hint_mode in ("keep", "remove") and self.hints.get(self.hint_mode):
+                xs = self.hints[self.hint_mode][-1][1]
+                if abs(f[0] - xs[-2]) + abs(f[1] - xs[-1]) > 0.004:
+                    xs += [round(f[0], 5), round(f[1], 5)]
             self.update()
             return
         if self._drag is not None:
@@ -235,6 +297,14 @@ class _View(QWidget):
             self.setCursor(Qt.CrossCursor if self.croppable else Qt.OpenHandCursor)
             self.view_changed.emit()
             return
+        if self._hdrag is not None:
+            self._hdrag = None
+            r = self.hints.get("rect") if self.hints else None
+            if self.hint_mode == "rect" and r and (r[2] - r[0] < 0.03 or r[3] - r[1] < 0.03):
+                self.hints["rect"] = None  # clic senza trascinare: niente riquadro
+            self.hints_changed.emit()
+            self.update()
+            return
         if self._drag is not None:
             self._drag = None
             x0, y0, x1, y1 = self.crop or (0, 0, 1, 1)
@@ -244,6 +314,8 @@ class _View(QWidget):
             self.update()
 
     def mouseDoubleClickEvent(self, e):
+        if self.hint_mode:  # con gli aiuti del soggetto il doppio clic non toglie il ritaglio
+            return
         if self.zoomable and not self.croppable:  # doppio clic: ingrandisce lì, oppure torna a tutta la foto
             self.set_zoom(1.0 if self.zoom > 1.001 else 4.0, e.position())
             return
@@ -429,6 +501,7 @@ class PhotoDialog(QDialog):
         self.fx_angle.setCurrentIndex(max(0, self.fx_angle.findData(st.effect_angle)))
         self.fx_angle_name = QLabel(tr("Righe"))
         f.addRow(self.fx_angle_name, self.fx_angle)
+        self._build_subject(f, st)
         self.effect.currentIndexChanged.connect(self._effect_changed)
         self._effect_changed()
 
@@ -574,6 +647,10 @@ class PhotoDialog(QDialog):
         self.crop = tuple(st.crop)
         self.v_orig.crop = self.crop
         self.v_orig.crop_changed.connect(self._set_crop)
+        self.v_orig.hints = self.hints
+        self.v_orig.hints_changed.connect(self._hints_changed)
+        self.subj_brush.valueChanged.connect(lambda val: setattr(self.v_orig, "brush", 0.006 * val))
+        self.flip.toggled.connect(self._flip_hints)
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(180)
@@ -619,7 +696,18 @@ class PhotoDialog(QDialog):
     def _later(self, *_):
         self._timer.start()
 
+    def _flip_hints(self, *_):
+        from ..core import subject
+
+        self.hints = subject.rotate_hints(self.hints, 0)
+        self.v_orig.hints = self.hints
+        self.v_orig.update()
+
     def _rot(self, d):
+        from ..core import subject
+
+        self.hints = subject.rotate_hints(self.hints, d)  # gli aiuti del soggetto girano con la foto
+        self.v_orig.hints = self.hints
         self.rotate = (self.rotate + d) % 360
         # ritaglio: lo ruoto insieme alla foto
         x0, y0, x1, y1 = self.crop
@@ -648,6 +736,91 @@ class PhotoDialog(QDialog):
         self.gam.setValue(int(round(v["gamma"] * 100)))
         self.con.setValue(int(round(v["contrast"])))
 
+    # ------------------------------------------------------------------ soggetto (Schizzo del soggetto)
+    def _build_subject(self, f, st):
+        from ..core import subject
+
+        import json as _json
+
+        self.hints = _json.loads(_json.dumps(st.subject_hints)) if subject.has_hints(st.subject_hints) else None
+        box = QWidget()
+        v = QVBoxLayout(box)
+        v.setContentsMargins(0, 0, 0, 0)
+        r2 = QHBoxLayout()
+        self.subj_tools = {}
+        for key, lab, tip in (("rect", tr("Riquadro"), tr("Trascina sulla foto a sinistra un riquadro intorno al "
+                                                         "soggetto: quello che resta fuori è sfondo")),
+                              ("keep", tr("Tieni"), tr("Passa il pennello su quello che fa parte del soggetto")),
+                              ("remove", tr("Togli"), tr("Passa il pennello su quello che deve sparire (ombre, "
+                                                         "oggetti dietro)"))):
+            b = QToolButton()
+            b.setText(lab)
+            b.setCheckable(True)
+            b.setToolTip(tip)
+            b.toggled.connect(lambda on, k=key: self._subject_tool(k, on))
+            self.subj_tools[key] = b
+            r2.addWidget(b)
+        self.subj_clear = QToolButton()
+        self.subj_clear.setText(tr("Togli gli aiuti"))
+        self.subj_clear.clicked.connect(self.clear_hints)
+        r2.addWidget(self.subj_clear)
+        r2.addStretch(1)
+        v.addLayout(r2)
+        r3 = QHBoxLayout()
+        self.subj_brush = _slider(1, 10, 3)
+        self.subj_brush.setToolTip(tr("Grandezza del pennello"))
+        r3.addWidget(QLabel(tr("Pennello")))
+        r3.addWidget(self.subj_brush, 1)
+        v.addLayout(r3)
+        self.subj_note = QLabel()
+        self.subj_note.setWordWrap(True)
+        self.subj_note.setObjectName("muted")
+        v.addWidget(self.subj_note)
+        self.subj_name = QLabel(tr("Soggetto"))
+        f.addRow(self.subj_name, box)
+        self.subj_box = box
+        self._subject_state()
+
+    def _subject_state(self):
+        from ..core import subject
+
+        hints = subject.has_hints(self.hints)
+        self.subj_clear.setEnabled(hints)
+        self.subj_note.setText(tr("Aiuti per il soggetto: trascina sulla foto originale un Riquadro intorno al soggetto, "
+                                  "poi passa il pennello Togli su quello che deve sparire (ombre, oggetti dietro) e "
+                                  "Tieni su quello che deve restare.") if not hints else
+                               tr("Aiuti attivi: il soggetto si cerca da lì. Puoi aggiungerne altri o toglierli."))
+
+    def _subject_tool(self, key, on):
+        if on:
+            for k, b in self.subj_tools.items():
+                if k != key and b.isChecked():
+                    b.blockSignals(True)
+                    b.setChecked(False)
+                    b.blockSignals(False)
+        v = getattr(self, "v_orig", None)
+        if v is None:
+            return
+        v.hint_mode = key if on else None
+        v.brush = 0.006 * self.subj_brush.value()
+        v.setCursor(Qt.CrossCursor)
+
+    def _hints_changed(self):
+        from ..core import subject
+
+        h = self.v_orig.hints
+        self.hints = h if subject.has_hints(h) else None
+        self._subject_state()
+        self._later()
+
+    def clear_hints(self):
+        self.hints = None
+        if getattr(self, "v_orig", None) is not None:
+            self.v_orig.hints = None
+            self.v_orig.update()
+        self._subject_state()
+        self._later()
+
     def _effect_changed(self, *_):
         """Cursori dell'effetto: visibili solo con un effetto; la direzione solo per le righe."""
         from ..core import photo_fx
@@ -661,6 +834,12 @@ class PhotoDialog(QDialog):
         self.fx_detail_name.setText(det or tr("Dettaglio"))
         self.fx_angle.setVisible(on and has_angle)
         self.fx_angle_name.setVisible(on and has_angle)
+        sk = key == "sketch"
+        self.subj_box.setVisible(sk)
+        self.subj_name.setVisible(sk)
+        if not sk:
+            for b in self.subj_tools.values():
+                b.setChecked(False)
 
     def _tab(self, *_):
         vec = self.tabs.currentIndex() == 1
@@ -680,7 +859,8 @@ class PhotoDialog(QDialog):
                                    effect_angle=int(self.fx_angle.currentData() or 0),
                                    # la larghezza serve solo agli effetti (misure di righe e punti in mm)
                                    width_mm=float(self.width_mm.value()) if self.effect.currentData() not in
-                                   (None, "none") else 0.0)
+                                   (None, "none") else 0.0,
+                                   subject_hints=self.hints)
 
     def adjust(self):
         return dict(brightness=float(self.bri.value()), contrast=float(self.con.value()), gamma=self.gam.value() / 100.0)

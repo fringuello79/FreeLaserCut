@@ -41,6 +41,9 @@ class PhotoSettings:
     # larghezza della foto sul materiale (mm): gli effetti la usano per dare a righe e punti le misure giuste;
     # 0 = non nota (10 punti/mm). Non è una modifica della foto (vedi is_identity)
     width_mm: float = 0.0
+    # «Schizzo del soggetto»: aiuti disegnati sulla foto intera orientata (core/subject.py: riquadro, pennellate
+    # «tieni» e «togli», in frazioni)
+    subject_hints: dict = None
 
     def to_dict(self):
         d = asdict(self)
@@ -63,6 +66,8 @@ class PhotoSettings:
             s.effect = "none"
         if s.effect_angle not in ANGLES:
             s.effect_angle = 0
+        if not isinstance(s.subject_hints, dict):
+            s.subject_hints = None
         return s
 
     def is_identity(self):
@@ -210,12 +215,13 @@ def process(pil, st):
         blur = cv2.GaussianBlur(g, (0, 0), sigma)
         g = g + (st.sharpen / 50.0) * (g - blur)
     if st.effect and st.effect != "none":
-        from . import photo_fx
+        from . import photo_fx, subject
 
         # dopo le regolazioni, prima di forma e sfondo (che restano bianchi, cioè senza righe né punti)
         g, scale = photo_fx.apply(np.clip(g, 0, 255).astype(np.float32), st.effect, st.width_mm,
                                   st.effect_strength / 100.0, st.effect_detail / 100.0, st.effect_angle,
-                                  rgb=rgb if st.effect == "sketch" else None)
+                                  rgb=rgb if st.effect == "sketch" else None,
+                                  hints=subject.hints_to_crop(st.subject_hints, st.crop) if st.effect == "sketch" else None)
         if scale != 1.0:  # foto molto definita: l'effetto è stato calcolato più piccolo (basta per il laser)
             h, w = g.shape
             keep = cv2.resize(keep, (w, h), interpolation=cv2.INTER_AREA)

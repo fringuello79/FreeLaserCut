@@ -53,7 +53,7 @@ out, sc = photo_fx.apply(gray, "sketch", 80.0, 0.5, 0.5, 0, rgb=scene)
 check("sfondo tolto: angoli e pavimento bianchi (niente da incidere)", out[:80, :80].min() >= 250 and out[560:, 650:].min() >= 250,
       (float(out[:80, :80].min()), float(out[560:, 650:].min())))
 check("il soggetto è disegnato: chiaroscuro (lato in ombra più scuro), occhi e naso scuri",
-      (out[inside > 0] < 240).mean() > 0.1 and out[265:275, 345:355].mean() < 90 and
+      (out[inside > 0] < 240).mean() > 0.05 and out[265:275, 345:355].mean() < 90 and
       out[300:360, 270:320].mean() < out[300:360, 480:530].mean() - 8,
       (round(float((out[inside > 0] < 240).mean()), 3), round(float(out[265:275, 345:355].mean()))))
 dr = photo_fx.apply(gray, "drawing", 80.0, 0.5, 0.5)[0]

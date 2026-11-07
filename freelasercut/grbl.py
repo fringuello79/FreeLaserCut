@@ -200,6 +200,30 @@ class GrblController(QObject):
         self.connection_changed.emit(True, f"Connesso a {port}")
         # le schede Arduino si resettano all'apertura: attendo il banner
         threading.Timer(1.5, self._after_connect).start()
+        t0 = time.time()
+        threading.Timer(self.WAKE_AFTER_S, lambda: self._wake_if_silent(t0)).start()
+        return True
+
+    WAKE_AFTER_S = 2.5
+
+    def _wake_if_silent(self, t0):
+        """Alcune schede ESP32 (per esempio con il chip USB CH9102) dopo l'apertura della porta restano mute finché non
+        si preme il loro pulsante di reset. Se in questi secondi la scheda non ha mai risposto, le mando un reset
+        morbido (Ctrl+X, come il pulsante «reset» di GRBL): una scheda muta non sta eseguendo niente per noi.
+        Una volta sola; niente in Wi-Fi e con il simulatore. Se non basta, la finestra principale lo dice."""
+        if not self.connected or self.port == SIM_PORT or netport.is_net(self.port or ""):
+            return False
+        if self.status_time > t0 or self.last_reply > t0:
+            return False
+        self.message.emit(tr("La scheda non risponde: le mando un reset (Ctrl+X), come il pulsante sulla scheda"))
+        self.realtime(0x18)
+        self._clear_queues()  # $I e $$ mandati prima sono persi: li richiedo quando la scheda è ripartita
+
+        def again():
+            if self.connected:
+                self.request_info()
+                self.request_settings()
+        threading.Timer(1.5, again).start()
         return True
 
     def _after_connect(self):

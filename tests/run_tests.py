@@ -261,6 +261,9 @@ if __name__ == "__main__":
     run_suite("test_v161.py", "Velocità della porta seriale nell'interfaccia Banco", "banco")
     run_suite("test_v162.py", "Homing interrotto da un allarme non valido, messaggio dell'allarme, codice QR davanti")
     run_suite("test_v162.py", "Homing interrotto e codice QR nell'interfaccia Banco", "banco")
+    run_suite("test_v163.py", "Scheda muta dopo la connessione: reset morbido automatico, una volta sola")
+    run_suite("test_v170.py", "Schizzo del soggetto: tratto a matita nuovo, aiuti (riquadro, tieni, togli)")
+    run_suite("test_v170.py", "Schizzo del soggetto nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

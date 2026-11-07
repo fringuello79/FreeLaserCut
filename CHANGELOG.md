@@ -1,5 +1,16 @@
 # Novità di FreeLaserCut
 
+## 0.17.0 — 07/11/2026
+- **«Schizzo del soggetto» rifatto**, dopo le prove di un utente: sui volti era poco riconoscibile, il tratto era troppo «riempitivo» e lo sfondo non sempre spariva (in una foto di un'auto restavano l'ombra sul ghiaino e il canestro dietro). Tutto dentro FreeLaserCut, senza intelligenza artificiale né file scaricati.
+  - **Tratto a matita più realistico:** grafite sfumata a tratti nella direzione della mano (tratti lunghi e corti sovrapposti), un secondo strato incrociato solo nelle ombre più scure, la grana della carta, contorni puliti, occhi e ombre profonde pieni e tanta carta bianca. I volti restano riconoscibili. *Intensità* rende più scuro, *Dettaglio* fa i contorni più fini.
+  - **Aiuti per il soggetto:** con l'effetto Schizzo in *Prepara foto* compare il riquadro *Soggetto*. **Riquadro**: trascina sulla foto a sinistra un rettangolo intorno al soggetto (quello che resta fuori è sfondo). **Tieni** e **Togli**: pennellate su quello che deve restare o sparire (ombre, oggetti dietro), con il pennello grande quanto vuoi. *Togli gli aiuti* li cancella. Gli aiuti girano con la foto, valgono anche con il ritaglio e si salvano nel progetto.
+  - Senza aiuti il soggetto si cerca come prima, nel riquadro centrale della foto.
+- Nuova prova automatica `tests/test_v170.py` (24 controlli, Classica e Banco): soggetto con riquadro, «togli» sull'ombra, «tieni» sul palo, tratto, finestra Prepara foto usata con il mouse.
+
+## 0.16.3 — 07/11/2026
+- **Schede ESP32 che restano mute dopo la connessione.** Con alcune schede ESP32, per esempio con il chip USB CH9102 e grblHAL, dopo l'apertura della porta la scheda non rispondeva finché non si premeva il pulsante di reset sulla scheda. Ora, se in 2,5 secondi dalla connessione la scheda non ha mai risposto, FreeLaserCut le manda da solo un reset morbido (Ctrl+X, lo stesso del pulsante) e poi richiede le sue informazioni. Succede una volta sola e solo se la scheda è muta: le schede che rispondono subito, il Wi-Fi e il simulatore non cambiano. Se nemmeno così risponde, resta l'avviso della 0.16.1 con *Riconosci la macchina* e *Velocità a mano…*. Segnalato e provato da un utente su GitHub con un laser CO2 (grblHAL a 250000 e 230400 baud).
+- Nuova prova automatica `tests/test_v163.py` (10 controlli, anche con una scheda simulata che resta muta finché non riceve il reset).
+
 ## 0.16.2 — 07/11/2026
 - **Corretto: homing non riuscito preso per buono.** Se l'homing veniva interrotto da un allarme (per esempio 6, «Homing interrotto da un reset») e la scheda si riavviava e si sbloccava da sola, come fa la scheda LGT del Longer B1, FreeLaserCut prendeva la posizione di quel momento per lo zero della macchina. Pensava di avere le coordinate «negative» e mandava contorno e lavoro fuori dall'area: la macchina rispondeva con l'errore 15 e l'allarme 2 e il lavoro si fermava subito in partenza. Ora un homing con un allarme (o con un riavvio della scheda a metà) non vale: resta l'avviso dell'allarme con *Homing* per rifarlo. Visto in un rapporto per l'assistenza.
 - **Messaggio più chiaro:** se un lavoro si ferma per un allarme e subito dopo la scheda si riavvia, il messaggio dice l'allarme (per esempio «Comando oltre l'area di lavoro») invece di «La scheda si è riavviata durante il lavoro».

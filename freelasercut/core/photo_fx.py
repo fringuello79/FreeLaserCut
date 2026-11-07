@@ -280,91 +280,35 @@ def drawing(g, ppm, strength, detail, seed=5):
 
 
 # ------------------------------------------------------------------ schizzo del soggetto (sfondo tolto)
-# Come i ritratti a matita di animali e persone: il soggetto in primo piano disegnato con tratti leggeri che seguono il
-# verso del pelo e delle forme, occhi e ombre profonde pieni, e lo sfondo che sparisce nella carta. Il soggetto si
-# trova da solo (GrabCut di OpenCV partendo dal riquadro centrale della foto): niente intelligenza artificiale, niente
-# internet. Se non si trova un soggetto chiaro, si disegna tutta la foto con lo stesso stile leggero.
-_MASK_CACHE = {}
+# Come uno schizzo a matita o a penna: il soggetto in primo piano con i contorni, ombre a tratteggio regolare (incrociato
+# solo nelle ombre più scure), occhi e ombre profonde pieni, tanta carta bianca e lo sfondo che sparisce. Il soggetto lo
+# trova core/subject.py con GrabCut di OpenCV: aiuti disegnati da chi prepara la foto (riquadro, «tieni», «togli») o,
+# senza aiuti, il riquadro centrale della foto. Niente intelligenza artificiale, niente dati scaricati.
+from . import subject as _subject  # noqa: E402
+
+_MASK_CACHE = _subject._CACHE
 
 
-def subject_mask(rgb):
+def subject_mask(rgb, hints=None):
     """1 = soggetto in primo piano, 0 = sfondo (stessa grandezza della foto), o None se non c'è un soggetto chiaro."""
-    rgb = np.asarray(rgb)
-    if rgb.dtype != np.uint8:
-        rgb = np.clip(rgb, 0, 255).astype(np.uint8)
-    if rgb.ndim == 2:  # foto in bianco e nero
-        rgb = cv2.cvtColor(rgb, cv2.COLOR_GRAY2RGB)
-    elif rgb.shape[2] == 4:  # con la trasparenza: contano i colori
-        rgb = np.ascontiguousarray(rgb[:, :, :3])
-    h, w = rgb.shape[:2]
-    k = min(1.0, 300.0 / max(h, w))
-    small = cv2.resize(rgb, (max(8, int(round(w * k))), max(8, int(round(h * k)))), interpolation=cv2.INTER_AREA)
-    key = (w, h, hash(small.tobytes()))
-    if key in _MASK_CACHE:  # l'anteprima si ricalcola a ogni cursore: la maschera resta la stessa
-        return _MASK_CACHE[key]
-    sh, sw = small.shape[:2]
-    mx, my = max(1, int(sw * 0.04)), max(1, int(sh * 0.04))
-    out = None
-    try:
-        # GrabCut parte da colori scelti a caso: tre prove con semi fissi e a maggioranza (sempre lo stesso risultato,
-        # e una prova finita male, per esempio con una coperta attaccata al soggetto, non conta)
-        votes = np.zeros((sh, sw), np.uint8)
-        for seed in (11, 22, 33):
-            cv2.setRNGSeed(seed)
-            mask = np.zeros((sh, sw), np.uint8)
-            cv2.grabCut(np.ascontiguousarray(small), mask, (mx, my, sw - 2 * mx, sh - 2 * my),
-                        np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64), 4, cv2.GC_INIT_WITH_RECT)
-            votes += ((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD)).astype(np.uint8)
-        fg = (votes >= 2).astype(np.uint8)
-        n, lab, st, _c = cv2.connectedComponentsWithStats(fg, connectivity=8)
-        if n > 1:
-            big = st[1:, cv2.CC_STAT_AREA].max()
-            keep = np.isin(lab, [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= 0.3 * big]).astype(np.uint8)
-            if 0.03 <= keep.mean() <= 0.92:
-                keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
-                ff = keep.copy()  # buchi chiusi (il soggetto è pieno)
-                cv2.floodFill(ff, np.zeros((sh + 2, sw + 2), np.uint8), (0, 0), 1)
-                keep = keep | (1 - ff)
-                out = cv2.resize(keep.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
-    except cv2.error:
-        out = None
-    if len(_MASK_CACHE) > 6:
-        _MASK_CACHE.clear()
-    _MASK_CACHE[key] = out
-    return out
+    return _subject.subject_mask(rgb, hints)
 
 
-def _flow_hatch(sf, ppm, rng, length_mm=1.6):
-    """Tratti che seguono il verso del pelo e delle forme (lungo i bordi, non attraverso): 8 trame orientate e, per
-    ogni punto, quella del verso locale; dove il verso non è chiaro, diagonale. Disegnate a WORK_PX_PER_MM."""
-    h, w = sf.shape
-    f = _blur(sf, _px(0.25, ppm, 0.8)) / 255.0
-    gx = cv2.Sobel(f, cv2.CV_32F, 1, 0, ksize=3)
-    gy = cv2.Sobel(f, cv2.CV_32F, 0, 1, ksize=3)
-    sig = _px(1.2, ppm, 2)
-    jxx, jyy, jxy = _blur(gx * gx, sig), _blur(gy * gy, sig), _blur(gx * gy, sig)
-    ang = (np.degrees(0.5 * np.arctan2(2 * jxy, jxx - jyy)) + 90.0) % 180.0
-    coh = np.sqrt((jxx - jyy) ** 2 + 4 * jxy * jxy) / (jxx + jyy + 1e-6)
-    ang = np.where(coh > 0.35, ang, 45.0)
-    idx = np.round(ang / 22.5).astype(np.int32) % 8
-    hw, hh = _mm_grid(sf.shape, ppm)
-    noise = rng.random((hh, hw), dtype=np.float32)
-    out = np.zeros((h, w), np.float32)
-    for k in range(8):
-        sel = idx == k
-        if not sel.any():
-            continue
-        t = cv2.filter2D(noise, -1, _line_kernel(_px(length_mm, WORK_PX_PER_MM, 9), -k * 22.5, 1))
-        t = cv2.resize(t, (w, h), interpolation=cv2.INTER_AREA if hw > w else cv2.INTER_LINEAR)
-        out[sel] = ((t - t.mean()) / (t.std() + 1e-6))[sel]
-    return out
+def _streaks(shape, ppm, angle, rng, length_mm):
+    """Tratti di grafite nella direzione della mano (rumore «strisciato», media 0), disegnati a WORK_PX_PER_MM:
+    anteprima ridotta e foto vera hanno la stessa trama."""
+    h, w = shape
+    hw, hh = _mm_grid(shape, ppm)
+    t = cv2.filter2D(rng.random((hh, hw), dtype=np.float32), -1, _line_kernel(_px(length_mm, WORK_PX_PER_MM, 9), angle, 1))
+    t = cv2.resize(t, (w, h), interpolation=cv2.INTER_AREA if hw > w else cv2.INTER_LINEAR)
+    return (t - t.mean()) / (t.std() + 1e-6)
 
 
-def sketch(g, ppm, strength, detail, rgb=None, seed=3):
-    """Schizzo del soggetto: toni chiari, tratti nel verso del pelo, scuri pieni, sfondo tolto (bianco)."""
+def sketch(g, ppm, strength, detail, rgb=None, seed=3, hints=None):
+    """Schizzo del soggetto a matita: grafite sfumata a tratti, contorni, scuri pieni, grana della carta, sfondo bianco."""
     if rgb is None or rgb.shape[:2] != g.shape:
         rgb = np.dstack([np.clip(g, 0, 255).astype(np.uint8)] * 3)
-    m = subject_mask(rgb)
+    m = subject_mask(rgb, hints)
     s = cv2.bilateralFilter(np.clip(g, 0, 255).astype(np.uint8), int(min(max(_px(0.4, ppm), 3), 15)) | 1, 20,
                             _px(0.3, ppm, 1.0))
     sf = s.astype(np.float32)
@@ -373,15 +317,32 @@ def sketch(g, ppm, strength, detail, rgb=None, seed=3):
     sel = sf[m > 0.5] if (m > 0.5).any() else sf.ravel()
     lo, hi = (float(v) for v in np.percentile(sel, (1, 99)))
     lin = np.clip((sf - lo) * 255.0 / max(hi - lo, 8.0), 0, 255) / 255.0  # toni del soggetto, non dello sfondo
-    d = (1.0 - lin) ** (1.7 - 0.6 * strength)  # toni chiari: solo le ombre vere si scuriscono
-    d = np.clip(d * (0.45 + 0.4 * strength), 0, 1)
+    lin = _blur(lin, _px(0.25, ppm, 0.6))
+    # quanta grafite: i chiari restano carta, le ombre vere si scuriscono (Intensità = più scuro)
+    d = np.clip((1.0 - lin) ** (1.5 - 0.5 * strength) * (0.55 + 0.35 * strength), 0, 1)
     rng = np.random.default_rng(seed)
-    tone = 1.0 - d * np.clip(0.5 + 0.45 * _flow_hatch(sf, ppm, rng), 0, 1)
-    deep = np.clip((0.24 - lin) / 0.16, 0, 1)  # occhi, naso, ombre profonde: pieni
-    tone = tone * (1.0 - (0.75 + 0.2 * strength) * deep)
-    strokes = _pencil_strokes(sf, ppm, 0.3 + 0.45 * detail) ** (0.8 + strength * 1.0)
-    mm = np.clip((_blur(m, _px(1.5, ppm, 2)) - 0.15) / 0.7, 0, 1)  # il disegno sfuma nella carta fuori dal soggetto
-    out = 1.0 - (1.0 - strokes * tone) * mm
+    # tratti lunghi e corti nella stessa direzione della mano; nelle ombre più scure un secondo strato incrociato
+    t1 = np.clip(0.5 + 0.22 * (0.6 * _streaks(sf.shape, ppm, 60, rng, 3.0) + 0.4 * _streaks(sf.shape, ppm, 60, rng, 1.2)),
+                 0, 1)
+    t2 = np.clip(0.5 + 0.25 * _streaks(sf.shape, ppm, 150, rng, 2.0), 0, 1)
+    # grana della carta: la grafite non entra nei «dentini» più bassi
+    hw, hh = _mm_grid(sf.shape, ppm)
+    paper = cv2.resize(_blur(rng.standard_normal((hh, hw)).astype(np.float32), _px(0.05, WORK_PX_PER_MM, 0.6)),
+                       (sf.shape[1], sf.shape[0]), interpolation=cv2.INTER_AREA if hw > sf.shape[1] else cv2.INTER_LINEAR)
+    paper = np.clip(0.5 + 0.18 * paper / (paper.std() + 1e-6), 0, 1)
+    # la grafite copre in proporzione allo scuro; tratti e carta la rendono irregolare (mai un grigio piatto)
+    l1 = np.clip(d * 1.5 * (0.15 + 0.85 * t1) * (0.7 + 0.6 * (paper - 0.5)), 0, 1)
+    l2 = np.clip(np.clip((d - 0.45) * 1.8, 0, 1) * (0.1 + 0.9 * t2) * 1.3, 0, 1)
+    tone = (1.0 - 0.85 * l1) * (1.0 - 0.6 * l2)
+    # contorni: differenza di sfocature (lineamenti) e tratti di matita lungo i bordi più forti (Dettaglio = più fini)
+    sig = _px(0.10 + 0.22 * (1.0 - detail), ppm, 0.7)
+    e = (_blur(sf, sig) - 0.985 * _blur(sf, sig * 1.6)) / 255.0
+    xd = np.clip(np.where(e >= 0.0, 1.0, 1.0 + np.tanh((50.0 + 70.0 * strength) * e)), 0, 1)
+    strokes = _pencil_strokes(sf, ppm, 0.35 + 0.45 * detail) ** (0.5 + 0.5 * strength)
+    deep = np.clip((0.12 - lin) / 0.1, 0, 1) * (0.45 + 0.3 * strength)  # occhi, naso, ombre profonde
+    out = tone * (0.45 + 0.55 * xd) * strokes * (1.0 - deep)
+    mm = np.clip((_blur(m, _px(1.2, ppm, 2)) - 0.15) / 0.7, 0, 1)  # il disegno sfuma nella carta fuori dal soggetto
+    out = 1.0 - (1.0 - out) * mm
     out = np.where(sf >= 252.0, np.maximum(out, 1.0), out)  # il bianco della foto resta carta
     return np.clip(out, 0, 1) * 255.0
 
@@ -390,7 +351,7 @@ _FUNCS = {"pencil": pencil, "drawing": drawing, "sketch": sketch, "charcoal": ch
           "posterize": posterize, "emboss": emboss}
 
 
-def apply(g, effect, width_mm, strength=0.5, detail=0.5, angle=0, rgb=None):
+def apply(g, effect, width_mm, strength=0.5, detail=0.5, angle=0, rgb=None, hints=None):
     """g: grigio float32 0..255. width_mm: larghezza della foto sul materiale (0 = sconosciuta, 10 punti/mm).
     -> (grigio, fattore di scala usato): per le foto molto definite l'effetto si calcola a WORK_PX_PER_MM."""
     if effect not in EFFECTS or effect == "none":
@@ -410,7 +371,7 @@ def apply(g, effect, width_mm, strength=0.5, detail=0.5, angle=0, rgb=None):
     if effect in ("lines", "waves"):
         out = lines(g, ppm, strength, detail, angle if angle in ANGLES else 0, wave=effect == "waves")
     elif effect == "sketch":  # i colori aiutano a trovare il soggetto
-        out = sketch(g, ppm, strength, detail, rgb)
+        out = sketch(g, ppm, strength, detail, rgb, hints=hints)
     else:
         out = _FUNCS[effect](g, ppm, strength, detail)
     return np.clip(out, 0, 255).astype(np.float32), scale
