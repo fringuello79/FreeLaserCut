@@ -142,5 +142,6 @@ def apply_to_layer(m: Material, cs):
     cs.air = True
     if cs.mode in ("fill", "offset_fill"):
         cs.interval = m.interval
+    cs.burn_curve = ""  # un altro materiale: la curva imparata del precedente non vale più
     if not cs.name:
         cs.name = f"{m.name} · {m.label()}"

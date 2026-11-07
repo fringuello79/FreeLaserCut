@@ -193,6 +193,11 @@ HELP = {
     "materials": (tr("Libreria materiali"), tr("Valori pronti per il Longer B1 40W (incisioni e tagli) più le tue voci: "
                   "scegli il materiale e applicalo al livello."), None),
     "material_test": (tr("Test materiale"), tr("Incide una griglia potenza × velocità con le etichette per trovare i valori giusti."), None),
+    "learned": (tr("Materiali imparati"), tr("FreeLaserCut impara come risponde il tuo materiale dalle foto dei test "
+                                             "(Leggi la foto del test → Impara questo materiale) e ogni foto lo affina. "
+                                             "Poi prevede il risultato nell'anteprima realistica, ti dice che potenza "
+                                             "serve per il tono che vuoi e corregge i toni delle foto in scala di grigi."),
+                None),
     "scan_offset": (tr("Correzione della scansione avanti e indietro"), tr(
         "Incidendo avanti e indietro, le righe di andata e quelle di ritorno possono non finire nello stesso punto: bordi "
         "a pettine e scritte sfocate. Qui si incide una prova (righe = velocità, colonne = correzioni), si sceglie il "

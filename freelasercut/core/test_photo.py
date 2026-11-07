@@ -46,6 +46,8 @@ class PhotoResult:
     origin: tuple  # angolo (x, y) del piano in alto a sinistra della foto raddrizzata
     suggestions: list = field(default_factory=list)
     uneven: float = 0.0  # quanto varia il materiale nudo (0 = uniforme)
+    bare_rgb: tuple = None  # colore del materiale nudo nella foto (RGB)
+    cell_rgb: np.ndarray = None  # [righe, colonne, 3] colore di ogni quadrato (RGB)
 
     def best(self, kind):
         for s in self.suggestions:
@@ -157,18 +159,27 @@ def analyze(image_bgr, spec):
     if vals.size < 20:
         raise PhotoError(tr("Tra i quadrati non c'è abbastanza materiale nudo da misurare: usa uno spazio più largo."))
     bg = float(np.median(vals))
+    bare_rgb = tuple(float(np.median(rect[..., i][bare])) for i in (2, 1, 0))
     uneven = float(np.subtract(*np.percentile(vals, [90, 10]))) / max(bg, 1.0)
     dark = np.zeros((spec.rows, spec.cols))
+    cell_rgb = np.zeros((spec.rows, spec.cols, 3))
     for r in range(spec.rows):
         for c in range(spec.cols):
             x, y, s = mtest.cell_rect(spec, L, r, c)
             a0, a1, b0, b1 = box(x, y, s, s, s * 0.2)
             m = float(np.median(lum[a0:a1, b0:b1]))
-            dark[r, c] = abs(bg - m) / max(bg, 1.0) if bg > 1 else 0.0
-    # su materiale scuro l'incisione può venire più chiara: conta la differenza, ma col segno prevalente
+            patch = rect[a0:a1, b0:b1].reshape(-1, 3)
+            cell_rgb[r, c] = np.median(patch, axis=0)[::-1]
+            dark[r, c] = m - bg  # con il segno: sotto si sceglie il verso prevalente
+    # su materiale scuro (ardesia, anodizzato) l'incisione viene più chiara: se la maggior parte dei quadrati schiarisce,
+    # 1 = bianco pieno (255) invece di nero; i quadrati nel verso sbagliato contano come la loro differenza
+    lighter = float(np.clip(dark, 0, None).sum()) > float(np.clip(-dark, 0, None).sum())
+    room = (255.0 - bg) if lighter else bg
+    dark = np.abs(dark) / max(room, 1.0) if room > 1 else np.zeros_like(dark)
     powers = mtest._steps(spec.p_min, spec.p_max, spec.rows)
     speeds = mtest._steps(spec.s_min, spec.s_max, spec.cols)
-    res = PhotoResult(np.clip(dark, 0, 1), powers, speeds, sorted(found), mirrored, rect, k, (xa, yb), uneven=uneven)
+    res = PhotoResult(np.clip(dark, 0, 1), powers, speeds, sorted(found), mirrored, rect, k, (xa, yb), uneven=uneven,
+                      bare_rgb=bare_rgb, cell_rgb=cell_rgb)
     res.suggestions = suggest(res.dark, powers, speeds)
     return res
 

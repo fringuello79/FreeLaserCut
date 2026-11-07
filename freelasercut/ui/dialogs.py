@@ -294,6 +294,7 @@ class PreviewDialog(QDialog):
         self.material = QComboBox()
         for m in renderer.MATERIALS:
             self.material.addItem(m.capitalize(), m)
+        self._add_learned(parent)
         self.travel = QCheckBox(tr("Mostra trasferimenti"))
         self.travel.setChecked(True)
         top.addWidget(self.r_lines)
@@ -354,6 +355,28 @@ class PreviewDialog(QDialog):
         self.stats.setText(tr("Totale {0} · inciso {1:.2f} m · trasferimenti {2:.2f} m", _fmt(total), pv.cut_len / 1000, pv.travel_len / 1000))
         self._seek(self.slider.value())
         QTimer.singleShot(0, self._fit)
+
+    def _add_learned(self, parent):
+        """Materiali imparati dalle foto dei test: scuro e colori veri del tuo legno. Se il disegno ne usa uno
+        (foto con i toni corretti), parte già da quello."""
+        from ..core import burn_curve
+        from .dialogs_curves import swatch_icon
+
+        curves = [c for c in burn_curve.load_all() if c.ok]
+        if not curves:
+            return
+        self.material.insertSeparator(self.material.count())
+        for c in curves:
+            self.material.addItem(swatch_icon(c), tr("{0} (imparato)", c.name), renderer.CURVE_PREFIX + c.uid)
+        doc = getattr(getattr(parent, "editor", None), "doc", None)
+        used = [cs.burn_curve for cs in (doc.used_layers() if doc is not None else []) if getattr(cs, "burn_curve", "")]
+        for uid in used:
+            i = self.material.findData(renderer.CURVE_PREFIX + uid)
+            if i >= 0:
+                self.material.setCurrentIndex(i)
+                break
+        self.material.setToolTip(tr("Con un materiale imparato la resa realistica usa la risposta e i colori misurati "
+                                    "nelle foto dei tuoi test"))
 
     def _fit(self):
         b = self.pv

@@ -438,6 +438,22 @@ class CutSettingsDialog(QDialog):
             lab_.setToolTip(w_.toolTip())
             iff.addRow(lab_, w_)
         self.dither.currentIndexChanged.connect(self._dither_changed)
+        from ..core import burn_curve as _bc
+
+        self.curve = QComboBox()
+        self.curve.addItem(tr("Nessuno (potenza in proporzione ai grigi)"), "")
+        for c_ in _bc.load_all():
+            if c_.ok:
+                self.curve.addItem(c_.name, c_.uid)
+        if cs.burn_curve and self.curve.findData(cs.burn_curve) < 0:
+            self.curve.addItem(tr("(non c'è su questo computer)"), cs.burn_curve)
+        self.curve.setCurrentIndex(max(0, self.curve.findData(cs.burn_curve)))
+        self.curve.setToolTip(tr("Con il metodo Scala di grigi: i grigi della foto diventano toni equidistanti sul tuo "
+                                 "materiale vero, imparato dalle foto dei test (Laser → Materiali imparati). Senza, la "
+                                 "potenza va in proporzione ai grigi e sul legno i toni scuri si impastano."))
+        self.curve_name = QLabel(tr("Materiale imparato"))
+        self.curve_name.setToolTip(self.curve.toolTip())
+        iff.addRow(self.curve_name, self.curve)
         self._dither_changed()
         self.istart = QComboBox()
         for k, lab in IMAGE_STARTS.items():
@@ -469,6 +485,10 @@ class CutSettingsDialog(QDialog):
         on = self.dither.currentData() == "halftone"
         for w_ in (self.hcell, self.hangle, self.hcell_name, self.hangle_name):
             w_.setEnabled(on)
+        if hasattr(self, "curve"):
+            gray = self.dither.currentData() == "grayscale"
+            self.curve.setEnabled(gray)
+            self.curve_name.setEnabled(gray)
 
     def _mode_tab(self):
         m = self.mode.currentData()
@@ -490,7 +510,7 @@ class CutSettingsDialog(QDialog):
                     fill_grouping=self.grouping.currentData(), dpi=self.dpi.value(), dither=self.dither.currentData(),
                     negative=self.negative.isChecked(), dot_correction=self.dotc.value(),
                     halftone_cell=self.hcell.value(), halftone_angle=self.hangle.value(),
-                    image_start=self.istart.currentData() or "top")
+                    image_start=self.istart.currentData() or "top", burn_curve=self.curve.currentData() or "")
 
 
 # colonne della tabella livelli

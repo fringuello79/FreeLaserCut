@@ -4,11 +4,12 @@ import cv2
 import numpy as np
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QMessageBox, QPushButton,
+                               QScrollArea, QVBoxLayout, QWidget)
 
 from ..core import material_test as mtest
 from ..theme import css
+from . import style
 from freelasercut.i18n import tr  # noqa: E402
 from .. import units
 
@@ -89,7 +90,8 @@ class PhotoResultDialog(QDialog):
 
     def __init__(self, res, spec, parent=None):
         super().__init__(parent)
-        self.res = res
+        self.res, self.spec = res, spec
+        self.learned = None
         self.setWindowTitle(tr("Foto del test: risultato"))
         self.setMinimumSize(640, 520)
         v = QVBoxLayout(self)
@@ -139,8 +141,27 @@ class PhotoResultDialog(QDialog):
             wrap.setLayout(row)
             v.addWidget(wrap)
         bb = QDialogButtonBox(QDialogButtonBox.Close)
+        self.b_learn = QPushButton(style.icon("learn"), tr("Impara questo materiale…"))
+        self.b_learn.setToolTip(tr("FreeLaserCut si ricorda come risponde questo materiale: anteprima sul tuo legno, "
+                                   "potenza per il tono che vuoi e toni delle foto corretti (Laser → Materiali "
+                                   "imparati)"))
+        self.b_learn.setEnabled(bool(res.dark.size) and float(res.dark.max()) >= 0.08)
+        self.b_learn.clicked.connect(self.learn)
+        bb.addButton(self.b_learn, QDialogButtonBox.ActionRole)
         bb.rejected.connect(self.reject)
         v.addWidget(bb)
+
+    def learn(self):
+        from .dialogs_curves import LearnDialog, learned_message
+
+        prof = getattr(self.parent(), "profile", None)
+        dlg = LearnDialog(self.res, self.spec, getattr(prof, "name", "") or "", self)
+        if dlg.exec() == QDialog.Accepted and dlg.curve is not None:
+            self.learned = dlg.curve
+            self.b_learn.setText(tr("Imparato ✓"))
+            self.b_learn.setEnabled(False)
+            QMessageBox.information(self, tr("Materiali imparati"), learned_message(dlg.curve))
+        return self.learned
 
     def _use(self, s):
         self.use.emit(int(s.cell[0]), int(s.cell[1]))

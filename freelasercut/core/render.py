@@ -5,7 +5,8 @@ Ogni tratto deposita energia proporzionale a potenza / velocità (energia per mm
 L'energia si accumula sui pixel (passate sovrapposte e righe vicine si sommano),
 si sfuma con la dimensione dello spot e diventa scurimento: 1 - exp(-k·E).
 Non è una misura fisica esatta, ma mostra subito zone troppo cotte o troppo chiare,
-differenze fra livelli e l'effetto di interlinea e velocità.
+differenze fra livelli e l'effetto di interlinea e velocità. Con un materiale imparato dalle foto
+(core/burn_curve) scuro e colori vengono dalla curva misurata su quel legno.
 """
 import math
 
@@ -21,6 +22,21 @@ MATERIALS = {
     "ardesia": ((60, 62, 66), (205, 205, 200), 25.0),  # su ardesia il laser schiarisce
     "anodizzato nero": ((30, 30, 34), (215, 215, 210), 20.0),
 }
+
+
+CURVE_PREFIX = "curve:"
+
+
+def resolve_curve(material):
+    """Materiale imparato (BurnCurve, oppure «curve:<uid>») o None per i materiali generici."""
+    from .burn_curve import BurnCurve, get
+
+    if isinstance(material, BurnCurve):
+        return material if material.ok else None
+    if isinstance(material, str) and material.startswith(CURVE_PREFIX):
+        c = get(material[len(CURVE_PREFIX):])
+        return c if c is not None and c.ok else None
+    return None
 
 
 def render(pv, s_max=1000.0, material="betulla", px_per_mm=4.0, spot=0.15, upto=None, max_px=2400, grain=True):
@@ -69,6 +85,10 @@ def render(pv, s_max=1000.0, material="betulla", px_per_mm=4.0, spot=0.15, upto=
     np.add.at(E, (iy, ix), w)
     sigma = max(spot * ppm / 2.0, 0.6)
     E = cv2.GaussianBlur(E, (0, 0), sigma)
+    curve = resolve_curve(material)
+    if curve is not None:  # materiale imparato dalle foto: scuro e colori misurati sul legno vero
+        img = curve.color(curve.dark(E)).astype(np.float64)
+        return np.clip(img, 0, 255).astype(np.uint8), (x0, y0, W, H)
     base, dark, k = MATERIALS.get(material, MATERIALS["betulla"])
     d = 1.0 - np.exp(-k * E)  # E = energia per mm² (indipendente dalla risoluzione)
     img = np.empty((ny, nx, 3), np.float64)

@@ -17,7 +17,7 @@ import numpy as np
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QTransform
 
-from . import geom, imaging
+from . import burn_curve, geom, imaging
 from .document import Document, ImageShape
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -636,7 +636,11 @@ def _image_lines(leaf, tf, cs, s_levels, bed):
     pmin, pmax = cs.power_min, cs.power_max
     if cs.dither == "grayscale":
         q = np.round(vals * (s_levels - 1)) / (s_levels - 1)
-        power = np.where(q > 0, pmin + (pmax - pmin) * q, 0.0)
+        curve = burn_curve.get(getattr(cs, "burn_curve", ""))
+        if curve is not None and curve.ok:  # materiale imparato: grigi = scurezze equidistanti sul legno vero
+            power = np.where(q > 0, curve.tone_map(q, cs.speed, step, pmin, pmax, cs.passes), 0.0)
+        else:
+            power = np.where(q > 0, pmin + (pmax - pmin) * q, 0.0)
     else:
         power = np.where(vals > 0.5, pmax, 0.0)
     shrink = cs.dot_correction / 2.0 if cs.dither != "grayscale" else 0.0
@@ -747,6 +751,10 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
             job.warnings.append(tr("{0}: velocità {1:g} oltre il massimo della macchina, verrà limitata", cs.label(), cs.speed))
         if cs.power_max <= 0:
             job.warnings.append(tr("{0}: potenza 0%, il livello non inciderà nulla", cs.label()))
+        if cs.mode == "image" and cs.dither == "grayscale" and getattr(cs, "burn_curve", "") and \
+                burn_curve.get(cs.burn_curve) is None:
+            job.warnings.append(tr("{0}: il materiale imparato scelto non c'è (eliminato o su un altro computer), toni senza correzione",
+                                   cs.label()))
         if cs.air != air_on:
             w.raw("M8" if cs.air else "M9")
             air_on = cs.air

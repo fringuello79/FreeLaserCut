@@ -64,6 +64,7 @@ SHORT = {
     "variables": ("Variabili", "Variables", "Variables", "Variables", "Variáveis"),
     "materials": ("Materiali", "Materials", "Mater.", "Matér.", "Materiais"),
     "material_test": ("Test", "Test", "Prueba", "Test", "Teste"),
+    "learned": ("Imparati", "Learned", "Aprendidos", "Appris", "Aprendidos"),
     "identify": ("Riconosci", "Identify", "Detectar", "Identif.", "Detectar"),
     "help_mode": ("Guida", "Help", "Ayuda", "Aide", "Ajuda"),
     "select": ("Seleziona", "Select", "Selecc.", "Sélection", "Selec."),

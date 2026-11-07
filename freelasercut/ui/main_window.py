@@ -300,6 +300,9 @@ class MainWindow(QMainWindow):
             "materials": A(tr("Libreria materiali…"), self.material_library, "Ctrl+M", "library"),
             "material_test": A(tr("Test materiale…"), self.material_test, None, "grid",
                                tr("Griglia potenza × velocità per trovare i valori giusti di un materiale")),
+            "learned": A(tr("Materiali imparati…"), self.learned_materials, None, "learn",
+                         tr("FreeLaserCut impara il tuo materiale dalle foto dei test: anteprima sul tuo legno, potenza "
+                            "per il tono che vuoi, toni delle foto corretti")),
             "scan_offset": A(tr("Correzione della scansione avanti e indietro…"), self.scan_offset_dialog, None, None,
                              tr("Allinea le righe incise andando e tornando: bordi dritti e scritte nitide nei "
                                 "riempimenti e nelle foto")),
@@ -491,7 +494,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["photo"])
         m.addAction(a["trace"])
         menu(tr("&Laser"), ["connect", "identify", "profile_export", "profile_import", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-                        "materials", "material_test", "scan_offset", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
+                        "materials", "material_test", "learned", "scan_offset", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
         self.m_view.addSeparator()
@@ -1410,6 +1413,9 @@ class MainWindow(QMainWindow):
                     c = doc.layer(img.layer)
                     c.mode = "image"
                     c.dither, c.dpi, c.negative = lay["dither"], lay["dpi"], lay["negative"]
+                    c.burn_curve = lay.get("burn_curve", c.burn_curve)
+                    if "power_max" in lay:  # potenza consigliata per il materiale imparato
+                        c.power_min, c.power_max = lay["power_min"], lay["power_max"]
                 self.editor.run(tr("Prepara foto"), do)
                 self.editor.select([img])
                 self.statusBar().showMessage(tr("Foto preparata: {0:.1f} × {1:.1f} mm, {2}", w_mm, h_mm,
@@ -1480,9 +1486,13 @@ class MainWindow(QMainWindow):
                 for k, (m, li) in enumerate(zip(methods, free)):
                     c = doc.layer(li)
                     for f_ in ("speed", "power_max", "power_min", "passes", "air", "dpi", "negative", "dot_correction",
-                               "halftone_cell", "halftone_angle", "bidirectional", "overscan", "image_start"):
+                               "halftone_cell", "halftone_angle", "bidirectional", "overscan", "image_start",
+                               "burn_curve"):
                         setattr(c, f_, getattr(cs, f_))
                     c.mode, c.dither, c.dpi, c.negative = "image", m, lay["dpi"], lay["negative"]
+                    c.burn_curve = lay.get("burn_curve", c.burn_curve)
+                    if "power_max" in lay:  # potenza consigliata per il materiale imparato
+                        c.power_min, c.power_max = lay["power_min"], lay["power_max"]
                     c.name = DITHER_LABELS[m]
                     s = ImageShape(tid, side, side, layer=li)
                     s.brightness, s.contrast, s.gamma = adj["brightness"], adj["contrast"], adj["gamma"]
@@ -2471,6 +2481,15 @@ class MainWindow(QMainWindow):
         if m.defocus:
             msg += tr(" — ricordati di abbassare il fuoco di {0:g} mm", m.defocus)
         self.statusBar().showMessage(msg, 10000)
+
+    def learned_materials(self, *_):
+        from .dialogs_curves import CurvesDialog
+
+        dlg = CurvesDialog(self)
+        dlg.test_requested.connect(lambda: QTimer.singleShot(0, self.material_test))
+        self._curves_dlg = dlg
+        dlg.exec()
+        self._curves_dlg = None
 
     def material_test(self, seed=None):
         if getattr(self, "_mt_dlg", None) is not None:

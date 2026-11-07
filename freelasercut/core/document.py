@@ -80,6 +80,7 @@ class CutSettings:
     halftone_cell: float = 1.0  # mm
     halftone_angle: float = 45.0
     image_start: str = "top"  # immagini: da dove parte (vedi IMAGE_STARTS)
+    burn_curve: str = ""  # foto in scala di grigi: curva di un materiale imparato (core/burn_curve), "" = nessuna
 
     @property
     def color(self):
@@ -97,6 +98,8 @@ class CutSettings:
         cs = cls(**known)
         if not isinstance(cs.image_start, str) or cs.image_start not in IMAGE_STARTS:  # versione futura o file rovinato
             cs.image_start = "top"
+        if not isinstance(cs.burn_curve, str):
+            cs.burn_curve = ""
         return cs
 
 

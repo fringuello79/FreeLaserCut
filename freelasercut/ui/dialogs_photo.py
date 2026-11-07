@@ -465,6 +465,34 @@ class PhotoDialog(QDialog):
         self.real = QCheckBox(tr("Zona centrale 1:1 (punti veri)"))
         self.real.setToolTip(tr("Mostra la zona centrale alla risoluzione vera del laser, punto per punto"))
         f.addRow("", self.real)
+        # materiale imparato dalle foto dei test: l'anteprima mostra il risultato previsto sul tuo legno
+        from ..core import burn_curve
+
+        self.learned = QComboBox()
+        self.learned.addItem(tr("Generico"), "")
+        for c in burn_curve.load_all():
+            if c.ok:
+                from .dialogs_curves import swatch_icon
+
+                self.learned.addItem(swatch_icon(c), c.name, c.uid)
+        uid = getattr(cs, "burn_curve", "") or ""
+        if uid and self.learned.findData(uid) < 0:  # imparato su un altro computer: si vede e non si perde
+            self.learned.addItem(tr("(non c'è su questo computer)"), uid)
+        self.learned.setCurrentIndex(max(0, self.learned.findData(uid)))
+        self.learned.setToolTip(tr("Un materiale imparato dalle foto dei tuoi test: «Come verrà incisa» mostra il "
+                                   "risultato previsto su quel legno, con i suoi colori, e con il metodo Scala di grigi "
+                                   "i toni vengono corretti per lui"))
+        self.learned.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.learned.setMinimumContentsLength(12)
+        f.addRow(tr("Sul materiale"), self.learned)
+        self.learned_pw = QCheckBox()
+        self.learned_pw.setToolTip(tr("Imposta sul livello la potenza consigliata per questo materiale alla velocità "
+                                      "del livello"))
+        f.addRow("", self.learned_pw)
+        self.learned_note = QLabel()
+        self.learned_note.setObjectName("muted")
+        self.learned_note.setWordWrap(True)
+        f.addRow("", self.learned_note)
         self.b_test = QPushButton(style.icon("library"), tr("Prova foto: 4 metodi a confronto…"))
         self.b_test.setToolTip(tr("Aggiunge sul piano 4 quadrati della zona centrale, uno per metodo, su livelli "
                                   "separati: incidili e scegli il migliore"))
@@ -563,8 +591,13 @@ class PhotoDialog(QDialog):
             w.valueChanged.connect(self._later)
         for w in (self.auto, self.bg, self.flip, self.neg, self.real, self.v_outline, self.v_edges):
             w.toggled.connect(self._later)
-        for w in (self.mask, self.dither, self.effect, self.fx_angle):
+        for w in (self.mask, self.dither, self.effect, self.fx_angle, self.learned):
             w.currentIndexChanged.connect(self._later)
+        self.learned.currentIndexChanged.connect(self._learned_changed)
+        self.learned_pw.toggled.connect(self._later)
+        self.dpi.valueChanged.connect(self._learned_changed)
+        self.dither.currentIndexChanged.connect(self._learned_changed)
+        self._learned_changed()
         for w in (self.fx_strength, self.fx_detail):
             w.valueChanged.connect(self._later)
         self.tones.valueChanged.connect(self._later)
@@ -653,7 +686,55 @@ class PhotoDialog(QDialog):
         return dict(brightness=float(self.bri.value()), contrast=float(self.con.value()), gamma=self.gam.value() / 100.0)
 
     def layer_values(self):
-        return dict(dither=self.dither.currentData(), dpi=float(self.dpi.value()), negative=self.neg.isChecked())
+        lv = dict(dither=self.dither.currentData(), dpi=float(self.dpi.value()), negative=self.neg.isChecked(),
+                  burn_curve=self.learned.currentData() or "")
+        pw = self.learned_powers()
+        if pw is not None and self.learned_pw.isChecked():
+            lv["power_min"], lv["power_max"] = pw
+        return lv
+
+    def learned_curve(self):
+        from ..core import burn_curve
+
+        uid = self.learned.currentData() if hasattr(self, "learned") else ""
+        c = burn_curve.get(uid) if uid else None
+        return c if c is not None and c.ok else None
+
+    def learned_powers(self):
+        """Potenze consigliate per il materiale imparato (minima, massima) alla velocità del livello, o None."""
+        c = self.learned_curve()
+        if c is None:
+            return None
+        sug = c.suggest(self.cs.speed, 25.4 / max(float(self.dpi.value()), 10.0), self.cs.passes)
+        if sug is None:
+            return None
+        if self.dither.currentData() != "grayscale":
+            return (self.cs.power_min, sug["dark"])
+        return (sug["start"], sug["dark"])
+
+    def _learned_changed(self, *_):
+        from .. import units
+
+        c = self.learned_curve()
+        pw = self.learned_powers()
+        self.learned_pw.setVisible(pw is not None)
+        self.learned_note.setVisible(c is not None)
+        if pw is None:
+            self.learned_pw.setChecked(False)
+            return
+        self.learned_pw.setText(tr("Usa la potenza consigliata: {0:g}–{1:g} %", pw[0], pw[1]))
+        sug = c.suggest(self.cs.speed, 25.4 / max(float(self.dpi.value()), 10.0), self.cs.passes)
+        note = tr("Livello: {0:g}–{1:g} % a {2}.", self.cs.power_min, self.cs.power_max, units.fmt(self.cs.speed))
+        if sug and sug.get("slow"):
+            note += " " + tr("Per il nero più scuro serve una velocità di circa {0}.", units.fmt(sug["slow"]))
+        self.learned_note.setText(note)
+
+    def _powers(self):
+        """(minima, massima) usate dall'anteprima: quelle consigliate se spuntate, altrimenti quelle del livello."""
+        pw = self.learned_powers()
+        if pw is not None and self.learned_pw.isChecked():
+            return pw
+        return (self.cs.power_min, self.cs.power_max)
 
     def vector_params(self):
         return dict(tones=self.tones.value(), detail=self.v_detail.value() / 100.0, smooth=self.v_smooth.value() / 100.0,
@@ -728,8 +809,20 @@ class PhotoDialog(QDialog):
             self._dtimer.start()
         self.info.setText(tr("{0} · {1:.1f} × {2:.1f} mm · {3:.0f} dpi", DITHER_LABELS[lv["dither"]], w_mm, h_mm, dpi))
 
-    @staticmethod
-    def _tint(dots_img, negative):
+    def _tint(self, dots_img, negative):
+        c = self.learned_curve()
+        if c is not None:  # risultato previsto sul materiale imparato: risposta e colori misurati
+            from ..core import burn_curve
+
+            iv = 25.4 / max(float(self.dpi.value()), 10.0)
+            pmin, pmax = self._powers()
+            q = np.clip(dots_img.astype(np.float64), 0.0, 1.0)
+            if self.dither.currentData() == "grayscale":
+                pw = np.where(q > 0, c.tone_map(q, self.cs.speed, iv, pmin, pmax, self.cs.passes), 0.0)
+            else:
+                pw = np.where(q > 0.5, pmax, 0.0)
+            e = burn_curve.energy(1.0, self.cs.speed, iv, self.cs.passes) * pw
+            return _qimage_rgb(c.color(c.dark(e)))
         bg, ink = MATERIAL_TINT[negative]
         bg, ink = np.float32(bg), np.float32(ink)
         return _qimage_rgb(bg + (ink - bg) * dots_img[..., None])
