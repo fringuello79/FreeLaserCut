@@ -2124,5 +2124,10 @@
  "Verifica e avvia così": "Check and start as is",
  "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0}: photo with very dense dots, at {1:g} mm/min the port can't send the commands fast enough (about {2:g} mm/min at most): the head may stutter",
  "(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)": "(board startup message at a different speed: unreadable, this is normal)",
- "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "The board doesn't respond even to Ctrl+X: restarting it from the USB port, like the reset button"
+ "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "The board doesn't respond even to Ctrl+X: restarting it from the USB port, like the reset button",
+ "Area di lavoro {0:g} × {1:g} mm salvata nel profilo «{2}»": "Work area {0:g} × {1:g} mm saved in the profile “{2}”",
+ "Area di lavoro {0:g}×{1:g} mm (il produttore dichiara {2:g}×{3:g})": "Work area {0:g}×{1:g} mm (the manufacturer states {2:g}×{3:g})",
+ "Il profilo «{0}» aveva un'area di lavoro non credibile ({1:g} × {2:g} mm, letta male dalla scheda): ora è {3:g} × {4:g} mm. Se non è la misura giusta, correggila nel pannello Macchina.": "The profile “{0}” had an implausible work area ({1:g} × {2:g} mm, misread from the board): it is now {3:g} × {4:g} mm. If that's not the right size, correct it in the Machine panel.",
+ "Misura vera del piano su cui si muove la testa (X × Y). Con il laser collegato, «Leggi dalla macchina» la prende dalla scheda ($130/$131), se è credibile.": "Real size of the bed the head moves over (X × Y). With the laser connected, “Read from machine” takes it from the board ($130/$131), if plausible.",
+ "Usa questa area": "Use this area"
 }

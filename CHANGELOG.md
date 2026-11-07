@@ -1,5 +1,11 @@
 # Novità di FreeLaserCut
 
+## 0.17.4 — 07/11/2026
+- **Profilo salvato con un'area di lavoro assurda.** Un utente vedeva il piano 365 × 32764 mm anche senza il laser collegato: le versioni precedenti avevano salvato nel profilo un valore letto male dalla scheda, e il profilo resta anche disinstallando (sta nella cartella nascosta `%APPDATA%\FreeLaserCut\profiles`). La 0.17.2 controllava solo le nuove letture. Ora, all'apertura, un profilo con un'area non credibile torna all'area dichiarata dal produttore del modello (o 400 mm per il laser generico; l'asse buono resta), si salva così e un avviso dice cosa è cambiato, con il pulsante *Area di lavoro*.
+- **Area di lavoro a mano, anche senza laser collegato**: nel pannello *Macchina* (nel Banco dentro l'Officina) ci sono i due campi X × Y e *Usa questa area*, che salva il profilo e ridisegna il piano. Prima si poteva solo da *Riconosci la macchina*, con il laser collegato.
+- **Controlli della macchina:** la riga dell'area si confrontava sempre con la targa del Longer B1 («targa 450×440»), anche con le altre macchine. Ora si confronta con l'area dichiarata dal produttore del modello scelto, se è nel catalogo; altrimenti dice solo l'area.
+- `tests/test_v173.py`: 25 controlli (11 nuovi, con un profilo salvato da 365 × 32764 mm).
+
 ## 0.17.3 — 07/11/2026
 - **Schede ESP32 che restano mute anche dopo il reset morbido.** Dalle immagini di un utente su GitHub (grblHAL su ESP32 con chip USB CH9102): all'apertura della porta l'ESP32 restava in **modalità di programmazione**, dove GRBL non gira, e ripartiva solo premendo il pulsante sulla scheda. Il Ctrl+X della 0.16.3 lì non arriva. Ora, se dopo il Ctrl+X la scheda è ancora muta, FreeLaserCut la **riavvia dalle linee DTR/RTS** della porta USB: è la stessa sequenza dello strumento ufficiale di programmazione delle ESP32 e fa come il pulsante, con la scheda che riparte normale. Poi le due linee restano spente. Una volta sola e solo se la scheda è muta: le schede che rispondono subito, il Wi-Fi e il simulatore non cambiano.
   - Lo stesso anche in **Riconosci la macchina**: se la scheda non risponde, la riavvia una volta dalla porta e riprova.

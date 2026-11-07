@@ -64,6 +64,8 @@ class MainWindow(QMainWindow):
         self.updates = UpdateManager(self)  # aggiornamento dal programma (Release di GitHub)
         self._update_installer = None
         self.profile = self._load_active_profile()
+        if getattr(self.profile, "bed_fixed", None):
+            QTimer.singleShot(0, self._profile_bed_fixed)
         self.editor = Editor(Document())
         self.canvas = Canvas(self.editor, (self.profile.bed_x, self.profile.bed_y))
         self.bed = self.canvas  # compatibilità con il pannello Camera
@@ -760,6 +762,18 @@ class MainWindow(QMainWindow):
         act.triggered.connect(lambda _=False, d=d: self.show_panel(d))
         self.m_panels.addAction(act)
         return d
+
+    def show_machine_panel(self, focus=None):
+        """Pannello Macchina in primo piano, nella Classica (pannello a destra) e nel Banco (Officina)."""
+        if getattr(self, "banco", None) is not None:
+            self.banco.officina_show("machine")
+        else:
+            d = getattr(self, "docks", {}).get("machine")
+            if d is not None:
+                d.show()
+                d.raise_()
+        if focus is not None:
+            focus.setFocus()
 
     def show_panel(self, d):
         d.show()
@@ -1815,6 +1829,23 @@ class MainWindow(QMainWindow):
                 pass
         return MachineProfile.load_default()
 
+    def _profile_bed_fixed(self):
+        """0.17.4: il profilo salvato aveva un'area non credibile (es. 365 × 32764): rimessa a posto, salvata e detta."""
+        p = self.profile
+        old = getattr(p, "bed_fixed", None)
+        if not old:
+            return
+        try:
+            p.save()
+        except OSError:
+            pass
+        p.bed_fixed = None
+
+        self.show_banner(tr("Il profilo «{0}» aveva un'area di lavoro non credibile ({1:g} × {2:g} mm, letta male dalla "
+                            "scheda): ora è {3:g} × {4:g} mm. Se non è la misura giusta, correggila nel pannello Macchina.",
+                            p.name, old[0], old[1], p.bed_x, p.bed_y), "warn",
+                         [(tr("Area di lavoro"), lambda: self.show_machine_panel(self.machine.area_x)), (tr("Ok"), self.banner.hide)])
+
     def set_active_profile(self, p):
         self.qs.setValue("profile_path", p.path())
         self.on_profile(p)
@@ -1861,16 +1892,10 @@ class MainWindow(QMainWindow):
         profilo e lo dico, con la strada per correggere il valore sulla scheda."""
         vals = ", ".join(f"${n}={v}" for n, v in bad)
 
-        def show_table():
-            d = getattr(self, "docks", {}).get("machine")
-            if d is not None:
-                d.show()
-                d.raise_()
-
         self.show_banner(tr("La scheda dice {0}: non è un'area di lavoro credibile. FreeLaserCut tiene il piano del profilo "
                             "({1:g} × {2:g} mm). Correggi il valore sulla scheda con la misura vera, in mm.", vals,
                             self.profile.bed_x, self.profile.bed_y), "warn",
-                         [(tr("Impostazioni della scheda"), show_table), (tr("Rileggi"), self.ctl.request_settings)])
+                         [(tr("Impostazioni della scheda"), self.show_machine_panel), (tr("Rileggi"), self.ctl.request_settings)])
 
     def _auto_identify(self, settings):
         """Dopo ogni lettura di $$: se la scheda collegata non corrisponde al profilo attivo, lo dice e propone

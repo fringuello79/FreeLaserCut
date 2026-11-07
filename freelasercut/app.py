@@ -9,7 +9,7 @@ from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
-    QAbstractItemView, QApplication, QButtonGroup, QComboBox, QFileDialog, QFrame, QGridLayout,
+    QAbstractItemView, QApplication, QButtonGroup, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMainWindow, QMessageBox, QPlainTextEdit,
     QProgressBar, QPushButton, QSpinBox, QSplitter, QStatusBar, QTableWidget, QTableWidgetItem,
     QTabWidget, QToolButton, QVBoxLayout, QWidget,
@@ -352,6 +352,25 @@ class MachinePanel(QWidget):
         self.checks_box = QVBoxLayout()
         self.checks_box.setSpacing(6)
         pl.addLayout(self.checks_box)
+        # 0.17.4: area di lavoro a mano, anche senza laser collegato (prima solo da «Riconosci la macchina», collegati)
+        al = QHBoxLayout()
+        al.addWidget(QLabel(tr("Area di lavoro")))
+        self.area_x, self.area_y = QDoubleSpinBox(), QDoubleSpinBox()
+        for sp in (self.area_x, self.area_y):
+            sp.setRange(10, 3000)
+            sp.setDecimals(0)
+            sp.setSuffix(" mm")
+            sp.setMinimumWidth(92)
+            sp.setToolTip(tr("Misura vera del piano su cui si muove la testa (X × Y). Con il laser collegato, «Leggi dalla "
+                             "macchina» la prende dalla scheda ($130/$131), se è credibile."))
+        al.addWidget(self.area_x)
+        al.addWidget(QLabel("×"))
+        al.addWidget(self.area_y)
+        self.btn_area = QPushButton(tr("Usa questa area"))
+        self.btn_area.clicked.connect(self.set_area)
+        al.addWidget(self.btn_area)
+        al.addStretch(1)
+        pl.addLayout(al)
         bl = QHBoxLayout()
         self.btn_read = QPushButton(tr("Leggi dalla macchina"))
         self.btn_read.setObjectName("primary")
@@ -471,6 +490,10 @@ class MachinePanel(QWidget):
     def refresh_profile(self):
         p = self.profile
         self.profile_title.setText(p.name)
+        for sp, v in ((self.area_x, p.bed_x), (self.area_y, p.bed_y)):
+            sp.blockSignals(True)
+            sp.setValue(v)
+            sp.blockSignals(False)
         fw = f"\nFirmware: {p.firmware_label()}" if p.firmware else ""
         self.profile_sub.setText(
             tr("{0:g}×{1:g} mm  ·  S0–S{2:g}  ·  spot {3}×{4} mm  ·  {5}\nFonte: {6}{7}", p.bed_x, p.bed_y, p.s_max, p.spot_x_mm, p.spot_y_mm, p.optical_power, p.source, fw)
@@ -501,6 +524,21 @@ class MachinePanel(QWidget):
                                                           QTimer.singleShot(400, self.ctl.request_settings)))
                 rl.addWidget(b)
             self.checks_box.addWidget(row)
+
+    def set_area(self):
+        """Area di lavoro scritta a mano: entra nel profilo, che si salva, e il piano si ridisegna."""
+        if self.ctl.job_active:
+            return
+        p = self.profile
+        p.bed_x, p.bed_y = float(self.area_x.value()), float(self.area_y.value())
+        try:
+            p.save()
+        except OSError as exc:
+            QMessageBox.warning(self, tr("Profilo"), tr("Impossibile salvare il profilo:\n{0}", exc))
+        self.refresh_profile()
+        self.on_profile(p)
+        _main(self).statusBar().showMessage(tr("Area di lavoro {0:g} × {1:g} mm salvata nel profilo «{2}»", p.bed_x,
+                                               p.bed_y, p.name), 6000)
 
     def save_profile(self):
         path = self.profile.save()

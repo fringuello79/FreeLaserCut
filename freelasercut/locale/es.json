@@ -2124,5 +2124,10 @@
  "Verifica e avvia così": "Verificar e iniciar así",
  "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0}: foto con puntos muy densos, a {1:g} mm/min el puerto no envía los comandos lo bastante rápido (unos {2:g} mm/min como máximo): el cabezal puede ir a tirones",
  "(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)": "(mensaje de arranque de la placa a otra velocidad: ilegible, es normal)",
- "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "La placa no responde ni siquiera a Ctrl+X: la reinicio desde el puerto USB, como el botón de reset"
+ "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "La placa no responde ni siquiera a Ctrl+X: la reinicio desde el puerto USB, como el botón de reset",
+ "Area di lavoro {0:g} × {1:g} mm salvata nel profilo «{2}»": "Área de trabajo {0:g} × {1:g} mm guardada en el perfil «{2}»",
+ "Area di lavoro {0:g}×{1:g} mm (il produttore dichiara {2:g}×{3:g})": "Área de trabajo {0:g}×{1:g} mm (el fabricante declara {2:g}×{3:g})",
+ "Il profilo «{0}» aveva un'area di lavoro non credibile ({1:g} × {2:g} mm, letta male dalla scheda): ora è {3:g} × {4:g} mm. Se non è la misura giusta, correggila nel pannello Macchina.": "El perfil «{0}» tenía un área de trabajo no creíble ({1:g} × {2:g} mm, mal leída de la placa): ahora es {3:g} × {4:g} mm. Si no es la medida correcta, corrígela en el panel Máquina.",
+ "Misura vera del piano su cui si muove la testa (X × Y). Con il laser collegato, «Leggi dalla macchina» la prende dalla scheda ($130/$131), se è credibile.": "Medida real de la mesa sobre la que se mueve el cabezal (X × Y). Con el láser conectado, «Leer de la máquina» la toma de la placa ($130/$131), si es creíble.",
+ "Usa questa area": "Usar esta área"
 }

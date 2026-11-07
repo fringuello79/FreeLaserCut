@@ -2124,5 +2124,10 @@
  "Verifica e avvia così": "Vérifier et lancer tel quel",
  "{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta (circa {2:g} mm/min al massimo): la testa può andare a scatti": "{0} : photo aux points très serrés, à {1:g} mm/min le port n'envoie pas les commandes assez vite (environ {2:g} mm/min au maximum) : la tête peut avancer par à-coups",
  "(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)": "(message de démarrage de la carte à une autre vitesse : illisible, c'est normal)",
- "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "La carte ne répond même pas à Ctrl+X : je la redémarre depuis le port USB, comme le bouton reset"
+ "La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante di reset": "La carte ne répond même pas à Ctrl+X : je la redémarre depuis le port USB, comme le bouton reset",
+ "Area di lavoro {0:g} × {1:g} mm salvata nel profilo «{2}»": "Zone de travail {0:g} × {1:g} mm enregistrée dans le profil « {2} »",
+ "Area di lavoro {0:g}×{1:g} mm (il produttore dichiara {2:g}×{3:g})": "Zone de travail {0:g}×{1:g} mm (le fabricant annonce {2:g}×{3:g})",
+ "Il profilo «{0}» aveva un'area di lavoro non credibile ({1:g} × {2:g} mm, letta male dalla scheda): ora è {3:g} × {4:g} mm. Se non è la misura giusta, correggila nel pannello Macchina.": "Le profil « {0} » avait une zone de travail non plausible ({1:g} × {2:g} mm, mal lue sur la carte) : elle est maintenant de {3:g} × {4:g} mm. Si ce n'est pas la bonne taille, corrigez-la dans le panneau Machine.",
+ "Misura vera del piano su cui si muove la testa (X × Y). Con il laser collegato, «Leggi dalla macchina» la prende dalla scheda ($130/$131), se è credibile.": "Taille réelle du plateau sur lequel se déplace la tête (X × Y). Avec le laser connecté, « Lire depuis la machine » la prend sur la carte ($130/$131), si elle est plausible.",
+ "Usa questa area": "Utiliser cette zone"
 }

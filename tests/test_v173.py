@@ -4,7 +4,9 @@
   ripartiva solo con il pulsante. Ora, se resta muta, FreeLaserCut la riavvia dalle linee DTR/RTS della porta (come il
   pulsante, la sequenza «hard reset» dello strumento ufficiale delle ESP32), anche in «Riconosci la macchina»;
 - il messaggio di avvio dell'ESP32 a un'altra velocità (caratteri illeggibili) diventa una riga che lo spiega;
-- strumento Misura: linea e misura ben visibili anche sul piano chiaro."""
+- strumento Misura: linea e misura ben visibili anche sul piano chiaro.
+0.17.4: profilo salvato con un'area assurda (365 × 32764) sistemato all'apertura; area a mano nel pannello Macchina
+anche senza laser; controlli con l'area del produttore del modello (non più la targa del B1)."""
 import os
 import sys
 import tempfile
@@ -192,6 +194,36 @@ check("…un riavvio solo anche provando più velocità", r2 is not None and sum
 r3 = machines.probe("COM9", bauds=(115200,), opener=lambda p, bd: SimSerial())
 check("scheda normale: letta come prima", r3 is not None and r3["settings"])
 
+# ---------------------------------------------------------------- profilo salvato con un'area assurda
+from freelasercut.profile import MachineProfile, config_dir
+from freelasercut.settings_store import app_settings
+
+gp = MachineProfile(name="Laser GRBL", model="Laser GRBL", bed_x=365.0, bed_y=32764.0)
+os.makedirs(os.path.dirname(gp.path()), exist_ok=True)
+gp.save()
+lp = MachineProfile.load(gp.path())
+check("profilo generico salvato con 365 × 32764: all'apertura 365 × 400, l'asse buono resta",
+      (lp.bed_x, lp.bed_y) == (365, 400) and lp.bed_fixed == (365, 32764), (lp.bed_x, lp.bed_y))
+xp = MachineProfile(name="Mecpow X3S 12W", model="Mecpow X3S 12W", bed_x=234500.0, bed_y=360.0)
+xp.save()
+lx = MachineProfile.load(xp.path())
+check("profilo di un modello del catalogo: torna all'area del produttore (360)", (lx.bed_x, lx.bed_y) == (360, 360))
+bp = MachineProfile(bed_x=450.0, bed_y=-5.0)
+bp.save()
+check("Longer B1: torna a 450 × 440", (MachineProfile.load(bp.path()).bed_y) == 440)
+ok_p = MachineProfile(name="Buono", model="Laser GRBL", bed_x=600.0, bed_y=400.0)
+ok_p.save()
+lo = MachineProfile.load(ok_p.path())
+check("profilo con area credibile: nessun cambiamento", (lo.bed_x, lo.bed_y) == (600, 400) and lo.bed_fixed is None)
+chk = " ".join(m for _, m, _ in lx.checks())
+check("controlli della macchina: niente più «targa 450×440» per le altre macchine",
+      "450×440" not in chk and "360×360 mm" in chk, chk)
+lx.bed_x = lx.bed_y = 400.0
+chk2 = " ".join(m for _, m, _ in lx.checks())
+check("…e se l'area è diversa da quella del produttore lo dice", "il produttore dichiara 360×360" in chk2, chk2)
+app_settings().setValue("profile_path", gp.path())
+gp.save()  # di nuovo con 32764 sul disco
+
 # ---------------------------------------------------------------- strumento Misura
 from freelasercut.ui import tools
 from freelasercut.ui.main_window import MainWindow
@@ -216,6 +248,25 @@ orange = sum(1 for x in range(0, 400, 2) for y in range(0, 200, 2)
              if abs(QColor(img.pixel(x, y)).hue() - 22) < 12 and QColor(img.pixel(x, y)).saturation() > 150)
 check("misura sul piano bianco: etichetta scura piena e linea arancio scuro", dark > 150 and orange > 40, (dark, orange))
 check("colori: niente più giallo chiaro", tools.MEASURE_LINE.upper() != "#FFD43B")
+
+# ---------------------------------------------------------------- finestra: profilo sistemato e area a mano
+check("all'avvio il profilo con 32764 è sistemato, salvato e detto",
+      (w.profile.bed_x, w.profile.bed_y) == (365, 400) and not w.banner.isHidden() and "32764" in w.banner_text.text()
+      and MachineProfile.load(gp.path()).bed_fixed is None, w.banner_text.text())
+check("piano disegnato con l'area giusta", (w.canvas.bed_x, w.canvas.bed_y) == (365, 400))
+w.show_machine_panel(w.machine.area_x)
+until(lambda: False, 0.3)
+check("pulsante dell'avviso: pannello Macchina in vista (Classica a destra, Banco nell'Officina)",
+      w.machine.area_x.isVisible(), w.machine.area_x.isVisible())
+mp = w.machine
+check("pannello Macchina: area modificabile anche senza laser collegato",
+      not w.ctl.connected and mp.area_x.isEnabled() and mp.btn_area.isEnabled() and mp.area_y.value() == 400)
+mp.area_x.setValue(360)
+mp.area_y.setValue(360)
+mp.btn_area.click()
+check("«Usa questa area»: profilo, piano e file aggiornati",
+      (w.profile.bed_x, w.profile.bed_y) == (360, 360) and (w.canvas.bed_x, w.canvas.bed_y) == (360, 360)
+      and (MachineProfile.load(gp.path()).bed_x, MachineProfile.load(gp.path()).bed_y) == (360, 360))
 
 code = 0 if all(results) else 1
 print(f"\n{sum(results)}/{len(results)} superati")

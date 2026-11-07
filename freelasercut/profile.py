@@ -249,8 +249,12 @@ class MachineProfile:
             out.append(("ok", tr("Homing attivo ($22=1): l'origine macchina è sempre la stessa"), None))
         else:
             out.append(("info", tr("Homing disattivato: l'origine è dove si trova la testa all'accensione"), None))
-        if abs(self.bed_x - 450) > 5 or abs(self.bed_y - 440) > 5:
-            out.append(("info", tr("Corsa dichiarata dalla scheda {0:g}×{1:g} mm (targa 450×440)", self.bed_x, self.bed_y), None))
+        # 0.17.4: prima il confronto era sempre con la targa del Longer B1 (450×440), anche per le altre macchine
+        nom = self.nominal_area()
+        if nom and min(abs(self.bed_x - nom[0]) + abs(self.bed_y - nom[1]),
+                       abs(self.bed_x - nom[1]) + abs(self.bed_y - nom[0])) > 10:
+            out.append(("info", tr("Area di lavoro {0:g}×{1:g} mm (il produttore dichiara {2:g}×{3:g})", self.bed_x,
+                                   self.bed_y, nom[0], nom[1]), None))
         else:
             out.append(("ok", tr("Area di lavoro {0:g}×{1:g} mm", self.bed_x, self.bed_y), None))
         if not self.soft_limits and self.homing:
@@ -296,7 +300,46 @@ class MachineProfile:
                 # quelle versioni salvavano un angolo anche senza sceglierlo (o ricavato da una prova a metà):
                 # non lo do per vero, altrimenti il primo homing potrebbe capovolgere gli assi
                 known["origin_corner"] = ""
-        return cls(**known)
+        p = cls(**known)
+        p.fix_bed()
+        return p
+
+    def nominal_area(self):
+        """Area dichiarata dal produttore per il modello del profilo (mm), o None se il modello non è nel catalogo."""
+        if self.model == "Longer B1 40W":
+            return 450.0, 440.0
+        try:
+            from . import machines
+        except ImportError:
+            return None
+        for n, _v, bx, by, *_ in machines.CATALOG:
+            if n == self.model:
+                return tuple(float(v) for v in machines.AREA_NOTE.get(n, (bx, by)))
+        return None
+
+    def fix_bed(self):
+        """0.17.4: un profilo salvato con un'area non credibile (visto 365 × 32764 mm, dalla lettura della scheda delle
+        versioni precedenti) torna all'area del modello, o a 400 mm per il laser generico; l'asse buono resta.
+        Ritorna l'area di prima se l'ha cambiata (anche in self.bed_fixed), altrimenti None."""
+        from .grbl_codes import travel_ok
+
+        self.bed_fixed = None
+        if travel_ok(self.bed_x) and travel_ok(self.bed_y):
+            return None
+        old = (self.bed_x, self.bed_y)
+        if self.model == "Longer B1 40W":
+            nx, ny = 450.0, 440.0
+        else:
+            from . import machines
+
+            pre = machines.preset_profile(self.model) if self.model in machines.catalog_names() else None
+            nx, ny = (pre.bed_x, pre.bed_y) if pre is not None else (400.0, 400.0)
+        if not travel_ok(self.bed_x):
+            self.bed_x = nx
+        if not travel_ok(self.bed_y):
+            self.bed_y = ny
+        self.bed_fixed = old
+        return old
 
     @classmethod
     def load_default(cls):
