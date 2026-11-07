@@ -119,13 +119,22 @@ def save(settings, info=(), reason="manuale", port="", folder=None):
 
 
 def diff(current, saved):
-    """[(numero, valore attuale, valore della copia)] per le impostazioni che la scheda conosce e che cambiano."""
+    """[(numero, valore attuale, valore della copia)] per le impostazioni che la scheda conosce e che cambiano.
+    Un'area di lavoro non credibile nella copia ($130/$131, es. 234500) non si rimanda mai: vedi not_restored."""
     cur = {int(k): str(v) for k, v in (current or {}).items()}
+    skip = {n for n, _ in not_restored(saved)}
     out = []
     for n, v in sorted(saved.items()):
-        if n in cur and not _same(cur[n], v):
+        if n in cur and n not in skip and not _same(cur[n], v):
             out.append((n, cur[n], v))
     return out
+
+
+def not_restored(saved):
+    """[(numero, "valore")] della copia che il ripristino non rimanda perché non credibili."""
+    from .grbl_codes import bad_travel
+
+    return bad_travel({int(k): v for k, v in (saved or {}).items()})
 
 
 def restore_lines(current, saved):

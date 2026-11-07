@@ -118,12 +118,18 @@ class BoardBackupDialog(QDialog):
         with open(path, encoding="utf-8", errors="replace") as fh:
             saved = bb.parse(fh.read())
         changes = bb.diff(self.ctl.board_settings, saved)
+        skipped = bb.not_restored(saved)
+        note = (tr("Non rimando {0}: non è un'area di lavoro credibile.", ", ".join(f"${n}={v}" for n, v in skipped))
+                if skipped else "")
         if not changes:
-            QMessageBox.information(self, tr("Ripristino"), tr("La scheda ha già tutti i valori di questa copia."))
+            QMessageBox.information(self, tr("Ripristino"), (note + "\n\n" if note else "")
+                                    + tr("La scheda ha già tutti i valori di questa copia."))
             return []
         txt = "\n".join(f"${n}: {a} → {b}" for n, a, b in changes[:25])
         if len(changes) > 25:
             txt += "\n…"
+        if note:
+            txt += "\n\n" + note
         if QMessageBox.question(self, tr("Ripristino"), tr("Rimando alla scheda {0} valori:\n\n{1}\n\nProcedo?",
                                                            len(changes), txt)) != QMessageBox.Yes:
             return None

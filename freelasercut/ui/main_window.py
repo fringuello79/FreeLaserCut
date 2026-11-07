@@ -27,7 +27,7 @@ from .dialogs import CheckResultDialog, CircularArrayDialog, GridArrayDialog, Of
 from .editor import Editor
 from .help_mode import HelpMode
 from .panels_design import LayersPanel, NumericBar, PaletteBar, PropertiesPanel
-from .panels_machine import LaserPanel, MovePanel
+from .panels_machine import LaserPanel, MovePanel, choppy_text
 from .dialogs_setup import corner_name
 from freelasercut.i18n import tr  # noqa: E402
 from .. import units
@@ -995,6 +995,7 @@ class MainWindow(QMainWindow):
         ctl.message.connect(lambda m: self.statusBar().showMessage(m, 5000))
         ctl.homed_changed.connect(self.on_homed)
         ctl.settings_ready.connect(self._auto_identify)
+        ctl.travel_suspect.connect(self._travel_suspect)
         ctl.check_finished.connect(self._check_done)
         ctl.job_error.connect(self._job_error)
         ctl.job_finished.connect(self._job_finished)
@@ -1853,6 +1854,22 @@ class MainWindow(QMainWindow):
 
         MachineWizard(self).exec()
 
+    def _travel_suspect(self, bad):
+        """0.17.2: $130/$131 non credibili anche alla seconda lettura (visto 400 × 234500): il piano resta quello del
+        profilo e lo dico, con la strada per correggere il valore sulla scheda."""
+        vals = ", ".join(f"${n}={v}" for n, v in bad)
+
+        def show_table():
+            d = getattr(self, "docks", {}).get("machine")
+            if d is not None:
+                d.show()
+                d.raise_()
+
+        self.show_banner(tr("La scheda dice {0}: non è un'area di lavoro credibile. FreeLaserCut tiene il piano del profilo "
+                            "({1:g} × {2:g} mm). Correggi il valore sulla scheda con la misura vera, in mm.", vals,
+                            self.profile.bed_x, self.profile.bed_y), "warn",
+                         [(tr("Impostazioni della scheda"), show_table), (tr("Rileggi"), self.ctl.request_settings)])
+
     def _auto_identify(self, settings):
         """Dopo ogni lettura di $$: se la scheda collegata non corrisponde al profilo attivo, lo dice e propone
         il riconoscimento (una sola volta per firmware)."""
@@ -2047,9 +2064,11 @@ class MainWindow(QMainWindow):
         if getattr(self, "banco", None) is not None:
             self.banco.flow.refresh()
 
-    def build_job(self, show=True):
-        """Genera il G-code; se show mostra l'anteprima sul piano e il riepilogo."""
+    def build_job(self, show=True, compact=False):
+        """Genera il G-code; se show mostra l'anteprima sul piano e il riepilogo.
+        compact: foto con punti molto fitti unite in tratti più lunghi dove la porta non ce la farebbe (0.17.2)."""
         opts = self.job_options()
+        opts.compact_raster = bool(compact)
         if opts.start_from == "current" and self.canvas.head_pos() is None:
             QMessageBox.information(self, tr("Posizione attuale"), tr("Per partire dalla posizione attuale la macchina deve "
                                     "essere connessa (FreeLaserCut deve sapere dov'è la testa)."))
@@ -2214,8 +2233,27 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, tr("Non posso avviare il lavoro"), "\n".join("• " + b for b in block))
             return
         b = job.bounds
+        baud = self.ctl.stream_baud(self.profile.baud)
+        choppy = job.choppy(baud)
+        # 0.17.2: foto troppo fitte per la porta a quella velocità. Si può compattare solo un lavoro fatto dal disegno
+        can_compact = bool(choppy) and plate is not None and not job.compacted
+        stream = ""
+        if choppy:
+            stream = "".join("⚠ " + choppy_text(c) + "<br>" for c in choppy)
+            if can_compact:
+                stream += tr("<br><b>Compatta</b> unisce i punti vicini con la stessa potenza in tratti più lunghi: meno "
+                             "comandi, stessi toni, i dettagli più fini un po' meno netti lungo la riga.<br>Se preferisci "
+                             "non compattare: annulla e abbassa la risoluzione (punti per pollice) o la velocità del "
+                             "livello, oppure alza la velocità della porta (menu Laser → Velocità della porta seriale), "
+                             "se la scheda la regge.<br>")
+            else:
+                stream += tr("Per evitarlo: abbassa la risoluzione (punti per pollice) o la velocità del livello, oppure "
+                             "alza la velocità della porta (menu Laser → Velocità della porta seriale), se la scheda la "
+                             "regge.<br>")
+            stream += "<br>"
         txt = (f"<b>Tempo stimato {_hms(job.seconds)}</b> · {b.width():.1f} × {b.height():.1f} mm · {len(job.lines)} righe<br><br>"
                + ("".join(f"⚠ {w}<br>" for w in warn) + "<br>" if warn else "")
+               + stream
                + tr("Prima di partire:<br>• occhiali protettivi per 450 nm indossati da chi è vicino<br>"
                  "• materiale fissato e a fuoco (lente 50 mm)<br>• air assist e aspirazione fumi attivi<br>"
                  "• non lasciare la macchina incustodita"))
@@ -2224,11 +2262,29 @@ class MainWindow(QMainWindow):
         box.setTextFormat(Qt.RichText)
         box.setText(txt)
         verify = self.laser.verify_first.isChecked() and len(job.lines) <= 40000
-        go = box.addButton(tr("Verifica e avvia") if verify else tr("Avvia"), QMessageBox.AcceptRole)
+        squeeze = None
+        if can_compact:
+            squeeze = box.addButton(tr("Compatta, verifica e avvia") if self.laser.verify_first.isChecked()
+                                    else tr("Compatta e avvia"), QMessageBox.AcceptRole)
+        go = box.addButton((tr("Verifica e avvia così") if verify else tr("Avvia così")) if can_compact
+                           else (tr("Verifica e avvia") if verify else tr("Avvia")), QMessageBox.AcceptRole)
         box.addButton(tr("Annulla"), QMessageBox.RejectRole)
+        if squeeze is not None:
+            box.setDefaultButton(squeeze)
         box.exec()
-        if box.clickedButton() is not go:
+        clicked = box.clickedButton()
+        if clicked is not go and (squeeze is None or clicked is not squeeze):
             return
+        if squeeze is not None and clicked is squeeze:
+            job = self.build_job(compact=True)
+            if job is None or not job.lines:
+                return
+            verify = self.laser.verify_first.isChecked() and len(job.lines) <= 40000
+            still = job.choppy(baud)
+            if still:
+                self.statusBar().showMessage(tr("Anche compattato, oltre circa {0:g} mm/min la testa può andare a scatti: "
+                                                "abbassa la risoluzione o la velocità del livello",
+                                                round(min(c[2] for c in still), -2)), 12000)
         self._start_ctx = (plate, tuple(s.id for s in self.editor.selection))  # cosa è stato confermato
         if verify:
             self._pending_start = job

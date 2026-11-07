@@ -118,6 +118,9 @@ CATALOG = (
     ("Mecpow X4 22W / X4 Pro 22W", "Mecpow", 400, 400, "22 W", 22000),
     ("Mecpow X4 Pro 40W", "Mecpow", 398, 398, "20–40 W", 30000),
     ("Mecpow X5 Pro 33W", "Mecpow", 600, 600, "33 W", 28000),
+    # 0.17.2: richiesta da un utente; dati dalle pagine ufficiali Mecpow (SOURCES), lette il 07/11/2026
+    ("Mecpow X3S 7W", "Mecpow", 360, 360, "7 W", 10000),
+    ("Mecpow X3S 12W", "Mecpow", 360, 360, "12 W", 10000),
     ("Longer Ray5 Mini", "Longer", 130, 130, "2,5–3,5 W", 12000),
     ("Creality CR-Laser Falcon 5W", "Creality", 400, 400, "5 W", 10000),
     ("Atomstack A70 Max", "Atomstack", 800, 800, "35–70 W", 24000),
@@ -135,6 +138,8 @@ SOURCES = {
     "Mecpow X4 22W / X4 Pro 22W": "https://mecpow.com/products/x4-22w-powerful-laser-engraver",
     "Mecpow X4 Pro 40W": "https://mecpow.com/products/mecpow-x4-pro-40w-laser-engraving-machine",
     "Mecpow X5 Pro 33W": "https://mecpow.com/products/x5-pro-33w-laser-engraving-machine-with-air-pump",
+    "Mecpow X3S 7W": "https://mecpow.com/products/mecpow-x3s-7w-laser-engraver",
+    "Mecpow X3S 12W": "https://mecpow.com/products/mecpow-x3s-12w-laser-engraver",
     "Longer Ray5 Mini": "https://www.longer.net/products/longer-ray5-mini-laser-engraver",
     "Creality CR-Laser Falcon 5W": "https://www.crealityfalcon.com/products/cr-laser-falcon-5w-laser-engraver",
     "Atomstack A70 Max": "https://atomstack.com/products/atomstack-a70-max",
@@ -176,6 +181,9 @@ NOTES = {
         "è di solito 8080. Se il firmware non accetta G55, FreeLaserCut se ne accorge alla prima verifica."),
     "Sculpfun iCube Ultra 12W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
 }
+for _n in ("Mecpow X3S 7W", "Mecpow X3S 12W"):
+    NOTES[_n] = tr("Con il kit di estensione dell'asse Y (venduto a parte) l'area diventa 360 × 730 mm: collegando la "
+                   "macchina e premendo «Leggi dalla macchina», l'area vera si legge dalla scheda.")
 # spot del laser (mm) dichiarato dal produttore, dove è diverso dal valore comune (0,08 × 0,10)
 for _n, (_ax, _ay) in AREA_NOTE.items():
     _bx, _by = next((c[2], c[3]) for c in CATALOG if c[0] == _n)
@@ -186,6 +194,7 @@ NOTES["Atomstack A70 Max"] = NOTES["Atomstack A70 Max"] + " " + tr(
     "Velocità massima dichiarata 400 mm/s (24.000 mm/min), senza dire se di incisione o di spostamento.")
 SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpow X4 22W / X4 Pro 22W": (0.08, 0.10),
          "Mecpow X4 Pro 40W": (0.10, 0.15), "Mecpow X5 Pro 33W": (0.08, 0.10), "Longer Ray5 Mini": (0.04, 0.04),
+         "Mecpow X3S 7W": (0.05, 0.07), "Mecpow X3S 12W": (0.06, 0.08),
          "Creality CR-Laser Falcon 5W": (0.06, 0.06),
          "Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06), "Sculpfun SF-A9 40W": (0.10, 0.15),
          "Sculpfun iCube Pro Max 10W": (0.08, 0.08), "Sculpfun iCube Ultra 12W": (0.08, 0.08),
@@ -361,6 +370,18 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
             break
     # impostazioni
     bx, by = _num(settings, 130), _num(settings, 131)
+    from .grbl_codes import bad_travel
+
+    bad = bad_travel(settings)
+    if bad:  # 0.17.2: area non credibile (es. $131=234500): non la uso per il piano né per riconoscere il modello
+        if any(n == 130 for n, _ in bad):
+            bx = None
+        if any(n == 131 for n, _ in bad):
+            by = None
+        ident.notes.append(("warn", tr("La scheda dice {0}: non è un'area di lavoro credibile e FreeLaserCut non la usa. "
+                                    "Controlla il valore nella scheda Macchina (tabella delle impostazioni) e "
+                                    "correggilo con la misura vera del piano, in mm.",
+                                    ", ".join(f"${n}={v}" for n, v in bad))))
     ident.bed = (bx or 0.0, by or 0.0)
     ident.s_max = _num(settings, 30) or 0.0
     lm, hm = _num(settings, 32), _num(settings, 22)

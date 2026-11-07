@@ -29,6 +29,7 @@ from .. import units
 from . import style
 from ..theme import css, tc
 from .canvas import RULER
+from .panels_machine import OVERRIDE_TIP
 from .editor import TOOL_LAYER
 
 OFF_W = 520  # larghezza dell'Officina a cassetto
@@ -1103,7 +1104,7 @@ class Cockpit:
             minus.setToolTip(tr("Riduci del 10%"))
             plus = QPushButton("+")
             plus.setObjectName("bcStep")
-            plus.setToolTip(tr("Aumenta del 10%"))
+            plus.setToolTip(tr("Aumenta del 10%") + "\n" + OVERRIDE_TIP[kind]())
             val = _label("100%")
             val.setFont(style.mono_font(11))
             val.setFixedWidth(60)
@@ -1160,7 +1161,7 @@ class Cockpit:
         sl = lp.ov_speed if kind == "feed" else lp.ov_power
         val = max(10, min(200, sl.value() + delta))
         sl.setValue(val)
-        self.win.ctl.set_override(kind, val)
+        lp._override(kind, val)  # come il cursore: sopra il 100% dice se la scheda può salire (0.17.2)
         self.ov[kind].setText(f"{val}%")
 
     def enter(self):

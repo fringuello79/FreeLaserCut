@@ -1,5 +1,19 @@
 # Novità di FreeLaserCut
 
+## 0.17.2 — 07/11/2026
+Dalle prove di un utente.
+- **Area di lavoro non credibile ignorata.** Collegando il laser, il piano era diventato 400 × 234500 mm: la scheda aveva risposto `$131=234500`, probabilmente «234.500» arrivato senza il punto. Ora un'area ($130/$131) sotto 10 mm o sopra 3000 mm non diventa il piano: FreeLaserCut lo dice e rilegge le impostazioni una volta. Se il valore resta, un avviso mostra il valore, il piano che resta in uso e i pulsanti *Impostazioni della scheda* e *Rileggi*. Lo zero (corsa non impostata) resta normale, come prima.
+  - Non si usa nemmeno per riconoscere il modello (*Riconosci la macchina*), con una nota che spiega come correggerlo.
+  - Il **ripristino di una copia** delle impostazioni non rimanda mai un'area non credibile, e lo dice.
+  - Scrivendo un valore così nella tabella delle impostazioni, FreeLaserCut chiede di ricontrollare (con il «No» già scelto).
+- **Foto troppo fitte per la porta seriale.** Con il dithering ogni punto è un comando: a velocità alte la porta non riesce a mandarli abbastanza in fretta e la testa va a scatti (segnalato oltre 10000 mm/min). FreeLaserCut ora stima, dalla velocità della porta e dai punti della foto, fin dove si può andare, e lo dice nel riepilogo del pannello Laser e all'avvio.
+  - All'avvio si può scegliere **Compatta e avvia**: i punti vicini con la stessa potenza diventano tratti più lunghi, solo nei livelli dove serve. Stessi toni (stessa quantità di bruciato), meno comandi (circa la metà), dettagli più fini un po' meno netti lungo la riga. Con il dithering a diffusione dell'errore la foto si rifà su punti più lunghi; con toni di grigio, retino e soglia i punti vicini si uniscono.
+  - Oppure **Avvia così**, con il consiglio di abbassare la risoluzione o la velocità del livello o di alzare la velocità della porta (*Laser → Velocità della porta seriale…*).
+  - In Wi-Fi e con il simulatore la stima non si fa.
+- **Override sopra il 100% spiegati.** Durante il lavoro velocità e potenza si abbassano sempre, ma sopra il 100% la scheda non supera la sua potenza massima ($30) né la velocità massima degli assi ($110/$111); sui tratti corti contano anche le accelerazioni. È il comportamento di GRBL: ora lo spiegano i suggerimenti dei cursori (e dei pulsanti +/− del Banco), e lasciando un valore sopra il 100% la barra di stato dice fin dove la scheda può davvero salire.
+- **Mecpow X3S 7W e X3S 12W** nel catalogo: 360 × 360 mm, 10000 mm/min, spot 0,05 × 0,07 e 0,06 × 0,08 mm, dalle pagine ufficiali Mecpow. Nota sul kit di estensione dell'asse Y (360 × 730 mm). 51 modelli pronti.
+- Nuova prova automatica `tests/test_v172.py` (44 controlli, Classica e Banco).
+
 ## 0.17.1 — 07/11/2026
 - **Aiuti per il soggetto dello Schizzo più prevedibili**, dopo le prove di un utente su foto vere (un'auto, un coccodrillo):
   - **Riquadro**: quello che sta fuori è sempre sfondo. Prima, se dentro il riquadro non si trovava un soggetto, si disegnava tutta la foto; ora resta il riquadro.

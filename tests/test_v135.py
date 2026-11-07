@@ -266,7 +266,7 @@ check("etichetta «Partenza della foto», diversa da «Partenza» del pannello L
 from freelasercut import machines
 cat = {c[0]: c for c in machines.CATALOG}
 check("Longer Ray5 10W e 20W separati (prima una voce sola), il vecchio nome non c'è più",
-      "Longer Ray5 10W" in cat and "Longer Ray5 20W" in cat and "Longer Ray5 10W / 20W" not in cat and len(cat) == 49)
+      "Longer Ray5 10W" in cat and "Longer Ray5 20W" in cat and "Longer Ray5 10W / 20W" not in cat and len(cat) >= 49)  # 51 dalla 0.17.2 (Mecpow X3S)
 check("Ray5 10W: 400 × 400 mm, 10.000 mm/min, spot 0,06 mm (pagina Longer)",
       cat["Longer Ray5 10W"][2:4] == (400, 400) and cat["Longer Ray5 10W"][5] == 10000 and
       machines.SPOTS["Longer Ray5 10W"] == (0.06, 0.06))

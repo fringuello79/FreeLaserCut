@@ -53,6 +53,38 @@ for _n in (28, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 5
     SETTINGS.setdefault(_n, VENDOR_LABEL)
 SETTINGS[51] = (tr("Tipo di scheda (firmware Longer/MKS): sola lettura"), "")
 
+# 0.17.2: area di lavoro credibile per un laser da hobby o da laboratorio. Un valore fuori (visto: $131=234500,
+# probabilmente «234.500» letto senza il punto) non diventa il piano: FreeLaserCut lo ignora, avvisa e rilegge.
+TRAVEL_MIN, TRAVEL_MAX = 10.0, 3000.0
+
+
+def travel_ok(value):
+    """Corsa ($130/$131) credibile, in mm."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return False
+    return TRAVEL_MIN <= v <= TRAVEL_MAX
+
+
+def bad_travel(settings):
+    """[(numero, "valore")] di $130/$131 presenti ma non credibili. Lo zero non conta: molte schede lo lasciano
+    così quando la corsa non è impostata, e allora il piano resta quello del profilo, come sempre."""
+    out = []
+    for n in (130, 131):
+        v = (settings or {}).get(n, (settings or {}).get(str(n)))
+        if v is None:
+            continue
+        try:
+            if float(v) == 0:
+                continue
+        except (TypeError, ValueError):
+            pass
+        if not travel_ok(v):
+            out.append((n, str(v)))
+    return out
+
+
 # impostazioni che contano di più per un laser: evidenziate nell'interfaccia
 KEY_SETTINGS = {21, 22, 30, 31, 32, 110, 111, 120, 121, 130, 131}
 

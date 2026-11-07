@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__, gcode_preview
 from .grbl import SIM_PORT, GrblController, list_serial_ports
-from .grbl_codes import KEY_SETTINGS, SETTINGS, STATE_COLORS, VENDOR_SETTINGS
+from .grbl_codes import KEY_SETTINGS, SETTINGS, STATE_COLORS, TRAVEL_MAX, TRAVEL_MIN, VENDOR_SETTINGS, bad_travel
 from .profile import MachineProfile
 from .theme import C, QSS, css, tc
 from .workspace import BedView
@@ -453,8 +453,13 @@ class MachinePanel(QWidget):
         if new == old:
             return
         desc = SETTINGS.get(n, ("parametro", ""))[0]
-        ans = QMessageBox.question(self, tr("Modifica impostazione"),
-                                   tr("Scrivere ${0} = {1} sulla macchina?\n({2}, valore attuale {3})", n, new, desc, old))
+        text = tr("Scrivere ${0} = {1} sulla macchina?\n({2}, valore attuale {3})", n, new, desc, old)
+        default = QMessageBox.Yes
+        if bad_travel({n: new}):  # 0.17.2: area di lavoro non credibile, chiedo di ricontrollare
+            text = tr("${0} = {1} non sembra un'area di lavoro credibile (di solito è fra {2:g} e {3:g} mm, con il punto "
+                      "per i decimali: per esempio 400.000).", n, new, TRAVEL_MIN, TRAVEL_MAX) + "\n\n" + text
+            default = QMessageBox.No
+        ans = QMessageBox.question(self, tr("Modifica impostazione"), text, QMessageBox.Yes | QMessageBox.No, default)
         if ans == QMessageBox.Yes:
             self.ctl.write_setting(n, new)
             QTimer.singleShot(400, self.ctl.request_settings)

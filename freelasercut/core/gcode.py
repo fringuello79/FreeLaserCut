@@ -74,6 +74,9 @@ class JobOptions:
     g54_offset: tuple = (0.0, 0.0)  # offset G54 della scheda (WCO) quando no_g55
     name: str = ""
     rotary: object = None  # dict: kind (roller | chuck), mm_per_rev, roller_d, object_d — None = piano normale
+    # 0.17.2: foto con punti molto fitti e velocità alta: unisce i punti vicini in tratti più lunghi (meno comandi),
+    # solo nei livelli dove la porta non ce la farebbe (vedi stream_vmax)
+    compact_raster: bool = False
 
 
 @dataclass
@@ -84,6 +87,120 @@ class LayerStats:
     items: int = 0
     cut_mm: float = 0.0
     lines: int = 0
+    speed: float = 0.0  # mm/min del livello (limitata al massimo della macchina)
+    power: float = 0.0  # potenza massima del livello, %
+
+
+# ======================================================================= flusso dei comandi (0.17.2)
+# Con le foto ogni cambio di potenza lungo la riga è un comando G-code. Se i comandi sono più corti di quanto la porta
+# riesce a mandarne in un secondo, la scheda svuota la coda e la testa va a scatti (segnalato a 10000 mm/min con il
+# dithering). La stima è prudente ma semplice: byte al secondo della porta (10 bit per byte, il 90% utile, meno i
+# rapporti di stato) diviso i byte di un comando, per la lunghezza dei comandi nelle righe più fitte della foto.
+STREAM_BYTES = 13  # byte di un comando tipico di una foto a toni di grigio («X118.3 S512.5» + a capo)
+STREAM_BYTES_DOTS = 10  # con il dithering la potenza è una sola: comandi più corti («X118.3 S0»)
+STREAM_MIN_CMDS = 8  # righe con meno comandi non contano (bordi, righe quasi vuote)
+COMPACT_MAX = 6  # al massimo 6 punti uniti in un gruppo
+
+
+def stream_vmax(seg_mm, baud, bytes_per_cmd=STREAM_BYTES):
+    """Velocità (mm/min) oltre la quale una porta a 'baud' non manda abbastanza in fretta comandi lunghi seg_mm."""
+    if not seg_mm or seg_mm <= 0 or not baud or baud <= 0:
+        return math.inf
+    cmds_s = max(baud / 10.0 * 0.9 - 300.0, 100.0) / max(float(bytes_per_cmd), 4.0)
+    return cmds_s * seg_mm * 60.0
+
+
+def _dense_seg(lines):
+    """Lunghezza (mm) dei comandi nelle righe fitte di una foto: la mediana fra le righe con almeno
+    STREAM_MIN_CMDS comandi. 0 = nessuna riga fitta (nessun problema di flusso)."""
+    ls = []
+    for _y, segs in lines:
+        if len(segs) < STREAM_MIN_CMDS // 2:
+            continue
+        cmds = len(segs) + sum(1 for a, b in zip(segs, segs[1:]) if abs(b[0] - a[1]) > 1e-9)
+        if cmds < STREAM_MIN_CMDS:
+            continue
+        ext = abs(max(segs[-1][1], segs[0][0]) - min(segs[-1][1], segs[0][0]))
+        if ext > 0:
+            ls.append(ext / cmds)
+    return float(np.percentile(ls, 50)) if ls else 0.0
+
+
+def _block_mean(a, k, axis):
+    """Media di k punti vicini lungo axis (l'ultimo gruppo può essere più corto)."""
+    a = np.asarray(a, dtype=float)
+    t = a if axis == 1 else a.T
+    h, w = t.shape
+    m = -(-w // k)
+    pad = np.zeros((h, m * k))
+    pad[:, :w] = t
+    cnt = np.full(m, float(k))
+    if w % k:
+        cnt[-1] = w % k
+    out = pad.reshape(h, m, k).sum(axis=2) / cnt[None, :]
+    return out if axis == 1 else out.T
+
+
+def _compact_rows(a, k, right_first, lead=0):
+    """_compact su righe già allineate al gruppo: a (h, w) → stesse dimensioni. lead: punti finti (spenti) all'inizio."""
+    h, w = a.shape
+    m = -(-w // k)
+    pad = np.zeros((h, m * k), dtype=float)
+    pad[:, :w] = a
+    blk = pad.reshape(h, m, k)
+    c = (blk > 0).sum(axis=2)
+    pval = np.where(c > 0, blk.sum(axis=2) / np.maximum(c, 1), 0.0)
+    right = (np.arange(m) % 2 == 0) == right_first
+    if w % k:
+        right[-1] = False  # l'ultimo gruppo è incompleto: a sinistra, così non esce dalla foto
+    if lead:
+        right[0] = True  # il primo gruppo comincia con punti finti: a destra, sui punti veri
+    start = np.where(right[None, :], k - c, 0)
+    idx = np.arange(k)[None, None, :]
+    mask = (idx >= start[..., None]) & (idx < (start + c)[..., None])
+    return np.where(mask, pval[..., None], 0.0).reshape(h, m * k)[:, :w]
+
+
+def _compact(power, k, axis=1):
+    """Unisce i punti vicini lungo la riga (axis = verso di scansione): ogni gruppo di k punti diventa un tratto solo,
+    lungo quanto i punti accesi del gruppo e con la loro potenza media (stessa quantità di bruciato, quindi stessi
+    toni). I gruppi si attaccano a coppie (uno a destra, il successivo a sinistra), così due gruppi vicini fanno un
+    tratto unico. L'inizio dei gruppi cambia da una riga all'altra (sempre uguale per la stessa foto), altrimenti si
+    vedrebbero righe verticali. Meno comandi per riga; si perdono solo i dettagli più fini di k punti lungo la riga."""
+    k = int(k)
+    if k <= 1:
+        return power
+    a = np.asarray(power, dtype=float)
+    a = a if axis == 1 else a.T
+    h, w = a.shape
+    shifts = np.random.default_rng(1729).integers(0, 2 * k, size=h)
+    out = np.zeros_like(a)
+    for sh in range(2 * k):
+        rows = np.nonzero(shifts == sh)[0]
+        if not len(rows):
+            continue
+        o = sh % k
+        part = np.zeros((len(rows), w + o))
+        part[:, o:] = a[rows]
+        out[rows] = _compact_rows(part, k, sh < k, o)[:, o:]
+    return out if axis == 1 else out.T
+
+
+def compact_factor(seg_mm, step_mm, speed, baud, bytes_per_cmd=STREAM_BYTES, spread=False):
+    """Quanti punti unire perché i comandi bastino alla velocità data (1 = non serve).
+    spread: dithering rifatto su punti più lunghi (i comandi si allungano di circa k volte); altrimenti i punti si
+    uniscono in tratti lunghi almeno k punti."""
+    vmax = stream_vmax(seg_mm, baud, bytes_per_cmd)
+    if speed <= vmax * 1.05 or step_mm <= 0:
+        return 1
+    ratio = speed * 1.15 / vmax
+    k = math.ceil(ratio) if spread else max(math.ceil(ratio), math.ceil(seg_mm * ratio / step_mm))
+    return int(max(2, min(COMPACT_MAX, k)))
+
+
+def compact_spreads(dither):
+    """Con questi metodi la compattazione rifà il dithering su punti più lunghi (vedi _image_lines)."""
+    return dither not in ("grayscale", "halftone", "threshold")
 
 
 @dataclass
@@ -99,6 +216,24 @@ class GcodeJob:
     rotary_k: float = 1.0  # rotativo: Y macchina = riferimento + (Y piano - riferimento) × k
     rotary_ref: tuple = (0.0, 0.0)  # punto di riferimento sul piano (ancoraggio del disegno)
     preview: object = None  # gcode_preview.Preview delle righe generate (coordinate di uscita)
+    # 0.17.2: per ogni livello Immagine {index, label, speed, seg (mm), bytes, compact (punti uniti, 1 = no)}
+    stream: list = field(default_factory=list)
+
+    def choppy(self, baud):
+        """[(livello, velocità, velocità massima per la porta, punti uniti)] dove la testa può andare a scatti.
+        baud None (Wi-Fi, simulatore): nessuna stima."""
+        out = []
+        if not baud:
+            return out
+        for st in self.stream:
+            vmax = stream_vmax(st.get("seg", 0.0), baud, st.get("bytes", STREAM_BYTES))
+            if st.get("speed", 0.0) > vmax * 1.05:
+                out.append((st.get("label", ""), st["speed"], vmax, st.get("compact", 1)))
+        return out
+
+    @property
+    def compacted(self):
+        return any(st.get("compact", 1) > 1 for st in self.stream)
 
 
 def rotary_scale(r):
@@ -610,7 +745,7 @@ def _runs(vals, origin, step, shrink):
     return segs
 
 
-def _image_lines(leaf, tf, cs, s_levels, bed):
+def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
     """Una forma immagine -> (righe [(y, [(xa, xb, potenza%), ...])], rotazione, verso della prima riga).
 
     cs.image_start sceglie da dove parte: «top» dall'alto (righe orizzontali, come sempre), «bottom» dal basso,
@@ -632,7 +767,14 @@ def _image_lines(leaf, tf, cs, s_levels, bed):
     grid = imaging.sample_to_grid(dark, inv, leaf.w, leaf.h, x0, y0, nx, ny, step)
     grid = imaging.adjust(grid, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
     cell_px = max(cs.halftone_cell / step, 2.0)
+    start = getattr(cs, "image_start", "top")
+    scan_axis = 0 if start in ("left", "right") else 1
+    spread = compact > 1 and compact_spreads(cs.dither)
+    if spread:  # 0.17.2: dithering su punti lunghi k lungo la riga (la diffusione dell'errore li mette dove servono)
+        grid = _block_mean(grid, int(compact), scan_axis)
     vals = imaging.dither(grid[::-1].copy(), cs.dither, cell_px, cs.halftone_angle)[::-1]  # dithering dall'alto
+    if spread:
+        vals = np.repeat(vals, int(compact), axis=scan_axis)[:ny, :nx]
     pmin, pmax = cs.power_min, cs.power_max
     if cs.dither == "grayscale":
         q = np.round(vals * (s_levels - 1)) / (s_levels - 1)
@@ -644,7 +786,8 @@ def _image_lines(leaf, tf, cs, s_levels, bed):
     else:
         power = np.where(vals > 0.5, pmax, 0.0)
     shrink = cs.dot_correction / 2.0 if cs.dither != "grayscale" else 0.0
-    start = getattr(cs, "image_start", "top")
+    if compact > 1 and not spread:  # 0.17.2: toni di grigio, retino, soglia: punti vicini uniti in tratti
+        power = _compact(power, int(compact), axis=scan_axis)
     lines = []
     if start in ("left", "right"):
         # righe verticali: nel sistema ruotato di 90° la riga è a v = −x e i tratti corrono lungo y
@@ -744,7 +887,8 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     air_on = False
     for cs in layers:
         items = [(leaf, tf * pl_tf) for leaf, tf in by_layer[cs.index]]
-        st = LayerStats(cs.index, cs.label(), cs.mode, items=len(items))
+        st = LayerStats(cs.index, cs.label(), cs.mode, items=len(items),
+                        speed=min(cs.speed, profile.max_rate_x, profile.max_rate_y), power=cs.power_max)
         cut_before = w.cut
         n_before = len(w.lines)
         if cs.speed > min(profile.max_rate_x, profile.max_rate_y):
@@ -768,12 +912,29 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
             imgs = [(l, t) for l, t in items if isinstance(l, ImageShape)]
             if len(imgs) < len(items):
                 job.warnings.append(tr("{0}: in modalità Immagine le forme vettoriali vengono ignorate", cs.label()))
+            segs_l, k_l = [], 1
             for leaf, tf in imgs:
                 leaf._doc_image = doc.images.get(leaf.image_id)
                 lines, rot, first = _image_lines(leaf, tf, cs, opts.gray_levels, bed)
+                seg = _dense_seg(lines)
+                if opts.compact_raster and seg > 0:
+                    k = compact_factor(seg, 25.4 / max(cs.dpi, 10.0), st.speed, getattr(profile, "baud", 115200),
+                                       STREAM_BYTES if cs.dither == "grayscale" else STREAM_BYTES_DOTS,
+                                       compact_spreads(cs.dither))
+                    if k > 1:
+                        lines, rot, first = _image_lines(leaf, tf, cs, opts.gray_levels, bed, compact=k)
+                        seg = _dense_seg(lines)
+                        k_l = max(k_l, k)
+                if seg > 0:
+                    segs_l.append(seg)
                 for _ in range(max(1, cs.passes)):
                     _emit_scan(w, lines, rot, cs, bed, opts.raster_gap_g1, first_forward=first,
                                scan_fix=rot == (1.0, 0.0))
+            if segs_l:
+                new_lines = w.lines[n_before:]
+                nb = (sum(len(x) for x in new_lines) / len(new_lines) + 1.0) if new_lines else STREAM_BYTES
+                job.stream.append({"index": cs.index, "label": cs.label(), "speed": st.speed, "seg": min(segs_l),
+                                   "bytes": nb, "compact": k_l, "dither": cs.dither})
         else:
             if any(isinstance(l, ImageShape) for l, _ in items):
                 job.warnings.append(tr("{0}: le foto su un livello che non è in modalità Immagine non vengono incise: "

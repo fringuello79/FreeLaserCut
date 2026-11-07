@@ -22,7 +22,7 @@ except ImportError:  # pragma: no cover
     serial = None
     list_ports = None
 
-from .grbl_codes import ALARMS, ERRORS
+from .grbl_codes import ALARMS, ERRORS, bad_travel
 from .sim import SimSerial
 from . import netport
 
@@ -107,6 +107,7 @@ class GrblController(QObject):
     error_raised = Signal(int, str, str)  # codice, testo, riga che l'ha causato
     message = Signal(str)  # [MSG:...] e banner
     settings_ready = Signal(object)  # {numero: "valore"}
+    travel_suspect = Signal(object)  # [(numero, "valore")]: $130/$131 non credibili anche alla seconda lettura
     info_ready = Signal(object)  # ["[VER:...]", "[OPT:...]"]
     job_progress = Signal(int, int)  # fatte, totali
     job_finished = Signal(bool, str)  # completato?, messaggio
@@ -147,6 +148,8 @@ class GrblController(QObject):
         self.board_settings = {}  # ultimo $$ letto dalla scheda {numero: "valore"}
         self.board_info = []  # ultimo $I
         self._backup_done = False  # copia delle impostazioni già fatta in questa connessione
+        self._travel_retry = False  # $130/$131 non credibili: ho già riletto $$ una volta
+        self.baud = 115200  # velocità della porta seriale aperta
         self.last_backup = None
         self.auto_backup = True
         self.last_reply = 0.0  # ora dell'ultimo ok/error ricevuto
@@ -180,6 +183,8 @@ class GrblController(QObject):
             return False
         self._ser = ser
         self.port = port
+        self.baud = int(baud or 115200)
+        self._travel_retry = False
         self.rx_buffer = RX_BUFFER  # prudente finché $I non dice quanto è grande
         self.homed = False
         self._check_space = False
@@ -468,6 +473,15 @@ class GrblController(QObject):
         self._check_end_t = time.time()
         self.check_finished.emit(result)
 
+    def stream_baud(self, default=115200):
+        """Velocità della porta per la stima dei comandi al secondo (gcode.stream_vmax): quella aperta, o default se
+        la macchina non è collegata. None in Wi-Fi e con il simulatore (lì la porta seriale non c'è)."""
+        if self.connected:
+            if self.port == SIM_PORT or netport.is_net(self.port or ""):
+                return None
+            return self.baud
+        return default
+
     def soft_limits(self):
         """Limiti software attivi sulla scheda ($20=1): corsa ($130, $131) in mm, altrimenti None."""
         s = self.board_settings
@@ -739,9 +753,20 @@ class GrblController(QObject):
 
     def _finish(self, cmd, ok=True):
         if cmd.tag == "settings":
+            bad = bad_travel(cmd.data) if ok and cmd.data else []
+            if bad and not self._travel_retry and self.connected:
+                # 0.17.2: area di lavoro non credibile (visto $131=234500): spesso è un carattere perso nella
+                # lettura. Non la uso, lo dico e rileggo $$ una volta; se resta così lo dice la finestra.
+                self._travel_retry = True
+                self.message.emit(tr("La scheda ha risposto {0}: non è un'area di lavoro credibile, rileggo le "
+                                     "impostazioni", ", ".join(f"${n}={v}" for n, v in bad)))
+                threading.Timer(0.4, self.request_settings).start()
+                return
+            if ok and cmd.data and not bad:
+                self._travel_retry = False
             if ok and cmd.data:
                 self.board_settings = dict(cmd.data)
-                if not self._backup_done and self.auto_backup and self.port != SIM_PORT:
+                if not self._backup_done and self.auto_backup and self.port != SIM_PORT and not bad:
                     try:  # una copia a ogni connessione (se i valori sono cambiati dall'ultima)
                         from . import board_backup
 
@@ -749,6 +774,8 @@ class GrblController(QObject):
                                                              tr("lettura alla connessione"), self.port or "")
                     except (OSError, ValueError):  # la copia è un aiuto: se non riesce, la connessione va avanti
                         pass
+            if bad:
+                self.travel_suspect.emit(bad)
             self.settings_ready.emit(dict(cmd.data))
         elif cmd.tag == "info":
             for l in cmd.data:

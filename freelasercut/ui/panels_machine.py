@@ -225,8 +225,17 @@ class LaserPanel(QWidget):
         lab.setFont(style.mono_font(9))
         lab.setFixedWidth(42)
         sl.valueChanged.connect(lambda x: lab.setText(f"{x}%"))
-        sl.sliderReleased.connect(lambda: self.ctl.set_override(kind, sl.value()))
+        sl.sliderReleased.connect(lambda: self._override(kind, sl.value()))
+        sl.setToolTip(OVERRIDE_TIP[kind]())
         return sl, lab
+
+    def _override(self, kind, pct):
+        """Manda l'override alla scheda e, sopra il 100%, dice se la scheda può davvero salire (0.17.2)."""
+        self.ctl.set_override(kind, pct)
+        w = self.window()
+        note = override_note(kind, pct, getattr(getattr(w, "job", None), "layers", ()), getattr(w, "profile", None))
+        if note and hasattr(w, "statusBar"):
+            w.statusBar().showMessage(note, 12000)
 
     def _reset_ov(self):
         for sl, kind in ((self.ov_speed, "feed"), (self.ov_power, "power")):
@@ -371,9 +380,52 @@ class LaserPanel(QWidget):
             self.summary.setText(tr("Niente da incidere"))
             return
         b = job.bounds
-        w = "".join(f"<br><span style='color:{C['danger'] if 'esce' in x else C['warn']}'>⚠ {x}</span>" for x in job.warnings)
+        notes = list(job.warnings) + [choppy_text(c) for c in job.choppy(self.ctl.stream_baud(profile.baud))]
+        w = "".join(f"<br><span style='color:{C['danger'] if 'esce' in x else C['warn']}'>⚠ {x}</span>" for x in notes)
         layers = " · ".join(f"{s.name}: {s.cut_mm / 1000:.2f} m" for s in job.layers)
         self.summary.setText(tr("Tempo stimato <b>{0}</b> · {1} righe G-code<br>Ingombro {2:.1f} × {3:.1f} mm, da X{4:.1f} Y{5:.1f}<br><span style='color:{6}'>{7}</span>{8}", _hms(job.seconds), len(job.lines), b.width(), b.height(), b.left(), b.top(), C['muted'], layers, w))
+
+
+OVERRIDE_TIP = {
+    "feed": lambda: tr("Cambia la velocità del lavoro in corso, dal 10% al 200%. Sotto il 100% funziona sempre; sopra, "
+                       "la scheda non supera la velocità massima degli assi ($110/$111) e sui tratti corti (foto, testi "
+                       "piccoli) le accelerazioni ($120/$121) la tengono comunque più bassa."),
+    "power": lambda: tr("Cambia la potenza del lavoro in corso, dal 10% al 200%. Sotto il 100% funziona sempre; sopra, "
+                        "la scheda non supera la sua potenza massima ($30): un livello già al 100% non può salire."),
+}
+
+
+def override_note(kind, pct, layers, profile):
+    """Sopra il 100%: spiega perché la scheda non può salire tanto quanto chiesto (GRBL limita gli override a
+    $110/$111 per la velocità e a $30 per la potenza). '' se non c'è niente da dire."""
+    if pct <= 100 or profile is None:
+        return ""
+    layers = [l for l in layers or () if getattr(l, "speed", 0) > 0]
+    if not layers:
+        return ""
+    if kind == "power":
+        top = max(l.power for l in layers)
+        if top <= 0 or top * pct / 100.0 <= 100.0:
+            return ""
+        if top >= 100:
+            return tr("Potenza: il lavoro è già al 100%, il massimo della scheda ($30 = {0:g}): sopra il 100% non può "
+                      "salire.", profile.s_max)
+        return tr("Potenza: il livello più forte è al {0:g}%, quindi la scheda sale al massimo del {1:.0f}% ($30 = {2:g} "
+                  "è il suo tetto).", top, 10000.0 / top, profile.s_max)
+    vmax = min(profile.max_rate_x, profile.max_rate_y)
+    fast = max(l.speed for l in layers)
+    if fast <= 0 or fast * pct / 100.0 <= vmax:
+        return tr("Velocità: sui tratti corti (foto, testi piccoli) le accelerazioni della scheda ($120/$121) possono "
+                  "tenere la testa più lenta di quanto chiesto.") if any(l.mode == "image" for l in layers) else ""
+    return tr("Velocità: la scheda non va oltre {0:g} mm/min ($110/$111): il livello a {1:g} mm/min sale al massimo del "
+              "{2:.0f}%.", vmax, fast, max(100.0, vmax * 100.0 / fast))
+
+
+def choppy_text(c):
+    """Avviso per un livello di foto che a quella velocità può andare a scatti (GcodeJob.choppy)."""
+    label, speed, vmax, k = c
+    return tr("{0}: foto con punti molto fitti, a {1:g} mm/min la porta non manda i comandi abbastanza in fretta "
+              "(circa {2:g} mm/min al massimo): la testa può andare a scatti", label, speed, round(vmax, -2))
 
 
 def _hms(sec):

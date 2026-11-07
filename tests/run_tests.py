@@ -264,6 +264,8 @@ if __name__ == "__main__":
     run_suite("test_v163.py", "Scheda muta dopo la connessione: reset morbido automatico, una volta sola")
     run_suite("test_v170.py", "Schizzo del soggetto: tratto a matita nuovo, aiuti (riquadro, tieni, togli)")
     run_suite("test_v170.py", "Schizzo del soggetto nell'interfaccia Banco", "banco")
+    run_suite("test_v172.py", "Area di lavoro non credibile, foto troppo fitte per la porta, override, Mecpow X3S")
+    run_suite("test_v172.py", "Area non credibile, foto fitte e override nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

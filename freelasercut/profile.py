@@ -128,9 +128,11 @@ class MachineProfile:
         p.hard_limits = _f(s, 21, 0) >= 1
         p.junction_dev = _f(s, 11, p.junction_dev)
         travel_x, travel_y = _f(s, 130, 0), _f(s, 131, 0)
-        if travel_x > 10:
+        from .grbl_codes import travel_ok
+
+        if travel_ok(travel_x):  # 0.17.2: un valore non credibile (es. 234500) non diventa il piano
             p.bed_x = travel_x
-        if travel_y > 10:
+        if travel_ok(travel_y):
             p.bed_y = travel_y
         for line in info_lines or []:
             m = re.match(r"\[VER:([^\]]*)\]", line)
