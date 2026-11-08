@@ -1,5 +1,9 @@
 # Novità di FreeLaserCut
 
+## Prossima versione (in preparazione)
+- Il riassunto del rapporto contiene anche l'ultimo errore del programma, così i rapporti con lo stesso problema si riconoscono e si raggruppano.
+- Ricevitore (`tools/rapporti/Codice.gs`, versione 2): registro dei rapporti, scrematura automatica di rapporti vuoti, doppioni e versioni vecchie, e un riepilogo raggruppato per problema quando ce ne sono abbastanza.
+
 ## 0.17.8 — 08/11/2026
 - **Invia** nella finestra *Aiuto → Invia un rapporto all'assistenza…* ora c'è: il ricevitore dei rapporti del progetto è attivo, e il rapporto arriva a freelasercut@gmail.com con un clic, senza programmi di posta. Resta anche *Invia per email…*.
 - Nuova prova automatica `tests/test_v178.py`; `tests/test_v177.py` prova a parte il caso senza ricevitore.

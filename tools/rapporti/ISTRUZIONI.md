@@ -21,3 +21,23 @@ nessuna password. Limiti: 10 MB per rapporto, 300 rapporti al giorno.
 
 Se cambi lo script: **Esegui il deployment** → **Gestisci i deployment** → matita → *Versione:* **Nuova versione**
 → **Esegui il deployment** (l'indirizzo resta lo stesso).
+
+## Scrematura e lotti (versione 2 dello script)
+Lo script scrive una riga per ogni rapporto nel foglio **Registro rapporti** (nella stessa cartella) e lo valuta da
+solo, senza intelligenza artificiale:
+- **scartato**: niente descrizione e nessun errore o allarme nei dati tecnici;
+- **doppione**: stessa persona (stessa email) e stesso problema entro 14 giorni; l'email non va nel registro,
+  lo script ne tiene solo un'impronta;
+- **nuovo**, con la nota *versione vecchia* se non è l'ultima pubblicata su GitHub.
+
+Il problema si riconosce dalla **firma**: l'ultimo errore del programma (dalla 0.17.8 nel riassunto), altrimenti
+l'ultimo allarme della scheda, altrimenti l'oggetto. Ogni mattina alle 6, con almeno 5 rapporti nuovi (o il lunedì
+con almeno uno), lo script crea il file **FLC lotto AAAA-MM-GG**: i rapporti raggruppati per problema, in poche righe.
+Claude lo legge con un compito programmato, scrive **FLC analisi AAAA-MM-GG** nella cartella e manda una notifica;
+le correzioni partono solo dopo l'ok. Per un lotto subito: esegui a mano la funzione **lottoAdesso**.
+
+`RISPOSTA_AUTOMATICA = true` fa rispondere lo script da solo («rapporto ricevuto, codice FLC-…»; con una versione
+vecchia invita ad aggiornare) a chi ha lasciato l'email.
+
+La cartella è condivisa (come *Editor*) con l'account Google collegato a Claude, che così legge i lotti e i testi
+dei rapporti e scrive l'analisi.

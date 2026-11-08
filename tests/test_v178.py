@@ -105,6 +105,16 @@ ok2, res2 = support.send(zp, "FLC-302", None, "", "", opener=follow)
 check("risposta di Google dopo il rinvio letta correttamente", ok2 and res2 == "FLC-302", res2)
 srv.shutdown()
 
+# l'ultimo errore dei registri va nel riassunto: serve al ricevitore per raggruppare i rapporti uguali
+from freelasercut import diag
+
+cfg = tempfile.mkdtemp()
+with open(os.path.join(cfg, "flc.log"), "w", encoding="utf-8") as fh:
+    fh.write("avvio\nTraceback (most recent call last):\n  File x\nValueError: could not convert string to float: '12,5'\nfine\n")
+err = diag.last_error_text(cfg)
+check("ultimo errore del programma letto dai registri", err.startswith("ValueError: could not convert"), err)
+check("nessun errore: riga vuota", diag.last_error_text(tempfile.mkdtemp()) == "")
+
 from freelasercut.ui.main_window import MainWindow
 from freelasercut.ui.dialogs_report import ReportDialog
 

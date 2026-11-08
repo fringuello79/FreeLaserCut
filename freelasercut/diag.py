@@ -363,6 +363,29 @@ def camera_text():
     return ""
 
 
+_ERR_WORDS = ("Error", "Exception", "ERRORE", "Errore", "Traceback")
+
+
+def last_error_text(cfg=None):
+    """0.17.8: l'ultima riga d'errore dei registri del programma, in una riga. Serve al ricevitore per
+    riconoscere i rapporti con lo stesso problema (nessun dato personale: passa da sanitize)."""
+    cfg = cfg or config_dir()
+    for fn in ("flc_crash.log", "flc.log"):
+        fp = os.path.join(cfg, fn)
+        if not os.path.exists(fp):
+            continue
+        try:
+            with open(fp, encoding="utf-8", errors="replace") as fh:
+                tail = fh.read()[-60_000:].splitlines()
+        except OSError:
+            continue
+        for line in reversed(tail):
+            t = line.strip()
+            if t and any(w in t for w in _ERR_WORDS) and not t.startswith("Traceback"):
+                return sanitize(t)[:300]
+    return ""
+
+
 def summary_text(user=None, code="", win=None):
     """Riassunto in chiaro che va nel corpo dell'email (il rapporto completo è nello .zip)."""
     parts = []
@@ -370,6 +393,9 @@ def summary_text(user=None, code="", win=None):
         parts.append(user_text(user))
     parts.append(system_info(win))
     parts.append(env_text(win, code))
+    err = last_error_text()
+    if err:
+        parts.append(f"Ultimo errore del programma: {err}\n")
     return sanitize("\n".join(parts))
 
 
