@@ -107,6 +107,15 @@ class MachineProfile:
     tested_x: bool = False
     tested_y: bool = False
     axes_tested: bool = False  # tutti e due (dalla 0.13.0; resta per i profili già salvati)
+    # 0.17.12: asse Z motorizzato e autofocus con sonda (comando GRBL G38.2). La sonda deve essere collegata
+    # all'ingresso «Probe» della scheda, non a un finecorsa.
+    z_motor: bool = False
+    af_probe: bool = False
+    af_distance: float = 8.0  # dopo il tocco la testa si allontana di tanto: distanza di fuoco dal materiale (mm)
+    af_travel: float = 30.0  # corsa massima in cerca del materiale (mm): oltre, si ferma con un errore
+    af_feed: float = 200.0  # velocità di ricerca (mm/min)
+    af_slow: float = 40.0  # secondo tocco, lento e preciso (mm/min)
+    af_toward_minus: bool = True  # verso il materiale = Z− (normale); False per le macchine al contrario
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):

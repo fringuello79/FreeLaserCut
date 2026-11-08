@@ -347,3 +347,43 @@ def close_subpaths(subs, tol=0.5):
             sp.closed = True
             n += 1
     return n
+
+
+def fillet(sp, ni, r):
+    """0.17.13: raccordo (arrotonda) lo spigolo nel nodo ni con un arco di raggio r (mm).
+    Solo tra due tratti dritti. Ritorna "" se fatto, altrimenti il motivo (in chiaro)."""
+    from ..i18n import tr
+
+    n = len(sp.nodes)
+    if r <= 0:
+        return tr("Il raggio deve essere più grande di zero.")
+    if not sp.closed and (ni == 0 or ni == n - 1):
+        return tr("Il primo e l'ultimo nodo di un tracciato aperto non sono spigoli.")
+    pi, nj = (ni - 1) % n, (ni + 1) % n
+    if sp.is_curve(pi, ni) or sp.is_curve(ni, nj):
+        return tr("Si possono arrotondare solo gli spigoli tra due tratti dritti.")
+    p = sp.nodes[ni].pt()
+    a, b = sp.nodes[pi].pt(), sp.nodes[nj].pt()
+    la, lb = math.dist(p, a), math.dist(p, b)
+    if la < 1e-9 or lb < 1e-9:
+        return tr("Lo spigolo ha un lato di lunghezza zero.")
+    u1 = ((a[0] - p[0]) / la, (a[1] - p[1]) / la)
+    u2 = ((b[0] - p[0]) / lb, (b[1] - p[1]) / lb)
+    cosang = max(-1.0, min(1.0, u1[0] * u2[0] + u1[1] * u2[1]))
+    ang = math.acos(cosang)  # angolo interno dello spigolo
+    if ang < 1e-3 or ang > math.pi - 1e-3:
+        return tr("Qui non c'è uno spigolo da arrotondare (i due lati sono allineati).")
+    t = r / math.tan(ang / 2)  # distanza dallo spigolo dei due punti di tangenza
+    # lati condivisi con altri spigoli: al massimo metà, così due raccordi vicini non si sovrappongono
+    lim = min(la if (not sp.closed and pi == 0) else la / 2, lb if (not sp.closed and nj == n - 1) else lb / 2)
+    if t > lim:
+        t = lim
+        r = t * math.tan(ang / 2)
+    A = (p[0] + u1[0] * t, p[1] + u1[1] * t)
+    B = (p[0] + u2[0] * t, p[1] + u2[1] * t)
+    turn = math.pi - ang  # di quanto gira la direzione lungo l'arco
+    h = 4.0 / 3.0 * math.tan(turn / 4) * r  # lunghezza delle maniglie di Bézier per un arco di cerchio
+    na = Node(A[0], A[1], cout=(A[0] - u1[0] * h, A[1] - u1[1] * h))
+    nb = Node(B[0], B[1], cin=(B[0] - u2[0] * h, B[1] - u2[1] * h))
+    sp.nodes[ni:ni + 1] = [na, nb]
+    return ""

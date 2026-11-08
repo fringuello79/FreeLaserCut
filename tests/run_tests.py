@@ -277,6 +277,11 @@ if __name__ == "__main__":
     run_suite("test_v178.py", "Ricevitore dei rapporti attivo: pulsante Invia")
     run_suite("test_v1711.py", "Aggiornamento dal programma: errori visibili e nuovi tentativi")
     run_suite("test_v1711.py", "Aggiornamento dal programma nell'interfaccia Banco", "banco")
+    run_suite("test_v1712.py", "Pennello veloce, zoom sull'originale e autofocus con sonda")
+    run_suite("test_v1712.py", "Pennello, zoom e autofocus nell'interfaccia Banco", "banco")
+    run_suite("test_v1713.py", "Raccordo su un angolo solo (rettangolo e strumento Nodi)")
+    run_suite("test_v1713.py", "Raccordo su un angolo solo nell'interfaccia Banco", "banco")
+    run_suite("test_v1714.py", "Acmer P3 nel catalogo e profili dei produttori (.lbdev)")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

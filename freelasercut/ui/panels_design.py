@@ -1295,8 +1295,60 @@ class PropertiesPanel(QScrollArea):
         self.lay.addWidget(section(tr("Rettangolo")))
         f = self._form()
         r = _spin(0, 1000, s.radius, 2, 0.5, " mm")
-        r.valueChanged.connect(lambda v: self._mod(tr("Raggio angoli"), radius=v))
+        r.valueChanged.connect(lambda v: self._mod(tr("Raggio angoli"), radius=v, radii=None))
         f.addRow(tr("Raggio angoli"), r)
+        # 0.17.13: raccordo anche su un angolo solo
+        each = QCheckBox(tr("Ogni angolo a parte"))
+        each.setToolTip(tr("Un raggio per ogni angolo: per arrotondarne solo uno o alcuni (0 = spigolo vivo)"))
+        each.setChecked(s.radii is not None)
+        f.addRow("", each)
+        box = QWidget()
+        g = QGridLayout(box)
+        g.setContentsMargins(0, 0, 0, 0)
+        g.setHorizontalSpacing(4)
+        vals = list(s.radii) if s.radii is not None else [s.radius] * 4
+        spins = []
+        # ordine dei raggi: ↖ ↗ ↘ ↙; nella griglia come si vedono sul piano
+        for i, (arrow, row_, col, tip) in enumerate((("↖", 0, 0, tr("Angolo in alto a sinistra")),
+                                                     ("↗", 0, 2, tr("Angolo in alto a destra")),
+                                                     ("↘", 1, 2, tr("Angolo in basso a destra")),
+                                                     ("↙", 1, 0, tr("Angolo in basso a sinistra")))):
+            sp = _spin(0, 1000, vals[i], 2, 0.5, " mm")
+            sp.setToolTip(tip)
+            lab = QLabel(arrow)
+            lab.setToolTip(tip)
+            g.addWidget(lab, row_, col)
+            g.addWidget(sp, row_, col + 1)
+            spins.append(sp)
+
+        def corner_changed(*_):
+            self._mod(tr("Raggio di un angolo"), radii=[sp.value() for sp in spins])
+
+        for sp in spins:
+            sp.valueChanged.connect(corner_changed)
+        self.corner_spins = spins
+        self.corner_each = each
+
+        def toggled(on):
+            box.setVisible(on)
+            r.setEnabled(not on)
+            if on:
+                for sp in spins:
+                    sp.blockSignals(True)
+                    sp.setValue(r.value())
+                    sp.blockSignals(False)
+                self._mod(tr("Ogni angolo a parte"), radii=[r.value()] * 4)
+            else:
+                big = max(sp.value() for sp in spins)
+                r.blockSignals(True)
+                r.setValue(big)
+                r.blockSignals(False)
+                self._mod(tr("Raggio angoli"), radii=None, radius=big)
+
+        each.toggled.connect(toggled)
+        box.setVisible(each.isChecked())
+        r.setEnabled(not each.isChecked())
+        f.addRow("", box)
 
     def _ellipse(self, s):
         self.lay.addWidget(section(tr("Ellisse")))

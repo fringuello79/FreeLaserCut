@@ -87,7 +87,7 @@ v = d.v_res
 ctx = d._res_ctx
 check("anteprima ridotta per una foto da oltre un milione di punti", ctx is not None and ctx["k"] < 0.999, f"k={ctx and ctx['k']:.2f}")
 check("all'inizio: tutta la foto, nessun dettaglio", abs(v.zoom - 1) < 1e-9 and v.detail is None)
-check("la vista dell'originale (ritaglio) non fa zoom", not d.v_orig.zoomable and d.v_orig.croppable)
+check("la vista dell'originale ritaglia e (dalla 0.17.12) fa anche zoom", d.v_orig.zoomable and d.v_orig.croppable)
 
 def wheel(view, steps, pos=None):
     pos = QPointF(pos) if pos is not None else QPointF(view.width() / 2, view.height() / 2)

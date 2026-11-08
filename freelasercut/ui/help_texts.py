@@ -193,6 +193,11 @@ HELP = {
     "materials": (tr("Libreria materiali"), tr("Valori pronti per il Longer B1 40W (incisioni e tagli) più le tue voci: "
                   "scegli il materiale e applicalo al livello."), None),
     "material_test": (tr("Test materiale"), tr("Incide una griglia potenza × velocità con le etichette per trovare i valori giusti."), None),
+    "autofocus": (tr("Asse Z e autofocus"), tr("Per le macchine con l'asse Z motorizzato. Con una sonda collegata "
+                                               "all'ingresso «Probe» della scheda, l'autofocus fa scendere piano la "
+                                               "testa a laser spento finché tocca il materiale e poi la porta alla "
+                                               "distanza di fuoco. Qui si vede anche se la scheda sente la sonda."),
+                  None),
     "serial_speed": (tr("Velocità della porta seriale"), tr("Di solito non serve: le schede GRBL usano 115200 baud e "
                                                              "«Riconosci la macchina» trova da solo la velocità giusta. "
                                                              "Qui la scegli o la scrivi a mano, la provi sulla porta "
@@ -234,9 +239,10 @@ HELP = {
         ".flcprofile, da condividere con chi ha la stessa macchina. Le prove fatte sulla tua macchina (assi provati, "
         "coordinate dopo l'homing) non vengono esportate."), None),
     "profile_import": (tr("Importa un profilo macchina"), tr(
-        "Apre un profilo .flcprofile condiviso da un altro utente. Ogni valore viene controllato e il profilo è segnato "
-        "«dalla comunità», separato dai modelli del catalogo verificati sulle pagine dei produttori. Niente viene "
-        "scritto nella scheda. Prima di incidere fai la prova delle frecce."), None),
+        "Apre un profilo .flcprofile condiviso da un altro utente, oppure il profilo .lbdev che il produttore della "
+        "macchina mette sulla microSD o sul sito (se ne leggono area, velocità della porta, potenza, origine e "
+        "correzione della scansione; niente comandi). Ogni valore viene controllato e niente viene scritto nella "
+        "scheda. Prima di incidere fai la prova delle frecce."), None),
     "youtube": (tr("Video tutorial su YouTube"), tr("Apre nel browser il canale YouTube di FreeLaserCut, con i video "
                                                    "tutorial."), None),
     "phone": (tr("Controllo dal telefono"), tr(
@@ -271,7 +277,7 @@ HELP = {
                      (tr("Maiusc / Ctrl"), "aggiunge / alterna")]),
     "tool:nodes": (tr("Modifica nodi (N)"), tr("Sposta nodi e maniglie delle curve."),
                    [("D", "elimina nodo"), ("C / S", "angolo / morbido"), ("B", "spezza"), ("L", "raddrizza"),
-                    ("M", tr("nodo nel punto medio"))]),
+                    ("M", tr("nodo nel punto medio")), ("A", tr("arrotonda lo spigolo (raccordo)"))]),
     "tool:line": (tr("Linee e curve (L)"), tr("Ogni clic aggiunge un nodo; clic e trascina crea una curva. Clic sul primo "
                   "nodo per chiudere, tasto destro o Esc per finire."), None),
     "tool:rect": (tr("Rettangolo (R)"), tr("Trascina per disegnare. Maiusc = quadrato, Ctrl = dal centro. Raggio degli angoli "

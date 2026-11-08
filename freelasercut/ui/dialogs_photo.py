@@ -7,7 +7,7 @@ linee e riempimenti vettoriali, divisi in fasce di tono su livelli diversi."""
 import numpy as np
 from PIL import Image
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPen, QTransform
+from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QSlider, QSpinBox, QTabWidget, QToolButton, QVBoxLayout, QWidget,
@@ -61,16 +61,32 @@ class _View(QWidget):
         self.faint = False
         self.note = ""
         self.hint_mode = None  # None | "rect" | "keep" | "remove": il trascinamento disegna gli aiuti, non il ritaglio
-        self.hints = None  # dict di core/subject (frazioni dell'immagine)
+        self._hints = None  # dict di core/subject (frazioni dell'immagine): proprietà «hints»
         self.brush = 0.02  # raggio del pennello in frazioni della diagonale
         self.edges = False  # 0.17.6: i nuovi tratti seguono i bordi (comportamento «intelligente»)?
         self.auto_rect = False  # 0.17.6: nel riquadro il soggetto si cerca da solo?
         self.veil = None  # QImage RGBA: velo rosso sulle parti tolte dallo Schizzo del soggetto
         self._hdrag = None
+        # 0.17.12: le pennellate finite si disegnano una volta in un'immagine e si riusano; a ogni movimento del
+        # mouse si ridisegna solo quella in corso (prima tutte, pezzo per pezzo: con 40 pennellate 160 ms a movimento)
+        self._hint_img = None  # (chiave, QImage)
+        self._hint_rev = 0
+        self._live = None  # (tipo, indice) della pennellata in corso
+        self._hover = None  # posizione del mouse: cerchio del pennello
+        self.setMouseTracking(True)
         if croppable:
             self.setCursor(Qt.CrossCursor)
         elif zoomable:
             self.setCursor(Qt.OpenHandCursor)
+
+    @property
+    def hints(self):
+        return self._hints
+
+    @hints.setter
+    def hints(self, h):
+        self._hints = h
+        self._hint_rev = getattr(self, "_hint_rev", 0) + 1
 
     def _area(self):
         m, top = 10, 22
@@ -213,35 +229,87 @@ class _View(QWidget):
         self._paint_hints(p, t)
         p.end()
 
+    HINT_COLORS = (("keep", QColor(48, 200, 110, 120)), ("remove", QColor(235, 70, 70, 120)))
+
+    @staticmethod
+    def _stroke(p, item, col, t, diag):
+        """Una pennellata come un solo tracciato: colore uniforme anche dove passa due volte, e molto più veloce."""
+        try:
+            r, xs = float(item[0]), item[1]
+        except (TypeError, ValueError, IndexError):
+            return
+        if len(xs) < 2:
+            return
+        pen = QPen(col, max(2.0, r * diag * 2), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        pts = [QPointF(t.left() + xs[i] * t.width(), t.top() + xs[i + 1] * t.height()) for i in range(0, len(xs) - 1, 2)]
+        if len(pts) == 1:
+            p.drawPoint(pts[0])
+            return
+        path = QPainterPath(pts[0])
+        for q in pts[1:]:
+            path.lineTo(q)
+        p.drawPath(path)
+
+    def _hint_layer(self, t):
+        """Immagine (grande come il riquadro) con le pennellate finite; si rifà solo se cambiano o se cambia la vista."""
+        h = self.hints
+        live = self._live
+        n = tuple(len(h.get(k) or []) for k, _c in self.HINT_COLORS)
+        dpr = self.devicePixelRatioF()
+        key = (self._hint_rev, n, live, round(t.left(), 2), round(t.top(), 2), round(t.width(), 2),
+               round(t.height(), 2), self.width(), self.height(), dpr)
+        if self._hint_img is not None and self._hint_img[0] == key:
+            return self._hint_img[1]
+        img = QImage(max(1, int(self.width() * dpr)), max(1, int(self.height() * dpr)), QImage.Format_ARGB32_Premultiplied)
+        img.setDevicePixelRatio(dpr)
+        img.fill(Qt.transparent)
+        q = QPainter(img)
+        q.setRenderHint(QPainter.Antialiasing)
+        q.setClipRect(self._area())
+        diag = (t.width() ** 2 + t.height() ** 2) ** 0.5
+        for kind, col in self.HINT_COLORS:
+            for i, item in enumerate(h.get(kind) or []):
+                if live == (kind, i):
+                    continue
+                self._stroke(q, item, col, t, diag)
+        q.end()
+        self._hint_img = (key, img)
+        return img
+
     def _paint_hints(self, p, t):
         h = self.hints
-        if not h:
-            return
-        p.save()
-        p.setClipRect(self._area())
-        diag = (t.width() ** 2 + t.height() ** 2) ** 0.5
-        for kind, col in (("keep", QColor(48, 200, 110, 120)), ("remove", QColor(235, 70, 70, 120))):
-            for item in h.get(kind) or []:
-                try:
-                    r, xs = float(item[0]), item[1]
-                except (TypeError, ValueError, IndexError):
-                    continue
-                pen = QPen(col, max(2.0, r * diag * 2), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-                p.setPen(pen)
-                pts = [QPointF(t.left() + xs[i] * t.width(), t.top() + xs[i + 1] * t.height()) for i in range(0, len(xs) - 1, 2)]
-                if len(pts) == 1:
-                    p.drawPoint(pts[0])
-                else:
-                    for a, b in zip(pts, pts[1:]):
-                        p.drawLine(a, b)
-        r = h.get("rect")
-        if r:
-            rr = QRectF(t.left() + r[0] * t.width(), t.top() + r[1] * t.height(), (r[2] - r[0]) * t.width(),
-                        (r[3] - r[1]) * t.height())
-            p.setPen(QPen(QColor(255, 200, 40), 2.0, Qt.DashLine))
+        if h:
+            p.save()
+            p.drawImage(0, 0, self._hint_layer(t))
+            p.setClipRect(self._area())
+            diag = (t.width() ** 2 + t.height() ** 2) ** 0.5
+            if self._live is not None:
+                kind, i = self._live
+                items = h.get(kind) or []
+                if i < len(items):
+                    self._stroke(p, items[i], dict(self.HINT_COLORS)[kind], t, diag)
+            r = h.get("rect")
+            if r:
+                rr = QRectF(t.left() + r[0] * t.width(), t.top() + r[1] * t.height(), (r[2] - r[0]) * t.width(),
+                            (r[3] - r[1]) * t.height())
+                p.setPen(QPen(QColor(255, 200, 40), 2.0, Qt.DashLine))
+                p.setBrush(Qt.NoBrush)
+                p.drawRect(rr)
+            p.restore()
+        if self.hint_mode in ("keep", "remove") and self._hover is not None and self._pan is None:
+            # cerchio del pennello: si vede prima dove passerà e quanto è grande
+            diag = (t.width() ** 2 + t.height() ** 2) ** 0.5
+            rad = max(1.0, self.brush * diag)
+            p.save()
             p.setBrush(Qt.NoBrush)
-            p.drawRect(rr)
-        p.restore()
+            col = QColor(48, 200, 110) if self.hint_mode == "keep" else QColor(235, 70, 70)
+            p.setPen(QPen(QColor(0, 0, 0, 160), 3.0))
+            p.drawEllipse(self._hover, rad, rad)
+            p.setPen(QPen(col, 1.5))
+            p.drawEllipse(self._hover, rad, rad)
+            p.restore()
 
     def _frac(self, pos):
         t = self._target()
@@ -269,6 +337,7 @@ class _View(QWidget):
                 n = len(h["keep"]) + len(h["remove"])  # ordine dei tratti: l'ultimo vince dove si sovrappongono
                 h[self.hint_mode].append([round(self.brush, 5), [round(f[0], 5), round(f[1], 5)], n,
                                           1 if self.edges else 0])
+                self._live = (self.hint_mode, len(h[self.hint_mode]) - 1)
                 self._hdrag = f
             self.update()
             return
@@ -276,6 +345,10 @@ class _View(QWidget):
             self._drag = self._frac(e.position())
 
     def mouseMoveEvent(self, e):
+        if self.hint_mode in ("keep", "remove"):
+            self._hover = e.position()
+            if self._hdrag is None and self._pan is None:
+                self.update()
         if self._pan is not None:
             (p0, (cx, cy)), t = self._pan, self._target()
             d = e.position() - p0
@@ -307,6 +380,8 @@ class _View(QWidget):
             return
         if self._hdrag is not None:
             self._hdrag = None
+            self._live = None
+            self._hint_rev += 1
             r = self.hints.get("rect") if self.hints else None
             if self.hint_mode == "rect" and r and (r[2] - r[0] < 0.03 or r[3] - r[1] < 0.03):
                 self.hints["rect"] = None  # clic senza trascinare: niente riquadro
@@ -321,7 +396,16 @@ class _View(QWidget):
             self.crop_changed.emit(tuple(self.crop))
             self.update()
 
+    def leaveEvent(self, e):
+        if self._hover is not None:
+            self._hover = None
+            self.update()
+        super().leaveEvent(e)
+
     def mouseDoubleClickEvent(self, e):
+        if self.zoomable and self.croppable and e.button() in (Qt.RightButton, Qt.MiddleButton):
+            self.set_zoom(1.0 if self.zoom > 1.001 else 4.0, e.position())  # foto originale: zoom col tasto destro
+            return
         if self.hint_mode:  # con gli aiuti del soggetto il doppio clic non toglie il ritaglio
             return
         if self.zoomable and not self.croppable:  # doppio clic: ingrandisce lì, oppure torna a tutta la foto
@@ -623,12 +707,29 @@ class PhotoDialog(QDialog):
 
         right = QVBoxLayout()
         views = QHBoxLayout()
-        self.v_orig = _View(tr("Originale · trascina per ritagliare, doppio clic per togliere"), croppable=True)
+        self.v_orig = _View(tr("Originale · trascina per ritagliare · rotella per lo zoom, tasto destro per spostarti"),
+                            croppable=True, zoomable=True)
         self.v_res = _View(tr("Come verrà incisa · rotella per lo zoom"), zoomable=True)
         views.addWidget(self.v_orig, 1)
         views.addWidget(self.v_res, 1)
         right.addLayout(views, 1)
         zr = QHBoxLayout()
+        zo = QLabel(tr("Zoom originale"))
+        zo.setObjectName("muted")
+        zr.addWidget(zo)
+        self.zo_out, self.zo_in, self.zo_fit = QToolButton(), QToolButton(), QToolButton()
+        self.zo_out.setText("−")
+        self.zo_in.setText("+")
+        self.zo_fit.setText(tr("Tutta la foto"))
+        self.zo_out.setToolTip(tr("Riduci"))
+        self.zo_in.setToolTip(tr("Ingrandisci la foto originale per passare il pennello con precisione "
+                                 "(anche con la rotella; tasto destro o centrale per spostarti)"))
+        self.zo_fit.setToolTip(tr("Torna a vedere tutta la foto originale"))
+        self.zo_out.clicked.connect(lambda: self.v_orig.set_zoom(self.v_orig.zoom / 1.5))
+        self.zo_in.clicked.connect(lambda: self.v_orig.set_zoom(self.v_orig.zoom * 1.5))
+        self.zo_fit.clicked.connect(lambda: self.v_orig.set_zoom(1.0))
+        for b in (self.zo_out, self.zo_in, self.zo_fit):
+            zr.addWidget(b)
         zr.addStretch(1)
         zl = QLabel(tr("Zoom"))
         zl.setObjectName("muted")
@@ -658,7 +759,7 @@ class PhotoDialog(QDialog):
         self.v_orig.hints = self.hints
         self.v_orig.auto_rect = self.subj_auto.isChecked()
         self.v_orig.hints_changed.connect(self._hints_changed)
-        self.subj_brush.valueChanged.connect(lambda val: setattr(self.v_orig, "brush", 0.006 * val))
+        self.subj_brush.valueChanged.connect(lambda val: (setattr(self.v_orig, "brush", 0.003 * val), self.v_orig.update()))
         self.flip.toggled.connect(self._flip_hints)
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -776,7 +877,7 @@ class PhotoDialog(QDialog):
         r2.addStretch(1)
         v.addLayout(r2)
         r3 = QHBoxLayout()
-        self.subj_brush = _slider(1, 10, 3)
+        self.subj_brush = _slider(1, 20, 6)  # 0.17.12: passi più fini (con lo zoom servono pennelli piccoli)
         self.subj_brush.setToolTip(tr("Grandezza del pennello"))
         r3.addWidget(QLabel(tr("Pennello")))
         r3.addWidget(self.subj_brush, 1)
@@ -835,7 +936,7 @@ class PhotoDialog(QDialog):
         if v is None:
             return
         v.hint_mode = key if on else None
-        v.brush = 0.006 * self.subj_brush.value()
+        v.brush = 0.003 * self.subj_brush.value()
         v.setCursor(Qt.CrossCursor)
 
     def _subject_edges(self, on):

@@ -124,6 +124,13 @@ CATALOG = (
     ("Longer Ray5 Mini", "Longer", 130, 130, "2,5–3,5 W", 12000),
     ("Creality CR-Laser Falcon 5W", "Creality", 400, 400, "5 W", 10000),
     ("Atomstack A70 Max", "Atomstack", 800, 800, "35–70 W", 24000),
+    # 0.17.14: richiesto da un utente. Area, velocità della porta, scala di potenza e correzione della scansione dai
+    # profili ufficiali Acmer della microSD (cartella «TF Card Data» del sito acmerlaser.com, file ACMER P3 *.lbdev,
+    # letti l'08/11/2026); velocità massima e spot dalla pagina ufficiale del P3 (800 mm/s = 48.000 mm/min)
+    ("Acmer P3 24W", "Acmer", 400, 400, "24 W", 48000),
+    ("Acmer P3 48W", "Acmer", 400, 390, "48 W", 48000),
+    ("Acmer P3 2W IR", "Acmer", 400, 400, "2 W (infrarosso)", 48000),
+    ("Acmer P3 2-in-1 (diodo + IR)", "Acmer", 400, 390, "diodo + 2 W IR", 48000),
 )
 # area dichiarata dal produttore, quando è stata ridotta per prudenza (vedi sopra)
 AREA_NOTE = {
@@ -133,6 +140,10 @@ AREA_NOTE = {
 }
 # pagine ufficiali da cui vengono i valori dei modelli aggiunti nella 0.12.0
 SOURCES = {
+    "Acmer P3 24W": "https://acmerlaser.com/pages/download",
+    "Acmer P3 48W": "https://acmerlaser.com/products/acmer-p3-48w-diode-enclosed-laser-engraver",
+    "Acmer P3 2W IR": "https://acmerlaser.com/pages/download",
+    "Acmer P3 2-in-1 (diodo + IR)": "https://acmerlaser.com/products/acmer-p3-ir-diode-laser-engraver",
     "Mecpow X3 5W": "https://mecpow.com/products/mecpow-x3-5w-laser-engraver",
     "Mecpow X3 Pro 10W": "https://mecpow.com/products/mecpow-x3-pro-10w-laser-engraver",
     "Mecpow X4 22W / X4 Pro 22W": "https://mecpow.com/products/x4-22w-powerful-laser-engraver",
@@ -181,6 +192,11 @@ NOTES = {
         "è di solito 8080. Se il firmware non accetta G55, FreeLaserCut se ne accorge alla prima verifica."),
     "Sculpfun iCube Ultra 12W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
 }
+for _n in ("Acmer P3 24W", "Acmer P3 48W", "Acmer P3 2W IR", "Acmer P3 2-in-1 (diodo + IR)"):
+    NOTES[_n] = tr("Acmer P3: struttura CoreXY, si collega con il cavo USB (il Wi-Fi serve all'app). Correzione della "
+                   "scansione avanti e indietro già impostata con i valori di Acmer. Il P3 da 48W e il 2-in-1 hanno "
+                   "un'area di 400 × 390 mm, il 24W e il 2W IR di 400 × 400. Collegando la macchina, l'area vera si "
+                   "legge dalla scheda.")
 for _n in ("Mecpow X3S 7W", "Mecpow X3S 12W"):
     NOTES[_n] = tr("Con il kit di estensione dell'asse Y (venduto a parte) l'area diventa 360 × 730 mm: collegando la "
                    "macchina e premendo «Leggi dalla macchina», l'area vera si legge dalla scheda.")
@@ -204,7 +220,15 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "AlgoLaser Alpha 22W": (0.16, 0.14), "AlgoLaser Alpha MK2 20W": (0.16, 0.14),
          "AlgoLaser Alpha MK2 40W": (0.175, 0.15), "AlgoLaser Delta 22W": (0.16, 0.14),
          "Genmitsu Jinsoku LC-40": (0.08, 0.05), "Genmitsu L8 20W": (0.07, 0.13), "Genmitsu L8 40W": (0.07, 0.13),
-         "Longer Ray5 5W": (0.08, 0.08), "Longer Ray5 10W": (0.06, 0.06), "Longer Ray5 20W": (0.08, 0.10)}
+         "Longer Ray5 5W": (0.08, 0.08), "Longer Ray5 10W": (0.06, 0.06), "Longer Ray5 20W": (0.08, 0.10),
+         "Acmer P3 24W": (0.06, 0.08), "Acmer P3 48W": (0.08, 0.10), "Acmer P3 2W IR": (0.02, 0.02),
+         "Acmer P3 2-in-1 (diodo + IR)": (0.06, 0.04)}
+# correzione della scansione avanti e indietro dichiarata dal produttore: [velocità mm/min, sfasamento mm]
+# (Acmer P3: dai profili ufficiali; nel file è metà dello sfasamento, qui l'intero)
+_P3_SCAN = [[6000.0, 0.14], [12000.0, 0.16], [18000.0, 0.12], [24000.0, 0.12], [30000.0, 0.16], [36000.0, 0.16],
+            [42000.0, 0.16], [48000.0, 0.16]]
+SCAN = {n: _P3_SCAN for n in ("Acmer P3 24W", "Acmer P3 48W", "Acmer P3 2W IR", "Acmer P3 2-in-1 (diodo + IR)")}
+ACCEL = {n: 3000.0 for n in SCAN}  # mm/s² dai profili ufficiali Acmer
 GENERIC = tr("Altro laser GRBL (si legge dalla macchina)")
 
 
@@ -223,8 +247,9 @@ def preset_profile(name):
             sx, sy = SPOTS.get(n, (0.08, 0.10))
             return MachineProfile(name=n, model=n, source=tr("valori di targa"), bed_x=float(bx), bed_y=float(by),
                                   optical_power=power, max_rate_x=float(rate), max_rate_y=float(rate),
-                                  accel_x=1500.0, accel_y=1500.0, spot_x_mm=sx, spot_y_mm=sy, rx_buffer=128,
-                                  no_g55=n in NO_G55)
+                                  accel_x=ACCEL.get(n, 1500.0), accel_y=ACCEL.get(n, 1500.0), spot_x_mm=sx,
+                                  spot_y_mm=sy, rx_buffer=128, no_g55=n in NO_G55,
+                                  scan_offsets=[list(x) for x in SCAN.get(n, [])])
     return MachineProfile(name=tr("Laser GRBL"), model=tr("Laser GRBL"), source=tr("valori di targa"), bed_x=400.0,
                           bed_y=400.0, optical_power="", max_rate_x=10000.0, max_rate_y=10000.0, accel_x=1000.0,
                           accel_y=1000.0, spot_x_mm=0.10, spot_y_mm=0.10)

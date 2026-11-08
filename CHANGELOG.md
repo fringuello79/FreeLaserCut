@@ -1,5 +1,25 @@
 # Novità di FreeLaserCut
 
+## 0.17.14 — 08/11/2026
+Da un utente con un Acmer P3.
+- **Acmer P3** nel catalogo (24W, 48W, 2W IR, 2-in-1): area dai profili ufficiali Acmer della microSD (24W e 2W IR 400 × 400 mm, 48W e 2-in-1 400 × 390), velocità fino a 800 mm/s e spot dalla pagina ufficiale, **correzione della scansione avanti e indietro già impostata** con i valori di Acmer. 55 modelli pronti.
+- **Laser → Importa un profilo macchina** apre anche il **profilo .lbdev** che molti produttori mettono sulla microSD o sul sito: se ne leggono nome, area di lavoro, velocità della porta, scala di potenza, origine, asse Z, aria e correzione della scansione. I comandi G-code del file non vengono presi. Le macchine non GRBL (per esempio con controller Ruida) vengono rifiutate con il motivo.
+- Nuova prova automatica `tests/test_v1714.py` (18 controlli).
+
+## 0.17.13 — 08/11/2026
+- **Raccordo anche su un angolo solo.** Nelle *Proprietà* del rettangolo, con **Ogni angolo a parte**, ogni angolo ha il suo raggio (↖ ↗ ↘ ↙; 0 = spigolo vivo): si arrotonda uno solo, alcuni o tutti con raggi diversi. I progetti già salvati restano uguali.
+- **Su qualsiasi forma**: con lo strumento *Nodi* (N), tasto **A** su un nodo = arrotonda quello spigolo con un arco del raggio scelto (si ricorda l'ultimo). Funziona tra due tratti dritti (poligoni, stelle, rettangoli, disegni importati); il raggio troppo grande si limita da solo a metà dei lati.
+- Nuova prova automatica `tests/test_v1713.py` (21 controlli, Classica e Banco).
+
+## 0.17.12 — 08/11/2026
+Dalle prove di due utenti.
+- **Schizzo del soggetto, pennello di nuovo veloce.** Più pennellate si davano, più il pennello rallentava: a ogni movimento del mouse si ridisegnavano tutte, pezzo per pezzo (con 40 pennellate 160 millesimi di secondo a movimento). Ora le pennellate finite si disegnano una volta sola e si ridisegna solo quella in corso: 6 millesimi anche con 100 pennellate. Una pennellata ha anche un colore uniforme, senza punti più scuri dove ripassa.
+- **Zoom anche sulla foto originale** in *Prepara foto*: rotella o pulsanti *Zoom originale*, tasto destro (o centrale) trascinato per spostarsi, doppio clic col tasto destro per tornare a tutta la foto. Ritaglio, Riquadro e pennelli funzionano anche ingranditi.
+- **Cerchio del pennello** sotto il mouse, grande come il pennello; pennello regolabile più fine (fino a metà di prima).
+- **Asse Z e autofocus con sonda** (*Laser → Asse Z e autofocus…*), per le macchine con l'asse Z motorizzato: a laser spento la testa scende piano finché la sonda tocca il materiale (comando GRBL G38.2, corsa massima limitata), lo ritocca lentamente e si porta alla distanza di fuoco. Nella finestra si vede dal vivo se la scheda sente la sonda, e se la vede come *finecorsa Z* lo dice: la sonda va collegata all'ingresso «Probe» della scheda (sulla MKS DLC32 è IO22, dal firmware ufficiale MKS), non al finecorsa Z (IO34). Errori spiegati: sonda già toccata ($6), nessun tocco entro la corsa, finecorsa, firmware senza G38.2. Nel pannello *Movimento* compaiono i pulsanti Z ▲ ▼ e *Autofocus*.
+- Il simulatore conosce la sonda (G38.2, ingresso Probe o finecorsa Z) per le prove.
+- Nuova prova automatica `tests/test_v1712.py` (34 controlli, Classica e Banco); `tests/test_v102.py` aggiornata (la foto originale ora ha lo zoom).
+
 ## 0.17.11 — 08/11/2026
 - **Aggiornamento dal programma**: se lo scaricamento non riusciva, la finestra compariva e spariva subito senza dire niente (l'errore veniva scambiato per un «Annulla»). Ora il motivo si vede e finisce nel registro, così entra anche nel rapporto per l'assistenza.
 - Gli errori passeggeri di GitHub (server occupato, errore 502/503/504, collegamento caduto a metà) si riprovano da soli fino a 3 volte; se GitHub continua a non rispondere, il messaggio lo dice e propone il sito.

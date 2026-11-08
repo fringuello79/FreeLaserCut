@@ -322,6 +322,9 @@ class MainWindow(QMainWindow):
                         tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
                           tr("Porte USB, chip e driver, lettura della scheda e profilo adattato in automatico")),
+            "autofocus": A(tr("Asse Z e autofocus…"), self.autofocus_dialog, None, None,
+                           tr("Asse Z motorizzato e autofocus con sonda: la testa tocca il materiale e si porta alla "
+                              "distanza di fuoco")),
             "serial_speed": A(tr("Velocità della porta seriale…"), self.serial_speed_dialog, None, None,
                               tr("Solo se la tua scheda non usa 115200 baud: la velocità scelta a mano, da provare prima "
                                  "di salvarla nel profilo")),
@@ -329,8 +332,8 @@ class MainWindow(QMainWindow):
                                 tr("Salva il profilo attivo in un file .flcprofile da condividere con chi ha la stessa "
                                    "macchina")),
             "profile_import": A(tr("Importa un profilo macchina…"), self.import_profile, None, None,
-                                tr("Apre un profilo .flcprofile condiviso da un altro utente: i valori vengono controllati "
-                                   "e il profilo è segnato «dalla comunità»")),
+                                tr("Apre un profilo .flcprofile condiviso da un altro utente, oppure il profilo .lbdev che il "
+                                   "produttore della macchina mette sulla microSD o sul sito: i valori vengono controllati")),
             "youtube": A(tr("Video tutorial su YouTube"), self.open_youtube, None, None,
                          tr("Apre il canale YouTube di FreeLaserCut con i video tutorial")),
             "help_mode": A(tr("Che cos'è?"), None, None, "help",
@@ -515,7 +518,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["photo"])
         m.addAction(a["trace"])
         menu(tr("&Laser"), ["connect", "identify", "serial_speed", "profile_export", "profile_import", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-                        "materials", "material_test", "learned", "scan_offset", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
+                        "materials", "material_test", "learned", "scan_offset", "autofocus", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
         self.m_view.addSeparator()
@@ -1005,6 +1008,7 @@ class MainWindow(QMainWindow):
         e.selection_changed.connect(self._update_sel_actions)
         e.changed.connect(self._doc_changed)
         self.move.goto_bed.connect(self.goto_bed)
+        ctl.autofocus_done.connect(self._autofocus_done)
         self.laser.start_requested.connect(self.start_job)
         self.layers.material_requested.connect(self.material_library)
         self.props.trace_requested.connect(self.trace_dialog)
@@ -1880,6 +1884,18 @@ class MainWindow(QMainWindow):
         m.addAction(self.acts["identify"])
         m.addAction(self.acts["serial_speed"])
         m.exec(self.btn_connect.mapToGlobal(pos))
+
+    def autofocus_dialog(self, *_):
+        from .dialogs_autofocus import AutofocusDialog
+
+        dlg = AutofocusDialog(self)
+        self._af_dlg = dlg
+        dlg.exec()
+        self._af_dlg = None
+        self.move._z_visible()
+
+    def _autofocus_done(self, ok, msg, z):
+        self.statusBar().showMessage(msg if ok else tr("Autofocus non riuscito: {0}", msg), 15000)
 
     def serial_speed_dialog(self, *_):
         from .dialogs_serial import SerialSpeedDialog
@@ -2929,12 +2945,14 @@ class MainWindow(QMainWindow):
         from .. import profile_share
 
         if not path:
-            path, _ = QFileDialog.getOpenFileName(self, tr("Importa un profilo macchina"), os.path.expanduser("~"),
-                                                  tr("Profilo FreeLaserCut (*{0})", profile_share.EXT))
+            path, _ = QFileDialog.getOpenFileName(
+                self, tr("Importa un profilo macchina"), os.path.expanduser("~"),
+                tr("Profili macchina (*{0} *{1});;Profilo FreeLaserCut (*{0});;Profilo del produttore (*{1})",
+                   profile_share.EXT, profile_share.DEVICE_EXT))
         if not path:
             return None
         try:
-            p = profile_share.read_profile(path)
+            p = profile_share.read_any(path)
         except ValueError as ex:
             QMessageBox.warning(self, tr("Importa un profilo macchina"), tr("Profilo non importato: {0}", ex))
             return None
@@ -2948,10 +2966,17 @@ class MainWindow(QMainWindow):
         except OSError as ex:
             QMessageBox.warning(self, tr("Importa un profilo macchina"), tr("Non riesco a salvare il profilo:\n{0}", ex))
             return None
-        r = QMessageBox.question(self, tr("Importa un profilo macchina"), tr(
-            "Profilo «{0}» importato ({1:g} × {2:g} mm, {3}).\n\nViene da un altro utente: prima di incidere controlla "
-            "area di lavoro e potenza e fai la prova delle frecce (Impostazioni → Configurazione guidata).\n\n"
-            "Usarlo adesso?", p.name, p.bed_x, p.bed_y, profile_share.COMMUNITY))
+        if p.source == profile_share.MAKER:
+            msg = tr("Profilo «{0}» importato dal file del produttore ({1:g} × {2:g} mm, {3} baud, potenza S0–S{4:g}"
+                     "{5}).\n\nCollegando la macchina, area di lavoro e velocità si rileggono dalla scheda. Prima di "
+                     "incidere fai la prova delle frecce (Impostazioni → Configurazione guidata).\n\nUsarlo adesso?",
+                     p.name, p.bed_x, p.bed_y, p.baud, p.s_max,
+                     tr(", correzione della scansione per {0} velocità", len(p.scan_offsets)) if p.scan_offsets else "")
+        else:
+            msg = tr("Profilo «{0}» importato ({1:g} × {2:g} mm, {3}).\n\nViene da un altro utente: prima di incidere "
+                     "controlla area di lavoro e potenza e fai la prova delle frecce (Impostazioni → Configurazione "
+                     "guidata).\n\nUsarlo adesso?", p.name, p.bed_x, p.bed_y, profile_share.COMMUNITY)
+        r = QMessageBox.question(self, tr("Importa un profilo macchina"), msg)
         if r == QMessageBox.Yes:
             self.set_active_profile(p)
         return p
@@ -3053,7 +3078,7 @@ Maiusc: proporzioni / angoli a 15° / asse · Ctrl: dal centro · Alt: niente ag
 Trascina da sinistra a destra: seleziona ciò che è dentro · da destra a sinistra: anche ciò che tocca
 
 NODI
-Doppio clic su un segmento: nuovo nodo · D elimina · C angolo · S morbido · B spezza · I inserisci · M punto medio · L raddrizza
+Doppio clic su un segmento: nuovo nodo · D elimina · C angolo · S morbido · B spezza · I inserisci · M punto medio · L raddrizza · A arrotonda lo spigolo
 Trascina un segmento dritto per curvarlo · rilascia un estremo su un altro per unirli
 
 MODIFICA

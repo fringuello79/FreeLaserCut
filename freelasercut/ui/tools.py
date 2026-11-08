@@ -499,7 +499,7 @@ class NodeTool(Tool):
             self._finish()
 
     def wants_key(self, e):
-        return e.key() in (Qt.Key_D, Qt.Key_C, Qt.Key_S, Qt.Key_B, Qt.Key_I, Qt.Key_M, Qt.Key_L, Qt.Key_Delete,
+        return e.key() in (Qt.Key_D, Qt.Key_C, Qt.Key_S, Qt.Key_B, Qt.Key_I, Qt.Key_M, Qt.Key_L, Qt.Key_A, Qt.Key_Delete,
                            Qt.Key_Backspace, Qt.Key_Escape) and not (e.modifiers() & (Qt.ControlModifier | Qt.AltModifier))
 
     def _op(self, fn):
@@ -529,6 +529,9 @@ class NodeTool(Tool):
             _, si, ni = target
             self.sel_node = None
             return self._op(lambda: nodes.break_at(self.subs, si, ni))
+        if target and k == Qt.Key_A:
+            _, si, ni = target
+            return self.fillet_node(si, ni)
         if self.hover_seg and k in (Qt.Key_I, Qt.Key_M):
             si, i, j, t, q = self.hover_seg
             tt = 0.5 if k == Qt.Key_M else t
@@ -540,6 +543,29 @@ class NodeTool(Tool):
             si, i, j, t, q = self.hover_seg
             return self._op(lambda: self._delete_segment(si, i, j))
         return False
+
+    def ask_radius(self):
+        """Raggio del raccordo (si ricorda l'ultimo usato). None = annullato."""
+        from PySide6.QtWidgets import QInputDialog
+
+        last = float(self.cv.tool_options.get("fillet_radius", 3.0))
+        r, ok = QInputDialog.getDouble(self.cv, tr("Arrotonda lo spigolo"), tr("Raggio del raccordo (mm)"), last,
+                                       0.01, 1000.0, 2)
+        return r if ok else None
+
+    def fillet_node(self, si, ni, r=None):
+        """0.17.13: tasto A sul nodo: arrotonda quello spigolo (raccordo su un angolo solo)."""
+        if r is None:
+            r = self.ask_radius()
+            if r is None:
+                return True
+        self.cv.tool_options["fillet_radius"] = r
+        why = nodes.fillet(self.subs[si].copy(), ni, r)  # prima una prova su una copia: niente annulla inutili
+        if why:
+            self.cv.status.emit(why)
+            return True
+        self.sel_node = None
+        return self._op(lambda: nodes.fillet(self.subs[si], ni, r))
 
     def _delete_segment(self, si, i, j):
         sp = self.subs[si]

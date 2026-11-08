@@ -123,6 +123,7 @@ class GrblController(QObject):
     job_error = Signal(int, str, int, str)  # indice riga, riga, codice, spiegazione (il lavoro è già in pausa)
     check_finished = Signal(object)  # [(indice, riga, codice, spiegazione)] — verifica $C conclusa; None = interrotta
     check_progress = Signal(int, int)
+    autofocus_done = Signal(bool, str, object)  # riuscito?, messaggio, Z del tocco (coordinate macchina) o None
 
     def __init__(self):
         super().__init__()
@@ -170,6 +171,7 @@ class GrblController(QObject):
         self._check_end_t = 0.0
         self._fire_timer = None
         self.fire_active = False
+        self._af = None  # autofocus in corso: {"z": Z del tocco}
 
     # ------------------------------------------------------------------ porta
     @property
@@ -289,6 +291,8 @@ class GrblController(QObject):
             pass
         self._clear_queues()
         self._end_check(None)
+        if self._af is not None:
+            self._af_fail(tr("Connessione chiusa durante l'autofocus."))
         if self._job_active:
             self._job_active = False
             self.job_finished.emit(False, tr("Connessione chiusa durante il lavoro"))
@@ -368,6 +372,8 @@ class GrblController(QObject):
     def soft_reset(self):
         self.realtime(0x18)
         self._clear_queues()
+        if self._af is not None:
+            self._af_fail(tr("Autofocus interrotto."))
         self._end_check(None)
         if self._job_active:
             self._job_active = False
@@ -582,6 +588,46 @@ class GrblController(QObject):
             self.send_line(f"G53 G1 X{x:.3f} Y{y:.3f} F{feed:.0f}")
         self.send_line("M5 S0")
 
+    # ------------------------------------------------------------- autofocus
+    @property
+    def autofocusing(self):
+        return self._af is not None
+
+    def jog_z(self, dz, feed=300):
+        if dz:
+            self.send_line(f"$J=G91 G21 Z{dz:.3f} F{feed:.0f}")
+
+    def autofocus(self, distance, travel, feed, slow, toward_minus=True):
+        """0.17.12: autofocus con sonda (G38.2). Ritorna False (con il motivo in autofocus_done) se non può partire.
+        Alla fine: autofocus_done(True, messaggio, z del tocco) oppure (False, motivo, None)."""
+        from . import autofocus as af
+
+        why = None
+        if not self.connected:
+            why = tr("Collega prima il laser.")
+        elif self._job_active or self._check is not None or self._af is not None:
+            why = tr("C'è già qualcosa in corso: aspetta che la macchina sia ferma.")
+        elif self.last_status.get("state") not in ("Idle",):
+            why = tr("La macchina non è ferma e pronta (stato: {0}). Se è in allarme, sbloccala o fai l'homing.",
+                     self.last_status.get("state", "?"))
+        elif af.pin_state(self.last_status.get("pins")) == "touch":
+            why = af.explain_alarm(4)
+        if why:
+            self.autofocus_done.emit(False, why, None)
+            return False
+        self._af = {"z": None}
+        cmds = af.lines(distance, travel, feed, slow, toward_minus)
+        for i, line in enumerate(cmds):
+            self.send_line(line, tag="af_end" if i == len(cmds) - 1 else "af")
+        return True
+
+    def _af_fail(self, why):
+        """Autofocus fermato: niente più righe dell'autofocus, la scheda torna in coordinate assolute."""
+        with self._lock:
+            self._pending = collections.deque(c for c in self._pending if c.tag not in ("af", "af_end"))
+        self._af = None
+        self.autofocus_done.emit(False, why, None)
+
     def stop_job(self):
         """Arresto sicuro: pausa immediata, poi reset (svuota il buffer), laser spento."""
         self.feed_hold()
@@ -713,6 +759,16 @@ class GrblController(QObject):
                     self.feed_hold()
                     self.job_error.emit(int(head.data), head.line, code, text)
                     self.error_raised.emit(code, text, head.line)
+                elif head is not None and head.tag in ("af", "af_end") and self._af is not None:
+                    if code == 20 and "G38" in head.line.upper():
+                        why = tr("La scheda non conosce il comando della sonda (G38.2): il suo firmware non ha "
+                                 "l'autofocus con sonda.")
+                    else:
+                        why = tr("La scheda ha rifiutato «{0}»: {1}", head.line, text)
+                    self._af_fail(why)
+                    if head.tag == "af":
+                        self.send_line("G90")
+                    head = None  # già gestita
                 elif head is None or head.tag != "check_enter":  # il $C rifiutato lo spiega già la verifica
                     self.error_raised.emit(code, text, head.line if head else "")
             if head is not None:
@@ -726,6 +782,24 @@ class GrblController(QObject):
             self.line_received.emit(tr("(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)"))
             return
         self.line_received.emit(line)
+        if line.startswith("[PRB:") and self._af is not None:
+            # [PRB:x,y,z:1] posizione macchina del tocco; :0 = nessun tocco
+            body = line[5:].rstrip("]")
+            pos, _, ok = body.rpartition(":")
+            try:
+                if ok.strip() == "1":
+                    self._af["z"] = float(pos.split(",")[2])
+            except (IndexError, ValueError):
+                pass
+        if line.startswith("ALARM") and self._af is not None:
+            from . import autofocus as af
+
+            code = _code(line)
+            with self._lock:  # la scheda in allarme rifiuta il resto: lo tolgo io
+                self._pending.clear()
+                self._inflight.clear()
+            self._af_fail(af.explain_alarm(code))
+            self.realtime(0x18)  # reset: la scheda torna in coordinate assolute (G90), resta da sbloccare
         if line.startswith("ALARM"):
             code = _code(line)
             with self._lock:
@@ -876,6 +950,11 @@ class GrblController(QObject):
             chk = self._check
             if chk is not None:
                 self._end_check(chk["errors"])
+        elif cmd.tag == "af_end" and self._af is not None:
+            z = self._af.get("z")
+            self._af = None
+            if ok:
+                self.autofocus_done.emit(True, tr("Autofocus fatto: la testa è alla distanza di fuoco."), z)
         elif cmd.tag == "job" and self._job_active:
             self.job_acked = int(cmd.data) + 1
             self._job_done += 1

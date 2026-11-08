@@ -484,6 +484,28 @@ class MovePanel(QWidget):
         side.addStretch(1)
         top.addLayout(side)
         v.addLayout(top)
+        # 0.17.12: asse Z motorizzato e autofocus (si vede solo se il profilo ha l'asse Z)
+        self.z_box = QWidget()
+        zr = QHBoxLayout(self.z_box)
+        zr.setContentsMargins(0, 0, 0, 0)
+        zr.addWidget(QLabel("Z"))
+        self.b_zup = QToolButton()
+        self.b_zup.setText("▲")
+        self.b_zup.setToolTip(tr("Asse Z: su del passo scelto"))
+        self.b_zdown = QToolButton()
+        self.b_zdown.setText("▼")
+        self.b_zdown.setToolTip(tr("Asse Z: giù del passo scelto"))
+        self.b_zup.clicked.connect(lambda: self._jog_z(+1))
+        self.b_zdown.clicked.connect(lambda: self._jog_z(-1))
+        self.b_af = _btn(tr("Autofocus"), "verify", tip=tr("Autofocus con la sonda: la testa tocca il materiale e si "
+                                                           "porta alla distanza di fuoco (Laser → Asse Z e autofocus)"))
+        self.b_af.clicked.connect(self._autofocus)
+        for w in (self.b_zup, self.b_zdown, self.b_af):
+            zr.addWidget(w)
+        zr.addStretch(1)
+        v.addWidget(self.z_box)
+        self.z_box.setVisible(bool(getattr(self.get_profile(), "z_motor", False)))
+        self.ctl.status_changed.connect(self._z_visible)
         seg = QHBoxLayout()
         seg.setSpacing(4)
         self.steps = []
@@ -585,8 +607,32 @@ class MovePanel(QWidget):
             self._cont = False
 
     def set_connected(self, ok):
-        for w in self.jog_buttons + [self.b_home, self.b_unlock, self.b_origin, self.b_clear]:
+        for w in self.jog_buttons + [self.b_home, self.b_unlock, self.b_origin, self.b_clear, self.b_zup,
+                                     self.b_zdown, self.b_af]:
             w.setEnabled(ok)
+
+    def _z_visible(self, *_):
+        p = self.get_profile()
+        z = bool(getattr(p, "z_motor", False))
+        if self.z_box.isHidden() == z:
+            self.z_box.setVisible(z)
+        af = bool(getattr(p, "af_probe", False))
+        if self.b_af.isHidden() == af:
+            self.b_af.setVisible(af)
+
+    def _jog_z(self, sign):
+        if not self.ctl.connected:
+            return
+        rate = 300.0
+        try:
+            rate = float(self.ctl.board_settings.get(112, rate))
+        except (TypeError, ValueError):
+            pass
+        self.ctl.jog_z(sign * min(self.step(), 10.0), min(rate, 1000.0))
+
+    def _autofocus(self):
+        p = self.get_profile()
+        self.ctl.autofocus(p.af_distance, p.af_travel, p.af_feed, p.af_slow, p.af_toward_minus)
 
     # posizioni salvate
     def _load_saved(self):

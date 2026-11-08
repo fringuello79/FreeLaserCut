@@ -34,6 +34,16 @@ jobs:
             echo "::error::Il tag $GITHUB_REF_NAME non corrisponde alla versione del programma ($ver): il tag deve essere v$ver"
             exit 1
           fi
+      # Python per Windows si scarica da una Release di GitHub, che a volte risponde 504 per molti minuti:
+      # una volta scaricato resta nella cache e le costruzioni successive non lo riscaricano
+      - name: Versione di Python per Windows
+        id: py
+        run: echo "rel=$(grep -oP 'PY_RELEASE = "\K[^"]+' build/prepara_installer.py)" >> "$GITHUB_OUTPUT"
+      - name: Python per Windows dalla cache
+        uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: python-windows-${{ steps.py.outputs.rel }}
       - name: Prepara Python per Windows, librerie e programma
         run: python build/prepara_installer.py
       - name: Installatore

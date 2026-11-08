@@ -60,7 +60,7 @@ def version():
         return re.search(r'__version__ = "([^"]+)"', fh.read()).group(1)
 
 
-def scarica(url, dest, tentativi=4):
+def scarica(url, dest, tentativi=6):
     """Scarica con qualche nuovo tentativo: un 504 momentaneo di GitHub non deve far fallire l'installatore."""
     import time
 
@@ -75,8 +75,9 @@ def scarica(url, dest, tentativi=4):
                 os.remove(dest + ".part")
             if n == tentativi:
                 raise
-            print("  non riuscito:", exc, f"— riprovo tra {10 * 2 ** (n - 1)} s")
-            time.sleep(10 * 2 ** (n - 1))
+            pausa = min(10 * 2 ** (n - 1), 60)
+            print("  non riuscito:", exc, f"— riprovo tra {pausa} s")
+            time.sleep(pausa)
 
 
 def main():

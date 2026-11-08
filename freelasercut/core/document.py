@@ -181,22 +181,56 @@ class Shape:
 
 class RectShape(Shape):
     kind = "rect"
+    CORNERS = ("tl", "tr", "br", "bl")  # ordine dei raggi: in alto a sinistra, in alto a destra, in basso a destra…
+    K = 0.5522847498  # quarto di cerchio con una curva di Bézier
 
-    def __init__(self, w=10.0, h=10.0, radius=0.0, layer=1):
+    def __init__(self, w=10.0, h=10.0, radius=0.0, layer=1, radii=None):
         super().__init__(layer)
         self.w, self.h, self.radius = float(w), float(h), float(radius)
+        # 0.17.13: raggio di ogni angolo (come si vede sul piano: ↖ ↗ ↘ ↙); None = tutti uguali a «radius»
+        self.radii = [float(v) for v in radii] if radii is not None and len(radii) == 4 else None
+
+    def corner_radii(self):
+        """[↖, ↗, ↘, ↙] in mm, già limitati alla metà del lato più corto."""
+        lim = min(abs(self.w), abs(self.h)) / 2
+        vals = self.radii if self.radii is not None else [self.radius] * 4
+        return [max(0.0, min(float(v), lim)) for v in vals]
 
     def local_path(self):
         p = QPainterPath()
-        r = max(0.0, min(self.radius, abs(self.w) / 2, abs(self.h) / 2))
-        if r > 0:
-            p.addRoundedRect(QRectF(0, 0, self.w, self.h), r, r)
-        else:
-            p.addRect(QRectF(0, 0, self.w, self.h))
+        if self.radii is None:  # come sempre: stesso tracciato dei progetti salvati prima
+            r = max(0.0, min(self.radius, abs(self.w) / 2, abs(self.h) / 2))
+            if r > 0:
+                p.addRoundedRect(QRectF(0, 0, self.w, self.h), r, r)
+            else:
+                p.addRect(QRectF(0, 0, self.w, self.h))
+            return p
+        tl, tr_, br, bl = self.corner_radii()
+        x0, x1 = min(0.0, self.w), max(0.0, self.w)
+        y0, y1 = min(0.0, self.h), max(0.0, self.h)  # sul piano Y va verso l'alto: y1 è il lato in alto
+        k = self.K
+
+        def corner(a, c, b, r):
+            if r <= 0:
+                p.lineTo(*c)
+                return
+            p.lineTo(*a)
+            p.cubicTo(a[0] + k * (c[0] - a[0]), a[1] + k * (c[1] - a[1]),
+                      b[0] + k * (c[0] - b[0]), b[1] + k * (c[1] - b[1]), b[0], b[1])
+
+        p.moveTo(x0 + bl, y0)
+        corner((x1 - br, y0), (x1, y0), (x1, y0 + br), br)
+        corner((x1, y1 - tr_), (x1, y1), (x1 - tr_, y1), tr_)
+        corner((x0 + tl, y1), (x0, y1), (x0, y1 - tl), tl)
+        corner((x0, y0 + bl), (x0, y0), (x0 + bl, y0), bl)
+        p.closeSubpath()
         return p
 
     def params(self):
-        return {"w": self.w, "h": self.h, "radius": self.radius}
+        d = {"w": self.w, "h": self.h, "radius": self.radius}
+        if self.radii is not None:
+            d["radii"] = list(self.radii)
+        return d
 
     def describe(self):
         return tr("Rettangolo")
@@ -567,7 +601,7 @@ def shape_from_dict(d, images=None):
     kind = d["kind"]
     p = d.get("p", {})
     if kind == "rect":
-        s = RectShape(p.get("w", 10), p.get("h", 10), p.get("radius", 0))
+        s = RectShape(p.get("w", 10), p.get("h", 10), p.get("radius", 0), radii=p.get("radii"))
     elif kind == "ellipse":
         s = EllipseShape(p.get("w", 10), p.get("h", 10))
     elif kind == "polygon":

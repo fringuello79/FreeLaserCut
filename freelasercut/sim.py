@@ -59,6 +59,11 @@ class SimSerial:
         self.f_word = 1000.0
         self.burn_marks = []  # punti (mm) dove il laser ha segnato il materiale
         self.motion = 0
+        # 0.17.12, autofocus: superficie del materiale (Z macchina) e dove è collegata la sonda.
+        # None = nessuna sonda: il report dice sempre Pn:P, come il B1 vero (ingresso sonda non collegato).
+        self.surface_z = None
+        self.probe_wiring = "probe"  # "probe" (ingresso Probe) | "zlimit" (finecorsa Z, come IO34 sulla DLC32)
+        self.probe_supported = True  # False: firmware senza G38.2 (error:20)
         # parametri letti dal Longer B1 40W vero (report del 29/10/2026)
         self.settings = {
             0: "10",
@@ -225,8 +230,55 @@ class SimSerial:
         x, y, z = self.pos
         wx, wy, wz = self.wco
         return (f"<{self.state}|MPos:{x:.3f},{y:.3f},{z:.3f}|WPos:{x - wx:.3f},{y - wy:.3f},{z - wz:.3f}"
-                f"|FS:{self.feed:.0f},{self.power:.0f}|Pn:P"
+                f"|FS:{self.feed:.0f},{self.power:.0f}{self._pins()}"
                 + (f"|Ov:{self.ov[0]},{self.ov[1]},{self.ov[2]}" if hasattr(self, "ov") else "") + ">")
+
+    def _touching(self):
+        return self.surface_z is not None and self.pos[2] <= self.surface_z + 1e-6
+
+    def _pins(self):
+        if self.surface_z is None:
+            return "|Pn:P"
+        if self._touching():
+            return "|Pn:P" if self.probe_wiring == "probe" else "|Pn:Z"
+        return ""
+
+    def _probe(self, up, gen):
+        """G38.2 (solo Z, come serve all'autofocus): scende fino al tocco, oppure ALARM:5 a fine corsa."""
+        words = dict(_WORD.findall(up.replace("G38.2", "")))
+        if "Z" not in words:
+            return self._emit("error:26\r\n")
+        if "F" in words:
+            self.f_word = float(words["F"])
+        self._wait_idle(gen)
+        z0 = self.pos[2]
+        dz = float(words["Z"])
+        target = z0 + dz if not self.absolute else float(words["Z"]) + self.wco[2]
+        sees = self.surface_z is not None and self.probe_wiring == "probe"
+        if self._touching() and sees:
+            self.state = "Alarm"
+            return self._emit("ALARM:4\r\n")
+        hit = None
+        if self.surface_z is not None and target < z0 and target <= self.surface_z <= z0:
+            hit = self.surface_z
+        if hit is not None and self.probe_wiring == "zlimit":
+            # sonda sul finecorsa Z: G38.2 non la vede; con i limiti hardware ($21=1) il tocco ferma tutto
+            self.pos[2] = hit
+            if float(self.settings.get(21, 0)) >= 1:
+                self.state = "Alarm"
+                self._critical = True
+                self._emit("ALARM:1\r\n[MSG:Reset to continue]\r\n")
+                return
+            hit = None
+        if hit is None:
+            self.pos[2] = target
+            self.state = "Alarm"
+            self._emit("ALARM:5\r\n")
+            return
+        self.pos[2] = hit
+        x, y, z = self.pos
+        self._emit(f"[PRB:{x:.3f},{y:.3f},{z:.3f}:1]\r\n")
+        return self._ok()
 
     def _status(self):
         with self._cv:
@@ -246,6 +298,7 @@ class SimSerial:
         self._critical = False
         self.check_mode = False
         self._cpos = None
+        self.absolute = True  # come GRBL: dopo il reset il parser torna in G90
         self.state = "Alarm" if alarm else "Idle"
         self.feed = 0
         self.power = 0
@@ -422,6 +475,15 @@ class SimSerial:
             return
         if up.startswith("$"):
             return self._emit("error:3\r\n")
+        if "G38.2" in up:
+            if not self.probe_supported or self.check_mode:
+                return self._emit("error:20\r\n")
+            for g in re.findall(r"G(\d+(?:\.\d+)?)", up):
+                if g == "91":
+                    self.absolute = False
+                elif g == "90":
+                    self.absolute = True
+            return self._probe(up, gen)
         words = _WORD.findall(up)
         # validazione come GRBL: lettere e codici non supportati -> error:20
         for letter, val in words:
