@@ -1,5 +1,9 @@
 # Novità di FreeLaserCut
 
+## 0.17.15 — 08/11/2026
+- **Raggio degli angoli corretto sui rettangoli ridimensionati.** Se il rettangolo era stato ingrandito o rimpicciolito dopo il disegno, il raggio usava le misure di allora: il massimo restava quello vecchio e, superato quello, i valori più bassi sembravano non cambiare niente. Ora il raggio è in mm veri sulle misure attuali, sotto il campo si vede il massimo (metà del lato più corto) e un valore più alto diventa il massimo.
+- `tests/test_v1713.py` con 7 controlli in più (28).
+
 ## 0.17.14 — 08/11/2026
 Da un utente con un Acmer P3.
 - **Acmer P3** nel catalogo (24W, 48W, 2W IR, 2-in-1): area dai profili ufficiali Acmer della microSD (24W e 2W IR 400 × 400 mm, 48W e 2-in-1 400 × 390), velocità fino a 800 mm/s e spot dalla pagina ufficiale, **correzione della scansione avanti e indietro già impostata** con i valori di Acmer. 55 modelli pronti.

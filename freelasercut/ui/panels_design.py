@@ -938,6 +938,18 @@ class PropertiesPanel(QScrollArea):
             return
         if self.shape is not None and self.shape not in self.ed.doc.shapes:
             self.rebuild()
+            return
+        self._update_radius_max()
+
+    def _update_radius_max(self):
+        """0.17.15: il massimo del raggio segue le misure attuali (anche ridimensionando con il pannello aperto)."""
+        lab = getattr(self, "radius_max", None)
+        if lab is None or not isinstance(self.shape, RectShape):
+            return
+        try:
+            lab.setText(tr("massimo {0:.2f} mm (metà del lato più corto)", self.shape.max_radius()))
+        except RuntimeError:  # pannello già ricostruito
+            self.radius_max = None
 
     def _clear(self):
         while self.lay.count():
@@ -948,6 +960,8 @@ class PropertiesPanel(QScrollArea):
                 w.setParent(None)
                 w.deleteLater()
         self.text_edit = None
+        self.radius_spins = []
+        self.radius_max = None
 
     def rebuild(self):
         if self._typing.isActive():
@@ -1294,9 +1308,24 @@ class PropertiesPanel(QScrollArea):
     def _rect(self, s):
         self.lay.addWidget(section(tr("Rettangolo")))
         f = self._form()
-        r = _spin(0, 1000, s.radius, 2, 0.5, " mm")
-        r.valueChanged.connect(lambda v: self._mod(tr("Raggio angoli"), radius=v, radii=None))
+        mx = s.max_radius()  # 0.17.15: il massimo è quello delle misure attuali, e si vede
+        r = _spin(0, 1000, min(s.radius, mx), 2, 0.5, " mm")
+        self.radius_max = QLabel()
+        self.radius_max.setObjectName("muted")
+
+        def clamp(sp, v):
+            """Un valore oltre il massimo diventa il massimo (e si vede), invece di restare «bloccato»."""
+            top = round(self.shape.max_radius(), 2) if isinstance(self.shape, RectShape) else v
+            if v > top:
+                sp.blockSignals(True)
+                sp.setValue(top)
+                sp.blockSignals(False)
+                return top
+            return v
+
+        r.valueChanged.connect(lambda v: self._mod(tr("Raggio angoli"), radius=clamp(r, v), radii=None))
         f.addRow(tr("Raggio angoli"), r)
+        f.addRow("", self.radius_max)
         # 0.17.13: raccordo anche su un angolo solo
         each = QCheckBox(tr("Ogni angolo a parte"))
         each.setToolTip(tr("Un raggio per ogni angolo: per arrotondarne solo uno o alcuni (0 = spigolo vivo)"))
@@ -1313,7 +1342,7 @@ class PropertiesPanel(QScrollArea):
                                                      ("↗", 0, 2, tr("Angolo in alto a destra")),
                                                      ("↘", 1, 2, tr("Angolo in basso a destra")),
                                                      ("↙", 1, 0, tr("Angolo in basso a sinistra")))):
-            sp = _spin(0, 1000, vals[i], 2, 0.5, " mm")
+            sp = _spin(0, 1000, min(vals[i], mx), 2, 0.5, " mm")
             sp.setToolTip(tip)
             lab = QLabel(arrow)
             lab.setToolTip(tip)
@@ -1322,12 +1351,14 @@ class PropertiesPanel(QScrollArea):
             spins.append(sp)
 
         def corner_changed(*_):
-            self._mod(tr("Raggio di un angolo"), radii=[sp.value() for sp in spins])
+            self._mod(tr("Raggio di un angolo"), radii=[clamp(sp, sp.value()) for sp in spins])
 
         for sp in spins:
             sp.valueChanged.connect(corner_changed)
         self.corner_spins = spins
         self.corner_each = each
+        self.radius_spins = [r] + spins
+        self._update_radius_max()
 
         def toggled(on):
             box.setVisible(on)

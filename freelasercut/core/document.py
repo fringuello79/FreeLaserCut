@@ -190,18 +190,33 @@ class RectShape(Shape):
         # 0.17.13: raggio di ogni angolo (come si vede sul piano: ↖ ↗ ↘ ↙); None = tutti uguali a «radius»
         self.radii = [float(v) for v in radii] if radii is not None and len(radii) == 4 else None
 
+    def _scale(self):
+        """Quanto è stirata la forma dalla sua trasformazione (ridimensionata dopo il disegno): mm per unità."""
+        t = self.tf
+        sx = math.hypot(t.m11(), t.m12()) or 1.0
+        sy = math.hypot(t.m21(), t.m22()) or 1.0
+        return sx, sy
+
+    def max_radius(self):
+        """0.17.15: raggio massimo in mm, metà del lato più corto come si vede sul piano."""
+        sx, sy = self._scale()
+        return min(abs(self.w) * sx, abs(self.h) * sy) / 2
+
     def corner_radii(self):
-        """[↖, ↗, ↘, ↙] in mm, già limitati alla metà del lato più corto."""
-        lim = min(abs(self.w), abs(self.h)) / 2
+        """[↖, ↗, ↘, ↙] in mm sul piano, già limitati alla metà del lato più corto."""
+        lim = self.max_radius()
         vals = self.radii if self.radii is not None else [self.radius] * 4
         return [max(0.0, min(float(v), lim)) for v in vals]
 
     def local_path(self):
+        # 0.17.15: i raggi sono in mm veri anche se il rettangolo è stato ridimensionato dopo il disegno (prima erano
+        # nelle misure di quando era stato disegnato: il massimo restava quello vecchio e i valori non cambiavano)
+        sx, sy = self._scale()
         p = QPainterPath()
-        if self.radii is None:  # come sempre: stesso tracciato dei progetti salvati prima
-            r = max(0.0, min(self.radius, abs(self.w) / 2, abs(self.h) / 2))
+        if self.radii is None:
+            r = max(0.0, min(self.radius, self.max_radius()))
             if r > 0:
-                p.addRoundedRect(QRectF(0, 0, self.w, self.h), r, r)
+                p.addRoundedRect(QRectF(0, 0, self.w, self.h), r / sx, r / sy)
             else:
                 p.addRect(QRectF(0, 0, self.w, self.h))
             return p
@@ -218,11 +233,12 @@ class RectShape(Shape):
             p.cubicTo(a[0] + k * (c[0] - a[0]), a[1] + k * (c[1] - a[1]),
                       b[0] + k * (c[0] - b[0]), b[1] + k * (c[1] - b[1]), b[0], b[1])
 
-        p.moveTo(x0 + bl, y0)
-        corner((x1 - br, y0), (x1, y0), (x1, y0 + br), br)
-        corner((x1, y1 - tr_), (x1, y1), (x1 - tr_, y1), tr_)
-        corner((x0 + tl, y1), (x0, y1), (x0, y1 - tl), tl)
-        corner((x0, y0 + bl), (x0, y0), (x0 + bl, y0), bl)
+        # in coordinate locali un raggio di r mm è r/sx in orizzontale e r/sy in verticale
+        p.moveTo(x0 + bl / sx, y0)
+        corner((x1 - br / sx, y0), (x1, y0), (x1, y0 + br / sy), br)
+        corner((x1, y1 - tr_ / sy), (x1, y1), (x1 - tr_ / sx, y1), tr_)
+        corner((x0 + tl / sx, y1), (x0, y1), (x0, y1 - tl / sy), tl)
+        corner((x0, y0 + bl / sy), (x0, y0), (x0 + bl / sx, y0), bl)
         p.closeSubpath()
         return p
 

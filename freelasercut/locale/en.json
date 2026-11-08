@@ -2279,5 +2279,6 @@
  "Profilo «{0}» importato dal file del produttore ({1:g} × {2:g} mm, {3} baud, potenza S0–S{4:g}{5}).\n\nCollegando la macchina, area di lavoro e velocità si rileggono dalla scheda. Prima di incidere fai la prova delle frecce (Impostazioni → Configurazione guidata).\n\nUsarlo adesso?": "Profile \"{0}\" imported from the manufacturer's file ({1:g} × {2:g} mm, {3} baud, power S0–S{4:g}{5}).\n\nWhen you connect the machine, work area and speeds are read again from the board. Before engraving do the arrow test (Settings → Guided machine setup).\n\nUse it now?",
  "dal file del produttore": "from the manufacturer's file",
  "la macchina del file non usa una scheda GRBL ({0}): FreeLaserCut funziona solo con le schede GRBL": "the machine in the file does not use a GRBL board ({0}): FreeLaserCut only works with GRBL boards",
- "non è un profilo macchina che FreeLaserCut sa leggere": "it is not a machine profile FreeLaserCut can read"
+ "non è un profilo macchina che FreeLaserCut sa leggere": "it is not a machine profile FreeLaserCut can read",
+ "massimo {0:.2f} mm (metà del lato più corto)": "maximum {0:.2f} mm (half of the shorter side)"
 }

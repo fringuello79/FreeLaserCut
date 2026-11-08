@@ -71,6 +71,22 @@ d_old = RectShape(10, 10, 2).to_dict()
 check("progetti di prima (senza «radii»): tutti gli angoli uguali", "radii" not in d_old["p"]
       and shape_from_dict(d_old).radii is None)
 
+# 0.17.14: rettangolo ridimensionato dopo il disegno: i raggi sono in mm veri e il massimo è sulle misure attuali
+sc = RectShape(10, 10, 8.0)
+sc.apply(QTransform.fromScale(5, 3))  # sul piano 50 × 30
+check("rettangolo ridimensionato: massimo = metà del lato più corto attuale (15 mm, non 5)", abs(sc.max_radius() - 15) < 1e-9,
+      sc.max_radius())
+wp = sc.path()
+area = sum(1 for i in range(500) for j in range(300) if wp.contains(QPointF(i / 10 + 0.05, j / 10 + 0.05))) / 100
+want = 50 * 30 - (4 - math.pi) * 64
+check("…e un raggio di 8 mm è davvero di 8 mm sul piano", abs(area - want) < 2.0, (area, want))
+sc.radius = 40
+sc.invalidate()
+check("…oltre il massimo resta il massimo, e tornando sotto cambia di nuovo", abs(sc.corner_radii()[0] - 15) < 1e-9)
+sc.radius = 12
+sc.invalidate()
+check("…(12 mm dopo 40 mm: 12)", abs(sc.corner_radii()[0] - 12) < 1e-9)
+
 # ---------------------------------------------------------------- nelle Proprietà
 from freelasercut.ui.main_window import MainWindow
 
@@ -101,6 +117,24 @@ ed.undo()
 spin()
 check("annulla: torna il raggio dell'angolo di prima", ed.doc.shapes[-1].radii == [3.0, 3.0, 3.0, 0.0] or
       ed.doc.shapes[-1].radii == [0.0, 3.0, 3.0, 3.0], ed.doc.shapes[-1].radii)
+
+big = RectShape(10, 10, 0.0, layer=1)
+big.apply(QTransform.fromScale(5, 3))
+ed.add([big], "z")
+ed.select([big])
+spin()
+pp = w.props
+check("Proprietà: il massimo del raggio si vede (15 mm sul rettangolo ridimensionato)", pp.radius_max is not None
+      and "15.00" in pp.radius_max.text(), pp.radius_max.text() if pp.radius_max else None)
+pp.radius_spins[0].setValue(40)
+spin()
+check("valore oltre il massimo: diventa il massimo, nel campo e nella forma", abs(pp.radius_spins[0].value() - 15) < 1e-9
+      and abs(ed.doc.shapes[-1].radius - 15) < 1e-9, (pp.radius_spins[0].value(), ed.doc.shapes[-1].radius))
+pp.radius_spins[0].setValue(6)
+spin()
+check("…e tornando a 6 mm il raggio cambia davvero", abs(ed.doc.shapes[-1].corner_radii()[0] - 6) < 1e-9)
+ed.select([rect])
+spin()
 
 # ---------------------------------------------------------------- strumento Nodi, tasto A
 sq = N.from_path(RectShape(20, 20).local_path())[0]
