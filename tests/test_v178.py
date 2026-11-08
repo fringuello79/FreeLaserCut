@@ -131,4 +131,6 @@ d.close()
 code_ = 0 if all(results) else 1
 print(f"\n{sum(results)}/{len(results)} superati")
 sys.stdout.flush()
-os._exit(code_)
+from _uscita import esci  # noqa: E402
+
+esci(code_)

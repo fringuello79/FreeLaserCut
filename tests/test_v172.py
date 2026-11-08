@@ -283,4 +283,6 @@ else:
 code = 0 if all(results) else 1
 print(f"\n{sum(results)}/{len(results)} superati")
 sys.stdout.flush()
-os._exit(code)
+from _uscita import esci  # noqa: E402
+
+esci(code)

@@ -60,6 +60,25 @@ def version():
         return re.search(r'__version__ = "([^"]+)"', fh.read()).group(1)
 
 
+def scarica(url, dest, tentativi=4):
+    """Scarica con qualche nuovo tentativo: un 504 momentaneo di GitHub non deve far fallire l'installatore."""
+    import time
+
+    for n in range(1, tentativi + 1):
+        print("scarico", url, f"(tentativo {n})" if n > 1 else "")
+        try:
+            urllib.request.urlretrieve(url, dest + ".part")
+            os.replace(dest + ".part", dest)
+            return
+        except OSError as exc:  # HTTPError e URLError sono OSError
+            if os.path.exists(dest + ".part"):
+                os.remove(dest + ".part")
+            if n == tentativi:
+                raise
+            print("  non riuscito:", exc, f"— riprovo tra {10 * 2 ** (n - 1)} s")
+            time.sleep(10 * 2 ** (n - 1))
+
+
 def main():
     ver = version()
     step(f"FreeLaserCut {ver}: preparo {STAGE}")
@@ -69,8 +88,7 @@ def main():
     step("Python per Windows")
     archive = os.path.join(CACHE, os.path.basename(PY_URL).replace("+", "_"))
     if not os.path.exists(archive):
-        print("scarico", PY_URL)
-        urllib.request.urlretrieve(PY_URL, archive)
+        scarica(PY_URL, archive)
     with tarfile.open(archive) as tf:
         tf.extractall(STAGE, filter="data") if sys.version_info >= (3, 12) else tf.extractall(STAGE)
     py = os.path.join(STAGE, "python")
