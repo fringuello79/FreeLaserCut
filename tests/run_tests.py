@@ -272,6 +272,9 @@ if __name__ == "__main__":
     run_suite("test_v175.py", "Punti a mano della camera nell'interfaccia Banco", "banco")
     run_suite("test_v176.py", "Pennelli precisi dello Schizzo del soggetto, velo rosso; il simulatore non tocca il profilo")
     run_suite("test_v176.py", "Pennelli precisi e simulatore nell'interfaccia Banco", "banco")
+    run_suite("test_v177.py", "Invia un rapporto all'assistenza: rapporto più completo, consenso, invio ed email")
+    run_suite("test_v177.py", "Rapporto all'assistenza nell'interfaccia Banco", "banco")
+    run_suite("test_v178.py", "Ricevitore dei rapporti attivo: pulsante Invia")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

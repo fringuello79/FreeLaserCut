@@ -1,5 +1,19 @@
 # Novità di FreeLaserCut
 
+## 0.17.8 — 08/11/2026
+- **Invia** nella finestra *Aiuto → Invia un rapporto all'assistenza…* ora c'è: il ricevitore dei rapporti del progetto è attivo, e il rapporto arriva a freelasercut@gmail.com con un clic, senza programmi di posta. Resta anche *Invia per email…*.
+- Nuova prova automatica `tests/test_v178.py`; `tests/test_v177.py` prova a parte il caso senza ricevitore.
+
+## 0.17.7 — 08/11/2026
+- **Aiuto → Invia un rapporto all'assistenza…** Si racconta cosa è successo (oggetto, cosa stavi facendo, cosa ti aspettavi, cosa è successo, se succede sempre), con l'email solo se si vuole una risposta. Il rapporto ha un codice (FLC-…) e si può vedere prima con *Mostra il contenuto* o salvare come file.
+  - **Invia** lo manda al progetto via Internet, senza programmi di posta (al ricevitore del progetto: un'app web di Google Apps Script sull'account freelasercut@gmail.com, `tools/rapporti/`; nel programma c'è solo il suo indirizzo pubblico, nessuna password).
+  - **Invia per email…** apre il programma di posta con il messaggio per freelasercut@gmail.com già scritto e la cartella con il rapporto, da trascinare nella mail.
+  - Si invia **solo con il consenso** all'informativa privacy, che la finestra riassume; niente parte mai da solo.
+- **Rapporto più completo**: oltre a sistema, profilo, $$ e $I, registro della comunicazione ed errori, ora contiene la descrizione, l'ultimo lavoro (impostazioni dei livelli, ingombro, partenza, prime e ultime righe di G-code e dove si è fermato, non il disegno), le porte USB con chip e driver, le ultime copie delle impostazioni della scheda, gli ultimi comandi usati nei menu, le impostazioni di Prepara foto della foto selezionata (senza la foto), la calibrazione della camera, lingua e separatore decimale di Windows, se si usava il simulatore, velocità della porta e ultimo allarme; l'immagine della finestra solo se la si sceglie. Il nome della cartella utente viene sempre tolto.
+- **Informativa privacy** aggiornata (sito, `docs/privacy.html`) con il rapporto per l'assistenza: cosa contiene, perché, dove resta (12 mesi), analisi anche con strumenti di intelligenza artificiale, diritti e come chiedere la cancellazione con il codice.
+- **Linguette dei piani** (*Piano 1*, *Piano 2*…) più leggibili: scritte più scure e più grandi, fondo meno trasparente.
+- Nuova prova automatica `tests/test_v177.py` (24 controlli, Classica e Banco).
+
 ## 0.17.6 — 08/11/2026
 Dalle prove di un utente.
 - **Il simulatore non tocca più il profilo della macchina vera.** Collegandosi al simulatore, le sue impostazioni finte (area 450 × 440, scheda «LS_ESP32-SIM», accelerazioni) entravano nel profilo della macchina, e l'homing lo salvava. Ora con il simulatore la tabella delle impostazioni si vede ma il profilo non cambia, l'homing non lo salva, staccando il simulatore torna il profilo salvato e *Riconosci la macchina* chiama il profilo «Simulatore», così non finisce mai sopra quello della macchina vera.

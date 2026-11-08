@@ -91,7 +91,7 @@ class PlateBar(QWidget):
         from .canvas import BED_DARK, BED_LIGHT
 
         pal = BED_LIGHT if light else BED_DARK
-        idle = "rgba(255,255,255,140)" if light else "rgba(255,255,255,18)"
+        idle = "rgba(255,255,255,210)" if light else "rgba(255,255,255,30)"
         hover = "rgba(255,255,255,220)" if light else "rgba(255,255,255,40)"
         btn = "#5B6578" if light else "#AEB8CB"
         self.setStyleSheet(f"""
@@ -99,8 +99,8 @@ QWidget#plateBar {{ background: transparent; }}
 QTabBar#plateTabs {{ background: transparent; }}
 QTabBar#plateTabs::tab {{ background: {idle}; border: 1px solid {pal["grid_major"]}; border-bottom: none;
     border-top-left-radius: 5px; border-top-right-radius: 5px; padding: 1px 10px 2px 10px; margin-right: 2px;
-    font-size: 8.5pt; min-width: 0; }}
-QTabBar#plateTabs::tab:selected {{ background: {pal["bed"]}; border-color: {pal["edge"]}; font-weight: 600; }}
+    font-size: 9pt; font-weight: 600; min-width: 0; }}
+QTabBar#plateTabs::tab:selected {{ background: {pal["bed"]}; border-color: {pal["edge"]}; font-weight: 700; }}
 QTabBar#plateTabs::tab:hover:!selected {{ background: {hover}; }}
 QToolButton#plateAdd, QToolButton#plateGhosts, QToolButton#plateOverviewBtn {{ background: transparent; border: none;
     color: {btn}; font-size: 11pt; font-weight: 700; padding: 0 4px 1px 4px; border-radius: 4px; }}
@@ -195,10 +195,10 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
             self.tabs.setTabText(i, self.tab_text(i))
             if i == job:
                 col = JOB_COLOR
-            elif i == doc.current:
-                col = "#1F2633" if light else "#EEF2F8"
+            elif i == doc.current:  # 0.17.7: scritte più scure (prima si leggevano a malapena)
+                col = "#0B1220" if light else "#FFFFFF"
             else:
-                col = "#6B7486" if light else "#97A2B8"
+                col = "#2E3A4F" if light else "#D6DEEC"
             self.tabs.setTabTextColor(i, QColor(col))
         self._counts()
         if job is not None:

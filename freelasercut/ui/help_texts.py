@@ -254,6 +254,10 @@ HELP = {
                 "e la installa: FreeLaserCut si chiude e si riapre da solo."), None),
     "update_auto": (tr("Controlla gli aggiornamenti ogni giorno"), tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede "
                     "a GitHub qual è l'ultima versione. Non invia dati tuoi e non scarica niente senza chiedere."), None),
+    "send_report": (tr("Invia un rapporto all'assistenza"), tr("Racconti cosa è successo e FreeLaserCut prepara il rapporto "
+                    "con le informazioni tecniche (niente progetti né foto). Lo puoi vedere prima, salvarlo, mandarlo "
+                    "con la mail già scritta oppure, se c'è il collegamento, con Invia. Parte solo con il tuo consenso."),
+                    None),
     "report": (tr("Crea rapporto per l'assistenza"), tr("Un file .zip con versione, sistema, profilo della macchina, registro errori "
                "e registro della comunicazione con la scheda, da allegare a una segnalazione. Niente progetti né dati personali."), None),
     "support": (tr("Sostieni FreeLaserCut"), tr("Mostra come contribuire allo sviluppo con una donazione volontaria "

@@ -338,6 +338,9 @@ class MainWindow(QMainWindow):
                            checkable=True),
             "shortcuts": A(tr("Scorciatoie da tastiera"), self.show_shortcuts, "F1"),
             "about": A(tr("Informazioni su FreeLaserCut"), self.show_about),
+            "send_report": A(tr("Invia un rapporto all'assistenza…"), self.send_report_dialog, None, None,
+                             tr("Racconti cosa è successo e FreeLaserCut manda al progetto il rapporto con le "
+                                "informazioni tecniche (o apre la mail già scritta). Prima puoi vedere cosa contiene.")),
             "report": A(tr("Crea rapporto per l'assistenza…"), self.make_support_report, None, None,
                         tr("Un file .zip con versione, sistema, profilo della macchina, registro errori e registro "
                            "della comunicazione con la scheda, da allegare a una segnalazione. Niente progetti né dati personali.")),
@@ -395,6 +398,15 @@ class MainWindow(QMainWindow):
         # guida contestuale: ogni comando sa qual è la sua scheda descrittiva
         for k, act in self.acts.items():
             act.setProperty("help_key", k)
+        # 0.17.7: ultime azioni dai menu, per il rapporto all'assistenza (solo il nome del comando)
+        from collections import deque
+
+        self.crumbs = deque(maxlen=30)
+        for k, act in self.acts.items():
+            act.triggered.connect(lambda *_a, a=act: self.crumbs.append(
+                time.strftime("%H:%M:%S ") + a.text().replace("&", "")))
+        for n, act in self.tool_actions.items():
+            act.triggered.connect(lambda *_a, n=n: self.crumbs.append(time.strftime("%H:%M:%S ") + "strumento " + n))
         for n, act in self.tool_actions.items():
             act.setProperty("help_key", f"tool:{n}")
         self.canvas.setProperty("help_key", "canvas")
@@ -512,7 +524,7 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
-        hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "report", "-", "updates", "update_auto",
+        hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "send_report", "report", "-", "updates", "update_auto",
                                  "-", "support"])
         hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
         self.acts["update_auto"].setChecked(self.updates.enabled())
@@ -2833,6 +2845,16 @@ class MainWindow(QMainWindow):
                             "prova delle frecce) perché testa e lavoro compaiano nel punto giusto del piano."), "info",
                          [(tr("Apri"), lambda: (self.banner.hide(), self.setup_wizard())),
                           (tr("Più tardi"), self.banner.hide)], hint=True)
+
+    def send_report_dialog(self, *_):
+        """Aiuto → Invia un rapporto all'assistenza (0.17.7)."""
+        from .dialogs_report import ReportDialog
+
+        dlg = ReportDialog(self)
+        self._report_dlg = dlg
+        dlg.exec()
+        self._report_dlg = None
+        return dlg
 
     def make_support_report(self, path=None):
         """Aiuto → Crea rapporto per l'assistenza: un .zip da allegare a una segnalazione."""

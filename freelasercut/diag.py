@@ -6,8 +6,10 @@
   lavoro interrotto, connessione persa, oppure un lavoro che sembra fermo (nessun avanzamento per un po'
   con la macchina ferma).
 - make_report() crea un unico file .zip da allegare a una segnalazione: versione, sistema, profilo della
-  macchina, impostazioni $$ e $I lette, registro errori e registro della comunicazione.
-  Niente progetti, immagini o dati personali: i percorsi della cartella utente diventano «~».
+  macchina, impostazioni $$ e $I lette, registro errori e registro della comunicazione; dalla 0.17.7 anche la
+  descrizione della persona, l'ultimo lavoro (senza il disegno), porte, copie delle impostazioni della scheda,
+  azioni recenti, impostazioni della foto selezionata, calibrazione della camera e, solo se scelto, l'immagine
+  della finestra. Niente progetti né foto: i percorsi della cartella utente diventano «~».
 """
 import json
 import os
@@ -227,13 +229,182 @@ def system_info(win=None):
     return sanitize("\n".join(lines) + "\n")
 
 
-def make_report(path, win=None, comm=None, extra=None):
-    """Crea il rapporto .zip in `path`. Ritorna l'elenco dei file messi dentro."""
+# ====================================================================== 0.17.7: rapporto più completo
+def new_code():
+    """Codice del rapporto, per collegare email, discussione e correzione: FLC-AAAAMMGG-HHMM-xxxx."""
+    import secrets
+
+    return time.strftime("FLC-%Y%m%d-%H%M-") + secrets.token_hex(2).upper()
+
+
+def env_text(win=None, code=""):
+    """Lingua e separatori di Windows (la virgola al posto del punto è una causa classica di valori letti male),
+    processori, simulatore, codice del rapporto."""
+    lines = []
+    if code:
+        lines.append(f"Codice del rapporto: {code}")
+    try:
+        from PySide6.QtCore import QLocale
+
+        loc = QLocale.system()
+        lines.append(f"Impostazioni internazionali: {loc.name()} · separatore decimale «{loc.decimalPoint()}» · "
+                     f"migliaia «{loc.groupSeparator()}»")
+    except Exception:  # noqa: BLE001
+        pass
+    lines.append(f"Fuso orario: {time.strftime('%z')} · processori: {os.cpu_count()}")
+    ctl = getattr(win, "ctl", None)
+    if ctl is not None:
+        from .grbl import SIM_PORT
+
+        lines.append(f"Simulatore in uso: {'sì' if getattr(ctl, 'port', None) == SIM_PORT else 'no'}")
+        lines.append(f"Velocità della porta: {getattr(ctl, 'baud', '?')} · buffer {getattr(ctl, 'rx_buffer', '?')}"
+                     f" · buffer grande provato: {getattr(ctl, 'trusted_buffer', False)}")
+        la = getattr(ctl, "_last_alarm", (0, 0.0))
+        if la and la[0]:
+            lines.append(f"Ultimo allarme: {la[0]} ({time.strftime('%H:%M:%S', time.localtime(la[1]))})")
+    return "\n".join(lines) + "\n"
+
+
+def job_text(win):
+    """L'ultimo lavoro preparato o inciso: livelli, partenza, ingombro, righe e dove si è fermato. Niente disegno."""
+    job = getattr(win, "job", None)
+    ctl = getattr(win, "ctl", None)
+    out = []
+    if job is not None:
+        b = getattr(job, "bounds", None)
+        out.append(f"Righe di G-code: {len(job.lines)} · tempo stimato {int(job.seconds)} s")
+        if b is not None:
+            out.append(f"Ingombro: {b.width():.1f} × {b.height():.1f} mm da X{b.left():.1f} Y{b.top():.1f}")
+        for st in getattr(job, "layers", []) or []:
+            out.append(f"Livello {st.name}: {st.mode} · {getattr(st, 'speed', 0):g} mm/min · {getattr(st, 'power', 0):g}%"
+                       f" · {st.items} oggetti · {st.cut_mm:.0f} mm · {st.lines} righe")
+        for w in getattr(job, "warnings", []) or []:
+            out.append(f"Avviso: {w}")
+        for c in getattr(job, "stream", []) or []:
+            out.append(f"Foto: {c}")
+        lp = getattr(win, "laser", None)
+        try:
+            out.append(f"Partenza: {lp.start_from.currentData()} · punto {lp.anchor.value}")
+        except Exception:  # noqa: BLE001
+            pass
+        out.append("")
+        out.append("Prime righe del G-code:")
+        out += job.lines[:40]
+        out.append("…")
+        out += job.lines[-15:]
+    if ctl is not None and getattr(ctl, "job_lines", None):
+        n, a = len(ctl.job_lines), getattr(ctl, "job_acked", 0)
+        out.append("")
+        out.append(f"Ultimo lavoro mandato alla scheda: {a} righe confermate su {n}")
+        if 0 < a < n:
+            out.append("Righe intorno a dove si è fermato:")
+            out += [f"{i + 1}: {ctl.job_lines[i]}" for i in range(max(0, a - 5), min(n, a + 5))]
+    return "\n".join(out) + "\n" if out else ""
+
+
+def ports_text():
+    try:
+        from . import machines
+
+        rows = machines.describe_ports()
+    except Exception as ex:  # noqa: BLE001
+        return f"Porte: non lette ({ex})\n"
+    out = ["Porte seriali viste:"]
+    for p in rows:
+        vid = f"{p.vid:04X}:{p.pid:04X}" if p.vid is not None and p.pid is not None else "-"
+        out.append(f"{p.device} · {p.chip or '-'} · {vid} · {p.description} · driver {p.driver or '-'}")
+    if len(out) == 1:
+        out.append("(nessuna)")
+    return "\n".join(out) + "\n"
+
+
+def backups_text(n=6):
+    """Le ultime copie delle impostazioni della scheda: dicono se un valore (per esempio $131) è cambiato."""
+    try:
+        from . import board_backup
+
+        items = board_backup.list_backups()[:n]
+    except Exception:  # noqa: BLE001
+        return ""
+    out = []
+    for path, _meta in items:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                out.append(f"===== {os.path.basename(path)}\n" + fh.read())
+        except OSError:
+            continue
+    return "\n".join(out)
+
+
+def photo_text(win):
+    """Impostazioni di Prepara foto delle foto selezionate (aiuti del soggetto compresi): niente immagine."""
+    try:
+        from .core.document import ImageShape
+
+        sel = [s for s in win.editor.selection if isinstance(s, ImageShape)]
+    except Exception:  # noqa: BLE001
+        return ""
+    out = []
+    for im in sel[:3]:
+        out.append(json.dumps({"larghezza_mm": round(im.w, 2), "altezza_mm": round(im.h, 2), "livello": im.layer,
+                               "prepara_foto": getattr(im, "photo", None)}, indent=1, ensure_ascii=False))
+    return "\n".join(out) + ("\n" if out else "")
+
+
+def camera_text():
+    try:
+        from .camera import camera_file
+
+        if os.path.exists(camera_file()):
+            with open(camera_file(), encoding="utf-8") as fh:
+                return fh.read()
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
+def summary_text(user=None, code="", win=None):
+    """Riassunto in chiaro che va nel corpo dell'email (il rapporto completo è nello .zip)."""
+    parts = []
+    if user:
+        parts.append(user_text(user))
+    parts.append(system_info(win))
+    parts.append(env_text(win, code))
+    return sanitize("\n".join(parts))
+
+
+def user_text(user):
+    """La descrizione scritta dalla persona."""
+    u = user or {}
+    return ("Oggetto: {0}\nCosa stavi facendo:\n{1}\n\nCosa ti aspettavi:\n{2}\n\nCosa è successo:\n{3}\n\n"
+            "Succede: {4}\n").format(u.get("oggetto", ""), u.get("facevi", ""), u.get("aspettavi", ""),
+                                     u.get("successo", ""), u.get("frequenza", ""))
+
+
+def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=None, code="", photo=True):
+    """Crea il rapporto .zip in `path`. Ritorna l'elenco dei file messi dentro.
+    user: descrizione scritta dalla persona (dict); screenshot: PNG della finestra (bytes), solo se l'ha scelto;
+    photo: impostazioni di Prepara foto delle foto selezionate."""
     cfg = config_dir()
     names = []
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("sistema.txt", system_info(win))
+        if user:
+            z.writestr("descrizione.txt", sanitize(user_text(user)))
+            names.append("descrizione.txt")
+        z.writestr("sistema.txt", system_info(win) + "\n" + sanitize(env_text(win, code)))
         names.append("sistema.txt")
+        if win is not None:
+            for name, txt in (("ultimo-lavoro.txt", job_text(win)), ("porte.txt", ports_text()),
+                              ("copie-impostazioni-scheda.txt", backups_text()),
+                              ("azioni-recenti.txt", "\n".join(getattr(win, "crumbs", []) or [])),
+                              ("foto-selezionata.txt", photo_text(win) if photo else ""),
+                              ("calibrazione-camera.json", camera_text())):
+                if txt and txt.strip():
+                    z.writestr(name, sanitize(txt))
+                    names.append(name)
+        if screenshot:
+            z.writestr("finestra.png", screenshot)
+            names.append("finestra.png")
         if comm is not None:
             z.writestr("comunicazione-ora.log", comm.text())
             names.append("comunicazione-ora.log")
