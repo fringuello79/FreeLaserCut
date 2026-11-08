@@ -35,7 +35,9 @@ def check(name, cond, info=""):
     print(("OK  " if cond else "NO  ") + name + (f"  [{info}]" if info and not cond else ""))
 
 
-check("versione 0.17.8", freelasercut.__version__ == "0.17.8", freelasercut.__version__)
+from freelasercut.updater import parse_version
+
+check("versione 0.17.8 o successiva", parse_version(freelasercut.__version__) >= (0, 17, 8), freelasercut.__version__)
 u = support.SUPPORT_URL
 check("indirizzo del ricevitore: app web di Google in https che finisce con /exec",
       u.startswith("https://script.google.com/macros/s/") and u.endswith("/exec"), u)
@@ -68,7 +70,7 @@ check("invio con POST in testo semplice", req is not None and req.get_method() =
       and "text/plain" in (req.get_header("Content-type") or ""))
 body = json.loads(req.data.decode()) if req is not None else {}
 check("nel pacchetto codice, versione e rapporto", body.get("codice") == "FLC-PROVA"
-      and body.get("versione") == "0.17.8" and body.get("zip"), list(body))
+      and body.get("versione") == freelasercut.__version__ and body.get("zip"), list(body))
 
 # Google risponde al POST con un rinvio (302) a una pagina da leggere con GET: urllib lo segue così
 

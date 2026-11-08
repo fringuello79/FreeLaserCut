@@ -1,6 +1,7 @@
 # Novità di FreeLaserCut
 
-## Prossima versione (in preparazione)
+## 0.17.10 — 08/11/2026
+(Il tag v0.17.9 era stato creato con il programma ancora alla 0.17.8, quindi l'installatore non è stato costruito: questa versione la sostituisce.)
 - Il riassunto del rapporto contiene anche l'ultimo errore del programma, così i rapporti con lo stesso problema si riconoscono e si raggruppano.
 - Ricevitore (`tools/rapporti/Codice.gs`, versione 2): registro dei rapporti, scrematura automatica di rapporti vuoti, doppioni e versioni vecchie, e un riepilogo raggruppato per problema quando ce ne sono abbastanza.
 
