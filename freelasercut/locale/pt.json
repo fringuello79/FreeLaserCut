@@ -2209,5 +2209,6 @@
  "non so": "não sei",
  "per esempio: ho aperto la foto, Prepara foto, Schizzo, poi Avvia": "por exemplo: abri a foto, Preparar foto, Esboço, depois Iniciar",
  "sempre": "sempre",
- "una volta sola": "só uma vez"
+ "una volta sola": "só uma vez",
+ "GitHub in questo momento non risponde (errore {0}): riprova tra qualche minuto, oppure scarica l'installatore dal sito.": "O GitHub não está respondendo no momento (erro {0}): tente de novo em alguns minutos ou baixe o instalador no site."
 }

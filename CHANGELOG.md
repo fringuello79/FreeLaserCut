@@ -1,5 +1,11 @@
 # Novità di FreeLaserCut
 
+## 0.17.11 — 08/11/2026
+- **Aggiornamento dal programma**: se lo scaricamento non riusciva, la finestra compariva e spariva subito senza dire niente (l'errore veniva scambiato per un «Annulla»). Ora il motivo si vede e finisce nel registro, così entra anche nel rapporto per l'assistenza.
+- Gli errori passeggeri di GitHub (server occupato, errore 502/503/504, collegamento caduto a metà) si riprovano da soli fino a 3 volte; se GitHub continua a non rispondere, il messaggio lo dice e propone il sito.
+- Costruzione dell'installatore: lo scaricamento di Python per Windows riprova da solo se GitHub non risponde.
+- Prove automatiche: le suite dalla 0.17.2 in poi non risultano più «interrotte» su Windows a prove superate (chiusura comune in `tests/_uscita.py`). Nuova prova `tests/test_v1711.py` (10 controlli, Classica e Banco).
+
 ## 0.17.10 — 08/11/2026
 (Il tag v0.17.9 era stato creato con il programma ancora alla 0.17.8, quindi l'installatore non è stato costruito: questa versione la sostituisce.)
 - Il riassunto del rapporto contiene anche l'ultimo errore del programma, così i rapporti con lo stesso problema si riconoscono e si raggruppano.

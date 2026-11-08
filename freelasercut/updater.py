@@ -10,6 +10,7 @@ non manda nessun dato: una sola richiesta a api.github.com per sapere qual è l'
 La copia del Microsoft Store si aggiorna dallo Store; chi usa il codice sorgente aggiorna con git.
 """
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -127,12 +128,41 @@ def _request(url, timeout, accept="application/octet-stream"):
     return urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 (solo https verso GitHub)
 
 
+RETRIES = 3          # tentativi per ogni file: GitHub a volte risponde 502/503/504 per qualche secondo
+RETRY_WAIT = (2, 5)  # secondi di attesa tra un tentativo e l'altro
+
+
+def _transient(exc):
+    """Errore di rete passeggero, per cui vale la pena riprovare (server occupato, collegamento caduto)."""
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code >= 500 or exc.code == 429
+    return isinstance(exc, (urllib.error.URLError, TimeoutError, ConnectionError))
+
+
+def _retrying(fn, cancelled=None, wait=None):
+    """Esegue fn() riprovando gli errori passeggeri (RETRIES volte in tutto)."""
+    import time
+
+    for n in range(RETRIES):
+        try:
+            return fn()
+        except UpdateError:
+            raise
+        except OSError as exc:
+            if n == RETRIES - 1 or not _transient(exc) or (cancelled is not None and cancelled()):
+                raise
+            (wait or time.sleep)(RETRY_WAIT[min(n, len(RETRY_WAIT) - 1)])
+
+
 def _net_error(exc):
     if isinstance(exc, urllib.error.HTTPError):
         if exc.code == 404:
             return UpdateError(tr("Su GitHub non c'è ancora nessuna versione pubblicata."))
         if exc.code == 403:
             return UpdateError(tr("GitHub ha rifiutato la richiesta (troppe richieste in poco tempo): riprova più tardi."))
+        if exc.code >= 500:
+            return UpdateError(tr("GitHub in questo momento non risponde (errore {0}): riprova tra qualche minuto, "
+                                  "oppure scarica l'installatore dal sito.", exc.code))
         return UpdateError(tr("GitHub ha risposto con l'errore {0}.", exc.code))
     reason = getattr(exc, "reason", exc)
     return UpdateError(tr("Non riesco a collegarmi a GitHub ({0}). Controlla la connessione a internet.", reason))
@@ -166,7 +196,7 @@ def download_dir():
     return d
 
 
-def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0):
+def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0, wait=None):
     """Scarica l'installatore della Release e ne controlla dimensione e SHA-256. Ritorna il percorso del file.
     progress(fatti, totali) viene chiamata durante lo scaricamento; cancelled() → True interrompe."""
     if not rel or not rel.setup_url:
@@ -174,9 +204,13 @@ def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0):
     if not rel.sums_url:
         raise UpdateError(tr("In questa versione su GitHub manca il file SHA256SUMS.txt: senza non posso controllare "
                           "che l'installatore sia integro."))
-    try:
+
+    def get_sums():
         with _request(rel.sums_url, timeout) as r:
-            sums = r.read(200_000).decode("utf-8", "replace")
+            return r.read(200_000).decode("utf-8", "replace")
+
+    try:
+        sums = _retrying(get_sums, cancelled, wait)
     except urllib.error.URLError as exc:
         raise _net_error(exc) from exc
     except OSError as exc:
@@ -187,9 +221,11 @@ def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0):
     dest_dir = dest_dir or download_dir()
     final = os.path.join(dest_dir, rel.setup_name)
     part = final + ".part"
-    h = hashlib.sha256()
-    done = 0
-    try:
+    state = {}
+
+    def get_setup():
+        state["h"] = h = hashlib.sha256()
+        state["done"] = done = 0
         with _request(rel.setup_url, timeout) as r, open(part, "wb") as fh:
             total = int(r.headers.get("Content-Length") or rel.setup_size or 0)
             if total > MAX_SETUP_BYTES:
@@ -197,16 +233,25 @@ def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0):
             while True:
                 if cancelled is not None and cancelled():
                     raise UpdateError(tr("Scaricamento annullato."))
-                chunk = r.read(256 * 1024)
+                try:
+                    chunk = r.read(256 * 1024)
+                except http.client.HTTPException as exc:  # collegamento caduto a metà (IncompleteRead…)
+                    raise ConnectionError(str(exc) or type(exc).__name__) from exc
                 if not chunk:
                     break
                 fh.write(chunk)
                 h.update(chunk)
                 done += len(chunk)
+                state["done"] = done
                 if done > MAX_SETUP_BYTES:
                     raise UpdateError(tr("L'installatore su GitHub è troppo grande: non lo scarico."))
                 if progress is not None:
                     progress(done, total)
+        if total and done < total:  # il server ha chiuso prima della fine: si ricomincia
+            raise ConnectionError(f"scaricati {done} byte su {total}")
+
+    try:
+        _retrying(get_setup, cancelled, wait)
     except urllib.error.URLError as exc:
         _remove(part)
         raise _net_error(exc) from exc
@@ -216,6 +261,7 @@ def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0):
     except OSError as exc:
         _remove(part)
         raise UpdateError(tr("Scaricamento non riuscito ({0}).", exc)) from exc
+    h, done = state["h"], state["done"]
     if rel.setup_size and done != rel.setup_size:
         _remove(part)
         raise UpdateError(tr("Scaricamento incompleto: riprova."))

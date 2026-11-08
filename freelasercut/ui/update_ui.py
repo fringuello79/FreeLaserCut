@@ -16,6 +16,17 @@ from ..i18n import tr
 MAX_NOTES = 20_000
 
 
+def _log(text):
+    """Una riga nel registro del programma (flc.log): finisce anche nel rapporto per l'assistenza."""
+    try:
+        from ..profile import config_dir
+
+        with open(os.path.join(config_dir(), "flc.log"), "a", encoding="utf-8") as fh:
+            fh.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')}  FreeLaserCut {__version__}\n{text}\n")
+    except OSError:
+        pass
+
+
 class UpdateManager(QObject):
     checked = Signal(object, object, bool)  # Release|None, errore|None, chiesto a mano?
     progress = Signal(int, int)
@@ -219,11 +230,17 @@ class UpdateManager(QObject):
             dlg.setValue(min(done_kb, total_kb))
 
     def _on_downloaded(self, path, err):
+        cancelled = self._cancel  # prima di chiudere: QProgressDialog.close() emette «canceled» da solo
         if self._dlg is not None:
+            try:
+                self._dlg.canceled.disconnect()
+            except (RuntimeError, TypeError):
+                pass
             self._dlg.close()
             self._dlg = None
         if err:
-            if not self._cancel:
+            _log(f"Errore aggiornamento: {err}")
+            if not cancelled:
                 self._error(tr("Aggiornamento"), err)
             return
         QTimer.singleShot(0, lambda: self.ready(path))  # fuori dal gestore dell'avanzamento

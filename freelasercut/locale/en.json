@@ -2209,5 +2209,6 @@
  "non so": "don't know",
  "per esempio: ho aperto la foto, Prepara foto, Schizzo, poi Avvia": "for example: I opened the photo, Prepare photo, Sketch, then Start",
  "sempre": "always",
- "una volta sola": "only once"
+ "una volta sola": "only once",
+ "GitHub in questo momento non risponde (errore {0}): riprova tra qualche minuto, oppure scarica l'installatore dal sito.": "GitHub is not responding right now (error {0}): try again in a few minutes, or download the installer from the website."
 }
