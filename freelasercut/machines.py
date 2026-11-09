@@ -131,12 +131,19 @@ CATALOG = (
     ("Acmer P3 48W", "Acmer", 400, 390, "48 W", 48000),
     ("Acmer P3 2W IR", "Acmer", 400, 400, "2 W (infrarosso)", 48000),
     ("Acmer P3 2-in-1 (diodo + IR)", "Acmer", 400, 390, "diodo + 2 W IR", 48000),
+    # 0.17.17: richiesto da un utente (rapporto FLC-20261109-1514-7E5C). Area 150 × 130 mm, potenza e spot dalle
+    # pagine ufficiali Sculpfun (SOURCES, lette il 09/11/2026), che non dicono quale lato è X: qui 130 × 130 per
+    # prudenza (AREA_NOTE). La velocità massima non è sulla pagina ufficiale: 10.000 mm/min come nelle schede dei
+    # rivenditori; alla connessione vale quella della scheda.
+    ("Sculpfun C1 3W", "Sculpfun", 130, 130, "3 W", 10000),
+    ("Sculpfun C1 6W", "Sculpfun", 130, 130, "6 W", 10000),
 )
 # area dichiarata dal produttore, quando è stata ridotta per prudenza (vedi sopra)
 AREA_NOTE = {
     "Mecpow X3 5W": (410, 400), "Mecpow X3 Pro 10W": (410, 400), "Mecpow X4 22W / X4 Pro 22W": (410, 400),
     "Mecpow X4 Pro 40W": (400, 398), "Longer Ray5 Mini": (130, 140), "Creality CR-Laser Falcon 5W": (400, 415),
     "Atomstack A70 Max": (850, 800), "Longer Ray5 20W": (400, 365),
+    "Sculpfun C1 3W": (150, 130), "Sculpfun C1 6W": (150, 130),
 }
 # pagine ufficiali da cui vengono i valori dei modelli aggiunti nella 0.12.0
 SOURCES = {
@@ -159,6 +166,8 @@ SOURCES = {
     "Sculpfun SF-A9 40W": "https://www.sculpfun.com/products/sculpfun-sf-a9-40w-laser-engraver-cutting-machine",
     "Sculpfun iCube Pro Max 10W": "https://sculpfun.com/products/sculpfun-icube-portable-laser-engraving-machine",
     "Sculpfun iCube Ultra 12W": "https://eu.sculpfun.com/products/icube-ultra-portable-laser-engraving-machine",
+    "Sculpfun C1 3W": "https://www.sculpfun.com/products/sculpfun-c1-mini-laser-engraver-3w",
+    "Sculpfun C1 6W": "https://eu.sculpfun.com/products/sculpfun-c1-6w-mini-portable-laser-engraver",
     "Atomstack A5 Pro": "https://atomstack.com/products/refurbished-atomstack-a5-m50-pro-laser-engraver",
     "Creality Falcon A1 10W": "https://www.crealityfalcon.com/products/falcon-a1-10w-enclosed-laser-engraver-and-cutter",
     "Creality Falcon2 Pro 22W / 40W": "https://crealityfalcon.com/products/falcon2-pro-60w-enclosed-laser-cutter-and-engraver",
@@ -222,7 +231,7 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "Genmitsu Jinsoku LC-40": (0.08, 0.05), "Genmitsu L8 20W": (0.07, 0.13), "Genmitsu L8 40W": (0.07, 0.13),
          "Longer Ray5 5W": (0.08, 0.08), "Longer Ray5 10W": (0.06, 0.06), "Longer Ray5 20W": (0.08, 0.10),
          "Acmer P3 24W": (0.06, 0.08), "Acmer P3 48W": (0.08, 0.10), "Acmer P3 2W IR": (0.02, 0.02),
-         "Acmer P3 2-in-1 (diodo + IR)": (0.06, 0.04)}
+         "Acmer P3 2-in-1 (diodo + IR)": (0.06, 0.04), "Sculpfun C1 3W": (0.04, 0.04), "Sculpfun C1 6W": (0.06, 0.06)}
 # correzione della scansione avanti e indietro dichiarata dal produttore: [velocità mm/min, sfasamento mm]
 # (Acmer P3: dai profili ufficiali; nel file è metà dello sfasamento, qui l'intero)
 _P3_SCAN = [[6000.0, 0.14], [12000.0, 0.16], [18000.0, 0.12], [24000.0, 0.12], [30000.0, 0.16], [36000.0, 0.16],
