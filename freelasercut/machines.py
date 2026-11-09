@@ -49,7 +49,7 @@ VENDORS = (
     ("Sculpfun", ("SCULPFUN",)),
     ("Atomstack", ("ATOMSTACK",)),
     ("Two Trees", ("TWOTREES", "TWO TREES")),
-    ("Creality", ("CREALITY",)),
+    ("Creality", ("CREALITY", "CV40-MASTER", "CV40PRO", "CV40MINI", "FALCON A1")),  # CV40 = Falcon A1 ($I)
     ("NEJE", ("NEJE",)),
     ("Comgrow", ("COMGROW",)),
     ("Acmer", ("ACMER",)),
@@ -94,7 +94,8 @@ CATALOG = (
     ("Sculpfun iCube Pro Max 10W", "Sculpfun", 120, 120, "10 W", 10000),
     ("Sculpfun iCube Ultra 12W", "Sculpfun", 150, 150, "12 W", 10000),
     ("Atomstack A5 Pro", "Atomstack", 410, 400, "5–5,5 W", 10000),
-    ("Creality Falcon A1 10W", "Creality", 305, 381, "10 W", 36000),
+    # 0.18.1: area 381 × 305 con X = 381 (la scheda del Falcon A1 risponde $130=381, $131=305); prima era invertita
+    ("Creality Falcon A1 10W", "Creality", 381, 305, "10 W", 36000),
     ("Creality Falcon2 Pro 22W / 40W", "Creality", 400, 415, "22–40 W", 20000),
     ("Creality Falcon2 Pro 60W", "Creality", 400, 400, "60 W", 20000),
     ("Two Trees TTS-10 Pro", "Two Trees", 300, 300, "10 W", 30000),
@@ -206,6 +207,10 @@ for _n in ("Acmer P3 24W", "Acmer P3 48W", "Acmer P3 2W IR", "Acmer P3 2-in-1 (d
                    "scansione avanti e indietro già impostata con i valori di Acmer. Il P3 da 48W e il 2-in-1 hanno "
                    "un'area di 400 × 390 mm, il 24W e il 2W IR di 400 × 400. Collegando la macchina, l'area vera si "
                    "legge dalla scheda.")
+NOTES["Creality Falcon A1 10W"] = tr(
+    "La telecamera del Falcon A1 è nel coperchio e passa dallo stesso cavo USB: nel pannello Camera si chiama di "
+    "solito «Creality Falcon Camera». Usala con il coperchio chiuso bene (socchiuso cambia l'inquadratura) e con la "
+    "luce accesa. Se l'immagine è nera premi ⟳ nel pannello Camera.")
 for _n in ("Mecpow X3S 7W", "Mecpow X3S 12W"):
     NOTES[_n] = tr("Con il kit di estensione dell'asse Y (venduto a parte) l'area diventa 360 × 730 mm: collegando la "
                    "macchina e premendo «Leggi dalla macchina», l'area vera si legge dalla scheda.")
