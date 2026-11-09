@@ -8,6 +8,9 @@ aspetta che FreeLaserCut sia chiuso, salta le pagine già viste, installa nella 
 Si collega a internet solo se la persona lo ha permesso (o se lo chiede con Aiuto → Cerca aggiornamenti) e
 non manda nessun dato: una sola richiesta a api.github.com per sapere qual è l'ultima versione.
 La copia del Microsoft Store si aggiorna dallo Store; chi usa il codice sorgente aggiorna con git.
+
+Su Linux (0.18.0) la copia distribuita è un'AppImage: si scarica la nuova AppImage della stessa Release, si
+controlla allo stesso modo e, alla chiusura, prende il posto del file vecchio (stesso percorso), poi si riapre.
 """
 import hashlib
 import http.client
@@ -32,6 +35,7 @@ DOWNLOAD_PREFIX = f"https://github.com/{REPO}/releases/download/"
 CHECK_EVERY = 24 * 3600  # controllo automatico: al massimo una volta al giorno
 UNINSTALLER = "Disinstalla FreeLaserCut.exe"
 _SETUP_RE = re.compile(r"(?i)^freelasercut-(\d+(?:\.\d+)*)-setup\.exe$")
+_APPIMAGE_RE = re.compile(r"(?i)^freelasercut-(\d+(?:\.\d+)*)-x86_64\.appimage$")
 _SUMS_RE = re.compile(r"(?i)^sha256sums(\.txt)?$")
 MAX_SETUP_BYTES = 400 * 1024 * 1024
 
@@ -67,9 +71,10 @@ def install_dir(executable=None):
 
 
 def mode(executable=None):
-    """«installer»: si aggiorna da qui; «store»: dal Microsoft Store; «manual»: codice sorgente o altro sistema."""
+    """«installer»: si aggiorna da qui (Windows); «appimage»: si aggiorna da qui (Linux); «store»: dal Microsoft
+    Store; «manual»: codice sorgente o altro sistema."""
     forced = os.environ.get("FLC_UPDATE_MODE")
-    if forced in ("installer", "store", "manual"):
+    if forced in ("installer", "appimage", "store", "manual"):
         return forced
     exe = os.path.abspath(executable or sys.executable).lower()
     here = os.path.abspath(__file__).lower()
@@ -77,12 +82,22 @@ def mode(executable=None):
         return "store"
     if sys.platform == "win32" and install_dir(executable):
         return "installer"
+    from . import linux
+
+    if linux.appimage_path(executable=executable):
+        return "appimage"
     return "manual"
+
+
+def asset_kind(m=None):
+    """Quale file della Release serve a questa copia: «setup» (Windows) o «appimage» (Linux)."""
+    return "appimage" if (m or mode()) == "appimage" else "setup"
 
 
 # ------------------------------------------------------------------ Release di GitHub
 class Release:
-    def __init__(self, version, tag, name, notes, page, setup_url, setup_name, setup_size, sums_url):
+    def __init__(self, version, tag, name, notes, page, setup_url, setup_name, setup_size, sums_url,
+                 appimage=None):
         self.version = version
         self.tag = tag
         self.name = name
@@ -92,9 +107,26 @@ class Release:
         self.setup_name = setup_name
         self.setup_size = setup_size
         self.sums_url = sums_url
+        self.appimage_url, self.appimage_name, self.appimage_size = appimage or (None, None, 0)
+
+    def asset(self, kind="setup"):
+        """(indirizzo, nome, dimensione) del file per Windows («setup») o per Linux («appimage»)."""
+        if kind == "appimage":
+            return self.appimage_url, self.appimage_name, self.appimage_size
+        return self.setup_url, self.setup_name, self.setup_size
 
     def __repr__(self):
-        return f"Release({self.version!r}, {self.setup_name!r})"
+        return f"Release({self.version!r}, {self.setup_name!r}, {self.appimage_name!r})"
+
+
+def _asset(rel, kind):
+    """Come Release.asset, ma letto dagli attributi: funziona anche con oggetti simili (prove, versioni vecchie)."""
+    if not rel:
+        return None, None, 0
+    if kind == "appimage":
+        return (getattr(rel, "appimage_url", None), getattr(rel, "appimage_name", None),
+                getattr(rel, "appimage_size", 0) or 0)
+    return rel.setup_url, rel.setup_name, rel.setup_size or 0
 
 
 def parse_release(data):
@@ -105,22 +137,25 @@ def parse_release(data):
     ver = ".".join(str(x) for x in parse_version(tag))
     if not ver:
         return None
-    setup = sums = None
+    setup = sums = appimage = None
     for a in data.get("assets") or []:
         name = str(a.get("name") or "")
         url = str(a.get("browser_download_url") or "")
         if not url.startswith(DOWNLOAD_PREFIX):
             continue  # solo file di questa Release, da github.com
         m = _SETUP_RE.match(name)
+        mi = _APPIMAGE_RE.match(name)
         if m and parse_version(m.group(1)) == parse_version(ver):
             setup = (url, name, int(a.get("size") or 0))
+        elif mi and parse_version(mi.group(1)) == parse_version(ver):
+            appimage = (url, name, int(a.get("size") or 0))
         elif _SUMS_RE.match(name):
             sums = url
     page = str(data.get("html_url") or RELEASES_PAGE)
     if not page.startswith(f"https://github.com/{REPO}/"):
         page = RELEASES_PAGE
     return Release(ver, tag, str(data.get("name") or tag), str(data.get("body") or ""), page,
-                   setup[0] if setup else None, setup[1] if setup else None, setup[2] if setup else 0, sums)
+                   setup[0] if setup else None, setup[1] if setup else None, setup[2] if setup else 0, sums, appimage)
 
 
 def _request(url, timeout, accept="application/octet-stream"):
@@ -196,10 +231,15 @@ def download_dir():
     return d
 
 
-def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0, wait=None):
-    """Scarica l'installatore della Release e ne controlla dimensione e SHA-256. Ritorna il percorso del file.
-    progress(fatti, totali) viene chiamata durante lo scaricamento; cancelled() → True interrompe."""
-    if not rel or not rel.setup_url:
+def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0, wait=None, kind="setup"):
+    """Scarica l'installatore (kind «setup») o l'AppImage (kind «appimage») della Release e ne controlla dimensione
+    e SHA-256. Ritorna il percorso del file. progress(fatti, totali) viene chiamata durante lo scaricamento;
+    cancelled() → True interrompe."""
+    url, name, size = _asset(rel, kind)
+    if not url:
+        if kind == "appimage":
+            raise UpdateError(tr("In questa versione su GitHub manca la versione per Linux (AppImage): arriverà con "
+                                 "la prossima versione."))
         raise UpdateError(tr("In questa versione su GitHub manca l'installatore per Windows."))
     if not rel.sums_url:
         raise UpdateError(tr("In questa versione su GitHub manca il file SHA256SUMS.txt: senza non posso controllare "
@@ -215,19 +255,19 @@ def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0, wa
         raise _net_error(exc) from exc
     except OSError as exc:
         raise UpdateError(tr("Non riesco a scaricare SHA256SUMS.txt ({0}).", exc)) from exc
-    want = expected_sha(sums, rel.setup_name)
+    want = expected_sha(sums, name)
     if not want:
-        raise UpdateError(tr("SHA256SUMS.txt non contiene {0}: non posso controllare l'installatore.", rel.setup_name))
+        raise UpdateError(tr("SHA256SUMS.txt non contiene {0}: non posso controllare l'installatore.", name))
     dest_dir = dest_dir or download_dir()
-    final = os.path.join(dest_dir, rel.setup_name)
+    final = os.path.join(dest_dir, name)
     part = final + ".part"
     state = {}
 
     def get_setup():
         state["h"] = h = hashlib.sha256()
         state["done"] = done = 0
-        with _request(rel.setup_url, timeout) as r, open(part, "wb") as fh:
-            total = int(r.headers.get("Content-Length") or rel.setup_size or 0)
+        with _request(url, timeout) as r, open(part, "wb") as fh:
+            total = int(r.headers.get("Content-Length") or size or 0)
             if total > MAX_SETUP_BYTES:
                 raise UpdateError(tr("L'installatore su GitHub è troppo grande: non lo scarico."))
             while True:
@@ -262,7 +302,7 @@ def download(rel, dest_dir=None, progress=None, cancelled=None, timeout=30.0, wa
         _remove(part)
         raise UpdateError(tr("Scaricamento non riuscito ({0}).", exc)) from exc
     h, done = state["h"], state["done"]
-    if rel.setup_size and done != rel.setup_size:
+    if size and done != size:
         _remove(part)
         raise UpdateError(tr("Scaricamento incompleto: riprova."))
     if h.hexdigest() != want:
@@ -299,6 +339,41 @@ def launch_installer(path, target_dir=None):
                                 cwd=os.path.dirname(path))
     args = [path, "/AGGIORNA"] + ([f"/D={target_dir}"] if target_dir else [])
     return subprocess.Popen(args, close_fds=True, start_new_session=True, cwd=os.path.dirname(path))
+
+
+# ------------------------------------------------------------------ Linux: AppImage
+def appimage_target():
+    """Il file .AppImage da sostituire (quello da cui gira questa copia), o None."""
+    from . import linux
+
+    return linux.appimage_path()
+
+
+def apply_appimage(path, target=None):
+    """Alla chiusura di FreeLaserCut: la nuova AppImage (già scaricata e controllata) prende il posto di quella
+    vecchia, nello stesso percorso, così menu e collegamenti restano validi. Ritorna il percorso del file."""
+    from . import linux
+
+    target = target or appimage_target()
+    if not target:
+        raise UpdateError(tr("Non trovo il file AppImage di FreeLaserCut da aggiornare."))
+    try:
+        real = linux.replace_appimage(path, target)
+    except OSError as exc:
+        raise UpdateError(tr("Non riesco a sostituire {0} ({1}): la nuova versione resta in {2}.",
+                             target, exc, path)) from exc
+    _remove(path)
+    return real
+
+
+def relaunch_appimage(target, popen=None):
+    """Riapre FreeLaserCut dal file AppImage (nuovo processo, staccato da questo che si sta chiudendo)."""
+    from . import linux
+
+    popen = popen or subprocess.Popen
+    return popen([target], env=linux.clean_env(), start_new_session=True, close_fds=True,
+                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                 cwd=os.path.expanduser("~"))
 
 
 # ------------------------------------------------------------------ in sottofondo (per l'interfaccia)

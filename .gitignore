@@ -17,3 +17,8 @@ build/firmato/
 # dati personali della macchina: non vanno mai nel repository
 dati_iniziali/
 *.mcpb
+
+# versione per Linux (si rigenera con build/prepara_appimage.py)
+build/AppDir/
+build/*.AppImage
+build/SHA256SUMS-linux.txt

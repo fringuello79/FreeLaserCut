@@ -190,7 +190,10 @@ class GrblController(QObject):
                     raise RuntimeError(tr("pyserial non è installato"))
                 ser = serial.Serial(port, baud, timeout=0.1, write_timeout=2)
         except Exception as exc:  # noqa: BLE001
-            self.connection_changed.emit(False, f"Impossibile aprire {port}: {exc}")
+            from . import linux
+
+            hint = linux.serial_hint(port, exc)  # Linux: manca il permesso del gruppo dialout (0.18.0)
+            self.connection_changed.emit(False, f"Impossibile aprire {port}: {exc}" + (f"\n{hint}" if hint else ""))
             return False
         self._ser = ser
         self.port = port

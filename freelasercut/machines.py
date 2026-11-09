@@ -558,7 +558,10 @@ def probe(port, bauds=_BAUDS, opener=None, settle=1.6, log=None):
             ser = opener(port, baud)
         except Exception as exc:  # noqa: BLE001
             if log:
-                log(f"Impossibile aprire {port}: {exc}")
+                from . import linux
+
+                hint = linux.serial_hint(port, exc)
+                log(f"Impossibile aprire {port}: {exc}" + (f"\n{hint}" if hint else ""))
             return None
         try:
             banner = _read_until(ser, time.time() + settle)  # le schede si riavviano all'apertura

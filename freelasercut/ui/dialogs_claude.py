@@ -27,7 +27,20 @@ def python_exe():
 
 
 def server_entry():
+    from .. import linux
+
+    app = linux.mcp_command()  # AppImage: la cartella del programma cambia a ogni avvio, il file .AppImage no
+    if app:
+        return app
     return {"command": python_exe(), "args": ["-m", "freelasercut.mcp_server"], "env": {"PYTHONPATH": ROOT}}
+
+
+def claude_code_command():
+    """Riga per collegare FreeLaserCut a Claude Code (anche su Linux, dove l'app Claude per desktop non c'è)."""
+    e = server_entry()
+    if "env" in e:
+        return f'claude mcp add freelasercut -e PYTHONPATH="{ROOT}" -- "{e["command"]}" -m freelasercut.mcp_server'
+    return f'claude mcp add freelasercut -- "{e["command"]}" ' + " ".join(e["args"])
 
 
 def config_paths():
@@ -42,6 +55,9 @@ def config_paths():
             out.append(os.path.join(d, "claude_desktop_config.json"))
     if sys.platform == "darwin":
         out.append(os.path.expanduser("~/Library/Application Support/Claude/claude_desktop_config.json"))
+    if sys.platform.startswith("linux"):  # versioni dell'app Claude per Linux non ufficiali usano questa cartella
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+        out.append(os.path.join(base, "Claude", "claude_desktop_config.json"))
     return out
 
 
@@ -137,7 +153,9 @@ class ClaudeDialog(QDialog):
         self.cfg.setFont(style.mono_font(9))
         v.addWidget(QLabel(tr("Voce di configurazione (per Claude per desktop o altri programmi MCP):")))
         v.addWidget(self.cfg, 1)
-        cli = QLabel(tr("Claude Code:  <code>claude mcp add freelasercut -e PYTHONPATH=\"{0}\" -- \"{1}\" -m freelasercut.mcp_server</code>", ROOT, python_exe()))
+        import html as _html
+
+        cli = QLabel(tr("Claude Code:  <code>{0}</code>", _html.escape(claude_code_command())))
         cli.setTextInteractionFlags(Qt.TextSelectableByMouse)
         cli.setWordWrap(True)
         v.addWidget(cli)
@@ -152,6 +170,13 @@ class ClaudeDialog(QDialog):
         b_copy.clicked.connect(lambda: QGuiApplication.clipboard().setText(self.cfg.toPlainText()))
         b_close = QPushButton(tr("Chiudi"))
         b_close.clicked.connect(self.accept)
+        if sys.platform.startswith("linux"):  # su Linux l'app Claude per desktop ufficiale non c'è: resta Claude Code
+            b_ext.setVisible(False)
+            note = QLabel(tr("Su Linux l'app Claude per desktop non è disponibile ufficialmente: usa Claude Code con la "
+                             "riga qui sopra, oppure un altro programma che supporta MCP con la voce di configurazione."))
+            note.setWordWrap(True)
+            note.setObjectName("muted")
+            v.addWidget(note)
         h.addWidget(b_inst)
         h.addWidget(b_ext)
         h.addWidget(b_copy)

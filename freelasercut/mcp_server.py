@@ -158,6 +158,13 @@ def _info():
 
 def _launch():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    from . import linux
+
+    if linux.appimage_path():  # Linux, AppImage: si apre il programma dal file .AppImage (0.18.0)
+        cmd, env = linux.relaunch_command()
+        subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True, cwd=os.path.expanduser("~"))
+        return
     exe = sys.executable
     if os.name == "nt":
         pw = os.path.join(os.path.dirname(exe), "pythonw.exe")

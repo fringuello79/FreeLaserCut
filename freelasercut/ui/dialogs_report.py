@@ -80,7 +80,7 @@ class ReportDialog(QDialog):
         self.with_photo.setChecked(True)
         v.addWidget(self.with_photo)
         priv = QLabel(tr(
-            "<b>Privacy.</b> Il rapporto contiene: la tua descrizione, versione di FreeLaserCut e di Windows, profilo "
+            "<b>Privacy.</b> Il rapporto contiene: la tua descrizione, versione di FreeLaserCut e del sistema operativo, profilo "
             "e impostazioni della macchina, registro della comunicazione con la scheda, porte USB, l'ultimo lavoro "
             "(impostazioni e righe di G-code, non il disegno) ed eventuali errori. Il nome della tua cartella utente "
             "viene tolto. Niente progetti né foto, salvo l'immagine della finestra se la scegli. Serve solo a "

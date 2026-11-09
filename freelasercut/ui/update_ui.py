@@ -72,7 +72,7 @@ class UpdateManager(QObject):
         Solo nella copia installata con l'installatore (lo Store e git si aggiornano da sé)."""
         if os.environ.get("FLC_NO_UPDATE") or QGuiApplication.platformName() in ("offscreen", "minimal"):
             return
-        if self.mode != "installer":
+        if self.mode not in ("installer", "appimage"):
             return
         if self.qs.value("update_check") is None:
             if QApplication.activeModalWidget() is not None or not self.win.isVisible():
@@ -125,6 +125,15 @@ class UpdateManager(QObject):
                 QMessageBox.information(self.win, tr("Aggiornamenti"),
                                         tr("Hai già l'ultima versione di FreeLaserCut ({0}).", __version__))
             return
+        if self.mode == "appimage" and not rel.appimage_url:
+            # 0.18.0: la Release è uscita senza l'AppImage (la parte Linux non ha passato le prove): per Linux non
+            # c'è niente da installare, e non arriverà dopo; arriverà con la versione successiva
+            if manual:
+                QMessageBox.information(self.win, tr("Aggiornamenti"), tr(
+                    "È uscita FreeLaserCut {0}, ma questa volta solo per Windows: la versione per Linux non ha passato "
+                    "le prove automatiche. Arriverà con la prossima versione; intanto resti con la {1}.",
+                    rel.version, __version__))
+            return
         self.release = rel
         if manual:
             self.show_release(rel)
@@ -159,17 +168,22 @@ class UpdateManager(QObject):
         v.addWidget(notes, 1)
         bb = QDialogButtonBox()
         d.choice = None
-        if self.mode == "installer":
-            info = QLabel(tr("FreeLaserCut scarica l'installatore da GitHub, ne controlla l'impronta SHA-256, si chiude "
-                             "e si riapre da solo a installazione finita. Progetti, profili e materiali restano."))
+        if self.mode in ("installer", "appimage"):
+            if self.mode == "installer":
+                info = QLabel(tr("FreeLaserCut scarica l'installatore da GitHub, ne controlla l'impronta SHA-256, si "
+                                 "chiude e si riapre da solo a installazione finita. Progetti, profili e materiali restano."))
+            else:
+                info = QLabel(tr("FreeLaserCut scarica la nuova AppImage da GitHub, ne controlla l'impronta SHA-256, si "
+                                 "chiude, la mette al posto di quella vecchia (stesso file, stessa cartella) e si "
+                                 "riapre. Progetti, profili e materiali restano."))
             go = bb.addButton(tr("Scarica e installa"), QDialogButtonBox.AcceptRole)
             go.setDefault(True)
             go.clicked.connect(lambda: (setattr(d, "choice", "install"), d.accept()))
         elif self.mode == "store":
             info = QLabel(tr("Questa copia di FreeLaserCut viene dal Microsoft Store: l'aggiornamento arriva dallo Store."))
         else:
-            info = QLabel(tr("Questa copia non è stata installata con l'installatore per Windows: scarica la nuova "
-                             "versione dal sito (oppure aggiorna con git)."))
+            info = QLabel(tr("Questa copia non è stata installata con l'installatore per Windows né con l'AppImage per "
+                             "Linux: scarica la nuova versione dal sito (oppure aggiorna con git)."))
             site = bb.addButton(tr("Apri il sito"), QDialogButtonBox.ActionRole)
             site.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(updater.SITE)))
         info.setWordWrap(True)
@@ -194,6 +208,15 @@ class UpdateManager(QObject):
             QMessageBox.information(self.win, tr("Aggiornamento"),
                                     tr("C'è un lavoro (o una verifica) in corso: aggiorna quando la macchina ha finito."))
             return False
+        if self.mode == "appimage":
+            from .. import linux
+
+            target = updater.appimage_target()
+            if not target or not linux.folder_writable(target):
+                self._error(tr("Aggiornamento"), tr(
+                    "Non posso scrivere nella cartella dell'AppImage ({0}): scarica la nuova versione dal sito e "
+                    "mettila al posto di quella vecchia.", os.path.dirname(target or "") or "?"))
+                return False
         self._cancel = False
         dlg = QProgressDialog(tr("Scarico FreeLaserCut {0}…", rel.version), tr("Annulla"), 0, 0, self.win)
         dlg.setWindowTitle(tr("Aggiornamento"))
@@ -208,7 +231,7 @@ class UpdateManager(QObject):
         def run():
             try:
                 path = updater.download(rel, progress=lambda done, total: self.progress.emit(done // 1024, total // 1024),
-                                        cancelled=lambda: self._cancel)
+                                        cancelled=lambda: self._cancel, kind=updater.asset_kind(self.mode))
             except updater.UpdateError as exc:
                 self.downloaded.emit(None, str(exc))
                 return
@@ -273,14 +296,36 @@ class UpdateManager(QObject):
 
 
 def run_installer_on_exit(win):
-    """Chiamata da closeEvent dopo la chiusura accettata: avvia l'installatore scaricato (se c'è)."""
+    """Chiamata da closeEvent dopo la chiusura accettata: avvia l'installatore scaricato (se c'è).
+    Su Linux mette la nuova AppImage al posto di quella vecchia e la riapre."""
     path = getattr(win, "_update_installer", None)
     if not path:
         return False
     win._update_installer = None
+    if path.lower().endswith(".appimage"):
+        return _apply_appimage_on_exit(path)
     try:
         updater.launch_installer(path, updater.install_dir())
     except OSError:
         QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))  # almeno la cartella con l'installatore
         return False
+    return True
+
+
+def _apply_appimage_on_exit(path):
+    try:
+        target = updater.apply_appimage(path)
+    except updater.UpdateError as exc:
+        _log(f"Errore aggiornamento: {exc}")
+        QMessageBox.warning(None, tr("Aggiornamento"), str(exc))
+        return False
+    lst = getattr(QApplication.instance(), "_flc_single", None)
+    if lst is not None:  # la nuova copia non deve trovare «già aperto» questa che si chiude
+        lst.close()
+    try:
+        updater.relaunch_appimage(target)
+    except OSError as exc:
+        _log(f"Riapertura dopo l'aggiornamento non riuscita: {exc}")
+        return False
+    _log(f"Aggiornata l'AppImage {target}")
     return True

@@ -1,7 +1,7 @@
 # Licenze di terze parti
 
 FreeLaserCut è distribuito con la licenza **GNU GPL 3.0 o successiva** (file `LICENSE`).
-Usa e, nell'installatore per Windows, include componenti di altri autori, ciascuno con la propria licenza.
+Usa e, nell'installatore per Windows e nell'AppImage per Linux, include componenti di altri autori, ciascuno con la propria licenza.
 I testi completi sono nella cartella `licenze-terze-parti/` (e, nell'installazione, anche nelle cartelle
 `*.dist-info` di ogni libreria dentro `python\Lib\site-packages`).
 
@@ -54,3 +54,18 @@ script `build/prepara_installer.py`, senza modificarli. Le versioni esatte sono 
 ## Marchi
 
 I nomi di prodotti e marchi citati sono dei rispettivi titolari e sono usati solo per indicare la compatibilità.
+
+## Inclusi nell'AppImage per Linux (dalla 0.18.0)
+
+Gli stessi componenti dell'installatore per Windows, nelle versioni per Linux, con queste differenze:
+
+| Componente | Licenza | Testo |
+|---|---|---|
+| Python 3.14 per Linux (python-build-standalone), con dentro anche ncurses (MIT/X11), libedit (BSD) e libuuid (BSD 3-Clause) | PSF License 2.0 e licenze permissive | `python-CPython-PSF.txt`, `python-*.txt`, `usr/python/lib/python3.14/LICENSE.txt` nell'AppImage |
+| OpenCV nella versione «headless» (opencv-python-headless: senza la sua copia di Qt) | Apache 2.0; componenti di terze parti tra cui FFmpeg (LGPL 2.1) | `opencv-Apache-2.0.txt`, `opencv-terze-parti.txt` |
+| xcb-util: libxcb-cursor, libxcb-icccm, libxcb-image, libxcb-keysyms, libxcb-render-util, libxcb-util (dai pacchetti di Ubuntu 22.04, perché molte distribuzioni non le installano e Qt 6 le chiede) | MIT/X11 | `xcb-util-MIT.txt` |
+| libxkbcommon-x11 (dal pacchetto di Ubuntu 22.04) | MIT | `libxkbcommon-MIT.txt` |
+| runtime dell'AppImage (AppImage/type2-runtime) | MIT | — |
+
+Le librerie sono incluse senza modifiche, come file separati: si possono sostituire con quelle del sistema.
+

@@ -278,6 +278,12 @@ HELP = {
                     None),
     "report": (tr("Crea rapporto per l'assistenza"), tr("Un file .zip con versione, sistema, profilo della macchina, registro errori "
                "e registro della comunicazione con la scheda, da allegare a una segnalazione. Niente progetti né dati personali."), None),
+    "linux_info": (tr("FreeLaserCut per Linux: collaudo e segnalazioni"), tr("Spiega come funziona la versione per Linux: "
+                   "stesso programma e stesse prove automatiche della versione per Windows, ma il collaudo con laser e "
+                   "camera veri lo fa chi la usa, segnalando i problemi con Invia un rapporto all'assistenza."), None),
+    "linux_desktop": (tr("Aggiungi al menu delle applicazioni"), tr("Mette FreeLaserCut nel menu delle applicazioni del tuo "
+                      "desktop e gli fa aprire i progetti .flcut con il doppio clic. Solo per il tuo utente, senza "
+                      "password; si può rifare se sposti il file AppImage."), None),
     "support": (tr("Sostieni FreeLaserCut"), tr("Mostra come contribuire allo sviluppo con una donazione volontaria "
                 "tramite GitHub Sponsors o PayPal. Il programma resta completo e gratuito: la donazione non sblocca niente."), None),
     "claude": (tr("Collega a Claude"), tr("Installa l'estensione per Claude: potrai chiedere in chat di disegnare, impostare "

@@ -127,6 +127,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(200, self._first_run_notice)
         QTimer.singleShot(2200, self._offer_setup)
         QTimer.singleShot(4000, self.updates.startup)
+        QTimer.singleShot(1500, self.linux_notice)  # 0.18.0: solo su Linux, una volta
         try:  # comandi da Claude (MCP): solo da questo PC
             from ..remote import RemoteServer
 
@@ -355,6 +356,11 @@ class MainWindow(QMainWindow):
             "report": A(tr("Crea rapporto per l'assistenza…"), self.make_support_report, None, None,
                         tr("Un file .zip con versione, sistema, profilo della macchina, registro errori e registro "
                            "della comunicazione con la scheda, da allegare a una segnalazione. Niente progetti né dati personali.")),
+            "linux_info": A(tr("FreeLaserCut per Linux: collaudo e segnalazioni"), lambda: self.linux_notice(force=True),
+                            None, None, tr("Come si collauda e come si segnalano i problemi della versione per Linux")),
+            "linux_desktop": A(tr("Aggiungi FreeLaserCut al menu delle applicazioni"), self.linux_add_to_menu, None, None,
+                               tr("Mette FreeLaserCut nel menu delle applicazioni e gli associa i progetti .flcut "
+                                  "(solo per il tuo utente)")),
             "updates": A(tr("Cerca aggiornamenti…"), lambda: self.updates.check(manual=True), None, None,
                          tr("Controlla su GitHub se c'è una versione più nuova di FreeLaserCut e, se vuoi, la scarica "
                             "e la installa: FreeLaserCut si chiude e si riapre da solo.")),
@@ -538,11 +544,15 @@ class MainWindow(QMainWindow):
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
         self._apply_admin()  # 0.17.16: funzioni in prova nascoste finché non si sbloccano
-        hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "send_report", "report", "-", "updates", "update_auto",
-                                 "-", "support"])
+        hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "send_report", "report",
+                                 "linux_info", "linux_desktop", "-", "updates", "update_auto", "-", "support"])
         hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
         self.acts["update_auto"].setChecked(self.updates.enabled())
-        self.acts["update_auto"].setVisible(self.updates.mode == "installer")  # Store e git si aggiornano da sé
+        self.acts["update_auto"].setVisible(self.updates.mode in ("installer", "appimage"))  # Store e git: da sé
+        from .. import linux
+
+        self.acts["linux_info"].setVisible(linux.is_linux())  # 0.18.0: solo nella versione per Linux
+        self.acts["linux_desktop"].setVisible(linux.appimage_path() is not None)
 
     def _build_settings_menu(self, mb):
         """Impostazioni: interfaccia (Banco / Classica), secondo monitor, lingua, vista."""
@@ -2937,6 +2947,85 @@ class MainWindow(QMainWindow):
                          [(tr("Apri"), lambda: (self.banner.hide(), self.setup_wizard())),
                           (tr("Più tardi"), self.banner.hide)], hint=True)
 
+    # ---------------------------------------------------------------- versione per Linux (0.18.0)
+    def linux_notice_dialog(self):
+        """Finestra che spiega come si collauda la versione per Linux (senza aprirla: la usano anche le prove)."""
+        from .. import linux
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Information)
+        box.setWindowTitle(tr("FreeLaserCut per Linux"))
+        box.setTextFormat(Qt.RichText)
+        box.setText(tr(
+            "<b>Questa è la versione di FreeLaserCut per Linux.</b><br><br>"
+            "È lo stesso programma della versione per Windows: viene costruita dallo stesso codice, esce insieme a lei "
+            "con lo stesso numero di versione e passa le stesse prove automatiche.<br><br>"
+            "<b>Una differenza importante:</b> lo sviluppo e le prove con il laser e la camera veri si fanno su "
+            "Windows. Su Linux non si possono ripetere a ogni versione, perché distribuzioni, desktop e "
+            "configurazioni sono troppi. Per questo <b>il collaudo su Linux lo fa chi installa il programma, sul "
+            "proprio computer</b>.<br><br>"
+            "Se qualcosa non va come dovrebbe (porta USB, camera, finestre, lavoro sulla macchina, aggiornamento…) "
+            "segnalalo da <i>Aiuto → Invia un rapporto all'assistenza</i>. Il rapporto contiene già la distribuzione, "
+            "il desktop e le informazioni tecniche: basta raccontare cosa è successo. Ogni rapporto serve a "
+            "correggere il problema per tutti nelle versioni successive.<br><br>"
+            "Questo messaggio compare una volta sola: lo ritrovi in <i>Aiuto → FreeLaserCut per Linux: collaudo e "
+            "segnalazioni</i>."))
+        box.desktop_check = None
+        app = linux.appimage_path()
+        if app and not linux.desktop_installed_for(app):
+            from PySide6.QtWidgets import QCheckBox
+
+            cb = QCheckBox(tr("Aggiungi FreeLaserCut al menu delle applicazioni e apri con FreeLaserCut i progetti .flcut"))
+            cb.setChecked(True)
+            box.setCheckBox(cb)
+            box.desktop_check = cb
+        box.report_btn = box.addButton(tr("Invia un rapporto…"), QMessageBox.ActionRole)
+        ok = box.addButton(tr("Ho capito"), QMessageBox.AcceptRole)
+        box.setDefaultButton(ok)
+        return box
+
+    def linux_notice(self, force=False):
+        """Su Linux, una volta sola (o da Aiuto): come si collauda e come si segnala un problema."""
+        from .. import linux
+
+        if not linux.is_linux():
+            return None
+        if not force:
+            if self.qs.value("linux_notice_seen", False) in (True, "true", "1", 1) or os.environ.get("FLC_NO_FIRST_RUN") \
+                    or QGuiApplication.platformName() in ("offscreen", "minimal"):
+                return None
+            if QApplication.activeModalWidget() is not None or not self.isVisible():
+                QTimer.singleShot(3000, self.linux_notice)  # c'è già l'avviso di sicurezza o la configurazione
+                return None
+        box = self.linux_notice_dialog()
+        box.exec()
+        self.qs.setValue("linux_notice_seen", True)
+        if box.desktop_check is not None and box.desktop_check.isChecked():
+            self.linux_add_to_menu(quiet=True)
+        if box.clickedButton() is box.report_btn:
+            QTimer.singleShot(0, self.send_report_dialog)
+        return box
+
+    def linux_add_to_menu(self, *_, quiet=False):
+        """Aiuto → Aggiungi FreeLaserCut al menu delle applicazioni (solo AppImage)."""
+        from .. import linux
+
+        app = linux.appimage_path()
+        if not app:
+            return None
+        try:
+            files = linux.install_desktop(app, os.path.join(ASSETS, "logo.png"))
+        except OSError as exc:
+            QMessageBox.warning(self, tr("Menu delle applicazioni"), tr("Non riesco a scrivere i file del menu:\n{0}", exc))
+            return None
+        if not quiet:
+            QMessageBox.information(self, tr("Menu delle applicazioni"), tr(
+                "FreeLaserCut è nel menu delle applicazioni e apre i progetti .flcut con il doppio clic. Se sposti il "
+                "file AppImage, ripeti questo comando.\n\nFile scritti:\n{0}", "\n".join(files)))
+        else:
+            self.statusBar().showMessage(tr("FreeLaserCut aggiunto al menu delle applicazioni"), 6000)
+        return files
+
     def send_report_dialog(self, *_):
         """Aiuto → Invia un rapporto all'assistenza (0.17.7)."""
         from .dialogs_report import ReportDialog
@@ -3065,7 +3154,10 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, tr("Scorciatoie da tastiera"), SHORTCUTS)
 
     def show_about(self):
-        QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", __version__))
+        QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", __version__)
+                          + (tr("<br><br><b>Versione per Linux.</b> Stesso codice e stesse prove automatiche della versione "
+                                "per Windows; il collaudo con laser e camera veri lo fa chi la usa. Problemi? "
+                                "<i>Aiuto → Invia un rapporto all'assistenza</i>.") if _is_linux() else ""))
 
     def _build_language_menu(self, parent):
         """Visualizza → Lingua: la scelta vale dal riavvio (il titolo resta riconoscibile anche in inglese)."""
@@ -3131,7 +3223,20 @@ class MainWindow(QMainWindow):
             if lst is not None:  # smetto di ascoltare: la nuova copia non deve trovare «già aperto» questa che si chiude
                 lst.close()
 
-            QProcess.startDetached(sys.executable, ["-m", "freelasercut"])
+            from .. import linux
+
+            cmd, env = linux.relaunch_command()
+            if env is None:
+                QProcess.startDetached(cmd[0], cmd[1:])
+            else:  # AppImage: si riparte dal file .AppImage, la cartella montata di questa copia sparisce
+                import subprocess
+
+                subprocess.Popen(cmd, env=env, start_new_session=True, close_fds=True, stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _is_linux():
+    return sys.platform.startswith("linux")
 
 
 def _hms(sec):
@@ -3195,7 +3300,10 @@ def main(app=None, splash=None):
             except Exception:  # noqa: BLE001
                 pass
 
+    from .. import linux
+
     if app is None:
+        linux.startup()  # Linux: certificati per HTTPS, X11 su Wayland (non fa niente su Windows)
         QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
         if sys.platform == "win32":
             try:
@@ -3206,6 +3314,7 @@ def main(app=None, splash=None):
                 pass
         app = QApplication(sys.argv)
     app.setApplicationName("FreeLaserCut")
+    linux.after_qapp(app)
     app.setStyle("Fusion")
     style.fast_ui(app)  # suggerimenti pronti e senza scatti, niente animazioni dei menu
     style.load_fonts()

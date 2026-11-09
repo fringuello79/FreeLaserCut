@@ -1,9 +1,11 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-# Costruisce l'installatore per Windows sui server di GitHub, partendo dal codice pubblico, lo prova su un
-# Windows vero e, quando si pubblica un tag vX.Y.Z, crea la Release con l'installatore e SHA256SUMS.txt.
-# È da lì che FreeLaserCut si aggiorna da solo (Aiuto → Cerca aggiornamenti…).
-# Si avvia anche a mano (Actions → Installatore Windows → Run workflow): allora costruisce e prova, senza Release.
-name: Installatore Windows
+# Costruisce le versioni per Windows (installatore) e per Linux (AppImage) sui server di GitHub, partendo dal codice
+# pubblico, le prova (Windows vero; Ubuntu con X11 vero) e, quando si pubblica un tag vX.Y.Z, crea la Release con
+# l'installatore, l'AppImage e un solo SHA256SUMS.txt. È da lì che FreeLaserCut si aggiorna da solo
+# (Aiuto → Cerca aggiornamenti…), su Windows come su Linux: le due versioni escono sempre insieme, con lo stesso numero.
+# Se la parte Linux non riesce, la Release esce lo stesso con la sola versione per Windows (la principale).
+# Si avvia anche a mano (Actions → Installatori → Run workflow): allora costruisce e prova, senza Release.
+name: Installatori Windows e Linux
 
 on:
   workflow_dispatch:
@@ -108,10 +110,119 @@ jobs:
           & $py -X utf8 -c "from PySide6.QtWidgets import QApplication; app = QApplication([]); from freelasercut.ui.main_window import MainWindow; w = MainWindow(); w.show(); app.processEvents(); print('finestra principale ok'); w.editor.dirty = False; w.close()"
           if ($LASTEXITCODE -ne 0) { throw "la finestra principale non si apre" }
 
+  # ---------------------------------------------------------------- Linux (0.18.0)
+  # Ubuntu 22.04: librerie di sistema abbastanza vecchie perché l'AppImage parta anche su distribuzioni non recenti.
+  build-linux:
+    runs-on: ubuntu-22.04
+    outputs:
+      ver: ${{ steps.ver.outputs.ver }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Versione
+        id: ver
+        run: echo "ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
+      - name: Librerie xcb da mettere nell'AppImage
+        run: sudo apt-get update && sudo apt-get install -y libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxkbcommon-x11-0 file
+      - name: Versione di Python per Linux
+        id: py
+        run: echo "rel=$(grep -oP 'PY_RELEASE = "\K[^"]+' build/prepara_installer.py)" >> "$GITHUB_OUTPUT"
+      - name: Python per Linux e appimagetool dalla cache
+        uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: python-linux-${{ steps.py.outputs.rel }}
+      - name: AppImage
+        run: python build/prepara_appimage.py
+      - name: SHA-256
+        run: cd build && sha256sum FreeLaserCut-*-x86_64.AppImage | tee SHA256SUMS-linux.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FreeLaserCut-${{ steps.ver.outputs.ver }}-Linux
+          path: |
+            build/FreeLaserCut-*-x86_64.AppImage
+            build/SHA256SUMS-linux.txt
+
+  # Avvia davvero l'AppImage su un Ubuntu più recente, con X11 (xvfb) e senza le librerie xcb aggiunte:
+  # finestra principale, server per Claude, modo di aggiornamento. Se qualcosa non va, la Release esce senza Linux.
+  prova-linux:
+    needs: build-linux
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: FreeLaserCut-${{ needs.build-linux.outputs.ver }}-Linux
+          path: dist
+      - name: SHA-256
+        run: cd dist && sha256sum -c SHA256SUMS-linux.txt
+      - name: Librerie di un desktop normale (OpenGL, caratteri, X11)
+        run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbcommon0 libxcb1 libx11-xcb1
+      - name: Prova di avvio (X11)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          QT_QPA_PLATFORM: xcb
+        run: |
+          app=$(ls dist/FreeLaserCut-*-x86_64.AppImage)
+          chmod +x "$app"
+          xvfb-run -a -s "-screen 0 1920x1080x24" "$app" --self-test | tee selftest.txt
+          grep -q "FreeLaserCut ${{ needs.build-linux.outputs.ver }} — prova di avvio" selftest.txt
+          grep -q "piattaforma Qt xcb" selftest.txt
+          grep -q "aggiornamento: appimage" selftest.txt
+          grep -q "ESITO: tutto a posto" selftest.txt
+      - name: Server per Claude (--mcp-server)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          app=$(ls dist/FreeLaserCut-*-x86_64.AppImage)
+          chmod +x "$app"
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"prova","version":"1"}}}' \
+            | timeout 120 "$app" --mcp-server | tee mcp.txt
+          grep -q '"serverInfo"' mcp.txt
+
+  # Altre distribuzioni (solo per informazione: non fermano la Release). L'AppImage si estrae e si avvia senza
+  # schermo (offscreen) dentro un container con le librerie di base di un desktop.
+  prova-distribuzioni:
+    needs: build-linux
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:12
+            setup: apt-get update && apt-get install -y libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbcommon0 libglib2.0-0
+          - image: ubuntu:22.04
+            setup: apt-get update && apt-get install -y libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbcommon0 libglib2.0-0
+          - image: fedora:41
+            setup: dnf install -y mesa-libEGL mesa-libGL fontconfig dbus-libs libxkbcommon glib2 findutils
+          - image: archlinux:latest
+            setup: pacman -Sy --noconfirm libglvnd mesa fontconfig dbus libxkbcommon glib2
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: FreeLaserCut-${{ needs.build-linux.outputs.ver }}-Linux
+          path: dist
+      - name: Librerie di base
+        run: ${{ matrix.setup }}
+      - name: Prova di avvio (${{ matrix.image }})
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          cd dist
+          app=$(ls FreeLaserCut-*-x86_64.AppImage)
+          chmod +x "$app"
+          ./"$app" --appimage-extract >/dev/null
+          APPIMAGE="$PWD/$app" APPDIR="$PWD/squashfs-root" ./squashfs-root/AppRun --self-test | tee selftest.txt
+          grep -q "ESITO: tutto a posto" selftest.txt
+
   # Solo per i tag vX.Y.Z: Release pubblica con installatore e SHA256SUMS.txt; le note vengono dal CHANGELOG.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, prova-windows]
+    # Windows è la versione principale: senza la sua prova non esce niente. Linux entra solo se la sua prova è riuscita.
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') && needs.prova-windows.result == 'success' }}
+    needs: [build, prova-windows, build-linux, prova-linux]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -121,10 +232,29 @@ jobs:
         with:
           name: FreeLaserCut-${{ needs.build.outputs.ver }}-Setup
           path: dist
+      - name: Versione per Linux
+        if: needs.prova-linux.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: FreeLaserCut-${{ needs.build.outputs.ver }}-Linux
+          path: dist-linux
+      - name: Un solo SHA256SUMS.txt per Windows e Linux
+        run: |
+          if [ -f dist-linux/SHA256SUMS-linux.txt ]; then
+            (cd dist-linux && sha256sum -c SHA256SUMS-linux.txt)
+            cp dist-linux/FreeLaserCut-*-x86_64.AppImage dist/
+            cat dist-linux/SHA256SUMS-linux.txt >> dist/SHA256SUMS.txt
+            echo "LINUX=1" >> "$GITHUB_ENV"
+          else
+            echo "::warning::La versione per Linux non ha passato la prova: la Release esce con la sola versione per Windows"
+            echo "LINUX=0" >> "$GITHUB_ENV"
+          fi
+          cat dist/SHA256SUMS.txt
+          (cd dist && sha256sum -c SHA256SUMS.txt)
       - name: Note della versione dal CHANGELOG
         run: |
           python3 - "${{ needs.build.outputs.ver }}" > note.md <<'PY'
-          import re, sys
+          import os, re, sys
           ver = sys.argv[1]
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(r"^## " + re.escape(ver) + r"\b[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
@@ -134,6 +264,12 @@ jobs:
           print("---")
           print("Installatore per Windows: scarica `FreeLaserCut-" + ver + "-Setup.exe`. Chi ha già FreeLaserCut "
                 "può aggiornare dal programma: *Aiuto → Cerca aggiornamenti…*.")
+          if os.environ.get("LINUX") == "1":
+              print()
+              print("Linux: scarica `FreeLaserCut-" + ver + "-x86_64.AppImage`, rendilo eseguibile e aprilo. È lo stesso "
+                    "programma, con le stesse prove automatiche; lo sviluppo e le prove con laser e camera veri però si "
+                    "fanno su Windows, quindi **il collaudo su Linux lo fa chi lo installa**: se qualcosa non va, "
+                    "segnalalo da *Aiuto → Invia un rapporto all'assistenza*.")
           PY
           cat note.md
       - name: Crea la Release
@@ -143,13 +279,15 @@ jobs:
           # GitHub ogni tanto risponde con un errore suo (HTTP 500, successo con la 0.13.1) e la Release resta a metà,
           # in bozza: riprovo fino a 3 volte e, se la Release esiste già, carico i file e la pubblico.
           TITLE="FreeLaserCut ${{ needs.build.outputs.ver }}"
+          FILES=(dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt)
+          if [ "$LINUX" = "1" ]; then FILES+=(dist/FreeLaserCut-*-x86_64.AppImage); fi
           for i in 1 2 3; do
             if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              gh release upload "$GITHUB_REF_NAME" dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt \
+              gh release upload "$GITHUB_REF_NAME" "${FILES[@]}" \
                 --repo "$GITHUB_REPOSITORY" --clobber \
               && gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --title "$TITLE" \
                 --notes-file note.md && exit 0
-            elif gh release create "$GITHUB_REF_NAME" dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt \
+            elif gh release create "$GITHUB_REF_NAME" "${FILES[@]}" \
                 --repo "$GITHUB_REPOSITORY" --title "$TITLE" --notes-file note.md --verify-tag; then
               exit 0
             fi

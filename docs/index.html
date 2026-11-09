@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FreeLaserCut — free laser engraving software</title>
-<meta name="description" content="FreeLaserCut (FLC): free and open-source (GPL-3.0) software to design, nest and send engraving and cutting jobs to GRBL diode lasers. Windows installer, 5 languages.">
+<meta name="description" content="FreeLaserCut (FLC): free and open-source (GPL-3.0) software to design, nest and send engraving and cutting jobs to GRBL diode lasers. Windows installer and Linux AppImage, 5 languages.">
 <meta property="og:title" content="FreeLaserCut — free laser engraving software">
-<meta property="og:description" content="Design, nest and engrave with your GRBL diode laser. Free, open source, Windows installer.">
+<meta property="og:description" content="Design, nest and engrave with your GRBL diode laser. Free, open source, for Windows and Linux.">
 <meta property="og:image" content="https://fringuello79.github.io/FreeLaserCut/screenshot/banco.png">
 <meta property="og:type" content="website">
 <link rel="icon" type="image/svg+xml" href="logo/logo.svg">
@@ -68,6 +68,10 @@ header{position:sticky;top:0;z-index:10;background:rgba(7,10,17,.86);backdrop-fi
 .btn-main{background:var(--orange);color:#1A0E05}
 .btn-ghost{background:var(--card);color:var(--text);border-color:var(--line2)}
 .btn svg{width:20px;height:20px}
+.btn-linux{background:var(--card);color:var(--text);border-color:rgba(255,154,61,.55)}
+.btn-linux small{font-size:12px;font-weight:600;color:var(--muted)}
+.btn-linux .two{display:flex;flex-direction:column;line-height:1.15;text-align:left}
+.linux-note{border-left:3px solid var(--orange);padding:6px 0 6px 12px}
 .btn-learn{background:linear-gradient(135deg,rgba(79,180,255,.16),rgba(139,124,255,.16));color:var(--text);border-color:rgba(79,180,255,.55);box-shadow:0 0 0 0 rgba(79,180,255,0);transition:box-shadow .25s}
 .btn-learn:hover{box-shadow:0 6px 26px rgba(79,180,255,.25)}
 .btn-learn svg{color:var(--blue)}
@@ -176,6 +180,7 @@ footer p{margin:0 0 8px}
       <div class="badges">
         <span class="badge">GPL-3.0</span>
         <span class="badge">Windows 10 / 11</span>
+        <span class="badge">Linux · AppImage</span>
         <span class="badge">GRBL · grblHAL · FluidNC</span>
         <span class="badge">EN · IT · ES · FR · PT</span>
       </div>
@@ -183,6 +188,10 @@ footer p{margin:0 0 8px}
         <a class="btn btn-main" id="download" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
           <span class="en">Download free for Windows</span><span class="it">Scarica gratis per Windows</span>
+        </a>
+        <a class="btn btn-linux" id="dl-linux" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          <span class="two"><span class="en">Download for Linux</span><span class="it">Scarica per Linux</span><small><span class="en">AppImage · tested by its users</span><span class="it">AppImage · collaudata da chi la usa</span></small></span>
         </a>
         <a class="btn btn-learn" href="costrutto.html">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor"/></svg>
@@ -199,6 +208,13 @@ footer p{margin:0 0 8px}
         <br><span class="en">From <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>. Alternative link: <a class="drive-link" href="#">Google Drive</a> (click <b>Download</b>; Drive warns that it cannot scan large files for viruses: confirm with <b>Download anyway</b>). Once installed, FreeLaserCut updates itself: <i>Help → Check for updates…</i></span>
         <span class="it">Da <a href="https://github.com/fringuello79/FreeLaserCut/releases/latest">GitHub Releases</a>. Collegamento alternativo: <a class="drive-link" href="#">Google Drive</a> (fai clic su <b>Scarica</b>; Drive avvisa che non può controllare i virus nei file grandi: conferma con <b>Scarica comunque</b>). Una volta installato, FreeLaserCut si aggiorna da solo: <i>Aiuto → Cerca aggiornamenti…</i></span>
         <br>SHA-256: <code data-cfg="sha256"></code>
+      </p>
+      <p class="dlmeta linux-note" id="linux-note">
+        <span class="en"><b>Linux</b> (AppImage, 64-bit, Ubuntu 22.04 / Debian 12 / Fedora 35 or newer) · version <b data-cfg-linux="version"></b> · <span data-cfg-linux="size"></span>.
+          It is the same program as the Windows version, released together with it and checked by the same automated tests. Development and testing with a real laser and camera, however, are done on Windows: <b>testing on Linux is done by the people who install it</b>, on their own computer. If something does not work, please report it from <i>Help → Send a report to support</i>: the report already contains the distribution and the technical details, and every report helps fix the problem for everyone.</span>
+        <span class="it"><b>Linux</b> (AppImage, 64 bit, Ubuntu 22.04 / Debian 12 / Fedora 35 o più recenti) · versione <b data-cfg-linux="version"></b> · <span data-cfg-linux="size"></span>.
+          È lo stesso programma della versione per Windows, esce insieme a lei e passa le stesse prove automatiche. Lo sviluppo e le prove con il laser e la camera veri però si fanno su Windows: <b>il collaudo su Linux lo fa chi lo installa</b>, sul proprio computer. Se qualcosa non va, segnalalo da <i>Aiuto → Invia un rapporto all'assistenza</i>: il rapporto contiene già la distribuzione e le informazioni tecniche, e ogni segnalazione serve a correggere il problema per tutti.</span>
+        <br>SHA-256: <code data-cfg-linux="sha256"></code>
       </p>
     </div>
     <figure class="shot" style="margin:0">
@@ -287,8 +303,8 @@ footer p{margin:0 0 8px}
         <p class="en">Finds the USB port, chip and driver, reads firmware and settings, and builds the right profile for your laser.</p>
         <p class="it">Trova porta USB, chip e driver, legge firmware e impostazioni e prepara il profilo giusto per il tuo laser.</p></div>
       <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></span><span class="en">Five languages</span><span class="it">Cinque lingue</span></h3>
-        <p class="en">English, Italiano, Español, Français and Português. The first start follows your Windows language.</p>
-        <p class="it">English, Italiano, Español, Français e Português. Al primo avvio segue la lingua di Windows.</p></div>
+        <p class="en">English, Italiano, Español, Français and Português. The first start follows the language of your system.</p>
+        <p class="it">English, Italiano, Español, Français e Português. Al primo avvio segue la lingua del sistema.</p></div>
       <div class="card"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="en">AI assistant, optional</span><span class="it">Assistente IA, facoltativo</span></h3>
         <p class="en">Can be connected to Claude Desktop (MCP) to design and prepare jobs by chat. It never starts the laser on its own.</p>
         <p class="it">Si può collegare a Claude Desktop (MCP) per disegnare e preparare i lavori in chat. Non avvia mai il laser da solo.</p></div>
@@ -400,10 +416,12 @@ footer p{margin:0 0 8px}
         <article class="step" id="g1"><h3><span class="num">1</span><span class="en">Install</span><span class="it">Installa</span></h3>
           <ul class="en"><li>Download <code>FreeLaserCut-<span data-cfg="version"></span>-Setup.exe</code> and open it. It installs for your user only, with no administrator rights, and adds Start menu and desktop shortcuts.</li>
             <li>The installer is not code-signed yet: if Windows shows <i>"Windows protected your PC"</i>, choose <b>More info → Run anyway</b>. You can check the file against the SHA-256 shown above.</li>
-            <li>To remove it: Windows Settings → Apps. Your projects and settings stay in <code>%APPDATA%\FreeLaserCut</code>.</li></ul>
+            <li>To remove it: Windows Settings → Apps. Your projects and settings stay in <code>%APPDATA%\FreeLaserCut</code>.</li>
+            <li><b>Linux:</b> download <code>FreeLaserCut-<span data-cfg-linux="version"></span>-x86_64.AppImage</code>, make it executable (<code>chmod +x</code>, or right click → Properties → Allow executing as a program) and open it. On first start it offers to add itself to the applications menu. To use the USB port, add your user to the <code>dialout</code> group once (<i>Laser → Detect machine → USB port permission…</i> explains how); Wi-Fi needs nothing. If it does not start, try <code>--appimage-extract-and-run</code>.</li></ul>
           <ul class="it"><li>Scarica <code>FreeLaserCut-<span data-cfg="version"></span>-Setup.exe</code> e aprilo. Si installa solo per il tuo utente, senza permessi da amministratore, con i collegamenti nel menu Start e sul desktop.</li>
             <li>L'installatore non è ancora firmato digitalmente: se Windows mostra <i>"PC protetto da Windows"</i> scegli <b>Ulteriori informazioni → Esegui comunque</b>. Puoi confrontare il file con lo SHA-256 indicato sopra.</li>
-            <li>Per toglierlo: Impostazioni di Windows → App. Progetti e preferenze restano in <code>%APPDATA%\FreeLaserCut</code>.</li></ul></article>
+            <li>Per toglierlo: Impostazioni di Windows → App. Progetti e preferenze restano in <code>%APPDATA%\FreeLaserCut</code>.</li>
+            <li><b>Linux:</b> scarica <code>FreeLaserCut-<span data-cfg-linux="version"></span>-x86_64.AppImage</code>, rendilo eseguibile (<code>chmod +x</code>, oppure tasto destro → Proprietà → Consenti l'esecuzione come programma) e aprilo. Al primo avvio propone di aggiungersi al menu delle applicazioni. Per la porta USB aggiungi una volta il tuo utente al gruppo <code>dialout</code> (lo spiega <i>Laser → Riconosci la macchina → Permesso della porta USB…</i>); il Wi-Fi non chiede niente. Se non parte, prova con <code>--appimage-extract-and-run</code>.</li></ul></article>
         <article class="step" id="g2"><h3><span class="num">2</span><span class="en">First start</span><span class="it">Primo avvio</span></h3>
           <ul class="en"><li>Read the safety notice, then choose the interface (<b>Workbench</b> or <b>Classic</b>) and <b>your laser model</b>.</li>
             <li>You can change interface, language and second-monitor behaviour any time from <b>Settings</b> (the ⚙ button in the Workbench).</li></ul>
@@ -549,6 +567,12 @@ function showConfig(c, href) {
   document.querySelectorAll("[data-cfg]").forEach(el => { el.textContent = c[el.dataset.cfg] || ""; });
   if (href) document.getElementById("download").href = href;
 }
+/* Linux (0.18.0): l'AppImage della stessa Release. Se non c'è, il pulsante porta alla pagina delle Release. */
+function showLinux(c, href) {
+  document.querySelectorAll("[data-cfg-linux]").forEach(el => { el.textContent = c[el.dataset.cfgLinux] || ""; });
+  if (href) document.getElementById("dl-linux").href = href;
+}
+showLinux({version: "", size: "", sha256: "SHA256SUMS.txt"}, null);
 document.querySelectorAll(".drive-link").forEach(a => { a.href = CONFIG.drive; a.target = "_blank"; a.rel = "noopener"; });
 showConfig(CONFIG, CONFIG.drive);  // finché non risponde GitHub (o se non c'è ancora una Release)
 fetch("https://api.github.com/repos/fringuello79/FreeLaserCut/releases/latest", {headers: {Accept: "application/vnd.github+json"}})
@@ -558,8 +582,18 @@ fetch("https://api.github.com/repos/fringuello79/FreeLaserCut/releases/latest", 
     const a = d.assets.find(x => /^freelasercut-[\d.]+-setup\.exe$/i.test(x.name || ""));
     if (!a || !String(a.browser_download_url || "").startsWith("https://github.com/fringuello79/FreeLaserCut/releases/download/")) return;
     const sha = String(a.digest || "").replace(/^sha256:/, "");
-    showConfig({version: String(d.tag_name || "").replace(/^v/, ""), size: Math.round(a.size / 1048576) + " MB",
+    const ver = String(d.tag_name || "").replace(/^v/, "");
+    showConfig({version: ver, size: Math.round(a.size / 1048576) + " MB",
                 sha256: /^[0-9a-f]{64}$/.test(sha) ? sha : "SHA256SUMS.txt"}, a.browser_download_url);
+    const l = d.assets.find(x => /^freelasercut-[\d.]+-x86_64\.appimage$/i.test(x.name || ""));
+    if (l && String(l.browser_download_url || "").startsWith("https://github.com/fringuello79/FreeLaserCut/releases/download/")) {
+      const lsha = String(l.digest || "").replace(/^sha256:/, "");
+      showLinux({version: ver, size: Math.round(l.size / 1048576) + " MB",
+                 sha256: /^[0-9a-f]{64}$/.test(lsha) ? lsha : "SHA256SUMS.txt"}, l.browser_download_url);
+    } else {
+      showLinux({version: "—", size: document.documentElement.lang === "it" ? "non ancora pubblicata per questa versione"
+                 : "not yet published for this release", sha256: "—"}, null);
+    }
   })
   .catch(() => {});
 

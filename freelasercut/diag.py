@@ -175,6 +175,20 @@ class CommLog(QObject):
             return None
 
 
+def launch_kind(executable=None):
+    """Da dove gira questa copia: Microsoft Store, installatore per Windows, AppImage per Linux o codice sorgente."""
+    exe = executable or sys.executable
+    if "WindowsApps" in exe:
+        return "installato · Microsoft Store"
+    if "Programs" in exe and sys.platform == "win32":
+        return "installato"
+    from . import linux
+
+    if linux.appimage_path(executable=exe):
+        return "AppImage (Linux)"
+    return "sorgente"
+
+
 def system_info(win=None):
     """Testo con versione, sistema, schermo, interfaccia e macchina (niente dati personali)."""
     from PySide6 import __version__ as pyside_ver
@@ -184,8 +198,14 @@ def system_info(win=None):
     lines = [f"FreeLaserCut {__version__}",
              f"Sistema: {platform.platform()} ({platform.machine()})",
              f"Python {sys.version.split()[0]} · PySide6 {pyside_ver} · Qt {qVersion()}",
-             f"Avvio: {'installato' if 'Programs' in sys.executable or 'WindowsApps' in sys.executable else 'sorgente'}"
-             f" · {'Microsoft Store' if 'WindowsApps' in sys.executable else ''}".rstrip(" ·")]
+             f"Avvio: {launch_kind()}"]
+    if sys.platform.startswith("linux"):  # 0.18.0: la versione per Linux la collauda chi la usa, con questi dati
+        try:
+            from . import linux
+
+            lines += linux.system_lines()
+        except Exception as ex:  # noqa: BLE001
+            lines.append(f"Linux: informazioni non lette ({type(ex).__name__}: {ex})")
     try:
         for i, s in enumerate(QGuiApplication.screens()):
             g = s.geometry()

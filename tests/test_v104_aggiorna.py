@@ -245,7 +245,8 @@ check("installatore: a fine aggiornamento si chiude e riapre FreeLaserCut", "Set
       "Function .onInstSuccess" in nsi and "Exec '\"$INSTDIR\\python\\pythonw.exe\" -m freelasercut'" in nsi)
 wf = open(os.path.join(ROOT, ".github", "workflows", "installatore.yml"), encoding="utf-8").read()
 check("GitHub: il tag vX.Y.Z crea la Release con installatore e SHA256SUMS.txt, dopo la prova su Windows",
-      "gh release create" in wf and "SHA256SUMS.txt" in wf and "needs: [build, prova-windows]" in wf and "contents: write" in wf)
+      "gh release create" in wf and "SHA256SUMS.txt" in wf and "needs: [build, prova-windows" in wf
+      and "needs.prova-windows.result == 'success'" in wf and "contents: write" in wf)  # 0.18.0: più Linux
 check("GitHub: il tag deve corrispondere alla versione del programma", 'GITHUB_REF_NAME" != "v$ver"' in wf)
 srv.shutdown()
 print(f"\n{sum(results)}/{len(results)} verifiche superate")

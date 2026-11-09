@@ -20,6 +20,8 @@ from . import style
 from .widgets import section
 from freelasercut.i18n import tr  # noqa: E402
 
+_LINUX = sys.platform.startswith("linux")
+
 
 class _Probe(QObject):
     log = Signal(str)
@@ -99,7 +101,9 @@ class MachineWizard(QDialog):
         # ---- porte
         v.addWidget(section(tr("Porte USB del computer")))
         self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels([tr("Porta"), tr("Chip USB"), "VID:PID", tr("Descrizione di Windows"), tr("Driver")])
+        self.table.setHorizontalHeaderLabels([tr("Porta"), tr("Chip USB"), "VID:PID",
+                                              tr("Descrizione del sistema") if _LINUX else tr("Descrizione di Windows"),
+                                              tr("Driver")])
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -115,13 +119,19 @@ class MachineWizard(QDialog):
         self.drv_hint.setObjectName("muted")
         v.addWidget(self.drv_hint)
         br = QHBoxLayout()
-        for text, icon, fn, tip in (
-            (tr("Aggiorna"), "refresh", self.refresh, tr("Cerca di nuovo le porte (dopo aver collegato il cavo o installato un driver)")),
-            (tr("Installa driver dal PC…"), "open", self.install_driver,
-             tr("Scegli sul computer il programma (.exe/.msi) o il file .inf del driver USB e installalo")),
-            (tr("Scarica il driver"), "import", self.download_driver, tr("Apre la pagina ufficiale del driver per il chip della porta")),
-            (tr("Gestione dispositivi"), "settings", self.device_manager, tr("Apre Gestione dispositivi di Windows")),
-        ):
+        buttons = [(tr("Aggiorna"), "refresh", self.refresh,
+                    tr("Cerca di nuovo le porte (dopo aver collegato il cavo o installato un driver)"))]
+        if _LINUX:  # 0.18.0: su Linux i driver ci sono già; serve il permesso di aprire la porta
+            buttons.append((tr("Permesso della porta USB…"), "settings", self.linux_permission,
+                            tr("Come dare al tuo utente il permesso di usare la porta USB del laser (gruppo dialout)")))
+        else:
+            buttons += [
+                (tr("Installa driver dal PC…"), "open", self.install_driver,
+                 tr("Scegli sul computer il programma (.exe/.msi) o il file .inf del driver USB e installalo")),
+                (tr("Scarica il driver"), "import", self.download_driver, tr("Apre la pagina ufficiale del driver per il chip della porta")),
+                (tr("Gestione dispositivi"), "settings", self.device_manager, tr("Apre Gestione dispositivi di Windows")),
+            ]
+        for text, icon, fn, tip in buttons:
             b = QPushButton(style.icon(icon), text)
             b.setToolTip(tip)
             b.clicked.connect(fn)
@@ -235,7 +245,11 @@ class MachineWizard(QDialog):
                 sel = r
         if self.table.rowCount():
             self.table.selectRow(sel)
-        if not any(p.likely for p in self.ports):
+        if not any(p.likely for p in self.ports) and _LINUX:
+            self.drv_hint.setText(tr("Nessuna porta sembra un laser. Accendi la macchina e collega il cavo USB, poi "
+                                     "«Aggiorna»: su Linux i driver dei chip USB (CH340, CP210x, FTDI) sono già nel "
+                                     "sistema e la porta compare come /dev/ttyUSB0 o /dev/ttyACM0."))
+        elif not any(p.likely for p in self.ports):
             self.drv_hint.setText(tr("Nessuna porta sembra un laser. Accendi la macchina e collega il cavo USB; se non "
                                   "compare nulla manca il driver del chip USB: «Scarica il driver» (CH340 è il più "
                                   "comune) o «Installa driver dal PC…» se l'hai già scaricato."))
@@ -257,6 +271,13 @@ class MachineWizard(QDialog):
             self.drv_hint.setText(tr("Simulatore: una macchina finta per provare FreeLaserCut senza laser."))
         elif p.device.startswith("tcp://"):
             self.drv_hint.setText(tr("Collegamento via Wi-Fi: non serve nessun driver USB."))
+        elif _LINUX and p.device.startswith("/dev/"):
+            if os.access(p.device, os.R_OK | os.W_OK):
+                self.drv_hint.setText(tr("Chip {0}: su Linux il driver è già nel sistema e il tuo utente può usare "
+                                         "questa porta.", p.chip or "USB"))
+            else:
+                self.drv_hint.setText(tr("Chip {0}: il driver c'è, ma il tuo utente non ha il permesso di usare {1}. "
+                                         "Premi «Permesso della porta USB…».", p.chip or "USB", p.device))
         elif p.driver:
             name, url = machines.DRIVERS[p.driver]
             self.drv_hint.setText(tr("Chip {0}: {1}. Se la porta compare qui, il driver è già installato.", p.chip, name))
@@ -293,6 +314,35 @@ class MachineWizard(QDialog):
             QMessageBox.warning(self, tr("Driver"), tr("Installazione non avviata:\n{0}", exc))
             return
         self.log.appendPlainText(tr("Installazione del driver avviata: al termine scollega e ricollega il cavo, poi «Aggiorna»."))
+
+    def linux_permission(self):
+        """Linux: il permesso di aprire /dev/ttyUSB0 (gruppo dialout o uucp), con il comando da copiare."""
+        from PySide6.QtGui import QGuiApplication
+
+        from .. import linux
+
+        p = self._port()
+        dev = p.device if p is not None and p.device.startswith("/dev/") else None
+        cmd, group = linux.permission_command(dev)
+        ok = dev is not None and os.access(dev, os.R_OK | os.W_OK)
+        box = QMessageBox(self)
+        box.setWindowTitle(tr("Permesso della porta USB"))
+        box.setIcon(QMessageBox.Information)
+        box.setTextFormat(Qt.RichText)
+        state = (tr("Il tuo utente può già usare {0}: non serve fare niente.", dev) if ok else
+                 tr("Il tuo utente non può ancora usare {0}.", dev) if dev else "")
+        box.setText(tr("<b>Su Linux la porta USB del laser si apre solo se il tuo utente è nel gruppo «{0}».</b><br><br>"
+                       "Si fa una volta sola:<ol><li>apri un terminale;</li><li>scrivi <code>{1}</code> e premi Invio "
+                       "(chiede la tua password);</li><li>esci dalla sessione e rientra, oppure riavvia il computer;</li>"
+                       "<li>torna qui e premi «Aggiorna».</li></ol>{2}<br><br>Se non funziona, mandaci un rapporto da "
+                       "<i>Aiuto → Invia un rapporto all'assistenza</i>: dentro c'è già lo stato delle porte.",
+                       group, cmd, state))
+        copy = box.addButton(tr("Copia il comando"), QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Close)
+        box.exec()
+        if box.clickedButton() is copy:
+            QGuiApplication.clipboard().setText(cmd)
+        return cmd
 
     def device_manager(self):
         if sys.platform == "win32":

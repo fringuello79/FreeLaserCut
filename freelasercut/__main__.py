@@ -8,9 +8,17 @@ from PySide6.QtWidgets import QApplication
 
 
 def boot():
+    if "--self-test" in sys.argv[1:]:  # 0.18.0: prova di avvio (workflow e versione per Linux)
+        from . import selftest
+
+        selftest.run()
+        return
     from . import i18n
 
     i18n.set_language(i18n.startup_language())
+    from . import linux
+
+    linux.startup()  # Linux: certificati per HTTPS, X11 su Wayland (su Windows non fa niente)
     QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     if sys.platform == "win32":
         try:
