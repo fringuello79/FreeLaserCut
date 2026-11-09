@@ -314,8 +314,11 @@ def join_endpoints(subs, tol=0.05):
                 if a == b:
                     continue
                 sb = subs[b]
+                # (estremo di a, estremo di b, gira a, gira b): dopo i giri la fine di a e l'inizio di b sono il punto
+                # in comune. 0.17.17: prima «inizio-fine» e «inizio-inizio» avevano i giri di b scambiati, e un pezzo si
+                # perdeva o veniva attaccato dalla parte sbagliata (salto dritto)
                 pairs = ((sa.nodes[-1], sb.nodes[0], False, False), (sa.nodes[-1], sb.nodes[-1], False, True),
-                         (sa.nodes[0], sb.nodes[-1], True, False), (sa.nodes[0], sb.nodes[0], True, True))
+                         (sa.nodes[0], sb.nodes[-1], True, True), (sa.nodes[0], sb.nodes[0], True, False))
                 for na, nb, rev_a, rev_b in pairs:
                     if math.dist(na.pt(), nb.pt()) <= tol:
                         if rev_a:

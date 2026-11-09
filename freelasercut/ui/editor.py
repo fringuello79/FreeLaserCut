@@ -602,8 +602,9 @@ class Editor(QObject):
 
     def trim_shape(self, shape, subs):
         """Forbici (0.17.16): la forma diventa il tracciato rimasto (stesso id e livello), o sparisce se non resta niente.
-        Un passo nella cronologia."""
-        from ..core import nodes as _nodes
+        0.17.17: il resto si aggancia alle forme dello stesso livello che tocca con gli estremi (core/trim.connect): una
+        forma sola, con gli anelli chiusi, che si sposta e si riempie come un pezzo unico. Un passo nella cronologia."""
+        from ..core import nodes as _nodes, trim as _trim
         from ..core.document import PathShape
 
         if shape not in self.doc.shapes:
@@ -614,7 +615,17 @@ class Editor(QObject):
             new = PathShape(_nodes.to_path(subs), layer=shape.layer)
             new.id = shape.id
             self.doc.shapes[idx] = new
-            self.selection = [new if s is shape else s for s in self.selection]
+            taken, joined = _trim.connect(self.doc, new)
+            merged = PathShape(_nodes.to_path(joined), layer=new.layer)
+            merged.id = new.id
+            gone = [new] + taken
+            at = min(self.doc.shapes.index(g) for g in gone)  # resta al posto della più in basso
+            for g in gone:
+                self.doc.shapes.remove(g)
+            self.doc.shapes.insert(at, merged)
+            ids = {g.id for g in gone} | {shape.id}
+            sel = [merged if (s is shape or s.id in ids) else s for s in self.selection]
+            self.selection = list(dict.fromkeys(sel))
         else:
             del self.doc.shapes[idx]
             self.selection = [s for s in self.selection if s is not shape]

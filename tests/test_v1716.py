@@ -549,22 +549,22 @@ def all_on(new, old, n=60):
 ih, iv = fresh(pline((0, 50), (100, 50)), pline((30, 0), (30, 100)))
 cut(10, 50)
 cut(30, 10)
-h_, v_ = by_id(ih), by_id(iv)
-eh, ev = ends(h_)[0], ends(v_)[0]
-check("croce: i due bracci tolti fino all'incrocio, gli estremi rimasti coincidono",
-      abs(h_.path().length() - 70) < 1e-6 and abs(v_.path().length() - 50) < 1e-6 and math.dist(eh[0], ev[0]) < 1e-9,
-      (h_.path().length(), v_.path().length(), eh, ev))
+L_ = by_id(iv)  # 0.17.17: i due pezzi rimasti si toccano nell'incrocio = una forma sola (a L)
+lsub = nodes.from_path(L_.path()) if L_ else []
+check("croce: i due bracci tolti fino all'incrocio, i pezzi rimasti agganciati in una forma sola a L",
+      by_id(ih) is None and L_ is not None and len(lsub) == 1 and abs(L_.path().length() - 120) < 1e-6
+      and sorted([lsub[0].nodes[0].pt(), lsub[0].nodes[-1].pt()]) == [(30.0, 100.0), (100.0, 50.0)]
+      and dist_to(L_, (30, 50)) < 1e-9, (len(lsub), L_.path().length() if L_ else None))
 # 2. rettangolo attraversato da una linea
 ir, il_ = fresh(mk(RectShape(50, 30), 0, 0), pline((-10, 15), (60, 15)))
-old_r = by_id(ir).path()
 cut(55, 15)
 check("eccedenza della linea: finisce sul lato del rettangolo", abs(by_id(il_).path().length() - 60) < 1e-6)
-old_shape = PathShape(QPainterPath(old_r))
 cut(25, 30)
 r_ = by_id(ir)
-check("lato del rettangolo fra i due incroci (passando dagli angoli): resta la U aperta da 80 mm",
-      isinstance(r_, PathShape) and abs(r_.path().length() - 80) < 1e-6 and all_on(r_, old_shape) < 1e-6
-      and dist_to(r_, (25, 30)) > 1, r_.path().length())
+# 0.17.17: la U tocca con un estremo la linea già accorciata (in 50; 15) → un pezzo solo: U da 80 mm + linea da 60 mm
+check("lato del rettangolo fra i due incroci (passando dagli angoli): resta la U aperta da 80 mm, agganciata alla linea",
+      isinstance(r_, PathShape) and abs(r_.path().length() - 140) < 1e-6 and by_id(il_) is None
+      and len(nodes.from_path(r_.path())) == 1 and dist_to(r_, (25, 30)) > 1, r_.path().length())
 ir, = fresh(mk(RectShape(50, 30), 0, 0))[:1]
 ed.add([pline((-10, 15), (60, 15))])
 cut(25, 30, shift=True)
@@ -587,8 +587,9 @@ check("nessun incrocio: cerchio e linea isolati si tolgono interi", by_id(i1) is
 # 5. contatto a T
 ir, _a, _b = fresh(mk(RectShape(50, 30), 0, 0), pline((20, 30), (20, 60)), pline((40, 30), (40, 60)))
 cut(30, 30)
-check("contatto a T: il lato si divide nei punti toccati (tolti 20 mm)", abs(by_id(ir).path().length() - 140) < 1e-6,
-      by_id(ir).path().length())
+# 0.17.17: il rettangolo aperto resta agganciato alle due linee che lo toccavano (140 + 30 + 30 mm, una forma sola)
+check("contatto a T: il lato si divide nei punti toccati (tolti 20 mm) e le due linee restano agganciate",
+      abs(by_id(ir).path().length() - 200) < 1e-6 and len(ed.doc.shapes) == 1, by_id(ir).path().length())
 # 6. auto-intersezione
 iz, = fresh(pline((0, 0), (20, 20), (20, 0), (0, 20)))
 L0 = by_id(iz).path().length()

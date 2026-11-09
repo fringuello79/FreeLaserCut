@@ -185,6 +185,51 @@ def _newton(A, B, ta, tb):
     return min(max(x, 0.0), 1.0), min(max(y, 0.0), 1.0)
 
 
+TOUCH = 1e-3  # mm: un estremo così vicino a una linea la tocca (contatto a T)
+
+
+def _free_ends(segs):
+    """Estremi dei sottotracciati aperti fra questi segmenti (primo e ultimo segmento di ogni sottotracciato)."""
+    by = {}
+    for g in segs:
+        by.setdefault(g.si, []).append(g)
+    out = []
+    for gs in by.values():
+        gs.sort(key=lambda g: g.k)
+        first, last = gs[0], gs[-1]
+        p0, p1 = first.pts[0], last.pts[3]
+        if math.dist(p0, p1) > 1e-9:  # chiuso: niente estremi
+            out += [p0, p1]
+    return out
+
+
+def _project(A, P):
+    """(t, distanza) del punto della curva vera di A più vicino a P: campioni, poi Newton su (A(t) − P)·A'(t) = 0."""
+    best_t, best_d = 0.0, math.inf
+    for k in range(65):
+        t = k / 64
+        d = math.dist(A.at(t), P)
+        if d < best_d:
+            best_t, best_d = t, d
+    t = best_t
+    for _ in range(25):
+        q, d1 = A.at(t), A.d(t)
+        h = 1e-6
+        d1b = A.d(min(1.0, t + h))
+        f = (q[0] - P[0]) * d1[0] + (q[1] - P[1]) * d1[1]
+        fp = d1[0] ** 2 + d1[1] ** 2 + ((q[0] - P[0]) * (d1b[0] - d1[0]) + (q[1] - P[1]) * (d1b[1] - d1[1])) / h
+        if abs(fp) < 1e-15:
+            break
+        nt = min(1.0, max(0.0, t - f / fp))
+        if abs(nt - t) < 1e-15:
+            break
+        t = nt
+    d = math.dist(A.at(t), P)
+    if d > best_d:
+        return best_t, best_d
+    return t, d
+
+
 def _visible(doc, s):
     if s.hidden:
         return False
@@ -251,6 +296,16 @@ class Trimmer:
         for src, segs in sources:
             pts = [[] for _ in self.subs]
             ovl = [[] for _ in self.subs]
+            # 0.17.17: estremi liberi che toccano la linea (contatto a T), misurati sulla curva vera: sulla curva
+            # appiattita un estremo esattamente sul cerchio può restare qualche millesimo fuori e non «toccare»
+            for P in _free_ends(segs):
+                for A in mine:
+                    bx = A.box
+                    if not (bx[0] - TOUCH <= P[0] <= bx[2] + TOUCH and bx[1] - TOUCH <= P[1] <= bx[3] + TOUCH):
+                        continue
+                    t, d = _project(A, P)
+                    if d <= TOUCH:
+                        pts[A.si].append(A.k + t)
             for A in mine:
                 n = nseg(self.subs[A.si])
                 for B in segs:
@@ -394,6 +449,40 @@ class Trimmer:
         out = [s.copy() for i, s in enumerate(self.subs) if i != si]
         out[si:si] = [k for k in keep if k is not None]
         return out
+
+
+# ------------------------------------------------------------------ aggancio dopo il taglio (0.17.17)
+TOL_JOIN = 1e-4  # mm: estremi che coincidono (quelli creati dalle forbici coincidono a ~1e-12)
+
+
+def _ends(subs):
+    return [n.pt() for sp in subs if not sp.closed and len(sp.nodes) >= 2 for n in (sp.nodes[0], sp.nodes[-1])]
+
+
+def connect(doc, shape):
+    """Dopo un taglio: le forme dello stesso livello che si toccano con gli estremi (anche a catena) diventano una
+    forma sola con `shape`; i pezzi si uniscono e gli anelli si chiudono. -> (forme da assorbire, sottotracciati uniti).
+    Bloccate, nascoste, gruppi e immagini restano fuori (come per le forbici)."""
+    subs = nodes.from_path(shape.path())
+    ends = _ends(subs)
+    pool = [s for s in doc.shapes if s is not shape and target_ok(doc, s) == "" and s.layer == shape.layer]
+    taken = []
+    grew = True
+    while grew and ends:
+        grew = False
+        for s in list(pool):
+            b = s.bounds().adjusted(-TOL_JOIN, -TOL_JOIN, TOL_JOIN, TOL_JOIN)
+            if not any(b.contains(x, y) for x, y in ends):
+                continue
+            ss = nodes.from_path(s.path())
+            se = _ends(ss)
+            if any(math.dist(a, c) <= TOL_JOIN for a in ends for c in se):
+                taken.append(s)
+                pool.remove(s)
+                subs += ss
+                ends += se
+                grew = True
+    return taken, nodes.join_endpoints(subs, TOL_JOIN)
 
 
 def nearest(doc, p, tol):
