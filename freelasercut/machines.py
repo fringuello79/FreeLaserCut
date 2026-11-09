@@ -131,7 +131,7 @@ CATALOG = (
     ("Acmer P3 48W", "Acmer", 400, 390, "48 W", 48000),
     ("Acmer P3 2W IR", "Acmer", 400, 400, "2 W (infrarosso)", 48000),
     ("Acmer P3 2-in-1 (diodo + IR)", "Acmer", 400, 390, "diodo + 2 W IR", 48000),
-    # 0.17.17: richiesto da un utente (rapporto FLC-20261109-1514-7E5C). Area 150 × 130 mm, potenza e spot dalle
+    # 0.17.18: richiesto da un utente (rapporto FLC-20261109-1514-7E5C). Area 150 × 130 mm, potenza e spot dalle
     # pagine ufficiali Sculpfun (SOURCES, lette il 09/11/2026), che non dicono quale lato è X: qui 130 × 130 per
     # prudenza (AREA_NOTE). La velocità massima non è sulla pagina ufficiale: 10.000 mm/min come nelle schede dei
     # rivenditori; alla connessione vale quella della scheda.

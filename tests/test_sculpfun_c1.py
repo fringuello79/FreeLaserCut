@@ -1,5 +1,5 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""Versione 0.17.17 (da un utente, rapporto FLC-20261109-1514-7E5C): Sculpfun C1 3W e 6W nel catalogo.
+"""Versione 0.17.18 (da un utente, rapporto FLC-20261109-1514-7E5C): Sculpfun C1 3W e 6W nel catalogo.
 
 Dati dalle pagine ufficiali Sculpfun: area 150 × 130 mm senza dire quale lato è X (qui 130 × 130 per prudenza,
 area dichiarata in AREA_NOTE), spot 0,04 mm (3W) e 0,06 mm (6W).

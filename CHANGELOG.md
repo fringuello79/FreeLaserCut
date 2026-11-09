@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.17.18 — 09/11/2026
+Da un utente con uno Sculpfun C1.
+- **Sculpfun C1 3W e 6W** nel catalogo dei modelli pronti (57 modelli): dati dalle pagine ufficiali Sculpfun, spot 0,04 mm (3W) e 0,06 mm (6W). Il produttore dà l'area 150 × 130 mm senza dire quale lato è X: il profilo parte da 130 × 130 per prudenza e, collegando la macchina, l'area vera si legge dalla scheda. Collegando un C1, *Laser → Riconosci la macchina* propone di scegliere fra 3W e 6W.
+- Nuova prova automatica `tests/test_sculpfun_c1.py` (11 controlli).
+
 ## 0.17.17 — 09/11/2026
 - **Forbici: i pezzi restano agganciati.** Prima, dopo i tagli, le parti rimaste erano forme separate: spostandone una si apriva il contorno e il riempimento non le vedeva come un pezzo unico. Ora, dopo ogni taglio, quello che resta si unisce alle forme **dello stesso livello** che tocca con gli estremi (anche a catena) e, quando il giro si chiude, diventa **un'unica forma chiusa**: si sposta tutta insieme e si riempie. Esempio: un rettangolo e un cerchio sovrapposti, tolte le due parti interne, diventano un solo contorno. Le forme su livelli diversi, bloccate o nascoste restano separate. Sempre un passo da annullare per ogni clic.
 - Le forbici riconoscono meglio il contatto a T anche sulle curve: una linea che finisce esattamente su un cerchio ora lo divide sempre in quel punto.

@@ -285,6 +285,7 @@ if __name__ == "__main__":
     run_suite("test_v1716.py", "Rilievo 3D su tavola (in prova), distanza esatta e forbici")
     run_suite("test_v1716.py", "Rilievo 3D, distanza esatta e forbici nell'interfaccia Banco", "banco")
     run_suite("test_v1717.py", "Forbici: pezzi agganciati in una forma sola; Unisci estremi corretto")
+    run_suite("test_sculpfun_c1.py", "Sculpfun C1 3W e 6W nel catalogo")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]
