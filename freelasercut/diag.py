@@ -279,6 +279,10 @@ def env_text(win=None, code=""):
         lines.append(f"Simulatore in uso: {'sì' if getattr(ctl, 'port', None) == SIM_PORT else 'no'}")
         lines.append(f"Velocità della porta: {getattr(ctl, 'baud', '?')} · buffer {getattr(ctl, 'rx_buffer', '?')}"
                      f" · buffer grande provato: {getattr(ctl, 'trusted_buffer', False)}")
+        src = getattr(getattr(win, "camera", None), "src", None)
+        if src is not None:
+            lines.append(f"Telecamera: {getattr(src, 'index', '?')} · modo {getattr(src, 'mode', getattr(src, 'method', '-'))}"
+                         f" · {getattr(src, 'size', '?')} · nera: {getattr(src, 'black', '?')}")
         la = getattr(ctl, "_last_alarm", (0, 0.0))
         if la and la[0]:
             lines.append(f"Ultimo allarme: {la[0]} ({time.strftime('%H:%M:%S', time.localtime(la[1]))})")
@@ -371,6 +375,27 @@ def photo_text(win):
     return "\n".join(out) + ("\n" if out else "")
 
 
+def cameras_log_text(win=None):
+    """0.18.1: cosa è successo con le telecamere (modi di lettura provati, luminosità, rete), senza immagini."""
+    try:
+        from . import camera
+
+        lines = []
+        src = getattr(getattr(win, "camera", None), "src", None)
+        if src is not None:
+            lines.append(f"Telecamera aperta: {getattr(src, 'index', '?')} · modo {getattr(src, 'mode', getattr(src, 'method', '-'))}"
+                         f" · {getattr(src, 'size', '?')} · nera: {getattr(src, 'black', '?')}"
+                         + (f" · errore: {src.error}" if getattr(src, "error", "") else ""))
+        names, probes = dict(camera.NAMES), dict(camera.LAST_PROBE)  # copie: la ricerca può cambiarli intanto
+        if names:
+            lines.append("Nomi: " + "; ".join(f"{i}={n}" for i, n in names.items()))
+        for i, d in sorted(probes.items(), key=lambda kv: str(kv[0])):
+            lines.append(f"Ricerca camera {i}: {d}")
+        return camera.safe_url("\n".join(lines + [""] + list(camera.CAMERA_LOG)) + "\n")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def camera_text():
     try:
         from .camera import camera_file
@@ -444,7 +469,8 @@ def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=Non
                               ("copie-impostazioni-scheda.txt", backups_text()),
                               ("azioni-recenti.txt", "\n".join(getattr(win, "crumbs", []) or [])),
                               ("foto-selezionata.txt", photo_text(win) if photo else ""),
-                              ("calibrazione-camera.json", camera_text())):
+                              ("calibrazione-camera.json", camera_text()),
+                              ("telecamere.txt", cameras_log_text(win))):
                 if txt and txt.strip():
                     z.writestr(name, sanitize(txt))
                     names.append(name)

@@ -681,6 +681,16 @@ check("prova veloce della costruzione: il programma deve venire dall'AppDir, non
 check("glibc controllata: niente che chieda più di 2.34 (Ubuntu 22.04, Debian 12, Fedora 35, come promesso)",
       prepara_appimage.GLIBC_MAX == (2, 34) and prepara_appimage.PLATFORMS[0] == "manylinux_2_34_x86_64"
       and "manylinux_2_35_x86_64" not in prepara_appimage.PLATFORMS and "glibc 2.34" in readme_text())
+check("0.18.1: nell'AppImage anche le estensioni di libxcb (sul primo Ubuntu di prova mancava libxcb-xkb)",
+      all(f"libxcb-{x}.so" in " ".join(prepara_appimage.XCB_EXTRA) for x in
+          ("randr", "render", "shape", "shm", "sync", "xfixes", "xkb", "cursor"))
+      and "libxcb.so.1" not in prepara_appimage.XCB_EXTRA
+      and all(f"libxcb-{x}" in wf for x in ("randr0", "shape0", "xkb1", "sync1")))
+check("0.18.1: la costruzione si ferma se manca una libreria o se il plugin xcb ne prende una dal sistema",
+      "def xcb_outside(" in src_app and "librerie xcb non trovate" in src_app
+      and "il plugin xcb di Qt prende ancora dal sistema" in src_app)
+lic = open(os.path.join(ROOT, "LICENZE-TERZE-PARTI.md"), encoding="utf-8").read()
+check("licenze delle librerie aggiunte", "libxcb-MIT.txt" in lic and os.path.exists(os.path.join(ROOT, "licenze-terze-parti", "libxcb-MIT.txt")))
 gi = open(os.path.join(ROOT, ".gitignore"), encoding="utf-8").read()
 check("file costruiti fuori dal repository (.gitignore)", "build/AppDir/" in gi and "build/*.AppImage" in gi)
 readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()

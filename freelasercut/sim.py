@@ -64,6 +64,9 @@ class SimSerial:
         self.surface_z = None
         self.probe_wiring = "probe"  # "probe" (ingresso Probe) | "zlimit" (finecorsa Z, come IO34 sulla DLC32)
         self.probe_supported = True  # False: firmware senza G38.2 (error:20)
+        # 0.18.1: sonda «normalmente chiusa» (segnale attivo a riposo, come quella di Giuseppe): con $6=0 la scheda
+        # la vede sempre toccata e serve $6=1. Il report e G38.2 usano il segnale dopo l'inversione di $6.
+        self.probe_nc = False
         # parametri letti dal Longer B1 40W vero (report del 29/10/2026)
         self.settings = {
             0: "10",
@@ -236,12 +239,28 @@ class SimSerial:
     def _touching(self):
         return self.surface_z is not None and self.pos[2] <= self.surface_z + 1e-6
 
-    def _pins(self):
+    def _probe_invert(self):
+        try:
+            return int(float(self.settings.get(6, 0))) == 1
+        except (TypeError, ValueError):
+            return False
+
+    def _probe_seen(self):
+        """L'ingresso «Probe» come lo legge GRBL (dopo $6). Senza sonda (surface_z None) l'ingresso libero risulta
+        attivo, come sul B1 vero: con $6=0 il report dice sempre Pn:P."""
         if self.surface_z is None:
-            return "|Pn:P"
-        if self._touching():
-            return "|Pn:P" if self.probe_wiring == "probe" else "|Pn:Z"
-        return ""
+            active = True
+        elif self.probe_wiring != "probe":
+            return False
+        else:
+            active = self._touching() != bool(self.probe_nc)
+        return active != self._probe_invert()
+
+    def _pins(self):
+        pins = "P" if self._probe_seen() else ""
+        if self.surface_z is not None and self.probe_wiring == "zlimit" and self._touching():
+            pins += "Z"
+        return f"|Pn:{pins}" if pins else ""
 
     def _probe(self, up, gen):
         """G38.2 (solo Z, come serve all'autofocus): scende fino al tocco, oppure ALARM:5 a fine corsa."""
@@ -254,8 +273,8 @@ class SimSerial:
         z0 = self.pos[2]
         dz = float(words["Z"])
         target = z0 + dz if not self.absolute else float(words["Z"]) + self.wco[2]
-        sees = self.surface_z is not None and self.probe_wiring == "probe"
-        if self._touching() and sees:
+        if self.probe_wiring == "probe" and self._probe_seen():
+            # già «toccata» prima di partire: sonda appoggiata, ingresso libero o segnale al contrario ($6)
             self.state = "Alarm"
             return self._emit("ALARM:4\r\n")
         hit = None

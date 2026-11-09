@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (
     QToolButton, QVBoxLayout, QWidget,
 )
 
-from .camera import SIM_CAMERA, AutoCam, CameraSource, SimCamera, camera_file, list_cameras
+from . import camera as camera_mod
+from .camera import SIM_CAMERA, AutoCam, CameraSource, NetCamera, SimCamera, camera_file, is_net, list_cameras
 from .camera_calib import CameraModel
 from .theme import C, css
 from freelasercut.i18n import tr  # noqa: E402
@@ -63,8 +64,15 @@ class CameraPanel(QWidget):
         self.btn_search.setText("⟳")
         self.btn_search.setToolTip(tr("Cerca di nuovo le telecamere USB"))
         self.btn_search.clicked.connect(lambda: self.search(manual=True))
+        # 0.18.1: telecamera di rete (Creality Falcon A1 Pro, A1C, T1, o qualsiasi indirizzo di una foto)
+        self.btn_net = QToolButton()
+        self.btn_net.setText("🌐")
+        self.btn_net.setToolTip(tr("Telecamera di rete: per i laser che mandano la foto in rete (Creality Falcon "
+                                   "A1 Pro, A1C, T1) o un indirizzo scritto a mano"))
+        self.btn_net.clicked.connect(self.add_net_camera)
         row.addWidget(self.combo, 1)
         row.addWidget(self.btn_search)
+        row.addWidget(self.btn_net)
         cl.addLayout(row)
         self.state = muted(tr("Cerco le telecamere…"))
         cl.addWidget(self.state)
@@ -151,6 +159,8 @@ class CameraPanel(QWidget):
             return None
         if str(v) == "none":
             return "none"
+        if is_net(str(v)):
+            return str(v)
         try:
             return int(v)
         except (TypeError, ValueError):
@@ -163,7 +173,7 @@ class CameraPanel(QWidget):
         idx = self.combo.currentData()
         if idx == SIM_CAMERA:
             return  # la camera simulata non è una scelta da ricordare
-        qs.setValue("camera_choice", "none" if idx is None else int(idx))
+        qs.setValue("camera_choice", "none" if idx is None else idx if is_net(idx) else int(idx))
 
     # ---------------------------------------------------------------- ricerca
     def search(self, manual=False):
@@ -183,34 +193,123 @@ class CameraPanel(QWidget):
         self._searching = True
         self.state.setText(tr("Cerco le telecamere…"))
         skip = set()
-        if self.src is not None and self.src.index != SIM_CAMERA:
-            skip.add(self.src.index)
+        if self.src is not None and isinstance(self.src.index, int) and self.src.index != SIM_CAMERA:
+            if manual and getattr(self.src, "black", False):
+                camera_mod.LAST_PROBE.pop(self.src.index, None)
+                self._close_src()  # immagine nera: con ⟳ la riapro e provo di nuovo tutti i modi di lettura
+            else:
+                skip.add(self.src.index)
+        laser_port = getattr(self.ctl, "port", None)
+        open_net = self.src.index if self.src is not None and is_net(self.src.index) else None
+        known = self.net_list()  # QSettings si legge qui, nel thread della finestra
+        self.combo.setEnabled(False)  # niente scelte durante la ricerca: la stessa camera aperta due volte
 
         def work():
+            try:
+                names = camera_mod.usb_camera_names()
+                camera_mod.NAMES.clear()
+                camera_mod.NAMES.update(names)
+            except Exception:  # noqa: BLE001
+                pass
             try:
                 cams = list_cameras(skip=skip)
             except Exception:  # noqa: BLE001
                 cams = []
+            try:
+                cams = list(cams) + self._auto_net(laser_port, open_net, known)
+            except Exception:  # noqa: BLE001
+                pass
             self._found.emit(cams)
 
         threading.Thread(target=work, daemon=True).start()
 
+    # ---------------------------------------------------------------- telecamere di rete
+    def net_list(self):
+        qs = getattr(self.win, "qs", None)
+        v = qs.value("net_cameras") if qs is not None else None
+        if isinstance(v, str):
+            v = [v]
+        return [u for u in (v or []) if is_net(u)]
+
+    def _save_net(self, url):
+        qs = getattr(self.win, "qs", None)
+        if qs is None:
+            return
+        lst = [u for u in self.net_list() if u != url]
+        qs.setValue("net_cameras", [url] + lst[:7])
+
+    def _auto_net(self, laser_port, open_net, known=()):
+        """Nel thread della ricerca: i Falcon col cavo USB (192.168.10.1) o in Wi-Fi rispondono sulla porta 8080?
+        Le telecamere di rete già usate si mettono nell'elenco senza chiedere foto (il server è lento)."""
+        out, seen = [], set()
+        import urllib.parse
+
+        open_host = urllib.parse.urlsplit(open_net).hostname if open_net else None
+        for host in camera_mod.auto_net_candidates(laser_port):
+            url = camera_mod.net_url(host)
+            if host == open_host or not camera_mod.port_open(host):
+                continue  # la telecamera di rete aperta ora non si interroga anche da qui
+            model = camera_mod.device_info(host)
+            _u, img, why = camera_mod.probe_net(url)
+            camera_mod.cam_log(f"rete trovata {host}: {model or 'modello non detto'} · {why}")
+            if img is not None:
+                h, w = img.shape[:2]
+                label = tr("{0} (rete {1})  ·  {2}×{3}", model or tr("Telecamera"), host, w, h)
+                out.append((url, label, (w, h), cv2.resize(img, (160, 90))))
+                seen.add(url)
+        for url in known:
+            if url not in seen and url != open_net:
+                out.append((url, tr("Rete  ·  {0}", url), None, None))
+        return out
+
+    def add_net_camera(self):
+        from .ui.dialogs_netcam import NetCameraDialog
+
+        dlg = NetCameraDialog(self, getattr(self.ctl, "port", None), self.net_list())
+        if dlg.exec() != QDialog.Accepted or not dlg.url:
+            return
+        url = dlg.url
+        self._save_net(url)
+        qs = getattr(self.win, "qs", None)
+        if qs is not None:
+            qs.setValue("camera_choice", url)
+        i = self.combo.findData(url)
+        if i < 0:
+            thumb = dlg.image
+            if thumb is not None:
+                self.combo.addItem(QIcon(QPixmap.fromImage(to_qimage(cv2.resize(thumb, (160, 90))))),
+                                   tr("Rete  ·  {0}", url), url)
+            else:
+                self.combo.addItem(tr("Rete  ·  {0}", url), url)
+            i = self.combo.findData(url)
+        self.combo.setCurrentIndex(i)
+
     def on_found(self, cams):
         self._searching = False
+        self.combo.setEnabled(True)
         current = self.combo.currentData()
         if self.src is not None and self.src.index != SIM_CAMERA:
             frame = self.src.get(after=0, timeout=0.5)
             if frame is not None:
                 h, w = frame.shape[:2]
-                cams = sorted(cams + [(self.src.index, f"Camera {self.src.index}  ·  {w}×{h}", (w, h),
-                                       cv2.resize(frame, (160, 90)))], key=lambda c: c[0])
+                label = (tr("Rete  ·  {0}", self.src.index) if is_net(self.src.index)
+                         else camera_mod.camera_label(self.src.index, w, h, getattr(self.src, "black", False),
+                                                      getattr(self.src, "mode", None)))
+                cams = cams + [(self.src.index, label, (w, h), cv2.resize(frame, (160, 90)))]
+            elif is_net(self.src.index):
+                cams = cams + [(self.src.index, tr("Rete  ·  {0}", self.src.index), None, None)]
+        usb = sorted([c for c in cams if isinstance(c[0], int)], key=lambda c: c[0])
+        cams = usb + [c for c in cams if not isinstance(c[0], int)]
         if current == SIM_CAMERA and self.ctl.sim is None:
             current = None
         self.combo.blockSignals(True)
         self.combo.clear()
         self.combo.addItem(tr("Nessuna telecamera"), None)
-        for idx, label, size, thumb in cams:
-            self.combo.addItem(QIcon(QPixmap.fromImage(to_qimage(thumb))), label, idx)
+        for idx, label, size, thumb, *_ in cams:
+            if thumb is None:
+                self.combo.addItem(label, idx)
+            else:
+                self.combo.addItem(QIcon(QPixmap.fromImage(to_qimage(thumb))), label, idx)
         if self.ctl.sim is not None:
             self.combo.addItem(tr("Camera simulata (per provare AutoCam)"), SIM_CAMERA)
         self.combo.blockSignals(False)
@@ -218,11 +317,19 @@ class CameraPanel(QWidget):
         choice = self.choice()
         if want is None and isinstance(choice, int):
             want = choice  # l'ultima camera scelta dalla persona
+        if want is None and is_net(choice):
+            want = choice
         if want is None and choice is None and self.saved is not None:
             want = self.saved.get("camera_index")
         if want is None and choice != "none":
-            real = [c[0] for c in cams]
-            if len(real) == 1 and choice is None:
+            real = [c[0] for c in cams if c[3] is not None]
+            laser = camera_mod.preferred_camera([c for c in real if isinstance(c, int)])
+            nets = [c for c in real if is_net(c)]
+            if choice is None and laser is not None:
+                want = laser  # 0.18.1: la telecamera del laser (per nome, per esempio «Creality Falcon Camera»)
+            elif choice is None and nets:
+                want = nets[0]  # la telecamera di rete del Falcon trovata da sola
+            elif len(real) == 1 and choice is None:
                 want = real[0]  # una sola camera e nessuna scelta fatta: la scelgo io
             elif self.ctl.sim is not None and not real:
                 want = SIM_CAMERA
@@ -243,7 +350,12 @@ class CameraPanel(QWidget):
             self.update_state()
             return
         try:
-            self.src = SimCamera(self.ctl.sim) if idx == SIM_CAMERA else CameraSource(idx)
+            if idx == SIM_CAMERA:
+                self.src = SimCamera(self.ctl.sim)
+            elif is_net(idx):
+                self.src = NetCamera(idx)
+            else:
+                self.src = CameraSource(idx)
         except Exception as exc:  # noqa: BLE001
             self.src = None
             self.state.setText(tr("Non riesco ad aprire la camera: {0}", exc))
@@ -251,7 +363,9 @@ class CameraPanel(QWidget):
         if self.saved is not None and self.saved.get("camera_index") != idx:
             # su un altro PC la stessa camera può avere un numero diverso: se la risoluzione è quella della
             # calibrazione è (quasi certamente) lei, e la calibrazione resta valida finché la camera non si sposta
-            f = self.src.get(after=0, timeout=2.0) if idx != SIM_CAMERA else None
+            # una telecamera di rete manda la prima foto dopo qualche secondo: qui non la aspetto (la finestra
+            # resterebbe ferma); la calibrazione salvata vale solo se era proprio di questa telecamera
+            f = self.src.get(after=0, timeout=2.0) if idx != SIM_CAMERA and not is_net(idx) else None
             size = [f.shape[1], f.shape[0]] if f is not None else None
             if size is not None and list(self.saved.get("frame_size", [])) == size:
                 if self.model is None:
@@ -296,9 +410,33 @@ class CameraPanel(QWidget):
             self.cal_text.setText(tr("Connetti la macchina per calibrare."))
 
     # ---------------------------------------------------------------- immagini
+    def _hint(self):
+        """0.18.1: spiegazione quando la telecamera non dà un'immagine utile (nera, o la rete non risponde)."""
+        src = self.src
+        if src is None or self.autocam is not None:
+            return
+        if isinstance(src, NetCamera) and src.error and src.get(after=0, timeout=0) is None:
+            text = tr("La telecamera di rete non manda la foto: {0}. Durante un lavoro alcuni laser non mandano "
+                      "foto; controlla anche che la macchina sia accesa e collegata.", src.error)
+        elif getattr(src, "black", False):
+            text = tr("L'immagine arriva nera. Se la telecamera è quella del laser: chiudi bene il coperchio (sui "
+                      "Creality Falcon A1 la telecamera è nel coperchio), accendi la luce e premi ⟳, così "
+                      "FreeLaserCut prova un altro modo di leggerla. Se è ancora nera, manda un rapporto da "
+                      "Aiuto → Invia un rapporto all'assistenza.")
+        else:
+            if getattr(self, "_hinted", False):
+                self._hinted = False
+                self.update_state()
+            return
+        self._hinted = True
+        if self.state.text() != text:
+            self.state.setText(text)
+            self.state.setStyleSheet(f"color:{C['warn']};")
+
     def tick(self):
         if self.src is None or not self.isVisible() and not self.chk_live.isChecked():
             return
+        self._hint()
         frame = self.src.get(after=0, timeout=0.05)
         if frame is None:
             return

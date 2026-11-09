@@ -117,20 +117,67 @@ class ShapeItem(QGraphicsItem):
                 painter.drawPath(mapped)
                 continue
             path = mapped
-            fill = cv.filled_view and cs is not None and cs.mode in ("fill", "offset_fill") and leaf.layer < 30
-            if fill:
-                fc = QColor(col)
-                fc.setAlpha(70 if cs.output else 30)
-                painter.setBrush(fc)
-                if path.fillRule() != Qt.OddEvenFill:
-                    path.setFillRule(Qt.OddEvenFill)
-            else:
-                painter.setBrush(Qt.NoBrush)
+            # 0.18.1: la zona riempita la disegna FillItem per livello intero (come il G-code), non la forma da sola
+            painter.setBrush(Qt.NoBrush)
             if leaf.layer >= 30:
                 painter.setPen(cpen(col, 1, Qt.DashLine, 200))
             else:
                 alpha = 255 if (cs is None or cs.output) else 110
                 painter.setPen(cpen(col, 1.25, Qt.SolidLine, alpha))
+            painter.drawPath(path)
+
+
+class FillItem(QGraphicsItem):
+    """Zona riempita dei livelli Riempimento, calcolata per livello come nel G-code (ui/fill_preview.py): un quadrato
+    con il suo offset mostra piena la fascia fra i due contorni e vuoto l'interno. Sta sotto i contorni.
+    Si ricalcola quando cambiano le forme (sync, trascinamenti) o le impostazioni dei livelli (modo, mostra,
+    raggruppamento del riempimento) o la vista «riempita»: queste ultime si controllano a ogni disegno."""
+
+    BIG = QRectF(-100000, -100000, 200000, 200000)  # non cambia mai: niente prepareGeometryChange nel disegno
+
+    def __init__(self, canvas):
+        super().__init__()
+        self.canvas = canvas
+        self.regions = []
+        self._key = None
+        self.setZValue(-1)
+
+    def rebuild(self):
+        self._key = None
+        self.update()
+
+    def _layers_key(self):
+        cv = self.canvas
+        return (cv.filled_view, tuple(sorted((k, c.mode, c.show, c.fill_grouping) for k, c in cv.editor.doc.layers.items())))
+
+    def ensure(self):
+        """Ricalcola le zone se serve; ritorna le zone [(livello, percorso)]."""
+        from . import fill_preview
+
+        key = self._layers_key()
+        if key != self._key:
+            cv = self.canvas
+            entries = []
+            if cv.filled_view:
+                for s in cv.editor.doc.shapes:
+                    it = cv.items_by_id.get(s.id)
+                    if it is not None:
+                        entries += [(leaf, mapped) for leaf, _tf, mapped in it._leaf_paths()]
+            self.regions = fill_preview.regions(entries, cv.editor.doc.layers) if entries else []
+            self._key = key
+        return self.regions
+
+    def boundingRect(self):
+        return self.BIG
+
+    def paint(self, painter, option, widget=None):
+        layers = self.canvas.editor.doc.layers
+        painter.setPen(Qt.NoPen)
+        for idx, path in self.ensure():
+            cs = layers.get(idx)
+            fc = QColor(layer_color(idx))
+            fc.setAlpha(70 if (cs is None or cs.output) else 30)
+            painter.setBrush(fc)
             painter.drawPath(path)
 
 
@@ -403,8 +450,16 @@ class Canvas(QGraphicsView):
         for sid in list(self.items_by_id):
             if sid not in alive:
                 self.scene().removeItem(self.items_by_id.pop(sid))
+        self._rebuild_fill()
         self._snap_cache = None
         self.viewport().update()
+
+    def _rebuild_fill(self):
+        it = getattr(self, "fill_item", None)
+        if it is None:
+            it = self.fill_item = FillItem(self)
+            it.setParentItem(self.world)
+        it.rebuild()
 
     def refresh_live(self, shapes):
         """Aggiornamento veloce durante i trascinamenti."""
@@ -412,6 +467,7 @@ class Canvas(QGraphicsView):
             it = self.items_by_id.get(s.id)
             if it is not None:
                 it.refresh()
+        self._rebuild_fill()
         self.viewport().update()
 
     # ================================================================ immagini

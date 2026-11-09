@@ -13,6 +13,25 @@ con l'allarme 1. Nel report di stato la sonda toccata è «Pn:…P…», il fine
 from .i18n import tr
 
 BACKOFF = 2.0  # risalita prima del secondo tocco (mm)
+INVERT = 6  # 0.18.1: $6 = inverti il pin della sonda (GRBL 1.1 e grblHAL; FluidNC non ce l'ha)
+STUCK_S = 3.0  # sonda «TOCCATA» di fila per tanto tempo: probabilmente segnale al contrario o ingresso libero
+
+
+def invert_now(settings):
+    """Il valore attuale di $6 (0 o 1) dall'ultimo $$ letto, oppure None se la scheda non ce l'ha o non si legge."""
+    settings = settings or {}
+    raw = settings.get(INVERT, settings.get(str(INVERT)))
+    try:
+        v = float(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return int(v) if v in (0.0, 1.0) else None
+
+
+def invert_target(settings):
+    """Il valore da scrivere in $6 per invertire il segnale della sonda (1 − attuale), oppure None."""
+    v = invert_now(settings)
+    return None if v is None else 1 - v
 
 
 def lines(distance, travel, feed, slow, toward_minus=True):
@@ -53,7 +72,7 @@ def explain_alarm(code):
     """Perché l'autofocus si è fermato, detto in modo semplice."""
     if code == 4:
         return tr("La sonda risultava già toccata prima di partire. Se non lo è, la scheda la legge al contrario: "
-                  "cambia l'impostazione $6 (inverti pin sonda) e riprova.")
+                  "nella finestra «Asse Z e autofocus» premi «Inverti il segnale della sonda» (impostazione $6) e riprova.")
     if code == 5:
         return tr("La sonda non ha toccato niente entro la corsa massima. Avvicina la testa al materiale, controlla "
                   "che la sonda sia collegata all'ingresso «Probe» della scheda o, se la testa si allontanava, "

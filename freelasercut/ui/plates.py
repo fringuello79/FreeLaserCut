@@ -601,7 +601,7 @@ class PlateOverview(QWidget):
         w, h = max(1, round(r.width() * dpr)), max(1, round(r.height() * dpr))
         shapes = [s for s in plate.shapes if not s.hidden]
         key = (w, h, dpr, cv.light_bed, cv.bed_x, cv.bed_y, tuple((id(s), id(s.path())) for s in shapes),
-               tuple(sorted((k, c.show, c.mode, c.output, c.negative) for k, c in doc.layers.items())))
+               tuple(sorted((k, c.show, c.mode, c.output, c.negative, c.fill_grouping) for k, c in doc.layers.items())))
         ck, pix = self._pix.get(plate.uid, (None, None))
         if ck == key:
             return pix
@@ -614,6 +614,18 @@ class PlateOverview(QWidget):
         k = r.width() / cv.bed_x
         tf = QTransform(k, 0, 0, -k, 0, r.height())
         q.setTransform(tf)
+        from . import fill_preview
+
+        # 0.18.1: zona riempita per livello intero, come il G-code (prima ogni forma da sola)
+        entries = [(leaf, ltf.map(leaf.local_path())) for s in shapes for leaf, ltf in s.leaves()
+                   if not isinstance(leaf, ImageShape)]
+        q.setPen(Qt.NoPen)
+        for idx, fpath in fill_preview.regions(entries, doc.layers):
+            fcs = doc.layers.get(idx)
+            fc = QColor(layer_color(idx))
+            fc.setAlpha(70 if (fcs is None or fcs.output) else 30)
+            q.setBrush(fc)
+            q.drawPath(fpath)
         for s in shapes:
             for leaf, ltf in s.leaves():
                 cs = doc.layers.get(leaf.layer)
@@ -630,13 +642,7 @@ class PlateOverview(QWidget):
                         q.restore()
                     continue
                 path = ltf.map(leaf.local_path())
-                if cs is not None and cs.mode in ("fill", "offset_fill") and leaf.layer < 30:
-                    fc = QColor(col)
-                    fc.setAlpha(70 if cs.output else 30)
-                    path.setFillRule(Qt.OddEvenFill)
-                    q.setBrush(fc)
-                else:
-                    q.setBrush(Qt.NoBrush)
+                q.setBrush(Qt.NoBrush)
                 q.setPen(cpen(col, 1.0, Qt.DashLine if leaf.layer >= 30 else Qt.SolidLine,
                               255 if (cs is None or cs.output) else 110))
                 q.drawPath(path)

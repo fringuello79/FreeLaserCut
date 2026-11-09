@@ -64,6 +64,7 @@ Gli stessi componenti dell'installatore per Windows, nelle versioni per Linux, c
 | Python 3.14 per Linux (python-build-standalone), con dentro anche ncurses (MIT/X11), libedit (BSD) e libuuid (BSD 3-Clause) | PSF License 2.0 e licenze permissive | `python-CPython-PSF.txt`, `python-*.txt`, `usr/python/lib/python3.14/LICENSE.txt` nell'AppImage |
 | OpenCV nella versione «headless» (opencv-python-headless: senza la sua copia di Qt) | Apache 2.0; componenti di terze parti tra cui FFmpeg (LGPL 2.1) | `opencv-Apache-2.0.txt`, `opencv-terze-parti.txt` |
 | xcb-util: libxcb-cursor, libxcb-icccm, libxcb-image, libxcb-keysyms, libxcb-render-util, libxcb-util (dai pacchetti di Ubuntu 22.04, perché molte distribuzioni non le installano e Qt 6 le chiede) | MIT/X11 | `xcb-util-MIT.txt` |
+| estensioni di libxcb: libxcb-randr, libxcb-render, libxcb-shape, libxcb-shm, libxcb-sync, libxcb-xfixes, libxcb-xkb (dai pacchetti di Ubuntu 22.04, dalla 0.18.1) | MIT/X11 | `libxcb-MIT.txt` |
 | libxkbcommon-x11 (dal pacchetto di Ubuntu 22.04) | MIT | `libxkbcommon-MIT.txt` |
 | runtime dell'AppImage (AppImage/type2-runtime) | MIT | — |
 

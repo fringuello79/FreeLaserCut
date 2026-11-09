@@ -1,7 +1,14 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""Laser → Asse Z e autofocus… (0.17.12): asse Z motorizzato, sonda e autofocus con G38.2."""
+"""Laser → Asse Z e autofocus… (0.17.12): asse Z motorizzato, sonda e autofocus con G38.2.
+
+0.18.1: pulsante «Inverti il segnale della sonda» ($6) e avviso quando la sonda risulta sempre toccata. FreeLaserCut
+non cambia $6 da solo: scrive solo dopo il clic e la conferma, poi rilegge $$ per controllare.
+"""
+import time
+
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel,
-                               QPushButton, QToolButton, QVBoxLayout)
+                               QMessageBox, QPushButton, QToolButton, QVBoxLayout)
 
 from .. import autofocus
 from freelasercut.i18n import tr  # noqa: E402
@@ -76,6 +83,17 @@ class AutofocusDialog(QDialog):
         self.pin = QLabel()
         self.pin.setWordWrap(True)
         v.addWidget(self.pin)
+        # 0.18.1: segnale della sonda al contrario ($6)
+        ir = QHBoxLayout()
+        self.inv_hint = QLabel()
+        self.inv_hint.setWordWrap(True)
+        self.b_invert = QPushButton()
+        self.b_invert.clicked.connect(self.invert)
+        ir.addWidget(self.inv_hint, 1)
+        ir.addWidget(self.b_invert)
+        v.addLayout(ir)
+        self._touch_since = None  # da quando la sonda risulta toccata senza interruzioni (time.monotonic)
+        self._inv_wait = None  # valore di $6 appena scritto, in attesa della rilettura
         self.result = QLabel("")
         self.result.setWordWrap(True)
         v.addWidget(self.result)
@@ -94,6 +112,7 @@ class AutofocusDialog(QDialog):
         v.addLayout(br)
         self.ctl.status_changed.connect(self._status)
         self.ctl.autofocus_done.connect(self._done)
+        self.ctl.settings_ready.connect(self._settings)
         self.z_motor.toggled.connect(self._state)
         self.probe.toggled.connect(self._state)
         self._status(self.ctl.last_status)
@@ -119,12 +138,97 @@ class AutofocusDialog(QDialog):
         for w in (self.b_up, self.b_down, self.z_step):
             w.setEnabled(z and self.ctl.connected)
         self.b_run.setEnabled(on and self.ctl.connected and not self.ctl.autofocusing)
+        self._invert_state()
 
     def _status(self, st):
         if not self.ctl.connected:
             self.pin.setText(tr("Collega il laser per provare la sonda e l'autofocus."))
+            self._touch_since = None
+            self._inv_wait = None
         else:
-            self.pin.setText(autofocus.pin_text((st or {}).get("pins")))
+            pins = (st or {}).get("pins")
+            self.pin.setText(autofocus.pin_text(pins))
+            if autofocus.pin_state(pins) == "touch":
+                if self._touch_since is None:
+                    self._touch_since = time.monotonic()
+            else:
+                self._touch_since = None
+        self._state()
+
+    # ------------------------------------------------------- segnale al contrario ($6)
+    def stuck(self):
+        """La sonda risulta toccata di fila da almeno STUCK_S secondi."""
+        return self._touch_since is not None and time.monotonic() - self._touch_since >= autofocus.STUCK_S
+
+    def _can_invert(self):
+        c = self.ctl
+        return (c.connected and not c.autofocusing and not c.job_active and not c.busy
+                and (c.last_status or {}).get("state") in ("Idle", "Alarm")
+                and self._inv_wait is None)
+
+    def _invert_state(self):
+        cur = autofocus.invert_now(self.ctl.board_settings) if self.ctl.connected else None
+        if cur is None:
+            self.b_invert.setText(tr("Inverti il segnale della sonda ($6)"))
+            self.b_invert.setToolTip(tr("La scheda non ha l'impostazione $6, oppure non è ancora stata letta. Su "
+                                        "FluidNC il segnale della sonda si inverte nel file di configurazione."))
+        else:
+            self.b_invert.setText(tr("Inverti il segnale della sonda (${0}: {1} → {2})", autofocus.INVERT, cur, 1 - cur))
+            self.b_invert.setToolTip(tr("Per le sonde che la scheda legge al contrario: «TOCCATA» quando è libera e "
+                                        "«libera» quando la tocchi"))
+        self.b_invert.setEnabled(cur is not None and self._can_invert())
+        if self.ctl.connected and self.stuck():
+            self.inv_hint.setStyleSheet("color:#E8590C; font-weight:600;")
+            self.inv_hint.setText(tr("La sonda risulta TOCCATA da più di {0:g} secondi. Se non la stai toccando: se è "
+                                     "collegata all'ingresso «Probe», la scheda legge il segnale al contrario (capita "
+                                     "con le sonde «normalmente chiuse»): premi il pulsante qui accanto. Se invece la "
+                                     "sonda non è collegata, collegala prima: con l'ingresso libero molte schede la "
+                                     "vedono sempre toccata.", autofocus.STUCK_S))
+        else:
+            self.inv_hint.setStyleSheet("")
+            self.inv_hint.setText(tr("Se la sonda funziona al contrario («TOCCATA» quando è libera, «libera» quando la "
+                                     "tocchi), inverti il segnale:"))
+
+    def invert(self):
+        cur = autofocus.invert_now(self.ctl.board_settings)
+        if cur is None or not self._can_invert():
+            return
+        new = 1 - cur
+        ans = QMessageBox.question(
+            self, tr("Inverti il segnale della sonda"),
+            tr("Scrivo ${0}={1} sulla scheda (ora è ${0}={2}). L'impostazione resta salvata nella scheda anche "
+               "spegnendola; per tornare come prima basta premere di nuovo il pulsante.\n\nPrima di cambiarla, "
+               "FreeLaserCut salva una copia delle impostazioni della scheda.", autofocus.INVERT, new, cur),
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        if ans != QMessageBox.Yes:
+            return
+        self._inv_wait = new
+        self._touch_since = None
+        self.ctl.write_setting(autofocus.INVERT, new)
+        QTimer.singleShot(400, self.ctl.request_settings)
+        QTimer.singleShot(5000, self, self._inv_timeout)
+        self.result.setText(tr("Scrivo ${0}={1} e rileggo le impostazioni della scheda…", autofocus.INVERT, new))
+        self._state()
+
+    def _inv_timeout(self):
+        """Nessuna rilettura di $$ entro 5 s: il pulsante torna attivo e lo si dice."""
+        if self._inv_wait is not None:
+            self._inv_wait = None
+            self.result.setText(tr("Non sono riuscito a rileggere le impostazioni della scheda: controlla $6 nella "
+                                   "console ($$)."))
+            self._state()
+
+    def _settings(self, data):
+        if self._inv_wait is not None:
+            got = autofocus.invert_now(data)
+            if got == self._inv_wait:
+                self.result.setText(tr("Fatto: ora ${0}={1}. Controlla la riga della sonda qui sopra: libera deve dire "
+                                       "«libera», toccandola «TOCCATA».", autofocus.INVERT, got))
+            else:
+                self.result.setText(tr("La scheda non ha accettato ${0}={1} (ora è ${0}={2}).", autofocus.INVERT,
+                                       self._inv_wait, "?" if got is None else got))
+            self._inv_wait = None
+            self._touch_since = None
         self._state()
 
     def values(self):
@@ -156,7 +260,8 @@ class AutofocusDialog(QDialog):
         self._state()
 
     def done(self, r):
-        for sig, slot in ((self.ctl.status_changed, self._status), (self.ctl.autofocus_done, self._done)):
+        for sig, slot in ((self.ctl.status_changed, self._status), (self.ctl.autofocus_done, self._done),
+                          (self.ctl.settings_ready, self._settings)):
             try:
                 sig.disconnect(slot)
             except (RuntimeError, TypeError):

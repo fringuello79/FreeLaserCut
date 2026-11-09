@@ -45,8 +45,13 @@ PLATFORMS = [f"manylinux_2_{n}_x86_64" for n in range(GLIBC_MAX[1], 16, -1)] + [
 
 # librerie che il plugin xcb di Qt 6 richiede e che spesso mancano (Ubuntu, Debian e Fedora non le mettono sempre):
 # si copiano accanto alle librerie di Qt, che le trovano da sole ($ORIGIN). Licenza MIT/X11.
+# 0.18.1: anche le estensioni di libxcb (randr, render, shape, shm, sync, xfixes, xkb): sul primo Ubuntu di prova di
+# GitHub mancava libxcb-xkb e Qt non partiva («xcb-cursor0 is needed», messaggio di Qt che non dice quale manca).
+# Resta del sistema solo libxcb.so.1 (con libX11), come fanno gli strumenti AppImage.
 XCB_EXTRA = ["libxcb-cursor.so.0", "libxcb-icccm.so.4", "libxcb-image.so.0", "libxcb-keysyms.so.1",
-             "libxcb-render-util.so.0", "libxcb-util.so.1", "libxkbcommon-x11.so.0"]
+             "libxcb-render-util.so.0", "libxcb-util.so.1", "libxkbcommon-x11.so.0",
+             "libxcb-randr.so.0", "libxcb-render.so.0", "libxcb-shape.so.0", "libxcb-shm.so.0", "libxcb-sync.so.1",
+             "libxcb-xfixes.so.0", "libxcb-xkb.so.1"]
 LIB_DIRS = ["/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib", "/lib/x86_64-linux-gnu"]
 if os.environ.get("FLC_XCB_DIR"):  # costruzione su un sistema più nuovo: librerie prese da Ubuntu 22.04 a parte
     LIB_DIRS.insert(0, os.environ["FLC_XCB_DIR"])
@@ -88,6 +93,20 @@ def find_lib(name):
         if os.path.exists(p):
             return os.path.realpath(p)
     return None
+
+
+def xcb_outside(plugin, appdir):
+    """Librerie xcb (tranne libxcb.so.1) che il plugin di Qt trova fuori dall'AppImage: devono essere zero."""
+    out = subprocess.run(["ldd", plugin], capture_output=True, text=True).stdout
+    bad = []
+    for line in out.splitlines():
+        parts = line.split()
+        if not parts or not parts[0].startswith(("libxcb", "libxkbcommon-x11")) or parts[0] == "libxcb.so.1":
+            continue
+        where = parts[2] if len(parts) > 2 and parts[1] == "=>" else "?"
+        if not os.path.realpath(where).startswith(os.path.realpath(appdir) + os.sep):
+            bad.append(f"{parts[0]} ({where})")
+    return bad
 
 
 def glibc_needed(folder):
@@ -172,7 +191,11 @@ def main():
         shutil.copy2(src, os.path.join(qt_lib, name))
         print("  +", name)
     if missing:
-        print("  ATTENZIONE: non trovate sul sistema di costruzione:", ", ".join(missing))
+        sys.exit("librerie xcb non trovate sul sistema di costruzione: " + ", ".join(missing))
+    outside = xcb_outside(os.path.join(pyside, "Qt", "plugins", "platforms", "libqxcb.so"), APPDIR)
+    if outside:
+        sys.exit("il plugin xcb di Qt prende ancora dal sistema: " + ", ".join(outside))
+    print("  il plugin xcb usa solo libxcb.so.1 del sistema; le altre librerie xcb sono nell'AppImage")
 
     step("Programma, licenze, README")
     app = os.path.join(usr, "app")

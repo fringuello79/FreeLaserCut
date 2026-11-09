@@ -180,7 +180,8 @@ um.checked.connect(lambda r, e, m: seen.append((r, e, m)))
 um.release_dialog = (lambda orig: (lambda r: (seen.append("dialog"), types.SimpleNamespace(exec=lambda: 0, choice=None))[1]))(um.release_dialog)
 um.check(manual=True)
 check("Cerca aggiornamenti… in sottofondo: trova la 0.99.0 e mostra le novità",
-      until(lambda: "dialog" in seen) and next(x for x in seen if isinstance(x, tuple))[0].version == "0.99.0", str(seen[:2]))
+      until(lambda: "dialog" in seen and any(isinstance(x, tuple) for x in seen))  # 0.18.1: i due segnali possono
+      and next(x for x in seen if isinstance(x, tuple))[0].version == "0.99.0", str(seen[:2]))  # arrivare in due giri
 updater.fetch_latest = real_fetch
 del um.release_dialog
 
