@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Costrutto — impara FreeLaserCut facendo</title>
+<meta name="description" content="Addestramento interattivo di FreeLaserCut nel browser: un simulatore con missioni che si controllano da sole.">
+<style>
+:root{
+  --bg:#0C1322; --bar:#111A2B; --card:#141D30; --card2:#1A2438; --line:#24304A; --line2:#2E3B57;
+  --tx:#E6EBF5; --mu:#8C98B0; --ac:#2E7CF6; --ac2:#1F5FCC; --warn:#F5A524; --bad:#E5484D; --ok:#2FB171;
+  --orange:#F07A2E; --desk:#C9D0DA; --bed:#FFFFFF;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-size:13px;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0A1020;border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 5px}
+
+/* ---------------- home */
+#home{position:fixed;inset:0;z-index:50;overflow:auto;background:radial-gradient(1200px 600px at 70% -10%,#22305a 0%,var(--bg) 60%)}
+#home .wrap{max-width:1040px;margin:0 auto;padding:40px 28px 60px}
+#home .brand{display:flex;align-items:center;gap:10px;color:var(--mu);font-weight:600;letter-spacing:.02em}
+#home .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--orange);box-shadow:0 0 14px var(--orange)}
+#home h1{font-size:44px;line-height:1.05;margin:22px 0 12px;letter-spacing:-.02em}
+#home h1 span{color:var(--orange)}
+#home p.lead{font-size:17px;color:#C8D0E0;max-width:720px;line-height:1.5;margin:0 0 10px}
+#home .rules{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:26px 0 30px}
+#home .rule{background:rgba(20,29,48,.8);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+#home .rule b{display:block;font-size:14px;margin-bottom:4px}
+#home .rule span{color:var(--mu);line-height:1.45}
+#home h2{font-size:15px;color:var(--mu);text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px}
+#missions{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.mtile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:left;cursor:pointer;transition:border-color .15s,transform .15s;min-height:132px;display:flex;flex-direction:column}
+.mtile:hover:not(:disabled){border-color:var(--ac);transform:translateY(-2px)}
+.mtile:disabled{opacity:.45;cursor:default}
+.mtile .n{font-size:12px;color:var(--orange);font-weight:700;letter-spacing:.06em}
+.mtile .t{font-size:16px;font-weight:600;margin:4px 0 6px}
+.mtile .d{color:var(--mu);line-height:1.4;flex:1}
+.mtile .st{margin-top:8px;font-size:12px;color:var(--mu)}
+.mtile .st.done{color:var(--ok)}
+#home .foot{margin-top:28px;color:var(--mu);line-height:1.5;font-size:12px}
+#narrow{display:none;margin:18px 0;padding:12px 14px;border-radius:10px;background:#3A2A0A;border:1px solid #6b4b12;color:#FFE8B8}
+@media (max-width:900px){#narrow{display:block} #home .rules{grid-template-columns:1fr}}
+
+/* ---------------- app shell */
+#app{position:fixed;inset:0;display:grid;grid-template-rows:28px 38px 34px 1fr 30px 24px}
+.menubar{display:flex;align-items:center;background:var(--bar);border-bottom:1px solid var(--line);padding:0 6px;gap:2px;user-select:none}
+.menubar .m{position:relative}
+.menubar .m>button{background:none;border:0;padding:4px 10px;border-radius:4px;cursor:pointer}
+.menubar .m>button:hover,.menubar .m.open>button{background:var(--line)}
+.menubar .spacer{flex:1}
+.menubar .home-btn{background:#fff;color:#111;border:0;border-radius:6px;padding:3px 12px;font-weight:600;cursor:pointer}
+.menu{position:absolute;top:100%;left:0;min-width:270px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:5px;z-index:40;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.menu .it{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:6px 10px;border-radius:5px;cursor:pointer;white-space:nowrap;position:relative}
+.menu .it:hover{background:var(--ac2)}
+.menu .it.dis{color:#5b6680;cursor:default}
+.menu .it.dis:hover{background:none}
+.menu .it .k{color:var(--mu);font-size:12px}
+.menu .sep{height:1px;background:var(--line);margin:4px 2px}
+.menu .sub{position:absolute;left:100%;top:-6px;display:none}
+.menu .it:hover>.sub{display:block}
+
+.toolbar{display:flex;align-items:center;gap:2px;background:var(--bar);border-bottom:1px solid var(--line);padding:0 8px}
+.tb{width:30px;height:30px;border:0;background:none;border-radius:6px;display:grid;place-items:center;cursor:pointer;color:#CFD6E4}
+.tb:hover{background:var(--line)}
+.tb.dis{opacity:.35;cursor:default}
+.tb svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tsep{width:1px;height:22px;background:var(--line);margin:0 6px}
+
+.numbar{display:flex;align-items:center;gap:6px;background:var(--bar);border-bottom:1px solid var(--line);padding:0 10px;color:var(--mu)}
+.numbar label{margin-left:8px}
+.numbar input{width:86px;background:#fff;color:#111;border:1px solid #9aa6bb;border-radius:4px;padding:2px 6px;text-align:right}
+.numbar input:disabled{background:#2a3449;color:#6f7a90;border-color:var(--line2)}
+.numbar select{background:var(--card2);border:1px solid var(--line2);border-radius:4px;padding:2px 6px;min-width:150px}
+.lock{background:none;border:0;cursor:pointer;color:var(--mu);font-size:14px;padding:0 2px}
+.lock.on{color:var(--ac)}
+.numbar .info{margin-left:14px}
+
+.main{display:grid;grid-template-columns:42px 1fr 430px;min-height:0}
+.tools{background:var(--bar);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding-top:6px;gap:3px}
+.tools .tb.on{background:var(--ac);color:#fff}
+.stage{position:relative;min-width:0;min-height:0;background:var(--desk);overflow:hidden}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:default}
+
+.side{background:var(--card);border-left:1px solid var(--line);display:grid;grid-template-rows:auto minmax(150px,46%) auto 1fr;min-height:0}
+.tabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line);background:var(--bar)}
+.tabs button{background:none;border:0;padding:6px 10px;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;font-weight:600}
+.tabs button.on{color:var(--tx);border-bottom-color:var(--ac)}
+.pane{overflow:auto;padding:8px 10px}
+.ltable{width:100%;border-collapse:collapse;font-size:12.5px}
+.ltable th{color:var(--mu);font-weight:500;text-align:left;padding:4px 5px;border-bottom:1px solid var(--line)}
+.ltable td{padding:3px 5px;border-bottom:1px solid #1d2840}
+.ltable tr{cursor:pointer}
+.ltable tr.on td{background:var(--ac2)}
+.ltable .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:6px}
+.ltable select{background:var(--card2);border:1px solid var(--line2);border-radius:4px;padding:1px 2px;font-size:12px}
+.ltable input[type=checkbox]{accent-color:var(--ac)}
+.lhint{color:var(--mu);font-size:11.5px;margin:6px 0}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btn{background:var(--card2);border:1px solid var(--line2);border-radius:6px;padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--ac)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn:disabled{opacity:.4;cursor:default;border-color:var(--line2)}
+.sec{color:var(--mu);font-size:11px;font-weight:700;letter-spacing:.07em;margin:12px 0 6px;text-transform:uppercase}
+.field{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:8px;margin:5px 0}
+.field input,.field select{background:#fff;color:#111;border:1px solid #9aa6bb;border-radius:4px;padding:3px 6px;width:100%}
+.muted{color:var(--mu)}
+.portrow{display:flex;gap:6px;align-items:center}
+.portrow select{flex:1;background:var(--card2);border:1px solid var(--line2);border-radius:6px;padding:5px}
+.pill{padding:4px 10px;border-radius:6px;background:#2A3449;color:var(--mu);font-weight:600;white-space:nowrap}
+.pill.ok{background:#14382A;color:#8FE3B9}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.jog{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,36px);gap:4px;justify-content:center;margin:8px 0}
+.jog button{background:var(--card2);border:1px solid var(--line2);border-radius:6px;cursor:pointer;font-size:16px}
+.jog button:hover{border-color:var(--ac)}
+.steps{display:flex;gap:4px;flex-wrap:wrap}
+.steps button{background:var(--card2);border:1px solid var(--line2);border-radius:5px;padding:3px 9px;cursor:pointer}
+.steps button.on{background:var(--ac);border-color:var(--ac)}
+.pos{font-family:"JetBrains Mono",Consolas,monospace;font-size:13px;text-align:center;margin:6px 0;color:#CFE0FF}
+
+.palette{display:flex;align-items:center;gap:3px;background:var(--bar);border-top:1px solid var(--line);padding:0 10px;overflow:hidden}
+.palette .lab{color:var(--mu);margin-right:8px}
+.palette button{width:24px;height:20px;border:0;border-radius:4px;color:#fff;font-size:10.5px;font-weight:700;cursor:pointer;padding:0;text-shadow:0 1px 1px rgba(0,0,0,.4)}
+.palette button:hover{outline:2px solid #fff}
+.status{display:flex;align-items:center;gap:16px;background:var(--bg);border-top:1px solid var(--line);padding:0 10px;color:var(--mu);font-size:12px}
+.status #msg{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status #msg.warn{color:var(--warn)}
+.status #msg.err{color:#ff8c8f}
+
+/* ---------------- mission card */
+#mcard{position:absolute;left:12px;top:12px;width:340px;max-height:calc(100% - 24px);overflow:auto;background:rgba(12,19,34,.96);border:1px solid var(--line2);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.35);z-index:10}
+#mcard header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px;cursor:pointer}
+#mcard header .n{font-size:11px;font-weight:700;color:var(--orange);letter-spacing:.07em}
+#mcard header .t{font-size:15px;font-weight:600}
+#mcard .body{padding:0 12px 12px}
+#mcard.min .body{display:none}
+#mcard .q{background:#1B2440;border-left:3px solid var(--orange);padding:9px 10px;border-radius:6px;line-height:1.45;margin:4px 0 10px}
+#mcard ol{list-style:none;padding:0;margin:6px 0}
+#mcard li{display:flex;gap:8px;align-items:flex-start;padding:5px 0;line-height:1.4}
+#mcard li .ck{flex:0 0 18px;height:18px;border-radius:50%;border:1.5px solid var(--line2);display:grid;place-items:center;font-size:11px;margin-top:1px}
+#mcard li.ok .ck{background:var(--ok);border-color:var(--ok);color:#06210f}
+#mcard li.ok .tx{color:#9fb0c8}
+#mcard li.cur .ck{border-color:var(--orange)}
+#mcard .hint{background:#2a2412;border:1px solid #5a4a1c;color:#FFE8B8;border-radius:8px;padding:8px 10px;margin:8px 0;line-height:1.45}
+#mcard .foot{display:flex;gap:6px;justify-content:space-between;align-items:center;margin-top:8px}
+#mcard .meta{color:var(--mu);font-size:11.5px}
+#mcard .done{background:#11301F;border:1px solid #1f6b43;border-radius:8px;padding:10px;margin:8px 0;line-height:1.45}
+#mcard .done b{color:#8FE3B9}
+#mcard .err{background:#2a1416;border:1px solid #6b2a2e;border-radius:8px;padding:10px;margin:8px 0;line-height:1.45}
+#mcard .err b{color:#ffb3b5}
+
+/* ---------------- dialogs */
+.dlg-back{position:fixed;inset:0;background:rgba(5,9,18,.55);z-index:60;display:grid;place-items:center}
+.dlg{width:640px;max-width:94vw;max-height:86vh;overflow:auto;background:var(--card);border:1px solid var(--line2);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.dlg h3{margin:0;padding:14px 16px;border-bottom:1px solid var(--line);font-size:15px}
+.dlg .dbody{padding:12px 16px}
+.dlg .dfoot{padding:10px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.dlg input[type=search]{width:100%;background:#fff;color:#111;border:1px solid #9aa6bb;border-radius:6px;padding:6px 8px}
+.matlist{margin-top:10px;border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto}
+.matlist div{display:grid;grid-template-columns:1fr 120px 90px 70px;gap:8px;padding:6px 10px;border-bottom:1px solid #1d2840;cursor:pointer}
+.matlist div:hover{background:#1d2a46}
+.matlist div.on{background:var(--ac2)}
+.matlist .hd{color:var(--mu);cursor:default;background:var(--bar)!important}
+
+/* ---------------- segnalatore: dove si trova un comando */
+.chip{color:#FFD2B0;border-bottom:1.5px dashed var(--orange);cursor:help;padding:0 1px;border-radius:2px}
+.chip:hover{background:rgba(240,122,46,.18)}
+#spot{position:fixed;pointer-events:none;z-index:70;border:2.5px solid var(--orange);border-radius:9px;box-shadow:0 0 0 4px rgba(240,122,46,.22),0 0 22px rgba(240,122,46,.65)}
+#spot.strong{animation:spotBreath 3.2s ease-in-out 1 forwards}
+#spot.soft{animation:spotSoft 2.4s ease-in-out 1 forwards}
+@keyframes spotBreath{0%{opacity:0;transform:scale(1.12)}22%{opacity:1;transform:scale(1)}72%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+@keyframes spotSoft{0%{opacity:0}35%{opacity:.85}65%{opacity:.85}100%{opacity:0}}
+#spotArrow{position:fixed;pointer-events:none;z-index:71;width:44px;height:44px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45));animation:spotNudge 3.2s ease-in-out 1 forwards}
+#spotArrow svg{width:100%;height:100%}
+@keyframes spotNudge{0%{opacity:0;translate:calc(var(--nx,0px) * -2) calc(var(--ny,0px) * -2)}22%{opacity:1;translate:0 0}72%{opacity:1;translate:0 0}100%{opacity:0;translate:0 0}}
+
+</style>
+</head>
+<body>
+<div id="home">
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span>FreeLaserCut · Costrutto</div>
+    <h1>Impara FreeLaserCut <span>facendo</span>,<br>non guardando.</h1>
+    <p class="lead">Un FreeLaserCut simulato, qui nel browser, con missioni da completare. Niente da installare, niente laser acceso, niente materiale sprecato: ogni missione si controlla da sola mentre lavori.</p>
+    <div id="narrow">Il Costrutto si usa con mouse e tastiera: aprilo da un computer.</div>
+    <div class="rules">
+      <div class="rule"><b>Prima prova, poi guarda</b><span>Ogni missione si apre con una domanda. Prova a rispondere prima di cercare il comando.</span></div>
+      <div class="rule"><b>Indizi a gradini</b><span>Se ti blocchi, chiedi un indizio: prima una domanda, poi dove si trova il comando, solo alla fine i passaggi.</span></div>
+      <div class="rule"><b>Torna domani</b><span>Rifare una missione a memoria il giorno dopo fissa quello che hai imparato più di qualsiasi ripasso.</span></div>
+    </div>
+    <h2>Missioni</h2>
+    <div id="missions"></div>
+    <div class="foot">Il simulatore riproduce l'interfaccia Classica di FreeLaserCut 0.17 con i comandi che servono alle missioni; gli altri sono visibili ma spenti. Velocità e potenze vengono dalla libreria materiali del Longer B1 40W. I tuoi progressi restano solo in questo browser.</div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="menubar" id="menubar">
+    <div class="m" data-menu="file"><button>File</button></div>
+    <div class="m" data-menu="modifica"><button>Modifica</button></div>
+    <div class="m" data-menu="disponi"><button>Disponi</button></div>
+    <div class="m" data-menu="strumenti"><button>Strumenti</button></div>
+    <div class="m" data-menu="laser"><button>Laser</button></div>
+    <div class="m" data-menu="visualizza"><button>Visualizza</button></div>
+    <div class="m" data-menu="aiuto"><button>Aiuto</button></div>
+    <div class="spacer"></div>
+    <button class="home-btn" id="btnHome">← Missioni</button>
+  </div>
+
+  <div class="toolbar" id="toolbar">
+    <button class="tb dis" title="Nuovo (Ctrl+N)"><svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg></button>
+    <button class="tb dis" title="Apri (Ctrl+O)"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg></button>
+    <button class="tb dis" title="Salva (Ctrl+S)"><svg viewBox="0 0 24 24"><path d="M5 3h12l2 2v16H5z"/><path d="M8 3v6h8V3"/></svg></button>
+    <span class="tsep"></span>
+    <button class="tb" data-cmd="undo" title="Annulla (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 7H4v5"/><path d="M4 12a8 8 0 1 1 3 6"/></svg></button>
+    <button class="tb" data-cmd="redo" title="Ripeti (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="M15 7h5v5"/><path d="M20 12a8 8 0 1 0-3 6"/></svg></button>
+    <button class="tb" data-cmd="delete" title="Elimina (Canc)"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+    <span class="tsep"></span>
+    <button class="tb" data-cmd="align_left" title="Allinea a sinistra (Alt+←)"><svg viewBox="0 0 24 24"><path d="M4 3v18M8 7h10v4H8zM8 14h6v4H8z"/></svg></button>
+    <button class="tb" data-cmd="align_hcenter" title="Centra in orizzontale"><svg viewBox="0 0 24 24"><path d="M12 3v18M6 7h12v4H6zM8 14h8v4H8z"/></svg></button>
+    <button class="tb" data-cmd="align_vcenter" title="Centra in verticale"><svg viewBox="0 0 24 24"><path d="M3 12h18M7 6h4v12H7zM14 8h4v8h-4z"/></svg></button>
+    <span class="tsep"></span>
+    <button class="tb" data-cmd="difference" title="Differenza (la prima meno la seconda)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="12" rx="2"/><circle cx="16" cy="14" r="5"/></svg></button>
+    <span class="tsep"></span>
+    <button class="tb" data-cmd="fit" title="Adatta al piano"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="tb" data-cmd="materials" title="Libreria materiali (Ctrl+M)"><svg viewBox="0 0 24 24"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16 6l4 1-3 13-4-1z"/></svg></button>
+    <button class="tb" data-cmd="preview" title="Anteprima (Alt+P)"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </div>
+
+  <div class="numbar">
+    <label>X</label><input id="nX" disabled>
+    <label>Y</label><input id="nY" disabled>
+    <label>L</label><input id="nL" disabled>
+    <button class="lock" id="nLock" title="Mantieni le proporzioni">🔓</button>
+    <label style="margin-left:0">A</label><input id="nA" disabled>
+    <label>Livello</label><select id="nLayer" disabled></select>
+    <span class="info" id="nInfo"></span>
+  </div>
+
+  <div class="main">
+    <div class="tools" id="tools">
+      <button class="tb on" data-tool="select" title="Selezione (V)"><svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-2 6z"/></svg></button>
+      <button class="tb dis" title="Modifica nodi (N)"><svg viewBox="0 0 24 24"><path d="M4 20c4-10 12-6 16-16"/><rect x="2.5" y="18.5" width="3" height="3"/><rect x="18.5" y="2.5" width="3" height="3"/></svg></button>
+      <button class="tb dis" title="Linee e curve (L)"><svg viewBox="0 0 24 24"><path d="M4 20 20 4M14 4h6v6"/></svg></button>
+      <button class="tb" data-tool="rect" title="Rettangolo (R)"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+      <button class="tb" data-tool="ellipse" title="Ellisse e cerchio (E)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></button>
+      <button class="tb dis" title="Poligono (P)"><svg viewBox="0 0 24 24"><path d="M12 3l8 6-3 10H7L4 9z"/></svg></button>
+      <button class="tb dis" title="Stella (S)"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 17l-5.6 3 1.3-6.2L3 9.5l6.3-.7z"/></svg></button>
+      <button class="tb dis" title="Forme (F)"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+      <button class="tb" data-tool="text" title="Testo (T)"><svg viewBox="0 0 24 24"><path d="M5 5h14M12 5v15"/></svg></button>
+      <button class="tb dis" title="Misura (M)"><svg viewBox="0 0 24 24"><path d="M3 17 17 3l4 4L7 21z"/></svg></button>
+      <button class="tb" data-tool="position" title="Posiziona laser (clic = la testa va lì) (Q)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+    </div>
+
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div id="mcard"></div>
+    </div>
+
+    <div class="side">
+      <div class="tabs"><button class="on" data-ptab="livelli">Livelli</button><button data-ptab="proprieta">Proprietà</button></div>
+      <div class="pane" id="pTop"></div>
+      <div class="tabs"><button class="on" data-btab="laser">Laser</button><button data-btab="movimento">Movimento</button><button class="dis muted" disabled>Camera</button><button class="dis muted" disabled>Console</button></div>
+      <div class="pane" id="pBottom"></div>
+    </div>
+  </div>
+
+  <div class="palette" id="palette"><span class="lab">Livello</span></div>
+  <div class="status"><span id="msg">Pronto.</span><span id="spos">X — Y —</span><span id="szoom">100%</span></div>
+</div>
+
+<div id="dlg" class="dlg-back hidden"></div>
+<div id="spot" class="hidden"></div>
+<div id="spotArrow" class="hidden"><svg viewBox="0 0 24 24"><path d="M3 12h13M11 6l6 6-6 6" fill="none" stroke="#F07A2E" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+<script>
+"use strict";
+const ABETE_PNG = "data:image/png;base64,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";
+/* Dancing Script Bold — Copyright 2016 The Dancing Script Project Authors (https://github.com/googlefonts/DancingScript).
+   SIL Open Font License 1.1 (https://openfontlicense.org). Sottoinsieme latino, incluso nel file per non dipendere da servizi esterni. */
+const DANCING_WOFF2 = "data:font/woff2;base64,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";
+
+'use strict';
+/* FreeLaserCut · Costrutto — simulatore web dell'interfaccia Classica (FLC 0.17).
+   Unità: millimetri. Origine in basso a sinistra, Y verso l'alto (come FLC).
+   Ogni forma è descritta dal centro (x, y) e dalle misure (w, h): è il punto di riferimento
+   predefinito della barra "Posizione e dimensioni" di FLC. */
+
+const LAYER_COLORS = ["#111111","#2E7CF6","#E5484D","#30A46C","#F5A524","#8E6CF0","#22B8CF","#E54DB0",
+  "#8A5A2B","#7C8A99","#F07A2E","#0F7D7E","#B8D435","#6B4BD8","#D6336C","#1C7ED6","#2F9E44","#E8590C",
+  "#5C940D","#862E9C","#C2255C","#0B7285","#A61E4D","#364FC7","#087F5B","#D9480F","#5F3DC4","#1864AB",
+  "#E67700","#495057"];
+const MODE_LABEL = {line:"Linea", fill:"Riempimento", offset_fill:"Riempimento offset", image:"Immagine"};
+// Dalla libreria materiali di FLC (Longer B1 40W): nome, operazione, spessore, modalità, mm/min, %, passate, etichetta
+const MATERIALS = [
+  ["Tiglio (basswood)","incisione",0,"fill",10000,30,1,"Incisione"],
+  ["Tiglio (basswood)","taglio",2,"line",1800,100,1,"Taglio 2 mm"],
+  ["Tiglio (basswood)","taglio",3,"line",1400,100,1,"Taglio 3 mm"],
+  ["Tiglio (basswood)","taglio",5,"line",900,100,1,"Taglio 5 mm"],
+  ["Tiglio (basswood)","taglio",6,"line",600,100,1,"Taglio 6 mm"],
+  ["MDF","incisione",0,"fill",10000,35,1,"Incisione"],
+  ["MDF","taglio",5,"line",700,100,1,"Taglio 5 mm"],
+  ["Cartone","incisione",0,"fill",10000,40,1,"Incisione"],
+  ["Cartone","taglio",3,"line",6000,100,1,"Taglio 3 mm"],
+  ["Acrilico nero","incisione",0,"fill",10000,30,1,"Incisione"],
+];
+const BED = {w: 300, h: 220};
+const EPS = 1e-6;
+
+const $ = (id) => document.getElementById(id);
+const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
+const parseNum = (s) => { const v = parseFloat(String(s).replace(",", ".")); return Number.isFinite(v) ? v : null; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+let NEXT_ID = 1;
+const rnd = (v) => Math.round(v * 1e6) / 1e6; // niente 29,999999 dopo una scala o uno spostamento
+
+const S = {
+  doc: {shapes: [], layers: {}},
+  sel: [], tool: "select", curLayer: 0, curRow: null, lock: false,
+  view: {s: 2, ox: 0, oy: 0},
+  m: {port: "sim", connected: false, homed: false, x: 180, y: 150, busy: false, step: 10, anim: null, trail: null},
+  ev: {}, undo: [], redo: [], ptab: "livelli", btab: "laser",
+  drag: null, hover: null, snap: null, pointer: null,
+};
+
+/* ---------------------------------------------------------------- livelli */
+function layerDefaults(i) {
+  return {mode: i === 0 ? "fill" : "line", speed: i === 0 ? 3000 : 1500, power: i === 0 ? 25 : 30, passes: 1,
+          output: true, show: true, air: true, priority: 0, name: "", material: ""};
+}
+function L(i) { if (!S.doc.layers[i]) S.doc.layers[i] = layerDefaults(i); return S.doc.layers[i]; }
+function layerLabel(i) { return L(i).name || `C${String(i).padStart(2, "0")}`; }
+function usedLayers() {
+  const set = [...new Set(S.doc.shapes.flatMap(leaves).map(s => s.layer))];
+  return set.sort((a, b) => (L(a).priority - L(b).priority) || (a - b));
+}
+
+/* ---------------------------------------------------------------- forme */
+function mkRect(x, y, w, h, layer, r = 0) { return {id: NEXT_ID++, type: "rect", x, y, w, h, r, layer}; }
+function mkEllipse(x, y, w, h, layer) { return {id: NEXT_ID++, type: "ellipse", x, y, w, h, layer}; }
+const FONTS = {"Arial": "Arial, Helvetica, sans-serif", "Dancing Script": "'Dancing Script', 'Segoe Script', cursive"};
+const fontCss = (f, px) => `700 ${px}px ${FONTS[f] || FONTS.Arial}`;
+function mkText(text, x, y, size, layer, font = "Arial") {
+  const t = {id: NEXT_ID++, type: "text", text, x, y, w: 0, h: size, size, layer, vo: 0, font};
+  t.w = measureText(displayText(t), size, font); return t;
+}
+function measureText(text, size, font = "Arial") {
+  const c = measureText.c || (measureText.c = document.createElement("canvas").getContext("2d"));
+  c.font = fontCss(font, 100);
+  return c.measureText(text).width / 72 * size; // altezza delle maiuscole ~ 0,72 del corpo
+}
+function shapeName(s) {
+  if (s.type === "rect") return "Rettangolo";
+  if (s.type === "ellipse") return Math.abs(s.w - s.h) < 1e-6 ? "Cerchio" : "Ellisse";
+  if (s.type === "text") return "Testo";
+  if (s.type === "compound") return `Tracciato (${1 + s.holes.length} parti)`;
+  if (s.type === "poly") return s.paths.length > 1 ? `Tracciato (${s.paths.length} parti)` : "Tracciato";
+  if (s.type === "code") return "Codice QR";
+  if (s.type === "image") return "Immagine";
+  if (s.type === "group") return `Gruppo (${s.children.length})`;
+  return "Forma";
+}
+function bbox(list) {
+  if (!list.length) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of list) { x0 = Math.min(x0, s.x - s.w / 2); x1 = Math.max(x1, s.x + s.w / 2); y0 = Math.min(y0, s.y - s.h / 2); y1 = Math.max(y1, s.y + s.h / 2); }
+  return {x0, y0, x1, y1, w: x1 - x0, h: y1 - y0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2};
+}
+function moveShape(s, dx, dy) { s.x = rnd(s.x + dx); s.y = rnd(s.y + dy); if (s.holes) for (const h of s.holes) { h.x = rnd(h.x + dx); h.y = rnd(h.y + dy); } if (s.children) s.children.forEach(c => moveShape(c, dx, dy)); }
+function scaleShape(s, kx, ky, cx, cy) {
+  s.x = rnd(cx + (s.x - cx) * kx); s.y = rnd(cy + (s.y - cy) * ky); s.w = rnd(s.w * kx); s.h = rnd(s.h * ky);
+  if (s.type === "rect") s.r = Math.min(s.r, s.w / 2, s.h / 2);
+  if (s.type === "text") { s.size = s.h; s.w = measureText(displayText(s), s.size, s.font); }
+  if (s.children) { s.children.forEach(c => scaleShape(c, kx, ky, cx, cy)); refit(s); }
+  if (s.holes) for (const h of s.holes) { h.x = rnd(cx + (h.x - cx) * kx); h.y = rnd(cy + (h.y - cy) * ky); h.w = rnd(h.w * kx); h.h = rnd(h.h * ky); }
+  if (s.outer && s.outer.type === "rect") s.outer.r = Math.min(s.outer.r, s.w / 2, s.h / 2);
+}
+// un punto è dentro il contorno di una forma semplice (rettangolo arrotondato o ellisse)?
+function insideSimple(g, px, py) {
+  const dx = px - g.x, dy = py - g.y;
+  if (g.type === "ellipse") return (dx * dx) / ((g.w / 2) ** 2) + (dy * dy) / ((g.h / 2) ** 2) <= 1 + 1e-9;
+  const hw = g.w / 2, hh = g.h / 2, r = Math.min(g.r || 0, hw, hh);
+  if (Math.abs(dx) > hw + 1e-9 || Math.abs(dy) > hh + 1e-9) return false;
+  const qx = Math.abs(dx) - (hw - r), qy = Math.abs(dy) - (hh - r);
+  if (qx > 0 && qy > 0) return qx * qx + qy * qy <= r * r + 1e-9;
+  return true;
+}
+function outline(s) { return s.type === "compound" ? {type: s.outer.type, x: s.x, y: s.y, w: s.w, h: s.h, r: s.outer.r} : s; }
+// tutta la forma b sta dentro la forma a (controllo su 48 punti del contorno di b)
+function containsShape(a, b) {
+  const g = outline(a);
+  for (let i = 0; i < 48; i++) {
+    const t = i / 48 * Math.PI * 2;
+    let px, py;
+    if (b.type === "ellipse") { px = b.x + Math.cos(t) * b.w / 2; py = b.y + Math.sin(t) * b.h / 2; }
+    else { // punti lungo il perimetro del rettangolo che contiene b (controllo prudente)
+      const per = 2 * (b.w + b.h); let u = i / 48 * per;
+      const x0 = b.x - b.w / 2, y0 = b.y - b.h / 2;
+      if (u < b.w) { px = x0 + u; py = y0; } else if ((u -= b.w) < b.h) { px = x0 + b.w; py = y0 + u; }
+      else if ((u -= b.h) < b.w) { px = x0 + b.w - u; py = y0 + b.h; } else { u -= b.w; px = x0; py = y0 + b.h - u; }
+    }
+    if (!insideSimple(g, px, py)) return false;
+  }
+  if (a.holes) for (const h of a.holes) if (overlapsBox(h, b)) return false;
+  return true;
+}
+function overlapsBox(a, b) { return Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.y - b.y) * 2 < a.h + b.h; }
+
+/* ---------------------------------------------------------------- annulla */
+function snapshot() { return JSON.stringify({doc: S.doc, sel: S.sel}); }
+function commit() { S.undo.push(snapshot()); if (S.undo.length > 200) S.undo.shift(); S.redo = []; }
+function restore(js) { const o = JSON.parse(js); S.doc = o.doc; S.sel = o.sel.filter(id => S.doc.shapes.some(s => s.id === id)); }
+function undo() { if (!S.undo.length) return msg("Niente da annullare"); S.redo.push(snapshot()); restore(S.undo.pop()); changed("Annullato"); }
+function redo() { if (!S.redo.length) return msg("Niente da ripetere"); S.undo.push(snapshot()); restore(S.redo.pop()); changed("Ripetuto"); }
+
+/* ---------------------------------------------------------------- selezione */
+const selShapes = () => S.sel.map(id => S.doc.shapes.find(s => s.id === id)).filter(Boolean);
+function setSel(ids) { S.sel = ids; refreshUI(); }
+
+/* ---------------------------------------------------------------- comandi di disegno */
+function difference() {
+  const sel = selShapes();
+  if (sel.length !== 2) return msg("Le operazioni booleane lavorano su due forme chiuse: seleziona prima quella da tenere", "warn");
+  const [a, b] = sel;
+  const okT = (x) => ["rect", "ellipse", "compound"].includes(x.type);
+  if (!okT(a) || !okT(b)) return msg("Nel simulatore la Differenza lavora con rettangoli, cerchi e tracciati del portachiavi", "warn");
+  if (!overlapsBox(a, b) || containsShape(b, a)) { S.ev.diffEmpty = true; missionCheck(); return msg("Il risultato è vuoto: le forme non si sovrappongono?", "warn"); }
+  if (b.type === "compound" || !containsShape(a, b))
+    return msg("Nel simulatore la Differenza funziona quando la seconda forma sta tutta dentro la prima", "warn");
+  commit();
+  let res;
+  if (a.type === "compound") { res = a; res.holes.push({type: b.type, x: b.x, y: b.y, w: b.w, h: b.h, r: b.r || 0}); }
+  else {
+    res = {id: NEXT_ID++, type: "compound", x: a.x, y: a.y, w: a.w, h: a.h, layer: a.layer,
+           outer: {type: a.type, r: a.r || 0}, holes: [{type: b.type, x: b.x, y: b.y, w: b.w, h: b.h, r: b.r || 0}]};
+    const i = S.doc.shapes.indexOf(a); S.doc.shapes.splice(i, 1, res);
+  }
+  S.doc.shapes = S.doc.shapes.filter(s => s !== b);
+  S.sel = [res.id];
+  S.ev.difference = true;
+  changed("Differenza: " + shapeName(res));
+}
+function otherBoolean(name) { msg(`${name}: nel simulatore per ora è attiva solo la Differenza`, "warn"); }
+function align(kind) {
+  const sel = selShapes();
+  if (sel.length < 2) return msg("Seleziona almeno due forme da allineare", "warn");
+  const b = bbox(sel); commit();
+  for (const s of sel) {
+    if (kind === "left") moveShape(s, b.x0 - (s.x - s.w / 2), 0);
+    if (kind === "right") moveShape(s, b.x1 - (s.x + s.w / 2), 0);
+    if (kind === "hcenter") moveShape(s, b.cx - s.x, 0);
+    if (kind === "top") moveShape(s, 0, b.y1 - (s.y + s.h / 2));
+    if (kind === "bottom") moveShape(s, 0, b.y0 - (s.y - s.h / 2));
+    if (kind === "vcenter") moveShape(s, 0, b.cy - s.y);
+    if (kind === "center") moveShape(s, b.cx - s.x, b.cy - s.y);
+  }
+  changed("Allinea");
+}
+function deleteSel() { const sel = selShapes(); if (!sel.length) return; commit(); S.doc.shapes = S.doc.shapes.filter(s => !sel.includes(s)); S.sel = []; changed("Eliminato"); }
+function selectAll() { setSel(S.doc.shapes.map(s => s.id)); }
+function assignLayer(i) {
+  S.curLayer = i;
+  const sel = selShapes();
+  if (!sel.length) { refreshUI(); return msg(`Livello per i nuovi disegni: ${layerLabel(i)}`); }
+  commit(); L(i); for (const s of sel) { s.layer = i; leaves(s).forEach(c => c.layer = i); }
+  S.curRow = i; changed(`Spostato sul livello ${layerLabel(i)}`);
+}
+function setRadius(v) {
+  const s = selShapes()[0]; if (!s || s.type !== "rect") return;
+  const max = Math.min(s.w, s.h) / 2, r = clamp(v, 0, max);
+  commit(); s.r = r; changed(r < v ? `Raggio angoli limitato a ${fmt(max)} mm (metà del lato più corto)` : "Raggio angoli");
+}
+function applyNum(field, raw) {
+  const sel = selShapes(), v = parseNum(raw);
+  if (!sel.length || v === null) return refreshUI();
+  const b = bbox(sel);
+  commit();
+  if (field === "X") for (const s of sel) moveShape(s, v - b.cx, 0);
+  if (field === "Y") for (const s of sel) moveShape(s, 0, v - b.cy);
+  if (field === "L" || field === "A") {
+    if (v <= 0) { S.undo.pop(); refreshUI(); return msg("La misura deve essere maggiore di zero", "warn"); }
+    let kx = field === "L" ? v / b.w : 1, ky = field === "A" ? v / b.h : 1;
+    const isText = sel.length === 1 && (sel[0].type === "text" || sel[0].type === "code");
+    if (S.lock || isText) { if (field === "L") ky = kx; else kx = ky; }
+    for (const s of sel) scaleShape(s, kx, ky, b.cx, b.cy);
+  }
+  changed();
+}
+
+/* ---------------------------------------------------------------- macchina simulata */
+const HEAD_SPEED = 160; // mm/s nella simulazione (più veloce del vero, per non far aspettare)
+function needConn() { if (!S.m.connected) { msg("Laser non connesso: scegli la porta nel pannello Laser e premi Connetti (Ctrl+K)", "warn"); return false; } return true; }
+function connectToggle() {
+  if (S.m.connected) { S.m.connected = false; S.m.homed = false; S.m.anim = null; refreshUI(); return msg("Disconnesso"); }
+  if (S.m.port !== "sim") return msg("Nessun laser su quella porta: scegli «Simulatore (senza macchina)»", "warn");
+  S.m.connected = true; S.ev.connected = true;
+  changed("Collegato al simulatore. La macchina non sa ancora dove si trova: fai l'Homing (Ctrl+H)");
+}
+function animate(path, done) {
+  S.m.busy = true;
+  S.m.anim = {pts: path, i: 0, done};
+  S.m.trail = path.length > 2 ? [] : null;
+}
+function stepAnim(dt) {
+  const a = S.m.anim; if (!a) return false;
+  if (S.m.paused) return true;
+  let d = (a.job ? HEAD_SPEED_JOB : HEAD_SPEED) * dt;
+  while (d > 0 && a.i < a.pts.length) {
+    const [tx, ty] = a.pts[a.i], dx = tx - S.m.x, dy = ty - S.m.y, dist = Math.hypot(dx, dy);
+    if (dist <= d) { S.m.x = tx; S.m.y = ty; d -= dist; a.i++; if (S.m.trail) S.m.trail.push([tx, ty]); }
+    else { S.m.x += dx / dist * d; S.m.y += dy / dist * d; d = 0; }
+  }
+  if (a.i >= a.pts.length) { S.m.anim = null; S.m.busy = false; const f = a.done; f && f(); refreshUI(); missionCheck(); }
+  return true;
+}
+function homing() {
+  if (!needConn() || S.m.busy) return;
+  msg("Homing in corso…");
+  animate([[S.m.x, 0], [0, 0]], () => { S.m.homed = true; S.ev.homed = true; msg("Homing completato: la testa è nell'origine (0, 0)"); });
+}
+function unlock() { if (needConn()) msg("Macchina sbloccata ($X)"); }
+function headTo(x, y, why) {
+  if (!needConn() || S.m.busy) return;
+  if (S.m.homed) { x = clamp(x, 0, BED.w); y = clamp(y, 0, BED.h); }
+  else { S.ev.jogBeforeHome = true; msg("Attenzione: senza Homing la macchina non sa dove si trova, le coordinate non sono affidabili", "warn"); }
+  animate([[x, y]], () => { if (why === "place") S.ev.placed = [S.m.x, S.m.y, S.m.homed]; S.ev.lastMove = [S.m.x, S.m.y, S.m.homed]; });
+}
+function jog(dx, dy) { headTo(S.m.x + dx * S.m.step, S.m.y + dy * S.m.step, "jog"); }
+function contour() {
+  if (!needConn() || S.m.busy) return;
+  const sel = selShapes(), list = sel.length ? sel : S.doc.shapes.filter(s => L(s.layer).output);
+  if (!list.length) return msg("Niente da contornare: disegna o seleziona qualcosa", "warn");
+  const b = bbox(list), start = [S.m.x, S.m.y];
+  msg("Contorno in corso, laser spento…");
+  animate([[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1], [b.x0, b.y0], start], () => {
+    S.ev.contour = {ids: list.map(s => s.id), homed: S.m.homed, box: b}; S.m.trail = null;
+    msg("Contorno completato: il lavoro starà dentro quel rettangolo");
+  });
+}
+
+/* ---------------------------------------------------------------- vista e disegno */
+const cv = () => $("cv");
+const W2S = (x, y) => [x * S.view.s + S.view.ox, S.view.oy - y * S.view.s];
+const S2W = (px, py) => [(px - S.view.ox) / S.view.s, (S.view.oy - py) / S.view.s];
+function fit() {
+  const c = cv(), W = c.clientWidth, H = c.clientHeight;
+  const cardW = $("mcard").classList.contains("hidden") ? 0 : 360;
+  const left = W > 700 ? cardW : 0, availW = W - left - 50, availH = H - 60;
+  const s = Math.min(availW / BED.w, availH / BED.h);
+  S.view.s = s; S.view.ox = left + 30 + (availW - BED.w * s) / 2; S.view.oy = H - 26 - (availH - BED.h * s) / 2;
+  draw();
+}
+function shapePath(s) {
+  const p = new Path2D(), sc = S.view.s;
+  const add = (g) => {
+    const [cx, cy] = W2S(g.x, g.y), w = g.w * sc, h = g.h * sc;
+    if (g.type === "ellipse") { p.moveTo(cx + w / 2, cy); p.ellipse(cx, cy, Math.max(w / 2, .01), Math.max(h / 2, .01), 0, 0, Math.PI * 2); p.closePath(); }
+    else { p.roundRect(cx - w / 2, cy - h / 2, w, h, Math.max(0, Math.min((g.r || 0) * sc, w / 2, h / 2))); }
+  };
+  if (s.type === "poly") { for (const path of s.paths) path.forEach(([u, v], i) => { const [px, py] = W2S(s.x + u * s.w, s.y + v * s.h); i ? p.lineTo(px, py) : p.moveTo(px, py); }), p.closePath(); return p; }
+  if (s.type === "compound") { add(outline(s)); s.holes.forEach(add); } else add(s);
+  return p;
+}
+function draw() {
+  const c = cv(), dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
+  if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = "#C9D0DA"; g.fillRect(0, 0, W, H);
+  const sc = S.view.s, [bx0, by1] = W2S(0, BED.h), bw = BED.w * sc, bh = BED.h * sc;
+  g.fillStyle = "#fff"; g.fillRect(bx0, by1, bw, bh);
+  g.save(); g.beginPath(); g.rect(bx0, by1, bw, bh); g.clip();
+  for (let x = 0; x <= BED.w; x += 10) { const [sx] = W2S(x, 0); g.strokeStyle = x % 50 ? "#E6EBF2" : "#CBD5E3"; g.lineWidth = 1; g.beginPath(); g.moveTo(Math.round(sx) + .5, by1); g.lineTo(Math.round(sx) + .5, by1 + bh); g.stroke(); }
+  for (let y = 0; y <= BED.h; y += 10) { const [, sy] = W2S(0, y); g.strokeStyle = y % 50 ? "#E6EBF2" : "#CBD5E3"; g.beginPath(); g.moveTo(bx0, Math.round(sy) + .5); g.lineTo(bx0 + bw, Math.round(sy) + .5); g.stroke(); }
+  g.restore();
+  g.strokeStyle = "#7C8A99"; g.lineWidth = 1; g.strokeRect(bx0 + .5, by1 + .5, bw, bh);
+  const [ox, oy] = W2S(0, 0); g.fillStyle = "#2FB171"; g.beginPath(); g.arc(ox, oy, 4, 0, 7); g.fill();
+
+  for (const s of S.doc.shapes) drawShape(g, s);
+  if (S.job) drawBurn(g);
+  // selezione
+  const sel = selShapes();
+  if (sel.length) {
+    const b = bbox(sel), [x0, y0] = W2S(b.x0, b.y1), [x1, y1] = W2S(b.x1, b.y0);
+    g.setLineDash([5, 4]); g.strokeStyle = "#2E7CF6"; g.lineWidth = 1; g.strokeRect(x0 - 3.5, y0 - 3.5, x1 - x0 + 7, y1 - y0 + 7); g.setLineDash([]);
+    g.fillStyle = "#fff"; g.strokeStyle = "#2E7CF6";
+    for (const [hx, hy] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1], [(x0 + x1) / 2, y0], [(x0 + x1) / 2, y1], [x0, (y0 + y1) / 2], [x1, (y0 + y1) / 2]]) { g.fillRect(hx - 4, hy - 4, 7, 7); g.strokeRect(hx - 3.5, hy - 3.5, 7, 7); }
+    if (sel.length > 1) sel.forEach((s, i) => { const [cx, cy] = W2S(s.x, s.y); g.fillStyle = "#2E7CF6"; g.beginPath(); g.arc(cx, cy, 8, 0, 7); g.fill(); g.fillStyle = "#fff"; g.font = "600 11px Inter, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), cx, cy + .5); });
+  }
+  // anteprima del disegno in corso
+  const d = S.drag;
+  if (d && (d.kind === "rect" || d.kind === "ellipse") && d.cur) {
+    const [ax, ay] = W2S(d.p0[0], d.p0[1]), [bx, by] = W2S(d.cur[0], d.cur[1]);
+    g.strokeStyle = LAYER_COLORS[S.curLayer % 30]; g.setLineDash([4, 3]); g.lineWidth = 1.2; g.beginPath();
+    if (d.kind === "rect") g.rect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay));
+    else g.ellipse((ax + bx) / 2, (ay + by) / 2, Math.abs(bx - ax) / 2 || .1, Math.abs(by - ay) / 2 || .1, 0, 0, 7);
+    g.stroke(); g.setLineDash([]);
+    const w = Math.abs(d.cur[0] - d.p0[0]), h = Math.abs(d.cur[1] - d.p0[1]);
+    tag(g, `${fmt(w, 1)} × ${fmt(h, 1)} mm`, Math.max(ax, bx) + 8, Math.max(ay, by) + 4);
+  }
+  if (d && d.kind === "band" && d.cur) {
+    const [ax, ay] = W2S(d.p0[0], d.p0[1]), [bx, by] = W2S(d.cur[0], d.cur[1]);
+    g.fillStyle = "rgba(46,124,246,.10)"; g.strokeStyle = "#2E7CF6"; g.lineWidth = 1;
+    g.fillRect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay));
+    g.strokeRect(Math.min(ax, bx) + .5, Math.min(ay, by) + .5, Math.abs(bx - ax), Math.abs(by - ay));
+  }
+  if (S.snap) { const [sx, sy] = W2S(S.snap[0], S.snap[1]); g.strokeStyle = "#F07A2E"; g.lineWidth = 1.5; g.strokeRect(sx - 5, sy - 5, 10, 10); }
+  // testa del laser
+  if (S.m.connected) {
+    if (S.m.trail && S.m.trail.length) { g.strokeStyle = "#F07A2E"; g.setLineDash([6, 4]); g.lineWidth = 1.6; g.beginPath(); S.m.trail.forEach(([x, y], i) => { const [px, py] = W2S(x, y); i ? g.lineTo(px, py) : g.moveTo(px, py); }); const [hx, hy] = W2S(S.m.x, S.m.y); g.lineTo(hx, hy); g.stroke(); g.setLineDash([]); }
+    const [hx, hy] = W2S(S.m.x, S.m.y), col = S.m.homed ? "#F07A2E" : "#7C8A99";
+    g.strokeStyle = col; g.lineWidth = 1.5; g.beginPath(); g.arc(hx, hy, 9, 0, 7); g.moveTo(hx - 15, hy); g.lineTo(hx - 4, hy); g.moveTo(hx + 4, hy); g.lineTo(hx + 15, hy); g.moveTo(hx, hy - 15); g.lineTo(hx, hy - 4); g.moveTo(hx, hy + 4); g.lineTo(hx, hy + 15); g.stroke();
+    g.fillStyle = col; g.beginPath(); g.arc(hx, hy, 2.5, 0, 7); g.fill();
+    if (!S.m.homed) { g.font = "700 12px Inter, sans-serif"; g.textAlign = "left"; g.fillText("?", hx + 11, hy - 9); }
+  }
+  rulers(g, W, H);
+}
+function tag(g, text, x, y) {
+  g.font = "600 11px Inter, sans-serif"; const w = g.measureText(text).width + 10;
+  g.fillStyle = "rgba(12,19,34,.88)"; g.fillRect(x, y, w, 18); g.fillStyle = "#fff"; g.textAlign = "left"; g.textBaseline = "middle"; g.fillText(text, x + 5, y + 9.5);
+}
+function rulers(g, W, H) {
+  g.fillStyle = "#1A2234"; g.fillRect(0, 0, W, 18); g.fillRect(0, 0, 22, H);
+  g.strokeStyle = "#56627a"; g.fillStyle = "#AAB4C8"; g.font = "10px Inter, sans-serif"; g.lineWidth = 1;
+  const sc = S.view.s, step = sc > 3 ? 5 : 10;
+  const [wx0] = S2W(22, 0), [wx1] = S2W(W, 0);
+  for (let x = Math.ceil(wx0 / step) * step; x <= wx1; x += step) {
+    const [sx] = W2S(x, 0), big = x % 50 === 0;
+    g.beginPath(); g.moveTo(Math.round(sx) + .5, big ? 4 : 11); g.lineTo(Math.round(sx) + .5, 18); g.stroke();
+    if (big) { g.textAlign = "left"; g.textBaseline = "top"; g.fillText(String(x), sx + 3, 2); }
+  }
+  const [, wy0] = S2W(0, H), [, wy1] = S2W(0, 18);
+  for (let y = Math.ceil(wy0 / step) * step; y <= wy1; y += step) {
+    const [, sy] = W2S(0, y), big = y % 50 === 0;
+    g.beginPath(); g.moveTo(big ? 4 : 13, Math.round(sy) + .5); g.lineTo(22, Math.round(sy) + .5); g.stroke();
+    if (big) { g.save(); g.translate(11, sy - 3); g.rotate(-Math.PI / 2); g.textAlign = "left"; g.textBaseline = "middle"; g.fillText(String(y), 0, 0); g.restore(); }
+  }
+  g.fillStyle = "#1A2234"; g.fillRect(0, 0, 22, 18); g.fillStyle = "#AAB4C8"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("mm", 11, 9);
+}
+
+/* ---------------------------------------------------------------- mouse sul piano */
+function hitTest(px, py) {
+  const g = cv().getContext("2d");
+  for (let i = S.doc.shapes.length - 1; i >= 0; i--) if (hitOne(S.doc.shapes[i], px, py, g)) return S.doc.shapes[i];
+  return null;
+}
+function snapPoint(wx, wy, px, py) {
+  let best = null, bd = 9;
+  const cand = [[0, 0]];
+  for (const s of S.doc.shapes) {
+    const pts = [[s.x, s.y], [s.x - s.w / 2, s.y - s.h / 2], [s.x + s.w / 2, s.y - s.h / 2], [s.x - s.w / 2, s.y + s.h / 2], [s.x + s.w / 2, s.y + s.h / 2], [s.x, s.y - s.h / 2], [s.x, s.y + s.h / 2], [s.x - s.w / 2, s.y], [s.x + s.w / 2, s.y]];
+    if (s.holes) for (const h of s.holes) pts.push([h.x, h.y]);
+    cand.push(...pts);
+  }
+  for (const [x, y] of cand) { const [sx, sy] = W2S(x, y), dd = Math.hypot(sx - px, sy - py); if (dd < bd) { bd = dd; best = [x, y]; } }
+  return best;
+}
+function evPos(e) { const r = cv().getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+function onDown(e) {
+  if (e.button === 1 || (e.button === 0 && S.space)) { S.drag = {kind: "pan", sx: e.clientX, sy: e.clientY, ox: S.view.ox, oy: S.view.oy}; return; }
+  if (e.button !== 0) return;
+  closeMenus();
+  const [px, py] = evPos(e), [wx, wy] = S2W(px, py), sp = snapPoint(wx, wy, px, py), p = sp || [wx, wy];
+  cv().setPointerCapture(e.pointerId);
+  if (S.tool === "position") { headTo(p[0], p[1], "place"); return; }
+  if (S.tool === "text") { openTextDialog(p); return; }
+  if (S.tool === "rect" || S.tool === "ellipse") { S.drag = {kind: S.tool, p0: p, cur: null}; return; }
+  const hit = hitTest(px, py);
+  if (hit) {
+    if (e.shiftKey) { S.sel = S.sel.includes(hit.id) ? S.sel.filter(i => i !== hit.id) : [...S.sel, hit.id]; refreshUI(); return; }
+    if (!S.sel.includes(hit.id)) S.sel = [hit.id];
+    S.drag = {kind: "move", last: [wx, wy], moved: false, clickId: hit.id}; refreshUI(); return;
+  }
+  if (!e.shiftKey) S.sel = [];
+  S.drag = {kind: "band", p0: [wx, wy], cur: null, add: e.shiftKey}; refreshUI();
+}
+function onMove(e) {
+  const [px, py] = evPos(e), [wx, wy] = S2W(px, py);
+  $("spos").textContent = `X ${fmt(wx, 1)}  Y ${fmt(wy, 1)}`;
+  const d = S.drag;
+  if (d && d.kind === "pan") { S.view.ox = d.ox + e.clientX - d.sx; S.view.oy = d.oy + e.clientY - d.sy; draw(); return; }
+  const wantSnap = S.tool !== "select" || (d && d.kind !== "band");
+  S.snap = wantSnap ? snapPoint(wx, wy, px, py) : null;
+  if (!d) { draw(); return; }
+  if (d.kind === "rect" || d.kind === "ellipse") { let c = S.snap || [wx, wy]; if (e.shiftKey) { const k = Math.max(Math.abs(c[0] - d.p0[0]), Math.abs(c[1] - d.p0[1])); c = [d.p0[0] + Math.sign(c[0] - d.p0[0] || 1) * k, d.p0[1] + Math.sign(c[1] - d.p0[1] || 1) * k]; } d.cur = c; }
+  if (d.kind === "band") d.cur = [wx, wy];
+  if (d.kind === "move") { if (!d.moved) { commit(); d.moved = true; } const dx = wx - d.last[0], dy = wy - d.last[1]; selShapes().forEach(s => moveShape(s, dx, dy)); d.last = [wx, wy]; refreshNum(); }
+  draw();
+}
+function onUp() {
+  const d = S.drag; S.drag = null;
+  if (!d) return;
+  if (d.kind === "rect" || d.kind === "ellipse") {
+    if (!d.cur) { S.snap = null; draw(); return; }
+    const w = Math.abs(d.cur[0] - d.p0[0]), h = Math.abs(d.cur[1] - d.p0[1]);
+    if (w < 0.5 || h < 0.5) { draw(); return msg("Trascina per disegnare la forma"); }
+    commit(); L(S.curLayer);
+    const x = (d.p0[0] + d.cur[0]) / 2, y = (d.p0[1] + d.cur[1]) / 2;
+    const s = d.kind === "rect" ? mkRect(x, y, w, h, S.curLayer) : mkEllipse(x, y, w, h, S.curLayer);
+    S.doc.shapes.push(s); S.sel = [s.id]; setTool("select");
+    changed(`${shapeName(s)} ${fmt(w, 1)} × ${fmt(h, 1)} mm: per le misure esatte scrivi L e A nella barra in alto`);
+    return;
+  }
+  if (d.kind === "band" && d.cur) {
+    const x0 = Math.min(d.p0[0], d.cur[0]), x1 = Math.max(d.p0[0], d.cur[0]), y0 = Math.min(d.p0[1], d.cur[1]), y1 = Math.max(d.p0[1], d.cur[1]);
+    const inside = S.doc.shapes.filter(s => L(s.layer).show && s.x - s.w / 2 >= x0 && s.x + s.w / 2 <= x1 && s.y - s.h / 2 >= y0 && s.y + s.h / 2 <= y1).map(s => s.id);
+    S.sel = d.add ? [...S.sel, ...inside.filter(i => !S.sel.includes(i))] : inside;
+  }
+  if (d.kind === "move" && d.moved) { changed(); return; }
+  if (d.kind === "move" && !d.moved && S.sel.length > 1) S.sel = [d.clickId]; // clic senza trascinare: solo quella forma
+  refreshUI();
+}
+function onWheel(e) {
+  e.preventDefault();
+  const [px, py] = evPos(e), [wx, wy] = S2W(px, py), k = Math.exp(-e.deltaY * 0.0015);
+  S.view.s = clamp(S.view.s * k, 0.6, 60); S.view.ox = px - wx * S.view.s; S.view.oy = py + wy * S.view.s;
+  $("szoom").textContent = Math.round(S.view.s / 2 * 100) + "%"; draw();
+}
+
+/* ---------------------------------------------------------------- interfaccia */
+function msg(t, cls = "") { const m = $("msg"); m.textContent = t; m.className = cls; }
+function changed(text) { if (text) msg(text); if (S.job && !S.job.running) S.job = null; refreshUI(); missionCheck(); }
+function setTool(t) {
+  S.tool = t;
+  document.querySelectorAll("#tools [data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === t));
+  cv().style.cursor = t === "select" ? "default" : t === "text" ? "text" : "crosshair";
+  if (t === "position" && !S.m.connected) msg("Posiziona laser: prima collega il laser nel pannello Laser", "warn");
+}
+function refreshUI() { refreshNum(); refreshTop(); refreshBottom(); draw(); }
+function refreshNum() {
+  const sel = selShapes(), b = bbox(sel), ids = ["nX", "nY", "nL", "nA"];
+  ids.forEach(id => { const el = $(id); el.disabled = !sel.length; if (document.activeElement !== el) el.value = ""; });
+  const lay = $("nLayer"); lay.disabled = !sel.length;
+  if (b) { const v = {nX: b.cx, nY: b.cy, nL: b.w, nA: b.h}; ids.forEach(id => { if (document.activeElement !== $(id)) $(id).value = fmt(v[id]) + " mm"; }); }
+  const opts = [...Array(30).keys()].map(i => `<option value="${i}">${layerLabel(i)}</option>`).join("");
+  if (lay.dataset.sig !== opts) { lay.innerHTML = opts; lay.dataset.sig = opts; }
+  const ls = [...new Set(sel.map(s => s.layer))]; lay.value = ls.length === 1 ? ls[0] : "";
+  $("nInfo").textContent = sel.length === 1 ? shapeName(sel[0]) : sel.length ? `${sel.length} oggetti selezionati` : "";
+  $("nLock").textContent = S.lock ? "🔒" : "🔓"; $("nLock").classList.toggle("on", S.lock);
+}
+function refreshTop() {
+  document.querySelectorAll("[data-ptab]").forEach(b => b.classList.toggle("on", b.dataset.ptab === S.ptab));
+  const el = $("pTop");
+  if (S.ptab === "livelli") {
+    const used = usedLayers();
+    if (S.curRow === null || !used.includes(S.curRow)) S.curRow = used[0] ?? null;
+    const opt = (i) => Object.entries(MODE_LABEL).map(([k, v]) => `<option value="${k}" ${L(i).mode === k ? "selected" : ""}>${v}</option>`).join("");
+    el.innerHTML = `<table class="ltable"><thead><tr><th>Livello</th><th>Modalità</th><th>mm/min</th><th>Pot. %</th><th>×</th><th>Inc.</th><th>Vis.</th><th>Aria</th></tr></thead><tbody>${
+      used.map(i => `<tr data-row="${i}" class="${i === S.curRow ? "on" : ""}"><td><span class="sw" style="background:${LAYER_COLORS[i % 30]}"></span>${esc(layerLabel(i))}</td>
+        <td><select data-mode="${i}">${opt(i)}</select></td><td>${L(i).speed}</td><td>${fmt(L(i).power, 1)}</td><td>${L(i).passes}</td>
+        <td><input type="checkbox" data-out="${i}" ${L(i).output ? "checked" : ""}></td><td><input type="checkbox" data-show="${i}" ${L(i).show ? "checked" : ""}></td><td><input type="checkbox" data-air="${i}" ${L(i).air ? "checked" : ""}></td></tr>`).join("") ||
+      `<tr><td colspan="8" class="muted">Nessun livello in uso: disegna qualcosa.</td></tr>`}</tbody></table>
+      <div class="lhint">In ordine di lavoro, dall'alto in basso.${S.curRow !== null && L(S.curRow).material ? ` Materiale di ${esc(layerLabel(S.curRow))}: ${esc(L(S.curRow).material)}.` : ""}</div>
+      <div class="row"><button class="btn" id="bMat">Materiale…</button><button class="btn" id="bCuts" title="Ordina: prima incisioni e riempimenti, per ultime le linee di taglio (così i pezzi non cadono prima di essere incisi)">Tagli per ultimi</button></div>`;
+    el.querySelectorAll("tr[data-row]").forEach(tr => tr.onclick = (ev) => { if (ev.target.closest("select,input")) return; S.curRow = +tr.dataset.row; refreshTop(); });
+    el.querySelectorAll("select[data-mode]").forEach(s => s.onchange = () => { commit(); L(+s.dataset.mode).mode = s.value; changed(`${layerLabel(+s.dataset.mode)}: modalità ${MODE_LABEL[s.value]}`); });
+    el.querySelectorAll("input[data-out]").forEach(c => c.onchange = () => { commit(); L(+c.dataset.out).output = c.checked; changed(c.checked ? "Il livello verrà inciso" : "Non incidere: il livello resta nel disegno ma il laser lo salta"); });
+    el.querySelectorAll("input[data-show]").forEach(c => c.onchange = () => { commit(); L(+c.dataset.show).show = c.checked; changed(); });
+    el.querySelectorAll("input[data-air]").forEach(c => c.onchange = () => { commit(); L(+c.dataset.air).air = c.checked; changed(); });
+    $("bMat").onclick = () => openMaterials(); $("bCuts").onclick = cutsLast;
+  } else {
+    const sel = selShapes();
+    if (!sel.length) { el.innerHTML = `<div class="muted" style="padding:8px 2px">Nessuna selezione. Seleziona una forma per vederne le proprietà.</div>`; return; }
+    if (sel.length > 1) { el.innerHTML = `<div class="sec">${sel.length} oggetti selezionati</div><div class="muted">Le misure del gruppo sono nella barra in alto.</div>`; return; }
+    const s = sel[0];
+    let h = `<div class="sec">${shapeName(s)}</div><div class="field"><span>Livello</span><span>${esc(layerLabel(s.layer))}</span></div>`;
+    if (s.type === "rect") h += `<div class="sec">Rettangolo</div><div class="field"><label for="pRad">Raggio angoli</label><input id="pRad" value="${fmt(s.r)} mm"></div><div class="lhint">Massimo ${fmt(Math.min(s.w, s.h) / 2)} mm (metà del lato più corto).</div>`;
+    if (s.type === "compound") h += `<div class="muted">Contorno esterno e ${s.holes.length} ${s.holes.length === 1 ? "foro" : "fori"}: è un unico pezzo.</div>`;
+    if (s.type === "text") h += `<div class="sec">Testo</div><div class="field"><label for="pText">Testo</label><input id="pText" value="${esc(s.text)}"></div>
+      <div class="field"><span></span><span class="row"><button class="btn" id="pVar">Inserisci variabile ▾</button>${hasVars(s.text) ? `<span class="muted">sulla tela: ${esc(displayText(s))}</span>` : ""}</span></div>
+      <div id="pVarMenu" class="hidden" style="margin:0 0 6px 138px;background:var(--card2);border:1px solid var(--line2);border-radius:8px;padding:4px">
+        ${[["Numero a 3 cifre", "{N:3}"], ["Numero", "{N}"], ["Data", "{DATA}"], ["Anno", "{ANNO}"]].map(([a, t]) => `<div class="it" data-var="${t}" style="padding:5px 8px;cursor:pointer;border-radius:5px">${a} <span class="muted">${t}</span></div>`).join("")}</div>
+      <div class="field"><label for="pSize">Altezza</label><input id="pSize" value="${fmt(s.size, 1)} mm"></div>
+      <div class="field"><label for="pFont">Carattere</label><select id="pFont">${Object.keys(FONTS).map(f => `<option ${f === (s.font || "Arial") ? "selected" : ""}>${f}</option>`).join("")}</select></div>`;
+    if (s.type === "code") h += `<div class="sec">Codice</div><div class="field"><span>Contenuto</span><span style="word-break:break-all">${esc(s.data)}</span></div><div class="field"><span>Larghezza</span><span>${fmt(s.w, 1)} mm</span></div>`;
+    if (s.type === "group") h += `<div class="muted" style="margin-bottom:8px">Le forme del gruppo si spostano e si scalano insieme.</div><button class="btn" id="pUngroup">Separa (Ctrl+U)</button>`;
+    if (s.type === "image") h += `<div class="muted" style="margin-bottom:8px">Un'immagine è fatta di puntini. Per tagliarla o inciderla come linee va vettorizzata.</div><button class="btn" id="pTrace">Vettorizza immagine… (Alt+T)</button>`;
+    el.innerHTML = h;
+    const r = $("pRad"); if (r) { r.onkeydown = (e) => { if (e.key === "Enter") r.blur(); }; r.onchange = () => { const v = parseNum(r.value); if (v !== null) setRadius(v); else refreshUI(); }; }
+    const pt = $("pText"); if (pt) { pt.onkeydown = (e) => { if (e.key === "Enter") pt.blur(); }; pt.onchange = () => setTextProp("text", pt.value); }
+    const pf = $("pFont"); if (pf) pf.onchange = () => setTextProp("font", pf.value);
+    const ps = $("pSize"); if (ps) { ps.onkeydown = (e) => { if (e.key === "Enter") ps.blur(); }; ps.onchange = () => setTextProp("size", ps.value); }
+    const pv = $("pVar"); if (pv) { pv.onclick = () => $("pVarMenu").classList.toggle("hidden"); el.querySelectorAll("[data-var]").forEach(d => { d.onmouseenter = () => d.style.background = "var(--ac2)"; d.onmouseleave = () => d.style.background = ""; d.onclick = () => insertVar(d.dataset.var); }); }
+    const pu = $("pUngroup"); if (pu) pu.onclick = ungroupSel;
+    const ptr = $("pTrace"); if (ptr) ptr.onclick = openTrace;
+  }
+}
+function cutsLast() {
+  const used = usedLayers(); if (!used.length) return;
+  commit();
+  const ordered = [...used.filter(i => L(i).mode !== "line"), ...used.filter(i => L(i).mode === "line")];
+  ordered.forEach((i, k) => L(i).priority = k);
+  S.ev.cutsLast = true; changed("Tagli per ultimi: prima incisioni e riempimenti, poi le linee di taglio");
+}
+function refreshBottom() {
+  document.querySelectorAll("[data-btab]").forEach(b => b.classList.toggle("on", b.dataset.btab === S.btab));
+  const el = $("pBottom"), m = S.m;
+  const state = !m.connected ? "Disconnesso" : m.busy ? "In movimento" : "Inattivo";
+  if (S.btab === "laser") {
+    el.innerHTML = `<div class="portrow"><select id="port"><option value="sim" ${m.port === "sim" ? "selected" : ""}>Simulatore (senza macchina)</option><option value="com3" ${m.port === "com3" ? "selected" : ""}>COM3 — CH340</option></select>
+      <button class="btn ${m.connected ? "" : "pri"}" id="bConn">${m.connected ? "Disconnetti" : "Connetti"}</button><span class="pill ${m.connected ? "ok" : ""}">${state}</span></div>
+      <div class="lhint">${m.connected ? (m.homed ? "Macchina pronta. Posizione nota dall'Homing." : "Collegato. La macchina non sa ancora dove si trova: fai l'Homing (Ctrl+H).") : "Laser non connesso: scegli la porta qui sopra e premi Connetti (Ctrl+K)."}</div>
+      <div class="grid3" style="margin-top:8px"><button class="btn" id="bStart" ${m.connected && !m.busy ? "" : "disabled"} title="Prepara, verifica e avvia il lavoro (Ctrl+Invio)">▶ Avvia</button><button class="btn" id="bPause" ${S.job && S.job.running ? "" : "disabled"}>${m.paused ? "Riprendi" : "Pausa"}</button><button class="btn" id="bStop" ${S.job && S.job.running ? "" : "disabled"}>Stop</button>
+      <button class="btn" id="bFrame">Contorno</button><button class="btn" id="bPrev">Anteprima</button><button class="btn" disabled>Verifica</button></div>
+      <div class="sec">Stima del lavoro</div><div class="${S.doc.shapes.length ? "" : "muted"}">Tempo stimato ${S.doc.shapes.length ? mmss(estimate()) : "—"}</div>`;
+    $("port").onchange = (e) => { m.port = e.target.value; refreshBottom(); };
+    $("bConn").onclick = connectToggle; $("bFrame").onclick = contour;
+    $("bStart").onclick = startJob; $("bPause").onclick = pauseJob; $("bStop").onclick = stopJob; $("bPrev").onclick = openPreview;
+  } else {
+    const pos = m.connected ? (m.homed ? `X ${fmt(m.x)}   Y ${fmt(m.y)}` : `X ?   Y ?   (manca l'Homing)`) : "—";
+    el.innerHTML = `<div class="row"><button class="btn" id="bHome">Homing</button><button class="btn" id="bUnl">Sblocca</button></div>
+      <div class="pos">${pos}</div>
+      <div class="sec">Passo (mm)</div><div class="steps">${[0.1, 1, 10, 50, 100].map(v => `<button data-step="${v}" class="${m.step === v ? "on" : ""}">${v}</button>`).join("")}</div>
+      <div class="jog"><span></span><button data-jog="0,1" title="Y+ (indietro)">↑</button><span></span><button data-jog="-1,0" title="X−">←</button><button id="bJogHome" title="Homing">⌂</button><button data-jog="1,0" title="X+">→</button><span></span><button data-jog="0,-1" title="Y− (avanti)">↓</button><span></span></div>
+      <div class="lhint">Con lo strumento «Posiziona laser» (Q) un clic sul piano porta la testa in quel punto.</div>`;
+    $("bHome").onclick = homing; $("bJogHome").onclick = homing; $("bUnl").onclick = unlock;
+    el.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { m.step = +b.dataset.step; refreshBottom(); });
+    el.querySelectorAll("[data-jog]").forEach(b => b.onclick = () => { const [dx, dy] = b.dataset.jog.split(",").map(Number); jog(dx, dy); });
+  }
+}
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+/* ---------------------------------------------------------------- libreria materiali */
+function openMaterials() {
+  const used = usedLayers();
+  let target = S.curRow ?? (selShapes()[0]?.layer) ?? used[0];
+  if (target === undefined || target === null) return msg("Prima metti qualcosa su un livello: la libreria applica il materiale a un livello", "warn");
+  let pick = null;
+  const D = $("dlg");
+  const render = (q = "") => {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const rows = MATERIALS.map((m, i) => ({m, i})).filter(({m}) => words.every(w => `${m[0]} ${m[1]} ${m[7]} ${m[2]}`.toLowerCase().includes(w)));
+    $("mlist").innerHTML = `<div class="hd"><span>Materiale</span><span>Operazione</span><span>mm/min</span><span>%</span></div>` +
+      rows.map(({m, i}) => `<div data-i="${i}" class="${pick === i ? "on" : ""}"><span>${m[0]}</span><span>${m[7]}</span><span>${m[4]}</span><span>${m[5]}</span></div>`).join("");
+    $("mlist").querySelectorAll("[data-i]").forEach(d => { d.onclick = () => { pick = +d.dataset.i; render($("msearch").value); }; d.ondblclick = () => { pick = +d.dataset.i; apply(); }; });
+    $("mapply").disabled = pick === null;
+  };
+  const apply = () => {
+    if (pick === null) return;
+    const m = MATERIALS[pick], ly = L(target);
+    commit();
+    if (ly.mode !== "image") ly.mode = m[3];
+    ly.speed = m[4]; ly.power = m[5]; ly.passes = m[6]; ly.air = true; ly.material = `${m[0]} · ${m[7]}`;
+    closeDlg(); changed(`Materiale «${m[0]} · ${m[7]}» applicato a ${layerLabel(target)} (${MODE_LABEL[ly.mode]}, ${m[4]} mm/min, ${m[5]}%)`);
+  };
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Libreria materiali"><h3>Libreria materiali</h3><div class="dbody">
+     <div class="row" style="margin-bottom:8px"><span class="muted">Livello:</span><select id="mtarget">${used.map(i => `<option value="${i}" ${i === target ? "selected" : ""}>${esc(layerLabel(i))} · ${MODE_LABEL[L(i).mode]}</option>`).join("")}</select></div>
+     <input type="search" id="msearch" placeholder="Cerca: materiale, operazione, spessore…"><div class="matlist" id="mlist"></div>
+     <div class="lhint">Valori della libreria per il Longer B1 40W. Su un altro laser fai un Test materiale prima del lavoro vero.</div></div>
+     <div class="dfoot"><button class="btn" id="mcancel">Annulla</button><button class="btn pri" id="mapply">Applica a «${esc(layerLabel(target))}»</button></div></div>`;
+  D.classList.remove("hidden");
+  $("mtarget").onchange = (e) => { target = +e.target.value; $("mapply").textContent = `Applica a «${layerLabel(target)}»`; };
+  $("msearch").oninput = (e) => render(e.target.value);
+  $("mcancel").onclick = closeDlg; $("mapply").onclick = apply;
+  render(); setTimeout(() => $("msearch").focus(), 0);
+}
+function closeDlg() { $("dlg").classList.add("hidden"); $("dlg").innerHTML = ""; }
+function infoDlg(title, html) {
+  const D = $("dlg");
+  D.innerHTML = `<div class="dlg"><h3>${title}</h3><div class="dbody" style="line-height:1.55">${html}</div><div class="dfoot"><button class="btn pri" id="dok">OK</button></div></div>`;
+  D.classList.remove("hidden"); $("dok").onclick = closeDlg;
+}
+
+/* ---------------------------------------------------------------- menù */
+const SUB_ALIGN = [["Allinea a sinistra", "Alt+←", () => align("left")], ["Centra in orizzontale", "", () => align("hcenter")], ["Allinea a destra", "Alt+→", () => align("right")],
+  ["Allinea in alto", "Alt+↑", () => align("top")], ["Centra in verticale", "", () => align("vcenter")], ["Allinea in basso", "Alt+↓", () => align("bottom")], ["Centra i centri", "Alt+C", () => align("center")]];
+const SUB_BOOL = [["Unione", "", () => otherBoolean("Unione")], ["Differenza (la prima meno la seconda)", "", difference], ["Intersezione", "", () => otherBoolean("Intersezione")], ["Esclusione", "", () => otherBoolean("Esclusione")]];
+const MENUS = {
+  file: [["Nuovo", "Ctrl+N", null], ["Apri…", "Ctrl+O", null], ["Importa…", "Ctrl+I", () => openImport()], "-", ["Ricomincia la missione", "", () => restartMission()], ["Torna alle missioni", "", () => goHome()]],
+  modifica: [["Annulla", "Ctrl+Z", undo], ["Ripeti", "Ctrl+Y", redo], "-", ["Elimina", "Canc", deleteSel], ["Seleziona tutto", "Ctrl+A", selectAll], "-", ["Offset forme…", "Alt+O", null], ["Vettorizza immagine…", "Alt+T", () => openTrace()]],
+  disponi: [["Raggruppa", "Ctrl+G", () => groupSel()], ["Separa", "Ctrl+U", () => ungroupSel()], "-", ["Allinea", "▸", SUB_ALIGN], ["Operazioni booleane", "▸", SUB_BOOL], "-", ["Serie a griglia…", "Alt+A", () => openGrid()], ["Ottimizza lo spazio…", "Alt+N", null]],
+  strumenti: [["Selezione", "V", () => setTool("select")], ["Rettangolo", "R", () => setTool("rect")], ["Ellisse e cerchio", "E", () => setTool("ellipse")], ["Testo", "T", () => setTool("text")], ["Posiziona laser", "Q", () => setTool("position")], "-",
+    ["Crea forma con misure esatte…", "Ctrl+Alt+N", null], ["Codice QR o a barre…", "Ctrl+Alt+Q", () => openCode()], ["Testo variabile…", "", null]],
+  laser: [["Connetti / disconnetti la macchina", "Ctrl+K", connectToggle], ["Homing", "Ctrl+H", homing], ["Sblocca macchina ($X)", "", unlock], ["Contorno", "Ctrl+Shift+F", contour], ["Verifica il lavoro", "Ctrl+Shift+K", null],
+    ["Avvia il lavoro", "Ctrl+Invio", () => startJob()], ["Pausa / riprendi", "Ctrl+Spazio", () => pauseJob()], ["Stop", "Ctrl+Pausa", () => stopJob()], "-", ["Anteprima…", "Alt+P", () => openPreview()], ["Libreria materiali…", "Ctrl+M", () => openMaterials()], ["Test materiale…", "", null], ["Riconosci la macchina…", "", null]],
+  visualizza: [["Adatta al piano", "", fit], ["Zoom +", "", () => zoomBy(1.25)], ["Zoom −", "", () => zoomBy(0.8)]],
+  aiuto: [["Come funziona il Costrutto", "", () => infoDlg("Il Costrutto", "Questo è un FreeLaserCut simulato. Funzionano i comandi che servono alle missioni; gli altri sono visibili ma spenti, così impari dove si trovano nel programma vero.<br><br>La scheda in alto a sinistra mostra i passi della missione: si spuntano da soli quando li completi. Se ti blocchi, chiedi un indizio.")],
+    ["Sito di FreeLaserCut", "", () => infoDlg("FreeLaserCut", `Il programma vero, gratuito, si scarica dal sito: <a href="https://fringuello79.github.io/FreeLaserCut/" target="_blank" rel="noopener" style="color:var(--ac)">fringuello79.github.io/FreeLaserCut</a>`)]],
+};
+function zoomBy(k) { const c = cv(), px = c.clientWidth / 2, py = c.clientHeight / 2, [wx, wy] = S2W(px, py); S.view.s = clamp(S.view.s * k, 0.6, 60); S.view.ox = px - wx * S.view.s; S.view.oy = py + wy * S.view.s; draw(); }
+function menuHTML(items) {
+  return items.map(it => {
+    if (it === "-") return `<div class="sep"></div>`;
+    const [label, key, act] = it;
+    if (Array.isArray(act)) return `<div class="it"><span>${label}</span><span class="k">▸</span><div class="menu sub">${menuHTML(act)}</div></div>`;
+    return `<div class="it ${act ? "" : "dis"}" data-label="${esc(label)}"><span>${label}</span><span class="k">${key || ""}</span></div>`;
+  }).join("");
+}
+function findAction(items, label) {
+  for (const it of items) { if (it === "-") continue; if (Array.isArray(it[2])) { const r = findAction(it[2], label); if (r) return r; } else if (it[0] === label) return it[2]; }
+  return null;
+}
+function closeMenus() { document.querySelectorAll(".menubar .m").forEach(m => { m.classList.remove("open"); m.querySelector(".menu")?.remove(); }); }
+function openMenu(m) {
+  const was = m.classList.contains("open"); closeMenus(); if (was) return;
+  const items = MENUS[m.dataset.menu];
+  m.classList.add("open"); m.insertAdjacentHTML("beforeend", `<div class="menu">${menuHTML(items)}</div>`);
+  m.querySelectorAll(".it[data-label]").forEach(el => el.onclick = (e) => {
+    e.stopPropagation(); const a = findAction(items, el.dataset.label);
+    if (!a) return msg(`«${el.dataset.label}»: nel Costrutto questo comando non serve ancora`);
+    closeMenus(); a();
+  });
+}
+
+/* ---------------------------------------------------------------- tastiera */
+function onKey(e) {
+  if (e.target.closest("input,select,textarea")) { if (e.key === "Escape") e.target.blur(); return; }
+  if (!$("dlg").classList.contains("hidden")) { if (e.key === "Escape") closeDlg(); return; }
+  const k = e.key.toLowerCase(), c = e.ctrlKey || e.metaKey;
+  if (e.code === "Space" && !c) { S.space = true; return; }
+  const run = (f) => { e.preventDefault(); f(); };
+  if (c && e.shiftKey && k === "f") return run(contour);
+  if (c && e.altKey && k === "q") return run(openCode);
+  if (c && k === "i") return run(openImport);
+  if (c && k === "g") return run(groupSel);
+  if (c && k === "u") return run(ungroupSel);
+  if (c && e.key === "Enter") return run(startJob);
+  if (c && e.code === "Space") return run(pauseJob);
+  if (e.altKey && !c && k === "a") return run(openGrid);
+  if (e.altKey && !c && k === "t") return run(openTrace);
+  if (e.altKey && !c && k === "p") return run(openPreview);
+  if (c && k === "z") return run(e.shiftKey ? redo : undo);
+  if (c && k === "y") return run(redo);
+  if (c && k === "k") return run(connectToggle);
+  if (c && k === "h") return run(homing);
+  if (c && k === "m") return run(() => openMaterials());
+  if (c && k === "a") return run(selectAll);
+  if (e.altKey && k === "c") return run(() => align("center"));
+  if (e.altKey && e.key.startsWith("Arrow")) return run(() => align({ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom"}[e.key]));
+  if (c || e.altKey) return;
+  if (k === "delete" || k === "backspace") return run(deleteSel);
+  if (k === "escape") { S.sel = []; setTool("select"); closeMenus(); refreshUI(); return; }
+  if (e.key.startsWith("Arrow")) {
+    const d = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1]}[e.key];
+    if (S.sel.length) { e.preventDefault(); commit(); selShapes().forEach(s => moveShape(s, d[0] * (e.shiftKey ? 10 : 1), d[1] * (e.shiftKey ? 10 : 1))); return changed(); }
+    if (S.m.connected) return run(() => jog(d[0], d[1]));
+    return;
+  }
+  const tools = {v: "select", r: "rect", e: "ellipse", q: "position", t: "text"};
+  if (tools[k]) return run(() => setTool(tools[k]));
+  if (k === "n" || k === "l" || k === "p" || k === "s" || k === "f" || k === "m") msg("Questo strumento nel Costrutto non serve ancora");
+}
+
+/* ---------------------------------------------------------------- avvio */
+function initApp() {
+  loadImages();
+  const pal = $("palette");
+  for (let i = 0; i < 30; i++) {
+    const b = document.createElement("button"); b.textContent = String(i).padStart(2, "0"); b.style.background = LAYER_COLORS[i];
+    b.title = `Livello ${String(i).padStart(2, "0")}: clic per spostare qui la selezione`; b.onclick = () => assignLayer(i); pal.appendChild(b);
+  }
+  document.querySelectorAll(".menubar .m").forEach(m => m.querySelector("button").onclick = (e) => { e.stopPropagation(); openMenu(m); });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".menubar")) closeMenus(); });
+  document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
+  document.querySelectorAll("#tools .tb.dis, #toolbar .tb.dis").forEach(b => b.onclick = () => msg(`«${b.title}»: nel Costrutto questo comando non serve ancora`));
+  const cmds = {undo, redo, delete: deleteSel, align_left: () => align("left"), align_hcenter: () => align("hcenter"), align_vcenter: () => align("vcenter"), difference, fit, materials: () => openMaterials(), preview: () => openPreview()};
+  document.querySelectorAll("#toolbar [data-cmd]").forEach(b => b.onclick = () => cmds[b.dataset.cmd]());
+  document.querySelectorAll("[data-ptab]").forEach(b => b.onclick = () => { S.ptab = b.dataset.ptab; refreshTop(); });
+  document.querySelectorAll("[data-btab]").forEach(b => b.onclick = () => { S.btab = b.dataset.btab; refreshBottom(); });
+  ["nX", "nY", "nL", "nA"].forEach(id => { const el = $(id); el.onkeydown = (e) => { if (e.key === "Enter") el.blur(); }; el.onchange = () => applyNum(id.slice(1), el.value); el.onfocus = () => el.select(); });
+  $("nLock").onclick = () => { S.lock = !S.lock; refreshNum(); };
+  $("nLayer").onchange = (e) => assignLayer(+e.target.value);
+  $("btnHome").onclick = goHome;
+  const c = cv();
+  c.addEventListener("pointerdown", onDown); c.addEventListener("pointermove", onMove); c.addEventListener("pointerup", onUp);
+  c.addEventListener("pointerleave", () => { S.snap = null; draw(); });
+  c.addEventListener("wheel", onWheel, {passive: false});
+  document.addEventListener("keydown", onKey); document.addEventListener("keyup", (e) => { if (e.code === "Space") S.space = false; });
+  window.addEventListener("resize", () => draw());
+  let last = performance.now();
+  const loop = (t) => { const dt = Math.min(.05, (t - last) / 1000); last = t; if (stepAnim(dt)) { draw(); if (S.btab === "movimento") refreshBottomPos(); } if (SPOT || !$("spot").classList.contains("hidden")) placeSpot(); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+}
+function refreshBottomPos() { const p = document.querySelector("#pBottom .pos"); if (p) p.textContent = S.m.homed ? `X ${fmt(S.m.x)}   Y ${fmt(S.m.y)}` : "X ?   Y ?   (manca l'Homing)"; }
+document.addEventListener("pointerdown", (e) => { if (SPOT && SPOT.mode === "strong" && !e.target.closest(".chip")) { const r = spotRect(TARGETS[SPOT.key]); if (r && e.clientX >= r.left - 6 && e.clientX <= r.right + 6 && e.clientY >= r.top - 6 && e.clientY <= r.bottom + 6) SPOT.until = 0; } }, true);
+function resetWorld() {
+  SPOT = null;
+  S.doc = {shapes: [], layers: {}}; S.sel = []; S.undo = []; S.redo = []; S.ev = {}; S.curLayer = 0; S.curRow = null; S.lock = false;
+  S.m = {port: "sim", connected: false, homed: false, x: 180, y: 150, busy: false, step: 10, anim: null, trail: null};
+  S.ptab = "livelli"; S.btab = "laser"; setTool("select"); msg("Pronto.");
+}
+
+/* ---------------------------------------------------------------- segnalatore
+   Fa lampeggiare il punto dell'interfaccia di cui parla la missione. "soft": due lampi leggeri quando
+   il passo diventa quello attuale (si cerca ancora da soli); "strong": cerchio pulsante e freccia,
+   a richiesta (parola sottolineata o secondo indizio). Se il comando è in un'altra scheda, la apre. */
+const TARGETS = {
+  "port": {sel: "#port", btab: "laser"}, "connect": {sel: "#bConn", btab: "laser"}, "contour": {sel: "#bFrame", btab: "laser"},
+  "homing": {sel: "#bHome", btab: "movimento"}, "jog": {sel: ".jog", btab: "movimento"}, "step": {sel: ".steps", btab: "movimento"},
+  "tool-position": {sel: "#tools [data-tool=position]"}, "tool-select": {sel: "#tools [data-tool=select]"},
+  "tool-rect": {sel: "#tools [data-tool=rect]"}, "tool-ellipse": {sel: "#tools [data-tool=ellipse]"},
+  "numLA": {sel: ["#nL", "#nA"], union: true}, "numXY": {sel: ["#nX", "#nY"], union: true},
+  "tab-prop": {sel: "[data-ptab=proprieta]"}, "radius": {sel: ["#pRad", "[data-ptab=proprieta]"], ptab: "proprieta"},
+  "menu-disponi": {sel: "[data-menu=disponi] > button"}, "menu-laser": {sel: "[data-menu=laser] > button"},
+  "palette": {sel: "#palette"}, "palette-01": {sel: "#palette button:nth-of-type(2)"}, "palette-02": {sel: "#palette button:nth-of-type(3)"},
+  "mode-01": {sel: ["select[data-mode='1']", "#pTop .ltable"], ptab: "livelli"}, "mode-02": {sel: ["select[data-mode='2']", "#pTop .ltable"], ptab: "livelli"},
+  "materials": {sel: "#bMat", ptab: "livelli"}, "cuts": {sel: "#bCuts", ptab: "livelli"},
+  "tool-text": {sel: "#tools [data-tool=text]"}, "var": {sel: ["#pVar", "#tools [data-tool=text]"], ptab: "proprieta"},
+  "menu-file": {sel: "[data-menu=file] > button"}, "menu-modifica": {sel: "[data-menu=modifica] > button"}, "menu-strumenti": {sel: "[data-menu=strumenti] > button"},
+  "lock": {sel: "#nLock"}, "mode-04": {sel: ["select[data-mode='4']", "#pTop .ltable"], ptab: "livelli"},
+  "preview": {sel: "#bPrev", btab: "laser"}, "start": {sel: "#bStart", btab: "laser"}, "out-03": {sel: ["input[data-out='3']", "#pTop .ltable"], ptab: "livelli"},
+};
+let SPOT = null;
+function spotRect(t) {
+  const sels = Array.isArray(t.sel) ? t.sel : [t.sel];
+  const vis = (el) => el && el.getClientRects().length && el.offsetParent !== null;
+  if (t.union) {
+    const rs = sels.map(q => document.querySelector(q)).filter(vis).map(el => el.getBoundingClientRect());
+    if (!rs.length) return null;
+    return {left: Math.min(...rs.map(r => r.left)), top: Math.min(...rs.map(r => r.top)), right: Math.max(...rs.map(r => r.right)), bottom: Math.max(...rs.map(r => r.bottom))};
+  }
+  for (const q of sels) { const el = document.querySelector(q); if (vis(el)) return el.getBoundingClientRect(); }
+  return null;
+}
+function spot(key, mode = "strong", ms = 4000) {
+  let t = TARGETS[key]; if (!t) return;
+  if (mode === "soft") { // lampo leggero: se il comando è in un'altra scheda, indica la scheda e non la apre
+    if (t.btab && S.btab !== t.btab) { key = "btab-" + t.btab; TARGETS[key] = {sel: `[data-btab=${t.btab}]`}; }
+    else if (t.ptab && S.ptab !== t.ptab) { key = "ptab-" + t.ptab; TARGETS[key] = {sel: `[data-ptab=${t.ptab}]`}; }
+  } else {
+    if (t.btab && S.btab !== t.btab) { S.btab = t.btab; refreshBottom(); }
+    if (t.ptab && S.ptab !== t.ptab) { S.ptab = t.ptab; refreshTop(); }
+  }
+  if (SPOT && SPOT.key === key && SPOT.mode === mode && performance.now() < SPOT.until) return; // già acceso: niente ripetizioni
+  SPOT = {key, mode, until: performance.now() + (mode === "soft" ? 2450 : 3250)};
+  const s = $("spot"), ar = $("spotArrow"); s.className = mode; void s.offsetWidth; // riavvia l'animazione
+  ar.style.animation = "none"; void ar.offsetWidth; ar.style.animation = "";
+  placeSpot();
+}
+function placeSpot() {
+  const s = $("spot"), a = $("spotArrow");
+  if (!SPOT || performance.now() > SPOT.until) { SPOT = null; s.className = "hidden"; a.classList.add("hidden"); return; }
+  const r = spotRect(TARGETS[SPOT.key]);
+  if (!r) { s.classList.add("hidden"); a.classList.add("hidden"); return; }
+  s.classList.remove("hidden");
+  const pad = 5;
+  Object.assign(s.style, {left: r.left - pad + "px", top: r.top - pad + "px", width: r.right - r.left + 2 * pad + "px", height: r.bottom - r.top + 2 * pad + "px"});
+  if (SPOT.mode !== "strong") { a.classList.add("hidden"); return; }
+  a.classList.remove("hidden");
+  const W = innerWidth, H = innerHeight, cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+  let x, y, rot, nx = "0px", ny = "0px";
+  if (r.bottom > H - 90) { x = cx - 22; y = r.top - 58; rot = 90; ny = "8px"; }            // sopra, punta in giù
+  else if (r.right + 70 < W) { x = r.right + 12; y = cy - 22; rot = 180; nx = "-8px"; }     // a destra, punta a sinistra
+  else { x = r.left - 58; y = cy - 22; rot = 0; nx = "8px"; }                               // a sinistra, punta a destra
+  Object.assign(a.style, {left: x + "px", top: y + "px", transform: `rotate(${rot}deg)`});
+  a.style.setProperty("--nx", rot === 90 ? "0px" : nx); a.style.setProperty("--ny", rot === 90 ? ny : "0px");
+}
+
+'use strict';
+/* Parte 2 del simulatore: gruppi, tracciati, immagini, testo con variabili, codici QR, serie a griglia,
+   importazione dal kit, vettorizzazione, anteprima, stima del tempo e lavoro simulato. */
+
+/* ---------------------------------------------------------------- forme composte */
+const leaves = (s) => s.children ? s.children.flatMap(leaves) : [s];
+function refit(g) {
+  const b = bbox(g.children); g.x = b.cx; g.y = b.cy; g.w = b.w; g.h = b.h; g.layer = g.children[0].layer;
+}
+function displayText(s) {
+  const n = 1 + (s.vo || 0), d = new Date();
+  return String(s.text)
+    .replace(/\{N(?::(\d+))?\}/gi, (_, k) => String(n).padStart(+k || 0, "0"))
+    .replace(/\{DATA\}/gi, d.toLocaleDateString("it-IT")).replace(/\{ANNO\}/gi, String(d.getFullYear()))
+    .replace(/\{ORA\}/gi, d.toLocaleTimeString("it-IT", {hour: "2-digit", minute: "2-digit"}));
+}
+const hasVars = (t) => /\{(N(:\d+)?|DATA|ANNO|ORA)\}/i.test(t);
+function cloneShape(s, k) {
+  const c = JSON.parse(JSON.stringify(s));
+  const renum = (x) => { x.id = NEXT_ID++; if (x.type === "text") x.vo = (x.vo || 0) + k; if (x.children) x.children.forEach(renum); };
+  renum(c); return c;
+}
+function groupSel() {
+  const sel = selShapes(); if (sel.length < 2) return msg("Seleziona almeno due forme da raggruppare", "warn");
+  commit();
+  const g = {id: NEXT_ID++, type: "group", children: sel, x: 0, y: 0, w: 0, h: 0, layer: sel[0].layer}; refit(g);
+  const i = Math.min(...sel.map(s => S.doc.shapes.indexOf(s)));
+  S.doc.shapes = S.doc.shapes.filter(s => !sel.includes(s)); S.doc.shapes.splice(i, 0, g);
+  S.sel = [g.id]; changed(`Raggruppa: ${shapeName(g)}`);
+}
+function ungroupSel() {
+  const gs = selShapes().filter(s => s.type === "group"); if (!gs.length) return msg("Seleziona un gruppo da separare", "warn");
+  commit(); const ids = [];
+  for (const g of gs) { const i = S.doc.shapes.indexOf(g); S.doc.shapes.splice(i, 1, ...g.children); ids.push(...g.children.map(c => c.id)); }
+  S.sel = ids; changed("Separa");
+}
+
+/* ---------------------------------------------------------------- disegno e selezione */
+const isFill = (i) => ["fill", "offset_fill"].includes(L(i).mode);
+function drawShape(g, s) {
+  if (s.children) { s.children.forEach(c => drawShape(g, c)); return; }
+  const ly = L(s.layer); if (!ly.show) return;
+  const col = LAYER_COLORS[s.layer % 30], sc = S.view.s;
+  if (s.type === "text") {
+    const [cx, cy] = W2S(s.x, s.y);
+    g.font = fontCss(s.font, s.size / 0.72 * sc); g.textAlign = "center"; g.textBaseline = "alphabetic";
+    const base = cy + s.h * sc / 2, t = displayText(s);
+    if (isFill(s.layer)) { g.fillStyle = col; g.globalAlpha = .85; g.fillText(t, cx, base); g.globalAlpha = 1; }
+    else { g.strokeStyle = col; g.lineWidth = 1.2; g.strokeText(t, cx, base); }
+    return;
+  }
+  if (s.type === "image") {
+    const [x0, y0] = W2S(s.x - s.w / 2, s.y + s.h / 2), img = IMAGES[s.src];
+    if (img && img.complete) { g.globalAlpha = .9; g.drawImage(img, x0, y0, s.w * sc, s.h * sc); g.globalAlpha = 1; }
+    g.strokeStyle = col; g.setLineDash([3, 3]); g.lineWidth = 1; g.strokeRect(x0, y0, s.w * sc, s.h * sc); g.setLineDash([]);
+    return;
+  }
+  if (s.type === "code") {
+    const p = codePath(s);
+    if (isFill(s.layer)) { g.fillStyle = col; g.fill(p); } else { g.strokeStyle = col; g.lineWidth = 1; g.stroke(p); }
+    return;
+  }
+  const p = shapePath(s);
+  if (isFill(s.layer)) { g.fillStyle = col; g.globalAlpha = s.layer === 0 ? .32 : .22; g.fill(p, "evenodd"); g.globalAlpha = 1; }
+  g.strokeStyle = col; g.lineWidth = 1.5; g.stroke(p);
+}
+function hitOne(s, px, py, g) {
+  if (s.children) return s.children.some(c => hitOne(c, px, py, g));
+  if (!L(s.layer).show) return false;
+  if (["text", "image", "code"].includes(s.type)) {
+    const [x0, y0] = W2S(s.x - s.w / 2, s.y + s.h / 2), [x1, y1] = W2S(s.x + s.w / 2, s.y - s.h / 2);
+    return px >= x0 - 3 && px <= x1 + 3 && py >= y0 - 3 && py <= y1 + 3;
+  }
+  const p = shapePath(s); g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.lineWidth = 8;
+  const hit = g.isPointInPath(p, px, py, "evenodd") || g.isPointInStroke(p, px, py); g.restore();
+  return hit;
+}
+
+/* ---------------------------------------------------------------- codice QR (byte, correzione M) */
+const QR = (() => {
+  const ECC = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26], BLK = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5];
+  const rawMods = (v) => { let r = (16 * v + 128) * v + 64; if (v >= 2) { const n = Math.floor(v / 7) + 2; r -= (25 * n - 10) * n - 55; if (v >= 7) r -= 36; } return r; };
+  const dataCw = (v) => Math.floor(rawMods(v) / 8) - ECC[v] * BLK[v];
+  const mul = (x, y) => { let z = 0; for (let i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11D); z ^= ((y >>> i) & 1) * x; } return z & 255; };
+  const divisor = (deg) => { const r = new Array(deg).fill(0); r[deg - 1] = 1; let root = 1;
+    for (let i = 0; i < deg; i++) { for (let j = 0; j < r.length; j++) { r[j] = mul(r[j], root); if (j + 1 < r.length) r[j] ^= r[j + 1]; } root = mul(root, 2); } return r; };
+  const remainder = (data, div) => { const r = div.map(() => 0); for (const b of data) { const f = b ^ r.shift(); r.push(0); div.forEach((c, i) => r[i] ^= mul(c, f)); } return r; };
+  function encode(text, mask = 0) {
+    const bytes = [...new TextEncoder().encode(text)];
+    let v = 1; while (v <= 10 && 4 + 8 + 8 * bytes.length > dataCw(v) * 8) v++;
+    if (v > 10) throw new Error("Contenuto troppo lungo per il simulatore");
+    const bits = []; const put = (val, n) => { for (let i = n - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+    put(4, 4); put(bytes.length, 8); bytes.forEach(b => put(b, 8));
+    const cap = dataCw(v) * 8; put(0, Math.min(4, cap - bits.length)); put(0, (8 - bits.length % 8) % 8);
+    for (let pad = 0xEC; bits.length < cap; pad ^= 0xEC ^ 0x11) put(pad, 8);
+    const data = []; for (let i = 0; i < bits.length; i += 8) data.push(parseInt(bits.slice(i, i + 8).join(""), 2));
+    // blocchi con correzione e interlacciamento
+    const nb = BLK[v], el = ECC[v], raw = Math.floor(rawMods(v) / 8), nShort = nb - raw % nb, shortLen = Math.floor(raw / nb), div = divisor(el);
+    const blocks = []; for (let i = 0, k = 0; i < nb; i++) { const dat = data.slice(k, k + shortLen - el + (i < nShort ? 0 : 1)); k += dat.length; const ecc = remainder(dat, div); if (i < nShort) dat.push(0); blocks.push(dat.concat(ecc)); }
+    const all = []; for (let i = 0; i < blocks[0].length; i++) blocks.forEach((b, j) => { if (i !== shortLen - el || j >= nShort) all.push(b[i]); });
+    // matrice
+    const n = v * 4 + 17, M = [...Array(n)].map(() => new Array(n).fill(false)), F = [...Array(n)].map(() => new Array(n).fill(false));
+    const set = (x, y, d) => { M[y][x] = d; F[y][x] = true; };
+    for (let i = 0; i < n; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+    const finder = (x, y) => { for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const d = Math.max(Math.abs(dx), Math.abs(dy)), xx = x + dx, yy = y + dy; if (xx >= 0 && xx < n && yy >= 0 && yy < n) set(xx, yy, d !== 2 && d !== 4); } };
+    finder(3, 3); finder(n - 4, 3); finder(3, n - 4);
+    if (v > 1) { const na = Math.floor(v / 7) + 2, step = Math.ceil((v * 4 + 4) / (na * 2 - 2)) * 2, pos = [6]; for (let p = n - 7; pos.length < na; p -= step) pos.splice(1, 0, p);
+      pos.forEach((a, i) => pos.forEach((b, j) => { if ((i === 0 && j === 0) || (i === 0 && j === na - 1) || (i === na - 1 && j === 0)) return; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(a + dx, b + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1); })); }
+    const format = (m) => { const d = (0 << 3) | m; let r = d; for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537); const b = ((d << 10) | r) ^ 0x5412, bit = (i) => ((b >>> i) & 1) !== 0;
+      for (let i = 0; i <= 5; i++) set(8, i, bit(i)); set(8, 7, bit(6)); set(8, 8, bit(7)); set(7, 8, bit(8)); for (let i = 9; i < 15; i++) set(14 - i, 8, bit(i));
+      for (let i = 0; i < 8; i++) set(n - 1 - i, 8, bit(i)); for (let i = 8; i < 15; i++) set(8, n - 15 + i, bit(i)); set(8, n - 8, true); };
+    format(0);
+    let i = 0; for (let right = n - 1; right >= 1; right -= 2) { if (right === 6) right = 5;
+      for (let vert = 0; vert < n; vert++) for (let j = 0; j < 2; j++) { const x = right - j, up = ((right + 1) & 2) === 0, y = up ? n - 1 - vert : vert;
+        if (!F[y][x] && i < all.length * 8) { M[y][x] = ((all[i >>> 3] >>> (7 - (i & 7))) & 1) !== 0; i++; } } }
+    const inv = [(x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, (x) => x % 3 === 0, (x, y) => (x + y) % 3 === 0, (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0,
+      (x, y) => x * y % 2 + x * y % 3 === 0, (x, y) => (x * y % 2 + x * y % 3) % 2 === 0, (x, y) => ((x + y) % 2 + x * y % 3) % 2 === 0][mask];
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!F[y][x] && inv(x, y)) M[y][x] = !M[y][x];
+    format(mask);
+    return M.map(r => r.map(b => b ? "1" : "0").join(""));
+  }
+  return {encode};
+})();
+function mkCode(data, size, x, y, layer) {
+  return {id: NEXT_ID++, type: "code", data, mods: QR.encode(data, 2), x, y, w: size, h: size, layer};
+}
+function codePath(s) {
+  const n = s.mods.length, m = s.w / n, p = new Path2D(), sc = S.view.s;
+  const [x0, y0] = W2S(s.x - s.w / 2, s.y + s.h / 2);
+  s.mods.forEach((row, r) => { let c = 0; while (c < n) { if (row[c] === "1") { let e = c; while (e < n && row[e] === "1") e++; p.rect(x0 + c * m * sc, y0 + r * m * sc, (e - c) * m * sc + .3, m * sc + .3); c = e; } else c++; } });
+  return p;
+}
+
+/* ---------------------------------------------------------------- file del kit */
+const IMAGES = {};
+const KIT = {
+  "logo.svg": {kind: "svg", desc: "Monti e sole, 2 colori"},
+  "abete.png": {kind: "png", desc: "Abete nero su bianco, 600 × 800 px"},
+};
+function loadImages() {
+  const im = new Image(); im.src = ABETE_PNG; IMAGES.abete = im; im.onload = () => draw();
+  try { // carattere corsivo incluso nel file: quando è pronto si rimisurano i testi
+    const f = new FontFace("Dancing Script", `url(${DANCING_WOFF2})`, {weight: "700"});
+    f.load().then(ff => { document.fonts.add(ff); for (const t of S.doc.shapes.flatMap(leaves)) if (t.type === "text") t.w = measureText(displayText(t), t.size, t.font); refreshUI(); }).catch(() => {});
+  } catch (e) { /* senza FontFace resta il corsivo di sistema */ }
+}
+function importFile(name) {
+  closeDlg(); commit();
+  const at = viewCenter();
+  if (name === "logo.svg") {
+    // logo.svg 40 × 30 mm: il blu (#2E7CF6) va sul livello 01, l'arancio (#F5A524) sul 04
+    L(1); L(4);
+    const mont = {id: NEXT_ID++, type: "poly", x: 0, y: 0, w: 36, h: 20, layer: 1,
+      paths: [[[2, 2], [14, 22], [20, 13], [25, 19], [38, 2]].map(([x, y]) => [(x - 20) / 36, (y - 12) / 20])], src: "logo"};
+    const sun = mkEllipse(29 - 20, 21 - 12, 10, 10, 4); sun.src = "logo";
+    const g = {id: NEXT_ID++, type: "group", children: [mont, sun], src: "logo", x: 0, y: 0, w: 0, h: 0, layer: 1};
+    refit(g); moveShape(g, at[0] - g.x, at[1] - g.y); refit(g);
+    S.doc.shapes.push(g); S.sel = [g.id]; S.ev.importLogo = true;
+    return changed("Importato logo.svg: Gruppo (2). I due colori sono diventati i livelli 01 e 04");
+  }
+  if (name === "abete.png") {
+    const lay = firstFreeLayer(); L(lay).mode = "image"; L(lay).name = "";
+    const s = {id: NEXT_ID++, type: "image", src: "abete", x: at[0], y: at[1], w: 50, h: 66.67, layer: lay};
+    S.doc.shapes.push(s); S.sel = [s.id]; S.ev.importImage = true;
+    return changed(`Importato abete.png sul livello ${layerLabel(lay)} in modalità Immagine. Per tagliarlo o inciderlo come linee: Modifica → Vettorizza immagine (Alt+T)`);
+  }
+}
+function firstFreeLayer() { const used = new Set(usedLayers()); for (let i = 6; i < 29; i++) if (!used.has(i) && !S.doc.layers[i]) return i; return 9; }
+function viewCenter() { const c = cv(), [x, y] = S2W(c.clientWidth * .6, c.clientHeight * .4); return [clamp(Math.round(x), 30, BED.w - 30), clamp(Math.round(y), 30, BED.h - 30)]; }
+function openImport() {
+  const D = $("dlg");
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Importa"><h3>Importa</h3><div class="dbody">
+    <div class="muted" style="margin-bottom:10px">Cartella del kit del Costrutto. Nel programma vero qui si apre la finestra dei file del computer (formati: svg, dxf, lbrn2, png, jpg…).</div>
+    <div class="matlist">${Object.entries(KIT).map(([n, k]) => `<div data-f="${n}" style="grid-template-columns:1fr 1fr"><span>📄 ${n}</span><span class="muted">${k.desc}</span></div>`).join("")}</div></div>
+    <div class="dfoot"><button class="btn" id="icancel">Annulla</button></div></div>`;
+  D.classList.remove("hidden");
+  D.querySelectorAll("[data-f]").forEach(d => d.onclick = () => importFile(d.dataset.f));
+  $("icancel").onclick = closeDlg;
+}
+// contorno dell'abete del kit, calcolato dal disegno originale (600 × 800 px): coordinate normalizzate
+const ABETE_PATH = [[232.14, 300], [110, 480], [186.25, 480], [40, 660], [265, 660], [265, 760], [335, 760], [335, 660], [560, 660], [413.75, 480], [490, 480], [367.86, 300], [420, 300], [300, 60], [180, 300]]
+  .map(([x, y]) => [(x - 300) / 520, -(y - 410) / 700]);
+function openTrace() {
+  const img = selShapes().find(s => s.type === "image");
+  if (!img) return msg("Seleziona un'immagine da vettorizzare", "warn");
+  const D = $("dlg"), fills = usedLayers().filter(isFill), def = fills.includes(1) ? 1 : (fills[0] ?? 1);
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Vettorizza immagine"><h3>Vettorizza immagine</h3><div class="dbody">
+    <div class="field"><span>Modo</span><select id="tmode"><option>Contorno delle zone scure</option><option disabled>Linea centrale dei tratti</option></select></div>
+    <div class="field"><span>Soglia</span><span class="row"><input type="range" id="tthr" min="1" max="254" value="128" style="flex:1"><label><input type="checkbox" id="tauto" checked> Automatica</label></span></div>
+    <div class="field"><span>Livello</span><select id="tlay">${[...Array(29).keys()].map(i => `<option value="${i}" ${i === def ? "selected" : ""}>${esc(layerLabel(i))}</option>`).join("")}</select></div>
+    <div class="field"><span></span><label><input type="checkbox" id="tkeep"> Tieni l'immagine</label></div>
+    <div class="lhint">L'immagine è fatta di puntini: la vettorizzazione disegna il bordo di tutto ciò che è più scuro della soglia, così il laser lo può seguire.</div></div>
+    <div class="dfoot"><button class="btn" id="tcancel">Annulla</button><button class="btn pri" id="tok">Crea i tracciati</button></div></div>`;
+  D.classList.remove("hidden");
+  $("tcancel").onclick = closeDlg;
+  $("tok").onclick = () => {
+    const lay = +$("tlay").value, keep = $("tkeep").checked, thr = $("tauto").checked ? 128 : +$("tthr").value;
+    if (thr < 20) { closeDlg(); return msg("Soglia troppo bassa: nessuna zona abbastanza scura, niente tracciati", "warn"); }
+    closeDlg(); commit(); L(lay);
+    const k = img.w / 600, kh = img.h / 800;
+    const p = {id: NEXT_ID++, type: "poly", x: img.x, y: rnd(img.y - 10 * kh), w: rnd(520 * k), h: rnd(700 * kh), layer: lay, paths: [ABETE_PATH], src: "abete"};
+    const i = S.doc.shapes.indexOf(img);
+    if (keep) S.doc.shapes.splice(i + 1, 0, p); else S.doc.shapes.splice(i, 1, p);
+    S.sel = [p.id]; S.ev.traced = true;
+    changed(`Vettorizza: ${shapeName(p)} sul livello ${layerLabel(lay)}${keep ? " (immagine tenuta sotto)" : ""}`);
+  };
+}
+
+/* ---------------------------------------------------------------- testo */
+function openTextDialog(at) {
+  const D = $("dlg");
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Testo" style="width:460px"><h3>Testo</h3><div class="dbody">
+    <div class="field"><span>Testo</span><input id="ttext" placeholder="Scrivi qui"></div>
+    <div class="field"><span>Altezza</span><input id="tsize" value="5 mm"></div>
+    <div class="field"><span>Carattere</span><select id="tfont">${Object.keys(FONTS).map(f => `<option ${f === (S.lastFont || "Arial") ? "selected" : ""}>${f}</option>`).join("")}</select></div>
+    <div class="lhint">Per i numeri di serie usa poi «Inserisci variabile» nel pannello Proprietà.</div></div>
+    <div class="dfoot"><button class="btn" id="tc">Annulla</button><button class="btn pri" id="to">OK</button></div></div>`;
+  D.classList.remove("hidden");
+  const ok = () => {
+    const t = $("ttext").value, size = parseNum($("tsize").value) || 5, font = $("tfont").value;
+    if (!t.trim()) return closeDlg();
+    closeDlg(); commit(); L(S.curLayer);
+    S.lastFont = font;
+    const s = mkText(t, at[0], at[1], clamp(size, 1, 100), S.curLayer, S.lastFont);
+    S.doc.shapes.push(s); S.sel = [s.id]; setTool("select"); S.ptab = "proprieta";
+    changed(`Testo «${t}» sul livello ${layerLabel(S.curLayer)}`);
+  };
+  $("tc").onclick = closeDlg; $("to").onclick = ok; $("ttext").onkeydown = (e) => { if (e.key === "Enter") ok(); };
+  setTimeout(() => $("ttext").focus(), 0);
+}
+function setTextProp(field, value) {
+  const s = selShapes()[0]; if (!s || s.type !== "text") return;
+  commit();
+  if (field === "text") { if (!String(value).trim()) { S.undo.pop(); return refreshUI(); } s.text = value; }
+  if (field === "size") { const v = parseNum(value); if (v === null || v <= 0) { S.undo.pop(); return refreshUI(); } s.size = s.h = clamp(v, 1, 100); }
+  if (field === "font") s.font = value;
+  s.w = measureText(displayText(s), s.size, s.font); changed();
+}
+function insertVar(token) { const s = selShapes()[0]; if (s && s.type === "text") setTextProp("text", s.text + token); }
+
+/* ---------------------------------------------------------------- codice QR */
+function openCode() {
+  const D = $("dlg");
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Codice QR o a barre" style="width:520px"><h3>Codice QR o a barre</h3><div class="dbody">
+    <div class="field"><span>Tipo</span><select id="ctype"><option>QR</option><option disabled>Code 128</option><option disabled>EAN-13</option></select></div>
+    <div class="field"><span>Contenuto</span><input id="cdata" placeholder="https://…"></div>
+    <div class="field"><span>Larghezza</span><input id="csize" value="20 mm"></div>
+    <div class="field"><span>Correzione errori</span><select disabled><option>M (15%)</option></select></div>
+    <div class="lhint">Il QR va inciso pieno: se il livello attuale non è in Riempimento, il codice va su un livello in Riempimento.</div></div>
+    <div class="dfoot"><button class="btn" id="cc">Annulla</button><button class="btn pri" id="co">Inserisci</button></div></div>`;
+  D.classList.remove("hidden");
+  const ok = () => {
+    const data = $("cdata").value.trim(), size = parseNum($("csize").value) || 20;
+    if (!data) return msg("Scrivi il contenuto del codice", "warn");
+    let lay = S.curLayer;
+    if (!isFill(lay)) { const f = usedLayers().find(isFill); if (f !== undefined) lay = f; else { lay = firstFreeLayer(); L(lay).mode = "fill"; } }
+    let code; try { code = mkCode(data, clamp(size, 5, 200), ...viewCenter(), lay); } catch (e) { return msg(e.message, "warn"); }
+    closeDlg(); commit(); S.doc.shapes.push(code); S.sel = [code.id];
+    changed(`Codice QR ${fmt(code.w, 1)} mm sul livello ${layerLabel(lay)}: spostalo dove serve`);
+  };
+  $("cc").onclick = closeDlg; $("co").onclick = ok; $("cdata").onkeydown = (e) => { if (e.key === "Enter") ok(); };
+  setTimeout(() => $("cdata").focus(), 0);
+}
+
+/* ---------------------------------------------------------------- serie a griglia */
+function openGrid() {
+  const sel = selShapes(); if (!sel.length) return msg("Seleziona prima le forme da ripetere", "warn");
+  const D = $("dlg");
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Serie a griglia" style="width:480px"><h3>Serie a griglia</h3><div class="dbody">
+    <div class="field"><span>Colonne</span><input id="gcols" value="3"></div><div class="field"><span>Righe</span><input id="grows" value="1"></div>
+    <div class="field"><span>Misura</span><select id="gmode"><option value="gap">Spazio fra i bordi</option><option value="pitch">Passo fra i centri</option></select></div>
+    <div class="field"><span>Orizzontale</span><input id="gx" value="5 mm"></div><div class="field"><span>Verticale</span><input id="gy" value="5 mm"></div>
+    <div class="lhint">Le copie con un numero di serie ({N}) si numerano da sole: 001, 002, 003…</div></div>
+    <div class="dfoot"><button class="btn" id="gc">Annulla</button><button class="btn pri" id="go">Crea</button></div></div>`;
+  D.classList.remove("hidden");
+  $("gc").onclick = closeDlg;
+  $("go").onclick = () => {
+    const cols = Math.round(parseNum($("gcols").value) || 1), rows = Math.round(parseNum($("grows").value) || 1), gx = parseNum($("gx").value) ?? 0, gy = parseNum($("gy").value) ?? 0, pitch = $("gmode").value === "pitch";
+    if (cols < 1 || rows < 1 || cols * rows > 60) return msg("Da 1 a 60 copie in tutto", "warn");
+    closeDlg(); commit();
+    const b = bbox(sel), dx = pitch ? gx : b.w + gx, dy = pitch ? gy : b.h + gy, out = [...sel.map(s => s.id)];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (!r && !c) continue;
+      const k = r * cols + c;
+      for (const s of sel) { const cpy = cloneShape(s, k); moveShape(cpy, c * dx, r * dy); S.doc.shapes.push(cpy); out.push(cpy.id); }
+    }
+    S.sel = out; S.ev.grid = {cols, rows};
+    changed(`Serie a griglia: ${cols} × ${rows}`);
+  };
+}
+
+/* ---------------------------------------------------------------- lavoro: ordine, stima, anteprima, esecuzione */
+const docSig = () => JSON.stringify([S.doc.shapes, S.doc.layers]);
+function jobPlan() {
+  const out = [];
+  for (const i of usedLayers()) {
+    const ly = L(i), shapes = S.doc.shapes.flatMap(leaves).filter(s => s.layer === i);
+    if (!ly.output || !ly.show) { out.push({layer: i, skip: true, shapes}); continue; }
+    out.push({layer: i, skip: false, shapes, mode: ly.mode});
+  }
+  return out;
+}
+function perimeter(s) {
+  if (s.type === "ellipse") return Math.PI * (s.w + s.h) / 2;
+  if (s.type === "rect") return 2 * (s.w + s.h);
+  if (s.type === "compound") return 2 * (s.w + s.h) + s.holes.reduce((a, h) => a + perimeter(h), 0);
+  if (s.type === "poly") return s.paths.reduce((a, p) => a + p.reduce((t, q, i) => t + Math.hypot((q[0] - p[(i + 1) % p.length][0]) * s.w, (q[1] - p[(i + 1) % p.length][1]) * s.h), 0), 0);
+  return 2 * (s.w + s.h);
+}
+function estimate(plan = jobPlan()) {
+  let t = 0;
+  for (const st of plan) { if (st.skip) continue; const ly = L(st.layer), v = ly.speed / 60;
+    for (const s of st.shapes) {
+      if (ly.mode === "line") t += perimeter(s) * ly.passes / v;
+      else if (ly.mode === "image") t += s.h / 0.1 * (s.w / v + 0.05);
+      else t += (s.h / 0.1) * (s.w / v + 0.03) * ly.passes;
+    } }
+  return t * 1.08 + (plan.some(p => !p.skip) ? 4 : 0);
+}
+function outlinePts(s) {
+  if (s.type === "ellipse") return [...Array(49).keys()].map(i => [s.x + Math.cos(i / 48 * 2 * Math.PI) * s.w / 2, s.y + Math.sin(i / 48 * 2 * Math.PI) * s.h / 2]);
+  if (s.type === "poly") return s.paths.flatMap(p => [...p, p[0]].map(([u, v]) => [s.x + u * s.w, s.y + v * s.h]));
+  const x0 = s.x - s.w / 2, x1 = s.x + s.w / 2, y0 = s.y - s.h / 2, y1 = s.y + s.h / 2;
+  const box = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+  if (s.type === "compound") return [...box, ...s.holes.flatMap(h => outlinePts(h))];
+  return box;
+}
+// contorni separati (contorno esterno, ogni foro, ogni parte): per disegnarli senza linee di collegamento
+function outlinePaths(s) {
+  if (s.type === "compound") return [outlinePts({...s, type: s.outer.type, r: s.outer.r}), ...s.holes.map(h => outlinePts(h))];
+  if (s.type === "poly") return s.paths.map(p => [...p, p[0]].map(([u, v]) => [s.x + u * s.w, s.y + v * s.h]));
+  return [outlinePts(s)];
+}
+function startJob() {
+  if (!needConn() || S.m.busy) return;
+  const plan = jobPlan(), run = plan.filter(p => !p.skip);
+  if (!run.length) return msg("Niente da incidere: tutti i livelli sono su «Non incidere» o nascosti", "warn");
+  const D = $("dlg");
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Avvio del lavoro" style="width:520px"><h3>Avvio del lavoro</h3><div class="dbody" style="line-height:1.5">
+    <div>${run.length} ${run.length === 1 ? "livello" : "livelli"} in quest'ordine: ${run.map(p => `<b>${esc(layerLabel(p.layer))}</b> (${MODE_LABEL[L(p.layer).mode]})`).join(" → ")}. Tempo stimato ${mmss(estimate(plan))}.</div>
+    ${S.m.homed ? "" : `<div style="color:var(--warn);margin-top:6px">Manca l'Homing: la macchina non sa dove si trova.</div>`}
+    <div class="sec">Prima di avviare</div>
+    <label style="display:block;margin:5px 0"><input type="checkbox" id="s1"> Occhiali protettivi indossati</label>
+    <label style="display:block;margin:5px 0"><input type="checkbox" id="s2"> Aria e aspirazione accese</label>
+    <div class="lhint">Sul laser vero: resta vicino alla macchina per tutto il lavoro. Nel layout Banco di FreeLaserCut queste due spunte sono obbligatorie prima dell'avvio.</div></div>
+    <div class="dfoot"><button class="btn" id="jc">Annulla</button><button class="btn pri" id="jo" disabled>Avvia</button></div></div>`;
+  D.classList.remove("hidden");
+  const upd = () => $("jo").disabled = !($("s1").checked && $("s2").checked);
+  $("s1").onchange = upd; $("s2").onchange = upd; $("jc").onclick = closeDlg;
+  $("jo").onclick = () => { closeDlg(); runJob(plan); };
+}
+function runJob(plan) {
+  const sig = docSig(), run = plan.filter(p => !p.skip), pts = [], marks = [];
+  for (const st of run) {
+    for (const s of st.shapes) {
+      if (L(st.layer).mode === "line") pts.push(...outlinePts(s));
+      else { const step = Math.max(1.2, s.h / 14); for (let y = s.y - s.h / 2, k = 0; y <= s.y + s.h / 2; y += step, k++) { pts.push(k % 2 ? [s.x + s.w / 2, y] : [s.x - s.w / 2, y], k % 2 ? [s.x - s.w / 2, y] : [s.x + s.w / 2, y]); } }
+    }
+    marks.push({layer: st.layer, upto: pts.length});
+  }
+  const start = [S.m.x, S.m.y]; pts.push(start);
+  S.job = {running: true, plan, marks, done: [], sig, total: pts.length};
+  if (plan.some(p => p.skip) || run.some((p, i) => i > 0 && L(run[i - 1].layer).mode === "line" && L(p.layer).mode !== "line")) S.ev.badJob = true;
+  S.ev.jobStarted = true; msg(`Lavoro in corso: ${run.map(p => layerLabel(p.layer)).join(" → ")}`);
+  S.m.busy = true; S.m.anim = {pts, i: 0, job: true, done: () => {
+    S.job.running = false; S.job.done = run.map(p => p.layer);
+    S.ev.job = {order: run.map(p => p.layer), skipped: plan.filter(p => p.skip).map(p => p.layer), sig, completed: true};
+    msg("Lavoro completato nel simulatore. Sul laser vero: aspetta che il fumo sia aspirato prima di aprire il coperchio.");
+  }};
+  S.m.trail = []; refreshUI();
+}
+const HEAD_SPEED_JOB = 420;
+function stopJob() {
+  if (!S.job || !S.job.running) return msg("Nessun lavoro in corso");
+  S.m.anim = null; S.m.busy = false; S.m.paused = false; S.job.running = false; S.m.trail = null;
+  S.ev.jobStopped = true; changed("Lavoro fermato (Stop)");
+}
+function pauseJob() {
+  if (!S.job || !S.job.running) return msg("Nessun lavoro in corso");
+  S.m.paused = !S.m.paused; refreshBottom(); msg(S.m.paused ? "In pausa" : "Ripreso");
+}
+function drawBurn(g) {
+  const j = S.job, a = S.m.anim, curIdx = a && a.job ? a.i : j.total;
+  const doneLayers = new Set(j.running ? j.marks.filter(m => m.upto <= curIdx).map(m => m.layer) : j.done);
+  g.save();
+  for (const s of S.doc.shapes.flatMap(leaves)) {
+    if (!doneLayers.has(s.layer)) continue;
+    if (L(s.layer).mode === "line") { const p = s.type === "text" || s.type === "code" ? null : shapePath(s); if (p) { g.strokeStyle = "#3b2312"; g.lineWidth = 2; g.stroke(p); } }
+    else { g.fillStyle = "rgba(92,58,30,.75)";
+      if (s.type === "text") { const [cx, cy] = W2S(s.x, s.y); g.font = fontCss(s.font, s.size / 0.72 * S.view.s); g.textAlign = "center"; g.textBaseline = "alphabetic"; g.fillText(displayText(s), cx, cy + s.h * S.view.s / 2); }
+      else if (s.type === "code") g.fill(codePath(s)); else if (s.type !== "image") g.fill(shapePath(s), "evenodd"); }
+  }
+  g.restore();
+}
+function openPreview() {
+  const plan = jobPlan(), D = $("dlg"), shapes = plan.filter(p => !p.skip).flatMap(p => p.shapes);
+  S.ev.preview = true; S.ev.previewSig = docSig();
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Anteprima del lavoro" style="width:760px"><h3>Anteprima del lavoro</h3><div class="dbody">
+    <div class="row" style="align-items:flex-start;gap:14px"><canvas id="pcv" width="440" height="300" style="background:#fff;border-radius:6px;flex:0 0 auto"></canvas>
+    <div style="flex:1;line-height:1.5"><div class="sec" style="margin-top:0">Ordine di lavoro</div>
+    ${plan.filter(p => !p.skip).map((p, i) => `<div><b>${i + 1}.</b> <span class="sw" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:${LAYER_COLORS[p.layer % 30]}"></span> ${esc(layerLabel(p.layer))} · ${MODE_LABEL[L(p.layer).mode]} · ${L(p.layer).speed} mm/min · ${fmt(L(p.layer).power, 0)}%</div>`).join("") || `<div class="muted">Nessun livello da incidere.</div>`}
+    ${plan.some(p => p.skip) ? `<div class="sec">Non vengono incisi</div>${plan.filter(p => p.skip).map(p => `<div style="color:var(--warn)">${esc(layerLabel(p.layer))} · ${L(p.layer).output ? "nascosto" : "Non incidere"}</div>`).join("")}` : ""}
+    <div class="sec">Tempo stimato</div><div>${mmss(estimate(plan))}</div></div></div>
+    <div class="lhint">Quello che non c'è in quest'anteprima, il laser non lo farà. I numeri dicono l'ordine.</div></div>
+    <div class="dfoot"><button class="btn pri" id="pok">Chiudi</button></div></div>`;
+  D.classList.remove("hidden"); $("pok").onclick = closeDlg;
+  const c = $("pcv"), g = c.getContext("2d"), b = bbox(shapes.length ? shapes : S.doc.shapes.flatMap(leaves));
+  if (!b) return;
+  const k = Math.min((c.width - 40) / Math.max(b.w, 1), (c.height - 40) / Math.max(b.h, 1)), ox = (c.width - b.w * k) / 2, oy = (c.height + b.h * k) / 2;
+  const T = (x, y) => [ox + (x - b.x0) * k, oy - (y - b.y0) * k];
+  plan.filter(p => !p.skip).forEach((p, idx) => {
+    const col = LAYER_COLORS[p.layer % 30];
+    for (const s of p.shapes) {
+      if (L(p.layer).mode === "line") { g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); for (const pts of outlinePaths(s)) pts.forEach(([x, y], i) => { const [a, bb] = T(x, y); i ? g.lineTo(a, bb) : g.moveTo(a, bb); }); g.stroke(); }
+      else { g.strokeStyle = col; g.globalAlpha = .7; g.lineWidth = 1; for (let y = s.y - s.h / 2; y <= s.y + s.h / 2; y += Math.max(.6, s.h / 24)) { const [a1, b1] = T(s.x - s.w / 2, y), [a2] = T(s.x + s.w / 2, y); g.beginPath(); g.moveTo(a1, b1); g.lineTo(a2, b1); g.stroke(); } g.globalAlpha = 1; }
+    }
+    const lb = bbox(p.shapes), [nx, ny] = T(lb.x1, lb.y1);
+    g.fillStyle = col; g.beginPath(); g.arc(nx + 8, ny - 8, 10, 0, 7); g.fill(); g.fillStyle = "#fff"; g.font = "700 12px Inter, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(idx + 1), nx + 8, ny - 7.5);
+  });
+  missionCheck();
+}
+
+'use strict';
+/* Missioni del Costrutto: ognuna ha una pre-domanda, i passi controllati dal vivo, tre indizi a gradini
+   per passo, l'errore previsto e una domanda di richiamo per la volta successiva. */
+
+const near = (a, b, tol) => Math.abs(a - b) <= tol;
+const keychainOf = () => S.doc.shapes.find(s => (s.type === "rect" || (s.type === "compound" && s.outer.type === "rect")) && near(s.w, 60, .05) && near(s.h, 30, .05));
+const radiusOf = (s) => s.type === "rect" ? s.r : s.outer.r;
+function holeCandidates() {
+  const out = S.doc.shapes.filter(s => s.type === "ellipse");
+  for (const s of S.doc.shapes) if (s.holes) out.push(...s.holes.filter(h => h.type === "ellipse"));
+  return out;
+}
+
+const allLeaves = () => S.doc.shapes.flatMap(leaves);
+const texts = () => allLeaves().filter(s => s.type === "text");
+const codes = () => allLeaves().filter(s => s.type === "code");
+const keychains = (w, h) => S.doc.shapes.filter(s => s.type === "compound" && near(s.w, w, .05) && near(s.h, h, .05));
+const plateOf = () => S.doc.shapes.find(s => (s.type === "compound" || s.type === "rect") && near(s.w, 70, .05) && near(s.h, 25, .05) && near(radiusOf(s), 3, .05));
+const inside = (a, k) => a.x - a.w / 2 >= k.x - k.w / 2 - .01 && a.x + a.w / 2 <= k.x + k.w / 2 + .01 && a.y - a.h / 2 >= k.y - k.h / 2 - .01 && a.y + a.h / 2 <= k.y + k.h / 2 + .01;
+const grow = (b, d) => ({x: b.x, y: b.y, w: b.w + 2 * d, h: b.h + 2 * d});
+function keychain(w, h, r, layer, cx = 100) { return {id: NEXT_ID++, type: "compound", x: cx, y: 70, w, h, layer, outer: {type: "rect", r}, holes: [{type: "ellipse", x: cx - w / 2 + 6, y: 70, w: 5, h: 5, r: 0}]}; }
+function stdLayers(fill, cut) {
+  Object.assign(L(fill), {name: "Incisione", mode: "fill", speed: 10000, power: 30, material: "Tiglio (basswood) · Incisione", priority: 1});
+  Object.assign(L(cut), {name: "Taglio", mode: "line", speed: 1400, power: 100, material: "Tiglio (basswood) · Taglio 3 mm", priority: 2});
+}
+
+const MISSIONS = [
+  {
+    id: 1, title: "Piano e macchina", desc: "Collegarsi, fare l'Homing, muovere la testa e vedere dove finirà il lavoro.",
+    pre: "La testa del laser è chissà dove. Come faresti a sapere dove finirà il lavoro, prima di sprecare materiale?",
+    setup() { const r = mkRect(100, 70, 80, 50, 2); S.doc.shapes.push(r); L(2).name = "Riquadro bersaglio"; S.m.x = 230; S.m.y = 170; },
+    latch() { if (S.m.connected && S.m.homed && !S.m.busy && near(S.m.x, 60, .05) && near(S.m.y, 45, .05)) S.ev.corner = true; },
+    steps: [
+      {t: "Collegati al laser «[[Simulatore (senza macchina)|port]]» con [[Connetti|connect]]", ok: () => S.ev.connected,
+       h: ["Dove si sceglie con quale laser parlare?", "Pannello [[Laser|port]], in basso a destra: menù della porta e pulsante [[Connetti|connect]] (oppure Ctrl+K).", "Nel menù scegli «Simulatore (senza macchina)» e premi Connetti."]},
+      {t: "Fai l'[[Homing|homing]]", ok: () => S.ev.homed,
+       h: ["Dopo il collegamento la macchina sa dove si trova?", "Laser → Homing, oppure Ctrl+H, oppure il pulsante [[Homing|homing]] nel pannello Movimento.", "Premi Ctrl+H: la testa va nell'angolo di partenza (0, 0)."]},
+      {t: "Con le [[frecce|jog]] porta la testa sull'angolo in basso a sinistra del riquadro (60, 45)", ok: () => S.ev.corner,
+       h: ["Quanto sono lontani 60 e 45 dall'origine? Con che passo ci arrivi in pochi clic?", "Pannello Movimento: scegli il [[Passo (mm)|step]] e usa le [[frecce|jog]]. La posizione è scritta sopra al passo.", "Passo 10: sei clic su → (X 60) e quattro su ↑ (Y 40); poi passo 1 e cinque clic su ↑ (Y 45)."]},
+      {t: "Con lo strumento [[Posiziona laser|tool-position]] porta la testa al centro del riquadro", ok: () => S.ev.placed && S.ev.placed[2] && near(S.ev.placed[0], 100, 1.5) && near(S.ev.placed[1], 70, 1.5),
+       h: ["C'è un modo più rapido delle frecce per andare in un punto preciso?", "Strumenti → Posiziona laser, tasto Q, oppure il [[mirino|tool-position]] nella barra degli strumenti a sinistra.", "Premi Q e fai clic al centro del riquadro: il quadratino arancione aggancia il centro."]},
+      {t: "Seleziona il riquadro e fai il [[Contorno|contour]]", ok: () => S.ev.contour && S.ev.contour.homed && S.ev.contour.ids.length === 1 && S.doc.shapes[0] && S.ev.contour.ids[0] === S.doc.shapes[0].id,
+       h: ["Quale comando percorre il bordo del lavoro a laser spento?", "Laser → Contorno (Ctrl+Shift+F), oppure il pulsante [[Contorno|contour]] nel pannello Laser.", "Premi V, clic sul riquadro rosso, poi Ctrl+Shift+F."]},
+    ],
+    errore: () => S.ev.jogBeforeHome
+      ? "Ti è successo: hai mosso la testa prima dell'Homing. Senza Homing la macchina non sa dove si trova e le coordinate non tornano. Sul laser vero, prima l'Homing, sempre."
+      : "L'errore più comune è muovere la testa prima dell'Homing: la macchina non sa dove si trova e le coordinate non tornano. Tu non l'hai fatto: bene.",
+    recall: ["Quale comando ti mostra dove finirà il lavoro, senza accendere il laser?", "Il Contorno: Laser → Contorno, Ctrl+Shift+F."],
+  },
+  {
+    id: 2, title: "Disegnare a misura", desc: "Un portachiavi 60 × 30 mm con angoli arrotondati e un foro, preciso al decimo.",
+    pre: "Questo portachiavi misura 60 per 30 millimetri e ha un foro. Come lo disegneresti preciso al decimo di millimetro?",
+    setup() {},
+    steps: [
+      {t: "Un [[rettangolo|tool-rect]] di [[60 × 30 mm|numLA]]", ok: () => !!keychainOf(),
+       h: ["Le misure si inseguono col mouse o si scrivono?", "Strumento [[Rettangolo|tool-rect]] (R), poi la barra in alto «Posizione e dimensioni»: campi [[L e A|numLA]].", "Premi R, trascina un rettangolo qualsiasi, poi scrivi 60 in L e 30 in A (Invio dopo ogni campo)."]},
+      {t: "Angoli con [[raggio 5 mm|radius]]", ok: () => { const k = keychainOf(); return k && near(radiusOf(k), 5, .05); },
+       h: ["Gli angoli arrotondati sono una proprietà del rettangolo: dove si vedono le proprietà?", "Scheda [[Proprietà|tab-prop]], in alto a destra, sezione Rettangolo.", "Seleziona il rettangolo, apri Proprietà e scrivi 5 in «Raggio angoli»."]},
+      {t: "Un [[cerchio|tool-ellipse]] di 5 mm di diametro", ok: () => holeCandidates().some(c => near(c.w, 5, .05) && near(c.h, 5, .05)),
+       h: ["Con quale strumento si disegna un cerchio?", "Strumento [[Ellisse e cerchio|tool-ellipse]] (E); le misure, come sempre, in [[L e A|numLA]].", "Premi E, trascina un cerchio dentro al rettangolo, poi L = 5 e A = 5."]},
+      {t: "Centro del foro a 6 mm dal bordo sinistro, centrato in altezza ([[X e Y|numXY]])", ok: () => { const k = keychainOf(); return k && holeCandidates().some(c => near(c.w, 5, .05) && near(c.x - (k.x - k.w / 2), 6, .2) && near(c.y, k.y, .2)); },
+       h: ["X e Y nella barra in alto indicano il centro della forma. Dov'è il bordo sinistro del rettangolo?", "Bordo sinistro = [[X|numXY]] del rettangolo − 30. Il centro del foro va 6 mm più a destra; la Y è la stessa del rettangolo.", "Se il rettangolo ha X 100 e Y 70, il cerchio va a X 76 e Y 70. Oppure seleziona entrambi e usa Disponi → Allinea → Centra in verticale."]},
+      {t: "Togli il foro con la [[Differenza|menu-disponi]]: un solo pezzo", ok: () => { const k = keychainOf(); return k && k.type === "compound" && k.holes.length === 1 && near(k.holes[0].w, 5, .05) && S.doc.shapes.length === 1; },
+       h: ["Due forme separate al laser diventano un rettangolo e un dischetto. Che operazione unisce le due in un pezzo con il foro?", "[[Disponi|menu-disponi]] → Operazioni booleane → Differenza (la prima meno la seconda).", "Clic sul rettangolo, Maiusc+clic sul cerchio, poi Disponi → Operazioni booleane → Differenza."]},
+    ],
+    errore: () => S.ev.diffEmpty
+      ? "Ti è successo: «Il risultato è vuoto». La Differenza toglie la seconda forma selezionata dalla prima: se clicchi prima il cerchio, prova a togliere il rettangolo dal cerchio. Prima il pezzo, poi il foro."
+      : "L'errore più comune è selezionare prima il cerchio: la Differenza toglie la seconda forma dalla prima, e il programma risponde «Il risultato è vuoto». Prima il pezzo, poi il foro.",
+    recall: ["Per fare il foro, quale operazione hai usato e in che ordine si selezionano le forme?", "Differenza: prima il pezzo, poi il foro (con Maiusc+clic)."],
+  },
+  {
+    id: 3, title: "Livelli = lavorazioni", desc: "Il colore decide che cosa fa il laser: taglio, incisione, materiale giusto.",
+    pre: "Questo portachiavi è tutto grigio. Se lo mandassi al laser così, che cosa succederebbe?",
+    setup() {
+      const k = {id: NEXT_ID++, type: "compound", x: 100, y: 70, w: 60, h: 30, layer: 0, outer: {type: "rect", r: 5}, holes: [{type: "ellipse", x: 76, y: 70, w: 5, h: 5, r: 0}]};
+      S.doc.shapes.push(k, mkText("LUCA", 106, 70, 10, 0)); L(0);
+    },
+    steps: [
+      {t: "Contorno sul [[livello 02|palette-02]] (rosso)", ok: () => S.doc.shapes.find(s => s.type === "compound")?.layer === 2,
+       h: ["Il colore di una forma è il suo livello. Dove si cambia?", "La [[barra dei colori|palette]] in basso: seleziona la forma e fai clic su un colore.", "Clic sul contorno del portachiavi, poi clic sul quadratino rosso 02 in basso."]},
+      {t: "Livello 02 in [[modalità Linea|mode-02]] (taglio)", ok: () => S.doc.shapes.find(s => s.type === "compound")?.layer === 2 && L(2).mode === "line",
+       h: ["Per tagliare il laser deve seguire il bordo o riempire la superficie?", "Tabella Livelli, colonna [[Modalità|mode-02]], alla riga del 02.", "Nella riga 02 scegli «Linea»."]},
+      {t: "Testo sul [[livello 01|palette-01]] (blu) in [[Riempimento|mode-01]]", ok: () => S.doc.shapes.find(s => s.type === "text")?.layer === 1 && L(1).mode === "fill",
+       h: ["Un testo da incidere pieno: quale modalità?", "Sposta il testo sul livello 01 con la [[barra dei colori|palette]], poi guarda la sua [[modalità|mode-01]] nella tabella.", "Clic sul testo, clic su 01 in basso, poi nella riga 01 scegli «Riempimento»."]},
+      {t: "[[Materiali|materials]]: Tiglio taglio 3 mm sul 02, incisione sul 01", ok: () => L(2).material === "Tiglio (basswood) · Taglio 3 mm" && L(1).material === "Tiglio (basswood) · Incisione",
+       h: ["Velocità e potenza si inventano?", "Laser → Libreria materiali (Ctrl+M), oppure «[[Materiale…|materials]]» sotto la tabella Livelli. In alto scegli il livello.", "Livello 02: cerca «tiglio 3», scegli Taglio 3 mm, Applica. Livello 01: cerca «tiglio inc», scegli Incisione, Applica."]},
+      {t: "[[Tagli per ultimi|cuts]]: prima si incide, poi si taglia", ok: () => L(1).priority < L(2).priority,
+       h: ["Se tagli prima il contorno, che cosa succede al pezzo mentre incidi il testo?", "Il pulsante [[Tagli per ultimi|cuts]] è sotto la tabella Livelli.", "Premi «Tagli per ultimi»: la riga 01 va sopra, la 02 sotto."]},
+    ],
+    errore: () => "Se tagli per primo, il pezzo si stacca e si sposta di un niente: l'incisione esce storta. Per questo i tagli vanno sempre per ultimi. Nota anche che la libreria imposta da sola la modalità: un materiale di taglio mette il livello in Linea.",
+    recall: ["Un testo deve essere inciso pieno: in quale modalità metti il suo livello?", "Riempimento. Il contorno da tagliare va in Linea."],
+  },
+  {
+    id: 4, title: "Testo e codici", desc: "Numerazione automatica, codice QR e copie in serie che si numerano da sole.",
+    pre: "Devi fare cinquanta portachiavi, ognuno con il suo numero. Li scriveresti a mano uno per uno?",
+    setup() { stdLayers(1, 2); S.doc.shapes.push(keychain(80, 30, 4, 2, 70), mkText("LUCA", 60, 74, 8, 1)); S.curLayer = 1; },
+    steps: [
+      {t: "Sotto al nome un [[testo|tool-text]] con il [[numero a 3 cifre|var]]: «N. 001»", ok: () => texts().some(t => /\{N:3\}/i.test(t.text)),
+       h: ["Un numero che cambia da solo da un pezzo all'altro: si scrive a mano o si inserisce?", "Strumento [[Testo|tool-text]] (T), poi nel pannello Proprietà il pulsante [[Inserisci variabile|var]].", "Premi T, clic sotto al nome, scrivi «N. » e OK; poi Proprietà → Inserisci variabile → Numero a 3 cifre."]},
+      {t: "Un [[codice QR|menu-strumenti]] di 20 mm con l'indirizzo del sito di FreeLaserCut", ok: () => codes().some(c => near(c.w, 20, .3) && /freelasercut/i.test(c.data)),
+       h: ["Dove si creano i codici che si leggono con il telefono?", "[[Strumenti|menu-strumenti]] → Codice QR o a barre (Ctrl+Alt+Q).", "Ctrl+Alt+Q, Contenuto: https://fringuello79.github.io/FreeLaserCut/ , Larghezza 20, Inserisci."]},
+      {t: "Il QR dentro al portachiavi, a destra del nome, lontano dal foro", ok: () => { const k = keychains(80, 30)[0]; return k && codes().some(c => inside(c, k) && !texts().some(t => overlapsBox(t, c)) && !overlapsBox(c, k.holes[0])); },
+       h: ["Il portachiavi è largo 80 mm (da X 30 a X 110): dove resta spazio libero?", "Trascina il QR, oppure scrivi X e Y nella barra in alto.", "Il portachiavi è a X 70, Y 70: metti il QR a X 97 e Y 70."]},
+      {t: "[[Serie a griglia|menu-disponi]]: 3 portachiavi in fila, 5 mm fra i bordi", ok: () => { const ks = keychains(80, 30).sort((a, b) => a.x - b.x); return ks.length === 3 && near(ks[1].x - ks[0].x, 85, .1) && near(ks[2].x - ks[1].x, 85, .1) && near(ks[0].y, ks[2].y, .1); },
+       h: ["Le copie si fanno una per una o tutte insieme?", "Seleziona tutto il portachiavi (Ctrl+A) e apri [[Disponi|menu-disponi]] → Serie a griglia (Alt+A).", "Ctrl+A, Alt+A: Colonne 3, Righe 1, Spazio fra i bordi, 5 mm, Crea."]},
+      {t: "I numeri vanno da soli: 001, 002, 003", ok: () => { const v = texts().filter(t => hasVars(t.text)).map(displayText).join(" "); return ["001", "002", "003"].every(n => v.includes(n)); },
+       h: ["Le copie hanno tutte lo stesso numero?", "Il numero di serie si numera da solo nelle copie della Serie a griglia.", "Se vedi tre «001», il testo non contiene la variabile: correggilo e rifai la serie."]},
+    ],
+    errore: () => texts().some(t => t.text.includes("{") && !hasVars(t.text))
+      ? "Ti è successo: un testo con le parentesi scritte a mano che non è diventato un numero. Se sbagli una lettera, per esempio {N3}, resta scritto così. Usa sempre «Inserisci variabile»."
+      : "L'errore più comune è scrivere le parentesi a mano e sbagliare una lettera: «{N3}» resta scritto così, parentesi comprese. Usa sempre «Inserisci variabile».",
+    recall: ["Quale comando crea copie in fila che si numerano da sole?", "Serie a griglia: Disponi → Serie a griglia, Alt+A."],
+  },
+  {
+    id: 5, title: "Importare", desc: "Un logo SVG a colori e una foto trasformata in tracciati.",
+    pre: "Hai un logo già pronto, a due colori. Che cosa diventeranno quei due colori dentro FreeLaserCut?",
+    setup() { stdLayers(1, 2); S.doc.shapes.push(keychain(80, 30, 4, 2)); },
+    steps: [
+      {t: "[[Importa|menu-file]] logo.svg dal kit", ok: () => allLeaves().some(s => s.src === "logo"),
+       h: ["I disegni fatti con altri programmi si aprono o si importano?", "[[File|menu-file]] → Importa (Ctrl+I).", "Ctrl+I e scegli logo.svg."]},
+      {t: "Logo alto 15 mm, senza deformarlo ([[lucchetto|lock]])", ok: () => { const b = bbox(allLeaves().filter(s => s.src === "logo")); return b && near(b.h, 15, .2) && near(b.w / b.h, 1.5, .03); },
+       h: ["Se cambi solo l'altezza, il logo si schiaccia: che cosa tiene le proporzioni?", "Il [[lucchetto|lock]] tra L e A nella barra in alto.", "Seleziona il logo, chiudi il lucchetto, scrivi 15 in A."]},
+      {t: "[[Livello 04|mode-04]] (il sole) in Riempimento, con l'incisione del Tiglio", ok: () => isFill(4) && /Incisione/.test(L(4).material || ""),
+       h: ["Il livello nuovo arrivato con il logo ha già modalità e materiale?", "Tabella Livelli, riga 04, e la [[Libreria materiali|materials]].", "Seleziona la riga 04, Materiale…, cerca «tiglio inc», Applica."]},
+      {t: "[[Importa|menu-file]] abete.png e [[vettorizzalo|menu-modifica]]", ok: () => allLeaves().some(s => s.src === "abete" && s.type === "poly") && !allLeaves().some(s => s.type === "image"),
+       h: ["Una foto è fatta di puntini: il laser può seguirne il contorno così com'è?", "[[Modifica|menu-modifica]] → Vettorizza immagine (Alt+T), con l'immagine selezionata.", "Ctrl+I, abete.png; poi Alt+T e Crea i tracciati, senza tenere l'immagine."]},
+      {t: "Abete alto 20 mm, senza deformarlo", ok: () => allLeaves().some(s => s.src === "abete" && s.type === "poly" && near(s.h, 20, .2) && near(s.w / s.h, 520 / 700, .02)),
+       h: ["Stesso trucco del logo.", "Lucchetto chiuso, campo A.", "Seleziona l'abete, lucchetto chiuso, A = 20."]},
+      {t: "Logo e abete dentro al portachiavi, lontani dal foro e senza toccarsi", ok: () => {
+         const k = keychains(80, 30)[0], lg = bbox(allLeaves().filter(s => s.src === "logo")), ab = allLeaves().find(s => s.src === "abete" && s.type === "poly");
+         if (!k || !lg || !ab) return false;
+         const box = (b) => ({x: b.cx, y: b.cy, w: b.w, h: b.h});
+         return inside(box(lg), k) && inside(ab, k) && !overlapsBox(box(lg), grow(k.holes[0], 1)) && !overlapsBox(ab, grow(k.holes[0], 1)) && !overlapsBox(box(lg), ab); },
+       h: ["Il portachiavi va da X 60 a X 140: quanto spazio c'è a destra del foro?", "Trascinali, oppure scrivi X e Y nella barra in alto.", "Logo a X 85, Y 70; abete a X 112, Y 70."]},
+    ],
+    errore: () => "L'errore più comune: il livello nuovo arrivato con il logo resta con le impostazioni di base. In Linea il sole verrebbe solo contornato, non inciso. Ogni livello nuovo: modalità e materiale, come nella missione 3.",
+    recall: ["Che cosa diventano i colori di un file SVG importato?", "Livelli: un colore, un livello."],
+  },
+  {
+    id: 6, title: "Anteprima e lavoro sicuro", desc: "Trovare due errori prima di avviare, poi il lavoro fino alla fine nel simulatore.",
+    pre: "Questo pezzo sembra perfetto. Lo avvieresti così?",
+    setup() {
+      const a = L(3), b = L(5);
+      Object.assign(a, {name: "Incisione", mode: "fill", speed: 10000, power: 30, material: "Tiglio (basswood) · Incisione", output: false, priority: 2});
+      Object.assign(b, {name: "Taglio", mode: "line", speed: 1400, power: 100, material: "Tiglio (basswood) · Taglio 3 mm", priority: 1});
+      S.doc.shapes.push(keychain(60, 30, 5, 5), mkText("Alice", 104, 69, 12, 3, "Dancing Script"));
+    },
+    steps: [
+      {t: "Apri l'[[Anteprima|preview]] e cerca i due errori", ok: () => S.ev.preview,
+       h: ["Dove si vede il lavoro prima di farlo?", "Laser → Anteprima (Alt+P), oppure il pulsante [[Anteprima|preview]] nel pannello Laser.", "Premi Alt+P: guarda che cosa manca e in che ordine vengono i livelli."]},
+      {t: "Il testo deve essere inciso: [[Inc.|out-03]] sul livello 03", ok: () => L(3).output,
+       h: ["Nell'anteprima il testo c'è?", "Tabella Livelli, colonna [[Inc.|out-03]].", "Spunta Inc. nella riga 03 (Incisione)."]},
+      {t: "Il taglio per ultimo: [[Tagli per ultimi|cuts]]", ok: () => L(3).priority < L(5).priority,
+       h: ["Nell'anteprima, qual è il numero 1?", "Il pulsante [[Tagli per ultimi|cuts]] sotto la tabella Livelli.", "Premi Tagli per ultimi: 03 sopra, 05 sotto."]},
+      {t: "[[Collegati|connect]] al Simulatore e fai l'[[Homing|homing]]", ok: () => S.m.connected && S.m.homed,
+       h: ["Te lo ricordi dalla missione 1?", "Pannello Laser: Connetti; poi Ctrl+H.", "Connetti, poi Ctrl+H."]},
+      {t: "[[Avvia|start]] il lavoro con le precauzioni e portalo fino alla fine", ok: () => S.ev.job && S.ev.job.completed && S.ev.job.sig === docSig() && S.ev.job.order.join() === "3,5",
+       h: ["Che cosa controlli prima di premere Avvia, sul laser vero?", "Pulsante [[Avvia|start]] nel pannello Laser, oppure Ctrl+Invio.", "Ctrl+Invio, spunta occhiali e aspirazione, Avvia, e aspetta la fine."]},
+    ],
+    errore: () => (S.ev.badJob
+      ? "Ti è successo: hai avviato un lavoro con il testo escluso o con il taglio prima dell'incisione. Sul legno vero sarebbe stato un pezzo da buttare. "
+      : "") + "L'errore più grave però non si vede nell'Anteprima: avviare senza occhiali protettivi, senza aspirazione, o lasciare il laser da solo. Il laser si sorveglia sempre, dall'inizio alla fine.",
+    recall: ["Prima di avviare: che cosa guardi e che cosa indossi?", "L'Anteprima (Alt+P); occhiali protettivi, con l'aspirazione accesa, e resti vicino alla macchina."],
+  },
+  {
+    id: 7, title: "Missione finale", desc: "Una targhetta completa, dall'inizio alla fine, senza aiuto.", noHints: true,
+    pre: "Ultima missione, senza indizi. Una targhetta con il tuo nome e un QR: da dove cominci?",
+    setup() {},
+    steps: [
+      {t: "Targhetta 70 × 25 mm con angoli di 3 mm", ok: () => !!plateOf()},
+      {t: "Un foro di 4 mm", ok: () => { const k = plateOf(); return k && k.type === "compound" && k.holes.some(h => near(h.w, 4, .05) && near(h.h, 4, .05)); }},
+      {t: "Il tuo nome, inciso, dentro la targhetta", ok: () => { const k = plateOf(); return k && texts().some(t => !hasVars(t.text) && t.text.trim().length >= 2 && isFill(t.layer) && L(t.layer).output && inside(t, k)); }},
+      {t: "Un QR verso un sito, inciso, dentro la targhetta", ok: () => { const k = plateOf(); return k && codes().some(c => isFill(c.layer) && inside(c, k) && !overlapsBox(c, k.holes[0] || {x: -999, y: -999, w: 0, h: 0})); }},
+      {t: "Contorno in Linea con Tiglio (basswood) taglio 3 mm", ok: () => { const k = plateOf(); return k && L(k.layer).mode === "line" && L(k.layer).material === "Tiglio (basswood) · Taglio 3 mm"; }},
+      {t: "Prima si incide, per ultimo si taglia", ok: () => { const k = plateOf(); return k && usedLayers().filter(i => i !== k.layer && L(i).output).every(i => L(i).priority < L(k.layer).priority); }},
+      {t: "Anteprima, poi lavoro completato nel Simulatore", ok: () => S.ev.preview && S.ev.job && S.ev.job.completed && S.ev.job.sig === docSig()},
+    ],
+    errore: () => "Hai fatto tutto il percorso: collegarsi, disegnare a misura, livelli e materiali, testo e codici, anteprima e sicurezza. Gli errori di questa missione sono quelli delle sei precedenti: se ne hai fatto qualcuno, rifai quella missione domani.",
+    recall: ["Quali sono i sei passi del Costrutto?", "Collegarsi; disegnare a misura; livelli e materiali; testo e codici; importare; anteprima e sicurezza."],
+  },
+];
+
+/* ---------------------------------------------------------------- progressi (solo in questo browser) */
+const STORE = "flc-costrutto-v1";
+function loadProg() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
+function saveProg(p) { try { localStorage.setItem(STORE, JSON.stringify(p)); } catch (e) { /* storage non disponibile: pazienza */ } }
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+/* ---------------------------------------------------------------- scheda missione */
+let CUR = null; // {def, state, t0, hints, hintStep, hintLevel, timer}
+function startMission(id) {
+  const def = MISSIONS.find(m => m.id === id); if (!def || def.soon) return;
+  $("home").classList.add("hidden"); $("app").classList.remove("hidden");
+  resetWorld(); def.setup(); S.curRow = null;
+  if (CUR && CUR.timer) clearInterval(CUR.timer);
+  CUR = {def, state: "intro", t0: 0, hints: 0, hintStep: -1, hintLevel: 0, timer: null, recallOpen: false};
+  S.mission = CUR;
+  $("mcard").classList.remove("min", "hidden");
+  renderCard(); refreshUI(); requestAnimationFrame(fit);
+}
+function restartMission() { if (CUR) startMission(CUR.def.id); }
+function goHome() {
+  if (CUR && CUR.timer) clearInterval(CUR.timer);
+  CUR = null; S.mission = null; SPOT = null; closeDlg();
+  $("app").classList.add("hidden"); $("home").classList.remove("hidden"); renderHome();
+}
+function begin() {
+  CUR.state = "play"; CUR.t0 = performance.now();
+  CUR.timer = setInterval(() => { const m = document.querySelector("#mcard .meta"); if (m && CUR && CUR.state === "play") m.textContent = metaText(); }, 1000);
+  renderCard(); missionCheck();
+}
+const elapsed = () => CUR ? (performance.now() - CUR.t0) / 1000 : 0;
+const metaText = () => `Tempo ${mmss(elapsed())} · indizi ${CUR.hints}`;
+function stepStates() {
+  const st = CUR.def.steps.map(s => !!safe(s.ok));
+  const cur = st.indexOf(false);
+  return {st, cur};
+}
+function safe(f) { try { return f(); } catch (e) { return false; } }
+function missionCheck() {
+  if (!CUR) return;
+  if (CUR.def.latch) CUR.def.latch();
+  if (CUR.state !== "play") return;
+  const {st} = stepStates();
+  if (st.every(Boolean)) return finish();
+  renderCard();
+}
+function finish() {
+  CUR.state = "done"; clearInterval(CUR.timer);
+  CUR.time = elapsed();
+  const p = loadProg(), prev = p[CUR.def.id];
+  p[CUR.def.id] = {best: prev ? Math.min(prev.best, CUR.time) : CUR.time, last: CUR.time, hints: CUR.hints, runs: (prev?.runs || 0) + 1, at: new Date().toISOString()};
+  saveProg(p);
+  renderCard();
+}
+function showHint() {
+  const {cur} = stepStates(); if (cur < 0) return;
+  if (CUR.hintStep !== cur) { CUR.hintStep = cur; CUR.hintLevel = 0; }
+  if (CUR.hintLevel < 3) { CUR.hintLevel++; CUR.hints++; }
+  renderCard();
+  if (CUR.hintLevel >= 2) { const k = firstTarget(CUR.def.steps[cur].h[CUR.hintLevel - 1]) || firstTarget(CUR.def.steps[cur].t); if (k) spot(k, "strong"); }
+}
+function renderCard() {
+  const el = $("mcard"); if (!CUR) { el.classList.add("hidden"); return; }
+  const d = CUR.def, head = `<header id="mhead"><div><div class="n">MISSIONE ${d.id}</div><div class="t">${d.title}</div></div><span class="muted" title="Riduci o apri">▾</span></header>`;
+  let body = "";
+  if (CUR.state === "intro") {
+    body = `<div class="q"><b>Prima di cominciare.</b> ${d.pre}</div><div class="muted" style="line-height:1.45;margin-bottom:10px">Pensaci qualche secondo: provare a rispondere, anche sbagliando, aiuta a ricordare. Poi premi Comincia.</div>
+      <div class="foot"><span class="meta">${d.steps.length} passi</span><button class="btn pri" id="mbegin">Comincia</button></div>`;
+  } else if (CUR.state === "play") {
+    const {st, cur} = stepStates();
+    body = `<ol>${d.steps.map((s, i) => `<li class="${st[i] ? "ok" : i === cur ? "cur" : ""}"><span class="ck">${st[i] ? "✓" : i + 1}</span><span class="tx">${chips(s.t)}</span></li>`).join("")}</ol>`;
+    if (CUR.hintStep === cur && CUR.hintLevel > 0) body += `<div class="hint"><b>Indizio ${CUR.hintLevel}/3.</b> ${chips(d.steps[cur].h[CUR.hintLevel - 1])}</div>`;
+    const lvl = CUR.hintStep === cur ? CUR.hintLevel : 0;
+    body += `<div class="foot"><span class="meta">${metaText()}</span><span class="row"><button class="btn" id="mrestart" title="Ricomincia la missione">↺</button>${d.noHints ? `<button class="btn" disabled title="È la prova finale">Niente indizi</button>` : `<button class="btn" id="mhint" ${lvl >= 3 ? "disabled" : ""}>${lvl === 0 ? "Indizio" : lvl < 3 ? "Indizio più chiaro" : "Indizi finiti"}</button>`}</span></div>`;
+  } else {
+    const [rq, ra] = d.recall, next = MISSIONS.find(m => m.id === d.id + 1);
+    body = `<div class="done"><b>Missione completata</b> in ${mmss(CUR.time)} con ${CUR.hints} ${CUR.hints === 1 ? "indizio" : "indizi"}.</div>
+      <div class="err"><b>Errore previsto.</b> ${d.errore()}</div>
+      <div class="q"><b>Per la prossima volta.</b> ${rq}${CUR.recallOpen ? `<br><span style="color:#8FE3B9">${ra}</span>` : ` <a href="#" id="mrecall" style="color:var(--ac)">Mostra la risposta</a>`}</div>
+      ${d.id === 7 ? `<div class="done"><b>Hai completato il Costrutto.</b> Ora tocca al programma vero: <a href="https://fringuello79.github.io/FreeLaserCut/" target="_blank" rel="noopener" style="color:var(--ac)">scarica FreeLaserCut</a>. Le sfide: domani rifai questa targhetta a memoria; fra tre giorni un'etichetta rotonda Ø 40 numerata in 2 × 2; fra una settimana la missione 5 da capo.</div>` : `<div class="muted" style="line-height:1.45">Domani prova a rifarla da capo, a memoria: è il passo che fa restare quello che hai imparato.</div>`}
+      <div class="foot"><button class="btn" id="mhome">Missioni</button><span class="row"><button class="btn" id="mrestart">Rifalla</button>${next && !next.soon ? `<button class="btn pri" id="mnext">Missione ${next.id} →</button>` : ""}</span></div>`;
+  }
+  el.innerHTML = head + `<div class="body">${body}</div>`;
+  $("mhead").onclick = () => { el.classList.toggle("min"); };
+  const on = (id, f) => { const b = $(id); if (b) b.onclick = (e) => { e.preventDefault(); f(); }; };
+  on("mbegin", begin); on("mhint", showHint); on("mrestart", restartMission); on("mhome", goHome);
+  on("mnext", () => startMission(d.id + 1)); on("mrecall", () => { CUR.recallOpen = true; renderCard(); });
+  bindChips(el);
+  if (CUR.state === "play") {
+    const {cur} = stepStates();
+    if (cur >= 0 && CUR.lastCur !== cur) { CUR.lastCur = cur; const k = firstTarget(d.steps[cur].t); if (k) setTimeout(() => spot(k, "soft"), 350); }
+  }
+}
+// [[testo|bersaglio]] → parola cliccabile che fa lampeggiare il punto dell'interfaccia
+const chips = (t) => t.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, (_, a, k) => `<span class="chip" data-target="${k}" title="Mostrami dov'è">${a}</span>`);
+const firstTarget = (t) => (/\[\[[^|\]]+\|([^\]]+)\]\]/.exec(t) || [])[1];
+function bindChips(root) {
+  root.querySelectorAll(".chip[data-target]").forEach(c => {
+    c.onmouseenter = () => spot(c.dataset.target, "strong");
+    c.onclick = (e) => { e.preventDefault(); e.stopPropagation(); SPOT = null; spot(c.dataset.target, "strong"); };
+  });
+}
+
+/* ---------------------------------------------------------------- pagina iniziale */
+function renderHome() {
+  const p = loadProg();
+  $("missions").innerHTML = MISSIONS.map(m => {
+    const r = p[m.id];
+    const st = m.soon ? `<div class="st">In arrivo</div>` : r ? `<div class="st done">✓ Completata · miglior tempo ${mmss(r.best)}</div>` : `<div class="st">Da fare</div>`;
+    return `<button class="mtile" data-m="${m.id}" ${m.soon ? "disabled" : ""}><span class="n">MISSIONE ${m.id}</span><span class="t">${m.title}</span><span class="d">${m.desc}</span>${st}</button>`;
+  }).join("");
+  document.querySelectorAll(".mtile[data-m]").forEach(b => b.onclick = () => startMission(+b.dataset.m));
+}
+
+initApp();
+renderHome();
+// collegamento diretto a una missione: costrutto.html#m2
+const hm = /^#m(\d)$/.exec(location.hash); if (hm) startMission(+hm[1]);
+
+</script>
+</body>
+</html>
