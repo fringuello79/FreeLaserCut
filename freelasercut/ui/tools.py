@@ -1024,6 +1024,132 @@ class MeasureTool(Tool):
         p.restore()
 
 
+# ======================================================================= forbici (0.17.16)
+TRIM_RED = "#E03131"
+
+
+class TrimTool(Tool):
+    """Forbici: passando sopra una linea si colora di rosso il tratto fra i due incroci più vicini; clic = lo toglie.
+    Maiusc = ci si ferma anche agli angoli (nodi). Calcolo in core/trim.py (progetto «forbici-taglia-eccedenze»)."""
+    name = "trim"
+    label = tr("Forbici")
+
+    def __init__(self, cv):
+        super().__init__(cv)
+        self.hover = None  # (forma, sottotracciato, u, maiusc, tracciato rosso)
+        self._cache = {}  # id(forma) -> Trimmer, finché il documento non cambia
+
+    def cursor(self):
+        pm = style.pixmap("trim", "#FFFFFF", 26)
+        halo = style.pixmap("trim", "#1B2333", 26)
+        from PySide6.QtGui import QPainter, QPixmap
+
+        out = QPixmap(30, 30)
+        out.fill(Qt.transparent)
+        q = QPainter(out)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):  # bordo scuro: si vede sul piano chiaro e sulle foto
+            q.drawPixmap(2 + dx, 2 + dy, halo)
+        q.drawPixmap(2, 2, pm)
+        q.end()
+        return QCursor(out, 15, 6)  # punta delle lame
+
+    def activate(self):
+        self._cache = {}
+        self.hover = None
+        try:
+            self.ed.changed.connect(self._invalidate)
+            self.ed.live.connect(self._invalidate)
+            self.ed.plates_changed.connect(self._invalidate)
+        except Exception:  # noqa: BLE001
+            pass
+        self.cv.status.emit(self._hint())
+
+    def deactivate(self):
+        for sig in (self.ed.changed, self.ed.live, self.ed.plates_changed):
+            try:
+                sig.disconnect(self._invalidate)
+            except Exception:  # noqa: BLE001
+                pass
+        self.hover = None
+        self._cache = {}
+
+    def _invalidate(self, *_):
+        self._cache = {}
+        self.hover = None
+
+    @staticmethod
+    def _hint():
+        return tr("Forbici: passa sopra una linea, il tratto fra due incroci diventa rosso; clic = lo togli. "
+                  "Maiusc = fermati anche agli angoli. Esc = Selezione")
+
+    def trimmer(self, shape):
+        from ..core import trim
+
+        t = self._cache.get(id(shape))
+        if t is None or t.shape is not shape:
+            t = trim.Trimmer(self.ed.doc, shape)
+            self._cache[id(shape)] = t
+        return t
+
+    def find(self, p, shift=False):
+        """Aggiorna e ritorna il tratto sotto il punto p (mm sul piano), o None con il motivo nella barra di stato."""
+        from ..core import trim
+
+        self.hover = None
+        hit = trim.nearest(self.ed.doc, (p.x(), p.y()), self.cv.px(6))
+        if hit is None:
+            self.cv.status.emit(self._hint())
+            return None
+        s, si, u, _d = hit
+        why = trim.target_ok(self.ed.doc, s)
+        if why:
+            self.cv.status.emit({"group": tr("È un gruppo: separalo prima (Disponi → Separa) per tagliarne le linee"),
+                                 "locked": tr("Forma bloccata: sbloccala per tagliarla"),
+                                 }.get(why, self._hint()))
+            return None
+        T = self.trimmer(s)
+        lo, hi = T.piece(si, u, shift)
+        sub = T.piece_subpath(si, lo, hi)
+        if sub is None:
+            return None
+        self.hover = (s, si, u, shift, nodes.to_path([sub]))
+        self.cv.status.emit(tr("Clic: togli il tratto rosso") if T.cuts[si] or shift else
+                            tr("Nessun incrocio su questa linea: con un clic si toglie tutta"))
+        return self.hover
+
+    def move(self, e, p):
+        shift, _, _ = _mods(e)
+        self.find(p, shift)
+
+    def press(self, e, p):
+        if e.button() != Qt.LeftButton:
+            return
+        shift, _, _ = _mods(e)
+        h = self.find(p, shift)
+        if h is None:
+            return
+        s, si, u, corners, _path = h
+        subs = self.trimmer(s).remaining(si, u, corners)
+        self.ed.trim_shape(s, subs)
+        self.hover = None
+        self.find(p, shift)  # il tratto successivo sotto il mouse
+
+    def draw(self, p, tf):
+        if not self.hover:
+            return
+        path = tf.map(self.hover[4])
+        p.save()
+        p.setRenderHint(p.RenderHint.Antialiasing, True)
+        p.setBrush(Qt.NoBrush)
+        halo = QColor("#FFFFFF")
+        halo.setAlpha(210)
+        p.setPen(_pen(halo, 6))
+        p.drawPath(path)
+        p.setPen(_pen(TRIM_RED, 3))
+        p.drawPath(path)
+        p.restore()
+
+
 # ======================================================================= posiziona laser
 class PositionTool(Tool):
     name = "position"
@@ -1036,5 +1162,5 @@ class PositionTool(Tool):
 
 
 def make_tools(cv):
-    return {t.name: t(cv) for t in (SelectTool, NodeTool, PenTool, RectTool, EllipseTool, PolygonTool, StarTool,
+    return {t.name: t(cv) for t in (SelectTool, NodeTool, TrimTool, PenTool, RectTool, EllipseTool, PolygonTool, StarTool,
                                      SpecialTool, TextTool, MeasureTool, PositionTool)}

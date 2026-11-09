@@ -392,3 +392,41 @@ def info(shapes):
                     n_open += 1
             n_nodes += sum(len(sp.nodes) for sp in nodes.from_path(path))
     return {"perimeter": per, "area": area, "open": n_open, "closed": n_closed, "nodes": n_nodes}
+
+
+# ------------------------------------------------------------------ distanza esatta (0.17.16)
+# Ingombro = Shape.bounds() come in «Allinea». Asse "x" o "y"; bordi "min" | "center" | "max" (in Y min = in basso).
+def _span(r, axis):
+    return (r.left(), r.right()) if axis == "x" else (r.top(), r.bottom())
+
+
+def _edge(r, axis, e):
+    lo, hi = _span(r, axis)
+    return lo if e == "min" else hi if e == "max" else (lo + hi) / 2.0
+
+
+def gap_side(fixed, moving, axis):
+    """+1 se l'oggetto che si sposta sta dopo quello fermo lungo l'asse (centri; pari = +1), altrimenti −1."""
+    return 1 if _edge(moving, axis, "center") >= _edge(fixed, axis, "center") - 1e-9 else -1
+
+
+def _edges(mode, side, ef, em):
+    """(bordo del fermo, bordo di chi si sposta) per il modo: gap = bordi affacciati, center = centri, edges = scelti."""
+    if mode == "gap":
+        return ("max", "min") if side > 0 else ("min", "max")
+    if mode == "center":
+        return "center", "center"
+    return ef, em
+
+
+def measure_distance(fixed, moving, axis, mode, side, ef="min", em="min"):
+    """Distanza attuale (mm) con la stessa definizione usata per spostare: (bordo di M − bordo di F) · lato."""
+    a, b = _edges(mode, side, ef, em)
+    return (_edge(moving, axis, b) - _edge(fixed, axis, a)) * side
+
+
+def distance_shift(fixed, moving, axis, mode, side, d, ef="min", em="min"):
+    """Spostamento (dx, dy) che porta l'ingombro `moving` alla distanza d da `fixed`, solo lungo l'asse."""
+    a, b = _edges(mode, side, ef, em)
+    delta = _edge(fixed, axis, a) + side * float(d) - _edge(moving, axis, b)
+    return (delta, 0.0) if axis == "x" else (0.0, delta)

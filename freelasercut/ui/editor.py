@@ -600,6 +600,27 @@ class Editor(QObject):
         self.select([s for s in self.selection if s not in dup])
         self.message.emit(f"Eliminati {len(dup)} duplicati")
 
+    def trim_shape(self, shape, subs):
+        """Forbici (0.17.16): la forma diventa il tracciato rimasto (stesso id e livello), o sparisce se non resta niente.
+        Un passo nella cronologia."""
+        from ..core import nodes as _nodes
+        from ..core.document import PathShape
+
+        if shape not in self.doc.shapes:
+            return
+        self.begin(tr("Taglia eccedenza"))
+        idx = self.doc.shapes.index(shape)
+        if subs:
+            new = PathShape(_nodes.to_path(subs), layer=shape.layer)
+            new.id = shape.id
+            self.doc.shapes[idx] = new
+            self.selection = [new if s is shape else s for s in self.selection]
+        else:
+            del self.doc.shapes[idx]
+            self.selection = [s for s in self.selection if s is not shape]
+        self.commit()
+        self.selection_changed.emit()
+
     def align(self, kind):
         sel = self.editable()
         if len(sel) < 2:

@@ -65,7 +65,10 @@ check("ogni comando dei menu resta agganciato alla finestra (scorciatoie vive)",
       all(id(a) in win_acts for a in leaves), f"{len(leaves)} comandi")
 bc.palette.collect()
 pal = set(id(a) for a, _ in bc.palette.entries)
-check("la ricerca comandi contiene tutti i comandi dei menu", all(id(a) in pal for a in leaves), f"{len(bc.palette.entries)} voci")
+check("la ricerca comandi contiene tutti i comandi visibili dei menu", all(id(a) in pal for a in leaves if a.isVisible()),
+      f"{len(bc.palette.entries)} voci")
+# 0.17.16: le funzioni in prova nascoste (senza codice amministratore) non si trovano cercando
+check("…e non quelli nascosti (funzioni in prova)", not any(id(a) in pal for a in leaves if not a.isVisible()))
 bc.palette._filter("offset")
 first = bc.palette.list.item(0).data(Qt.UserRole) if bc.palette.list.count() else None
 check("cerca «offset» → primo risultato Offset", first is w.acts["offset"])

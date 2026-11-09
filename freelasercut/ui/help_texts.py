@@ -103,6 +103,11 @@ HELP = {
     "dist_vc": (tr("Distribuisci centri verticali"), tr("Centri a distanza uguale in verticale."), None),
     "same_w": (tr("Stessa larghezza"), tr("Dà a tutte la larghezza dell'ultima forma selezionata."), None),
     "same_h": (tr("Stessa altezza"), tr("Dà a tutte l'altezza dell'ultima forma selezionata."), None),
+    "distance": (tr("Distanza esatta"), tr(
+        "Con due oggetti selezionati, mette quello da spostare a una distanza scritta in mm da quello che resta fermo, "
+        "in orizzontale o in verticale: spazio vuoto fra i due, distanza fra i centri o fra due bordi scelti. Si vede "
+        "subito sul piano; Annulla lascia tutto com'era. Di solito resta fermo il primo selezionato (o quello bloccato)."),
+                 [(tr("Distanza"), tr("da 0 mm, al centesimo")), (tr("Dall'altra parte"), tr("l'oggetto passa dall'altro lato"))]),
     "nest": (tr("Ottimizza lo spazio (nesting)"), tr("Sistema i pezzi sul materiale con il minimo spreco, usando la loro sagoma "
              "vera. Materiale: piano intero, rettangolo su misura o un contorno disegnato sul livello T1 (anche un avanzo "
              "irregolare). Si scelgono distanza tra i pezzi, margine e rotazioni; le forme che si toccano restano unite."),
@@ -193,6 +198,13 @@ HELP = {
     "materials": (tr("Libreria materiali"), tr("Valori pronti per il Longer B1 40W (incisioni e tagli) più le tue voci: "
                   "scegli il materiale e applicalo al livello."), None),
     "material_test": (tr("Test materiale"), tr("Incide una griglia potenza × velocità con le etichette per trovare i valori giusti."), None),
+    "relief": (tr("Rilievo 3D su tavola (in prova)"), tr(
+        "Scolpisce la tavola intera a strati, a testa ferma: da un'immagine in grigi (bianco o nero in alto) o da un "
+        "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
+        "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
+               None),
+    "admin_code": (tr("Funzioni in prova"), tr("Sblocca con il codice amministratore le funzioni ancora in prova, "
+                                               "oppure le nasconde di nuovo."), None),
     "autofocus": (tr("Asse Z e autofocus"), tr("Per le macchine con l'asse Z motorizzato. Con una sonda collegata "
                                                "all'ingresso «Probe» della scheda, l'autofocus fa scendere piano la "
                                                "testa a laser spento finché tocca il materiale e poi la porta alla "
@@ -278,6 +290,10 @@ HELP = {
     "tool:nodes": (tr("Modifica nodi (N)"), tr("Sposta nodi e maniglie delle curve."),
                    [("D", "elimina nodo"), ("C / S", "angolo / morbido"), ("B", "spezza"), ("L", "raddrizza"),
                     ("M", tr("nodo nel punto medio")), ("A", tr("arrotonda lo spigolo (raccordo)"))]),
+    "tool:trim": (tr("Forbici (X)"), tr("Toglie le eccedenze dove le linee si incrociano: passando sopra una linea si colora "
+                  "di rosso il tratto fra i due incroci più vicini (o fino all'estremo), clic = lo togli. Le curve restano "
+                  "curve. Una linea senza incroci si toglie tutta. Ogni clic si annulla con Ctrl+Z."),
+                  [(tr("Maiusc"), tr("si ferma anche agli angoli")), (tr("Gruppi"), tr("prima Disponi → Separa"))]),
     "tool:line": (tr("Linee e curve (L)"), tr("Ogni clic aggiunge un nodo; clic e trascina crea una curva. Clic sul primo "
                   "nodo per chiudere, tasto destro o Esc per finire."), None),
     "tool:rect": (tr("Rettangolo (R)"), tr("Trascina per disegnare. Maiusc = quadrato, Ctrl = dal centro. Raggio degli angoli "

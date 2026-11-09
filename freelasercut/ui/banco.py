@@ -430,8 +430,8 @@ class CommandPalette(QFrame):
                 if a.menu() is not None:
                     walk(a.menu(), path + [_clean(a.text())])
                     continue
-                if id(a) in seen or not _clean(a.text()):
-                    continue
+                if id(a) in seen or not _clean(a.text()) or not a.isVisible():
+                    continue  # 0.17.16: le funzioni nascoste (es. in prova, non sbloccate) non si cercano
                 seen.add(id(a))
                 out.append((a, " › ".join(path)))
 
@@ -1017,7 +1017,7 @@ class ContextBar(QFrame):
         row.addWidget(_menu_button(tr("Allinea"), [a["align_left"], a["align_hcenter"], a["align_right"], None, a["align_top"],
                                                    a["align_vcenter"], a["align_bottom"], None, a["align_center"], None,
                                                    a["dist_h"], a["dist_v"], a["dist_hc"], a["dist_vc"], None,
-                                                   a["same_w"], a["same_h"]]))
+                                                   a["same_w"], a["same_h"], None, a["distance"]]))
         row.addWidget(_menu_button(tr("Combina"), [a["union"], a["difference"], a["intersection"], a["xor"]]))
         row.addWidget(_menu_button(tr("Serie"), [a["grid_array"], a["circ_array"], a["along_path"]]))
         row.addWidget(_act_button(a["nest"], "bcTool", 18))
@@ -1534,7 +1534,7 @@ class Banco(QObject):
         for k in ("undo", "redo"):
             h.addWidget(_act_button(win.acts[k]))
         h.addWidget(_sep())
-        for name in ("select", "nodes", "line", "rect", "ellipse", "polygon", "star", "special", "text"):
+        for name in ("select", "nodes", "trim", "line", "rect", "ellipse", "polygon", "star", "special", "text"):
             h.addWidget(_act_button(win.tool_actions[name]))
         h.addWidget(_sep())
         for k in ("import", "photo", "trace", "exact_shape", "code", "text_path", "puzzle", "sculpt", "variables"):

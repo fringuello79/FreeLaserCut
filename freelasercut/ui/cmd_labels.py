@@ -69,6 +69,7 @@ SHORT = {
     "help_mode": ("Guida", "Help", "Ayuda", "Aide", "Ajuda"),
     "select": ("Seleziona", "Select", "Selecc.", "Sélection", "Selec."),
     "nodes": ("Nodi", "Nodes", "Nodos", "Nœuds", "Nós"),
+    "trim": ("Forbici", "Trim", "Recortar", "Ajuster", "Aparar"),
     "line": ("Linea", "Line", "Línea", "Ligne", "Linha"),
     "rect": ("Rettangolo", "Rectangle", "Rectáng.", "Rectangle", "Retâng."),
     "ellipse": ("Ellisse", "Ellipse", "Elipse", "Ellipse", "Elipse"),

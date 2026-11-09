@@ -259,6 +259,9 @@ class MainWindow(QMainWindow):
             "dist_vc": A(tr("Distribuisci centri verticali"), lambda: e.distribute("v", "center")),
             "same_w": A(tr("Stessa larghezza dell'ultima selezionata"), lambda: e.same_size("w")),
             "same_h": A(tr("Stessa altezza dell'ultima selezionata"), lambda: e.same_size("h")),
+            "distance": A(tr("Distanza esatta…"), self.distance_dialog, None, None,
+                          tr("Mette un oggetto a una distanza precisa da un altro: spazio fra i bordi, fra i centri o fra "
+                             "i bordi scelti")),
             "grid_array": A(tr("Serie a griglia…"), self.grid_array_dialog, "Alt+A", "grid_array"),
             "circ_array": A(tr("Serie circolare…"), self.circ_array_dialog, None, "circ_array"),
             "along_path": A(tr("Copia lungo un tracciato…"), self.along_path_dialog),
@@ -293,6 +296,11 @@ class MainWindow(QMainWindow):
                              tr("Rettangolo, cerchio, poligono o forma della galleria con larghezza, altezza e posizione precise")),
             "code": A(tr("Codice QR o a barre…"), self.code_dialog, "Ctrl+Alt+Q", "qr",
                       tr("QR, Code 128, EAN-13, EAN-8, UPC-A, Code 39, anche con numeri di serie")),
+            "relief": A(tr("Rilievo 3D su tavola (in prova)…"), self.relief_dialog, None, "sculpt",
+                        tr("Scolpisce la tavola intera a strati, a testa ferma, da un'immagine in grigi o da un modello "
+                           "3D, con il test di profondità obbligatorio")),
+            "admin_code": A(tr("Funzioni in prova…"), self.admin_dialog, None, None,
+                            tr("Sblocca le funzioni ancora in prova con il codice amministratore")),
             "sculpt": A(tr("Scultura 3D da modello…"), self.sculpt_dialog, None, "sculpt",
                         tr("Un modello 3D (.stl, .obj o uno di quelli inclusi) diventa pezzi da tagliare, a strati da "
                            "incollare o a incastro senza colla, con l'anteprima 3D del risultato e del montaggio")),
@@ -383,6 +391,7 @@ class MainWindow(QMainWindow):
         self.tool_actions = {}
         grp = QActionGroup(self)
         for name, label, icon, key in (("select", tr("Selezione"), "select", "V"), ("nodes", tr("Modifica nodi"), "nodes", "N"),
+                                       ("trim", tr("Forbici: togli il tratto fra due incroci"), "trim", "X"),
                                        ("line", tr("Linee e curve"), "line", "L"), ("rect", tr("Rettangolo"), "rect", "R"),
                                        ("ellipse", tr("Ellisse e cerchio"), "ellipse", "E"),
                                        ("polygon", tr("Poligono"), "polygon", "P"), ("star", tr("Stella"), "star", "S"),
@@ -500,11 +509,11 @@ class MainWindow(QMainWindow):
                           (tr("Allinea"), ["align_left", "align_hcenter", "align_right", "-", "align_top", "align_vcenter",
                                        "align_bottom", "-", "align_center"]),
                           (tr("Distribuisci"), ["dist_h", "dist_v", "dist_hc", "dist_vc"]),
-                          (tr("Stessa misura"), ["same_w", "same_h"]),
+                          (tr("Stessa misura"), ["same_w", "same_h"]), "distance",
                           (tr("Sposta sul piano"), [anchors_move]), (tr("Porta la testa sulla selezione"), [anchors_head]), "-",
                           "grid_array", "circ_array", "along_path", "-", "nest", "common_lines", "-", "front", "back"])
         m = mb.addMenu(tr("&Strumenti"))
-        for name in ("select", "nodes", "line", "rect", "ellipse", "polygon", "star", "special", "text", "measure",
+        for name in ("select", "nodes", "trim", "line", "rect", "ellipse", "polygon", "star", "special", "text", "measure",
                      "position"):
             m.addAction(self.tool_actions[name])
         m.addSeparator()
@@ -513,6 +522,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["text_path"])
         m.addAction(a["puzzle"])
         m.addAction(a["sculpt"])
+        m.addAction(a["relief"])
         m.addSeparator()
         m.addAction(a["variables"])
         m.addAction(a["photo"])
@@ -527,6 +537,7 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
+        self._apply_admin()  # 0.17.16: funzioni in prova nascoste finché non si sbloccano
         hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "send_report", "report", "-", "updates", "update_auto",
                                  "-", "support"])
         hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
@@ -540,6 +551,7 @@ class MainWindow(QMainWindow):
         m = mb.addMenu(tr("&Impostazioni"))
         self.m_settings = m
         m.addAction(self.acts["setup_wizard"])
+        m.addAction(self.acts["admin_code"])
         m.addSeparator()
         sub = m.addMenu(tr("Interfaccia"))
         grp = QActionGroup(self)
@@ -743,7 +755,7 @@ class MainWindow(QMainWindow):
         tools.setOrientation(Qt.Vertical)
         tools.setIconSize(QSize(20, 20))
         tools.setMovable(False)
-        for name in ("select", "nodes", "-", "line", "rect", "ellipse", "polygon", "star", "special", "text", "-",
+        for name in ("select", "nodes", "trim", "-", "line", "rect", "ellipse", "polygon", "star", "special", "text", "-",
                      "measure", "position"):
             if name == "-":
                 tools.addSeparator()
@@ -1057,7 +1069,7 @@ class MainWindow(QMainWindow):
         for k in ("group", "align_left", "align_right", "align_top", "align_bottom", "align_hcenter", "align_vcenter",
                   "align_center", "same_w", "same_h", "along_path"):
             self.acts[k].setEnabled(n >= 2)
-        for k in ("union", "difference", "intersection", "xor"):
+        for k in ("union", "difference", "intersection", "xor", "distance"):
             self.acts[k].setEnabled(n == 2)
         for k in ("dist_h", "dist_v", "dist_hc", "dist_vc"):
             self.acts[k].setEnabled(n >= 3)
@@ -1635,6 +1647,15 @@ class MainWindow(QMainWindow):
 
         return run_puzzle(self)
 
+    def distance_dialog(self, *_):
+        """Disponi → Distanza esatta (0.17.16). Ritorna la finestra (già chiusa) o None se la selezione non va bene."""
+        from .dialogs_distance import make_distance_dialog
+
+        dlg = make_distance_dialog(self)
+        if dlg is not None:
+            dlg.exec()
+        return dlg
+
     def text_path_dialog(self, *_):
         from .dialogs_textpath import run_text_path
 
@@ -1884,6 +1905,60 @@ class MainWindow(QMainWindow):
         m.addAction(self.acts["identify"])
         m.addAction(self.acts["serial_speed"])
         m.exec(self.btn_connect.mapToGlobal(pos))
+
+    # ================================================================ funzioni in prova (0.17.16)
+    def _apply_admin(self):
+        from .. import admin
+
+        self.acts["relief"].setVisible(admin.unlocked(self.qs))
+
+    def admin_dialog(self, *_, code=None):
+        """Impostazioni → Funzioni in prova: il codice amministratore le sblocca (o le nasconde di nuovo)."""
+        from PySide6.QtWidgets import QInputDialog, QLineEdit
+
+        from .. import admin
+
+        if admin.unlocked(self.qs) and code is None:
+            r = QMessageBox.question(self, tr("Funzioni in prova"), tr("Le funzioni in prova sono sbloccate. "
+                                                                       "Nasconderle di nuovo?"))
+            if r == QMessageBox.Yes:
+                admin.set_unlocked(self.qs, False)
+                self._apply_admin()
+            return admin.unlocked(self.qs)
+        if code is None:
+            code, ok = QInputDialog.getText(self, tr("Funzioni in prova"), tr("Codice amministratore:"),
+                                            QLineEdit.Password)
+            if not ok:
+                return False
+        if admin.check(code):
+            admin.set_unlocked(self.qs, True)
+            self._apply_admin()
+            self.statusBar().showMessage(tr("Funzioni in prova sbloccate: Strumenti → Rilievo 3D su tavola"), 8000)
+            return True
+        QMessageBox.warning(self, tr("Funzioni in prova"), tr("Codice non valido."))
+        return False
+
+    def relief_dialog(self, *_):
+        """Strumenti → Rilievo 3D su tavola (solo con le funzioni in prova sbloccate)."""
+        from .. import admin
+
+        if not admin.unlocked(self.qs):
+            return None
+        if getattr(self, "_relief_dlg", None) is not None:
+            self._relief_dlg.raise_()
+            self._relief_dlg.activateWindow()
+            return self._relief_dlg
+        from .dialogs_relief import ReliefDialog
+
+        head = self.canvas.head_pos()
+        dlg = ReliefDialog(self.profile, (head.x(), head.y()) if head is not None else None, self, self.qs)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.action.connect(lambda kind, job: self._test_job_action(kind, job, "rilievo-3d"))
+        dlg.destroyed.connect(lambda *_: setattr(self, "_relief_dlg", None))
+        self._relief_dlg = dlg
+        dlg.show()
+        return dlg
 
     def autofocus_dialog(self, *_):
         from .dialogs_autofocus import AutofocusDialog

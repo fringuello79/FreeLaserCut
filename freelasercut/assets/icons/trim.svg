@@ -1,0 +1,9 @@
+<!-- FreeLaserCut — icona originale «Forbici» (taglia le eccedenze), GPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2 4.5h5.5" />
+  <path d="M16.5 4.5h5.5" />
+  <circle cx="7.5" cy="18" r="3" />
+  <circle cx="16.5" cy="18" r="3" />
+  <path d="M9.2 15.6 15.2 3" />
+  <path d="M14.8 15.6 8.8 3" />
+</svg>
