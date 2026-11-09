@@ -31,6 +31,9 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
 #home .rule b{display:block;font-size:14px;margin-bottom:4px}
 #home .rule span{color:var(--mu);line-height:1.45}
 #home h2{font-size:15px;color:var(--mu);text-transform:uppercase;letter-spacing:.08em;margin:0 0 12px}
+.mlevel{grid-column:1/-1;display:flex;align-items:baseline;gap:12px;margin:10px 0 -2px;flex-wrap:wrap}
+.mlevel b{font-size:15px;color:#E6ECF6}
+.mlevel span{color:var(--mu)}
 #missions{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .mtile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:left;cursor:pointer;transition:border-color .15s,transform .15s;min-height:132px;display:flex;flex-direction:column}
 .mtile:hover:not(:disabled){border-color:var(--ac);transform:translateY(-2px)}
@@ -176,6 +179,179 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
 #spotArrow svg{width:100%;height:100%}
 @keyframes spotNudge{0%{opacity:0;translate:calc(var(--nx,0px) * -2) calc(var(--ny,0px) * -2)}22%{opacity:1;translate:0 0}72%{opacity:1;translate:0 0}100%{opacity:0;translate:0 0}}
 
+/* ---------------- scelta dell'interfaccia (pagina iniziale) */
+.uichoice{margin:22px 0 4px;padding:16px 18px;border:1px solid var(--line2);border-radius:14px;background:rgba(17,24,39,.78)}
+.uiq b{display:block;font-size:17px;margin-bottom:4px}
+.uiq span{color:#C8D0E0;line-height:1.45}
+.uopts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 10px}
+.uopt{display:grid;grid-template-columns:120px 1fr;grid-template-rows:auto 1fr;column-gap:14px;text-align:left;background:var(--card);border:1.5px solid var(--line2);border-radius:12px;padding:12px 14px;cursor:pointer;transition:border-color .15s,background .15s}
+.uopt:hover{border-color:#4FB4FF}
+.uopt.on{border-color:var(--orange);background:#1c1a1d;box-shadow:0 0 0 3px rgba(240,122,46,.15)}
+.uopt .mock{grid-row:1/3;position:relative;width:120px;height:78px;border-radius:7px;background:#C9D0DA;border:1px solid #3a4560;overflow:hidden}
+.uopt .mock i{position:absolute;display:block;border-radius:3px}
+.mb .t{left:0;right:0;top:0;height:9px;background:#0A0E17;border-radius:0}
+.mb .l{left:5px;top:14px;width:26px;height:34px;background:#121826}
+.mb .r{right:5px;top:14px;width:30px;height:16px;background:#121826}
+.mb .r2{right:5px;top:33px;width:30px;height:36px;background:#121826;border-bottom:7px solid var(--orange)}
+.mb .b{left:30px;right:42px;bottom:4px;height:9px;background:#121826;border-radius:5px}
+.mc .m{left:0;right:0;top:0;height:6px;background:#111A2B;border-radius:0}
+.mc .tb{left:0;right:0;top:6px;height:8px;background:#1A2438;border-radius:0}
+.mc .l{left:0;top:14px;width:8px;bottom:7px;background:#111A2B;border-radius:0}
+.mc .r{right:0;top:14px;width:36px;height:30px;background:#141D30;border-radius:0}
+.mc .r2{right:0;top:44px;width:36px;bottom:7px;background:#101828;border-radius:0}
+.mc .p{left:0;right:0;bottom:0;height:7px;background:linear-gradient(90deg,#111,#2E7CF6,#E5484D,#30A46C,#F5A524,#8E6CF0,#22B8CF,#E54DB0);border-radius:0}
+.uopt .ut{font-size:16px;font-weight:700}
+.uopt .ut em{font-style:normal;font-size:11px;font-weight:700;color:#C9D3E6;border:1px solid #2E3A56;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.uopt .ud{color:var(--mu);line-height:1.45;margin-top:4px}
+.uinote{color:var(--mu);font-size:12.5px;line-height:1.5}
+.uinote b{color:#C9D3E6}
+@media (max-width:900px){.uopts{grid-template-columns:1fr}}
+.mtile .st .ui{color:var(--mu);font-weight:400}
+
+/* ---------------- interfaccia Banco */
+body:not(.ui-banco) .b-only{display:none!important}
+body.ui-banco .c-only{display:none!important}
+body.ui-banco #app{grid-template-rows:54px 1fr 24px}
+body.ui-banco .main{grid-template-columns:1fr}
+.btop{display:flex;align-items:center;gap:10px;background:#0A0E17;border-bottom:1px solid #1A2234;padding:0 12px;user-select:none}
+.btop .flex,.flex{flex:1}
+.blogo svg{width:28px;height:28px;stroke:#FF7A2E;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}
+.bproj{display:flex;flex-direction:column;min-width:200px;line-height:1.2}
+.bproj b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.bproj span{color:#94A0B8;font-size:11px}
+.bsearch{display:flex;align-items:center;gap:8px;background:#111827;border:1px solid #263048;border-radius:10px;color:#94A0B8;padding:7px 12px;min-width:300px;max-width:520px;flex:2;cursor:pointer;text-align:left}
+.bsearch:hover{border-color:#4FB4FF;color:#C9D3E6}
+.bsearch span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bsearch svg,.bchip svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.bpill{border-radius:15px;padding:6px 12px;font-weight:600;background:#161B26;border:1px solid #2A3550;color:#C9D3E6;cursor:pointer;white-space:pre;font-variant-numeric:tabular-nums}
+.bpill.ok{background:#0F2A1E;border-color:#1D5A3C;color:#BFF2D6}
+.bpill.run{background:#3A1D08;border-color:#FF7A2E;color:#FFD3B3}
+.bpill.hold{background:#3A2A0A;border-color:#F5A524;color:#FFE8B8}
+.bchip{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#172034;border:1px solid #2A3550;border-radius:9px;padding:5px 10px;color:#DDE5F3;font-weight:600;cursor:pointer;white-space:nowrap}
+.bchip:hover{border-color:#4FB4FF}
+.bchip.dis,.bchip:disabled{color:#55627E;border-color:#1A253C;cursor:default}
+.bchip.ico{padding:6px 8px}
+.bchip.sm{padding:3px 9px}
+.bchip.wide{width:100%}
+.btop .bchip{padding:7px 11px}
+.bsup{background:#fff;color:#0E1734;border:1px solid #fff;border-radius:9px;padding:6px 12px;font-weight:700;cursor:pointer}
+.btop .home-btn{background:none;color:#C9D3E6;border:1px dashed #3a4560;border-radius:9px;padding:6px 10px;font-weight:600;cursor:pointer;margin-left:4px}
+.btop .home-btn:hover{border-color:#4FB4FF}
+.bsec{color:#94A0B8;font-size:10.5px;font-weight:700;letter-spacing:.09em}
+.bcard{background:#121826;border:1px solid #263048;border-radius:14px;padding:10px 12px}
+#bRail,#bRight,#bIsland,#bView,#bCtx,#bOffi,#bCock,#bHint{position:absolute;z-index:6}
+#bRail{display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:2px}
+.rhead{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.rlist{display:flex;flex-direction:column;gap:8px}
+.lcard{background:#121826;border:1px solid #263048;border-radius:14px;padding:8px 10px}
+.lcard.on{background:#161E30;border-color:var(--orange)}
+.lhead{display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:6px;outline:none}
+.lhead:focus-visible{outline:1px dotted #4FB4FF}
+.lbar{flex:0 0 10px;height:34px;border-radius:5px}
+.ltx{flex:1;display:flex;flex-direction:column;min-width:0}
+.ltx b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ltx span{color:#94A0B8;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ltag{color:#C9D3E6;border:1px solid #2E3A56;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap}
+.led{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+.led select{background:var(--card2);border:1px solid var(--line2);border-radius:6px;padding:4px 6px}
+.led .lrow{display:flex;align-items:center;gap:8px}
+.led .lrow input:not([type]){width:86px;background:#fff;color:#111;border:1px solid #9aa6bb;border-radius:4px;padding:2px 6px;text-align:right}
+.led .lrow .u{color:#94A0B8;font-size:12px;width:52px}
+.led input[type=range]{width:100%;accent-color:#4FB4FF;margin:0}
+.led input[type=checkbox]{accent-color:var(--ac)}
+.led .lrow.two .bchip{flex:1}
+.rfoot{display:flex;flex-direction:column;gap:6px}
+.rmini{width:56px;height:52px;background:#121826;border:1px solid #263048;border-radius:14px;cursor:pointer;display:grid;place-items:center}
+.rmini:hover{border-color:#4FB4FF}
+.rmini span{width:26px;height:26px;border-radius:8px;display:block}
+#bRight{display:flex;flex-direction:column;gap:10px;overflow:auto}
+#bProps{flex:0 1 auto;min-height:70px;overflow:auto}
+#bProps .sec:first-child{margin-top:6px}
+#bProps .field{grid-template-columns:96px 1fr}
+#bFlow{flex:0 0 auto;display:flex;flex-direction:column;gap:6px}
+.fstep{display:flex;gap:10px;align-items:flex-start}
+.fstep div{display:flex;flex-direction:column;line-height:1.3}
+.fstep b{font-weight:700}
+.fstep div span{color:#94A0B8;font-size:12px}
+.fdot{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px;color:#0B0B0B}
+.fdot.ok{background:#3DD68C}.fdot.todo{background:#FFB37A}.fdot.warn{background:#E5484D}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.frow.three{grid-template-columns:1fr 1fr 1fr}
+.fsafe{background:#0D1320;border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.fsafe label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.fsafe input{accent-color:var(--orange);width:15px;height:15px}
+.fsafe .bchip{font-size:12px;padding:4px 6px}
+.bstart{--p:0%;background:linear-gradient(90deg,#FFB347 var(--p),#FF7A2E var(--p));color:#1A0E05;border:0;border-radius:14px;font-size:15px;font-weight:800;min-height:48px;cursor:pointer;user-select:none;touch-action:none}
+.bstart:disabled{background:#2A2018;color:#7A6A5A;cursor:default}
+#bRight.tight .fsafe .frow,#bRight.tight .fnote{display:none}
+#bRight.tight #bFlow{gap:4px}
+#bRight.tight .bstart{min-height:42px}
+.fnote{color:#94A0B8;font-size:12px;text-align:center;line-height:1.35;min-height:16px}
+.bisland{display:flex;align-items:center;gap:2px;background:#121826;border:1px solid #263048;border-radius:18px;padding:6px 8px}
+.btool{width:36px;height:36px;border:0;background:none;border-radius:10px;display:grid;place-items:center;cursor:pointer;color:#DDE5F3;padding:0}
+.btool:hover{background:#1E2638}
+.btool.on{background:var(--orange);color:#1A0E05}
+.btool.dis{opacity:.35;cursor:default}
+.btool.dis:hover{background:none}
+.btool svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.btool.sm{width:30px;height:30px}
+.btool.sm svg{width:17px;height:17px}
+.bsep{width:1px;height:26px;background:#2A3550;margin:0 5px;flex:none}
+.btlabel{color:#94A0B8;min-width:104px;text-align:center;font-size:12px}
+#bHint{color:#5d6a82;font-size:11px;pointer-events:none;white-space:nowrap}
+#bCtx{background:#121826;border:1px solid #263048;border-radius:14px;padding:6px 8px 8px;box-shadow:0 10px 28px rgba(0,0,0,.35)}
+#bCtx .numbar{background:none;border:0;padding:0 2px 4px;gap:4px;flex-wrap:nowrap;white-space:nowrap}
+#bCtx .numbar label{margin-left:4px}
+#bCtx .numbar input{width:76px}
+#bCtx .numbar select{min-width:120px}
+#bCtx .numbar .info{margin-left:8px;color:#C9D3E6}
+#bCtxRow{display:flex;align-items:center;gap:3px}
+#bCtxRow .bchip{padding:4px 9px}
+#bOffi{background:#121826;border:1px solid #263048;border-radius:14px;display:flex;flex-direction:column;padding:8px 10px 10px;box-shadow:0 14px 34px rgba(0,0,0,.35)}
+#bOffi header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.otabs{display:flex;gap:2px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.otabs button{background:none;border:0;padding:6px 10px;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;font-weight:600}
+.otabs button.on{color:var(--tx);border-bottom-color:#4FB4FF}
+.otabs button.dis{color:#4a556c;cursor:default}
+#offBody{flex:1;min-height:0}
+#bCock{display:flex;align-items:center;gap:14px;background:#3A1D08;border:1px solid var(--orange);border-radius:16px;padding:10px 14px;box-shadow:0 14px 34px rgba(0,0,0,.4)}
+#bCock.paused{background:#3A2A0A;border-color:#F5A524}
+.ckinfo{display:flex;flex-direction:column;min-width:200px}
+.ckinfo b{letter-spacing:.06em}
+.ckinfo span{color:#FFD3B3;font-size:12px}
+.ckt{display:flex;flex-direction:column;align-items:center;min-width:110px}
+.ckt b{font-size:24px;font-variant-numeric:tabular-nums}
+.ckpause,.ckstop{border:0;border-radius:16px;font-size:16px;font-weight:800;min-height:52px;min-width:150px;cursor:pointer}
+.ckpause{background:#FFB347;color:#1A0E05}.ckstop{background:#E5484D;color:#fff}
+.menu.pop{position:fixed;z-index:65}
+#bPal{position:fixed;left:50%;top:64px;transform:translateX(-50%);width:600px;max-width:92vw;background:#121826;border:1px solid #2E3B57;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.55);z-index:66;padding:10px}
+#bPal input{width:100%;background:#0B111D;border:1px solid #4FB4FF;border-radius:10px;padding:9px 12px;color:var(--tx);outline:none}
+#palList{max-height:360px;overflow:auto;margin-top:8px}
+.pit{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;cursor:pointer}
+.pit.on{background:#1E2A44}
+.pit.dis{color:#6b7690}
+.pit small{display:block;color:#7f8aa3;font-size:11px}
+.pit kbd{flex:none}
+.palhint{color:#7f8aa3;font-size:11px;margin-top:6px;text-align:right}
+#bRadial{position:fixed;width:0;height:0;z-index:66}
+#bRadial .rcen{position:absolute;transform:translate(-50%,-50%);background:#0A0E17;border:1px solid #2E3B57;border-radius:50%;width:74px;height:74px;display:grid;place-items:center;font-weight:700;font-size:12px;text-align:center;color:#C9D3E6}
+#bRadial .rit{position:absolute;transform:translate(-50%,-50%);background:#121826;border:1px solid #2E3B57;border-radius:16px;padding:6px 10px;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+#bRadial .rit:hover{border-color:var(--orange)}
+#bRadial .rit.dis{color:#55627E}
+body.ui-banco #mcard{z-index:7;width:312px}
+.mvtop{display:flex;gap:12px;align-items:flex-start;justify-content:center}
+.mvtop .jog{margin:4px 0}
+.mvside{display:flex;flex-direction:column;gap:5px;flex:1;max-width:190px}
+
+/* partenza del lavoro e 9 pallini */
+.startrow{display:flex;align-items:center;gap:8px;margin-top:10px}
+.startrow select{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line2);border-radius:6px;padding:4px 6px}
+.anc{display:grid;grid-template-columns:repeat(3,13px);gap:3px;flex:none}
+.anc button{width:13px;height:13px;border-radius:50%;border:1px solid #7f8aa3;background:none;padding:0;cursor:pointer}
+.anc button:hover{border-color:#FF3DB4}
+.anc button.on{background:#FF3DB4;border-color:#FF3DB4}
+#bGotoAnc{margin-top:6px}
+
 </style>
 </head>
 <body>
@@ -185,6 +361,14 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
     <h1>Impara FreeLaserCut <span>facendo</span>,<br>non guardando.</h1>
     <p class="lead">Un FreeLaserCut simulato, qui nel browser, con missioni da completare. Niente da installare, niente laser acceso, niente materiale sprecato: ogni missione si controlla da sola mentre lavori.</p>
     <div id="narrow">Il Costrutto si usa con mouse e tastiera: aprilo da un computer.</div>
+    <section class="uichoice" aria-labelledby="uiq">
+      <div class="uiq"><b id="uiq">Quale interfaccia usi in FreeLaserCut?</b><span>Le due interfacce hanno gli stessi comandi: cambia solo dove stanno. Il simulatore e le missioni si adattano a quella che scegli.</span></div>
+      <div class="uopts" role="radiogroup" aria-labelledby="uiq">
+        <button class="uopt" data-ui="banco" role="radio"><span class="mock mb"><i class="t"></i><i class="l"></i><i class="r"></i><i class="r2"></i><i class="b"></i></span><span class="ut">Banco <em>consigliata</em></span><span class="ud">Il piano a tutto schermo. Strati a sinistra, percorso «dal disegno al pezzo» a destra, strumenti in un'isola in basso, Ctrl+F per cercare qualsiasi comando.</span></button>
+        <button class="uopt" data-ui="classica" role="radio"><span class="mock mc"><i class="m"></i><i class="tb"></i><i class="l"></i><i class="r"></i><i class="r2"></i><i class="p"></i></span><span class="ut">Classica <em>menu e pannelli</em></span><span class="ud">Barra dei menù, barre degli strumenti e pannelli laterali come nei programmi di incisione tradizionali.</span></button>
+      </div>
+      <div class="uinote">Non sai quale hai? In FreeLaserCut la scegli al primo avvio e la cambi da <b>Impostazioni → Interfaccia</b>. Qui puoi cambiarla quando vuoi, anche a metà missione (rotellina in alto a destra nel Banco, menù Impostazioni nella Classica).</div>
+    </section>
     <div class="rules">
       <div class="rule"><b>Prima prova, poi guarda</b><span>Ogni missione si apre con una domanda. Prova a rispondere prima di cercare il comando.</span></div>
       <div class="rule"><b>Indizi a gradini</b><span>Se ti blocchi, chiedi un indizio: prima una domanda, poi dove si trova il comando, solo alla fine i passaggi.</span></div>
@@ -192,24 +376,26 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
     </div>
     <h2>Missioni</h2>
     <div id="missions"></div>
-    <div class="foot">Il simulatore riproduce l'interfaccia Classica di FreeLaserCut 0.17 con i comandi che servono alle missioni; gli altri sono visibili ma spenti. Velocità e potenze vengono dalla libreria materiali del Longer B1 40W. I tuoi progressi restano solo in questo browser.</div>
+    <div class="foot">Il simulatore riproduce le interfacce Banco e Classica di FreeLaserCut 0.17 con i comandi che servono alle missioni; gli altri sono visibili ma spenti. Velocità e potenze vengono dalla libreria materiali del Longer B1 40W. I tuoi progressi restano solo in questo browser.</div>
   </div>
 </div>
 
 <div id="app" class="hidden">
-  <div class="menubar" id="menubar">
+  <div class="btop b-only" id="btop"></div>
+  <div class="menubar c-only" id="menubar">
     <div class="m" data-menu="file"><button>File</button></div>
     <div class="m" data-menu="modifica"><button>Modifica</button></div>
     <div class="m" data-menu="disponi"><button>Disponi</button></div>
     <div class="m" data-menu="strumenti"><button>Strumenti</button></div>
     <div class="m" data-menu="laser"><button>Laser</button></div>
     <div class="m" data-menu="visualizza"><button>Visualizza</button></div>
+    <div class="m" data-menu="impostazioni"><button>Impostazioni</button></div>
     <div class="m" data-menu="aiuto"><button>Aiuto</button></div>
     <div class="spacer"></div>
     <button class="home-btn" id="btnHome">← Missioni</button>
   </div>
 
-  <div class="toolbar" id="toolbar">
+  <div class="toolbar c-only" id="toolbar">
     <button class="tb dis" title="Nuovo (Ctrl+N)"><svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg></button>
     <button class="tb dis" title="Apri (Ctrl+O)"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg></button>
     <button class="tb dis" title="Salva (Ctrl+S)"><svg viewBox="0 0 24 24"><path d="M5 3h12l2 2v16H5z"/><path d="M8 3v6h8V3"/></svg></button>
@@ -229,7 +415,7 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
     <button class="tb" data-cmd="preview" title="Anteprima (Alt+P)"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
   </div>
 
-  <div class="numbar">
+  <div class="numbar" id="numbar">
     <label>X</label><input id="nX" disabled>
     <label>Y</label><input id="nY" disabled>
     <label>L</label><input id="nL" disabled>
@@ -240,9 +426,10 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
   </div>
 
   <div class="main">
-    <div class="tools" id="tools">
+    <div class="tools c-only" id="tools">
       <button class="tb on" data-tool="select" title="Selezione (V)"><svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-2 6z"/></svg></button>
       <button class="tb dis" title="Modifica nodi (N)"><svg viewBox="0 0 24 24"><path d="M4 20c4-10 12-6 16-16"/><rect x="2.5" y="18.5" width="3" height="3"/><rect x="18.5" y="2.5" width="3" height="3"/></svg></button>
+      <button class="tb dis" title="Forbici: togli il tratto fra due incroci (X)"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.5 20 18M8.6 16.5 20 6"/></svg></button>
       <button class="tb dis" title="Linee e curve (L)"><svg viewBox="0 0 24 24"><path d="M4 20 20 4M14 4h6v6"/></svg></button>
       <button class="tb" data-tool="rect" title="Rettangolo (R)"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
       <button class="tb" data-tool="ellipse" title="Ellisse e cerchio (E)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></button>
@@ -256,10 +443,18 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
 
     <div class="stage" id="stage">
       <canvas id="cv"></canvas>
+      <div id="bRail" class="b-only"></div>
+      <div id="bRight" class="b-only"><div id="bProps" class="bcard"><div class="bsec">PROPRIETÀ</div><div id="bPropsIn"></div></div><div id="bFlow" class="bcard"></div></div>
+      <div id="bHint" class="b-only">Tasto destro sul piano: menu radiale · Ctrl+F: tutti i comandi</div>
+      <div id="bIsland" class="b-only bisland"></div>
+      <div id="bView" class="b-only bisland"></div>
+      <div id="bCtx" class="b-only hidden"><div id="ctxNum"></div><div id="bCtxRow"></div></div>
+      <div id="bOffi" class="b-only hidden"></div>
+      <div id="bCock" class="b-only hidden"></div>
       <div id="mcard"></div>
     </div>
 
-    <div class="side">
+    <div class="side c-only">
       <div class="tabs"><button class="on" data-ptab="livelli">Livelli</button><button data-ptab="proprieta">Proprietà</button></div>
       <div class="pane" id="pTop"></div>
       <div class="tabs"><button class="on" data-btab="laser">Laser</button><button data-btab="movimento">Movimento</button><button class="dis muted" disabled>Camera</button><button class="dis muted" disabled>Console</button></div>
@@ -267,10 +462,12 @@ kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:11px;background:#0
     </div>
   </div>
 
-  <div class="palette" id="palette"><span class="lab">Livello</span></div>
+  <div class="palette c-only" id="palette"><span class="lab">Livello</span></div>
   <div class="status"><span id="msg">Pronto.</span><span id="spos">X — Y —</span><span id="szoom">100%</span></div>
 </div>
 
+<div id="bPal" class="hidden"></div>
+<div id="bRadial" class="hidden"></div>
 <div id="dlg" class="dlg-back hidden"></div>
 <div id="spot" class="hidden"></div>
 <div id="spotArrow" class="hidden"><svg viewBox="0 0 24 24"><path d="M3 12h13M11 6l6 6-6 6" fill="none" stroke="#F07A2E" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
@@ -491,7 +688,8 @@ function applyNum(field, raw) {
 
 /* ---------------------------------------------------------------- macchina simulata */
 const HEAD_SPEED = 160; // mm/s nella simulazione (più veloce del vero, per non far aspettare)
-function needConn() { if (!S.m.connected) { msg("Laser non connesso: scegli la porta nel pannello Laser e premi Connetti (Ctrl+K)", "warn"); return false; } return true; }
+const UIX = (classica, banco) => S.ui === "banco" ? banco : classica; // stesso comando, posto diverso nelle due interfacce
+function needConn() { if (!S.m.connected) { msg(UIX("Laser non connesso: scegli la porta nel pannello Laser e premi Connetti (Ctrl+K)", "Laser non connesso: premi «Collega il laser» nel percorso a destra, oppure la pillola in alto (Ctrl+K)"), "warn"); return false; } return true; }
 function connectToggle() {
   if (S.m.connected) { S.m.connected = false; S.m.homed = false; S.m.anim = null; refreshUI(); return msg("Disconnesso"); }
   if (S.m.port !== "sim") return msg("Nessun laser su quella porta: scegli «Simulatore (senza macchina)»", "warn");
@@ -532,10 +730,10 @@ function contour() {
   if (!needConn() || S.m.busy) return;
   const sel = selShapes(), list = sel.length ? sel : S.doc.shapes.filter(s => L(s.layer).output);
   if (!list.length) return msg("Niente da contornare: disegna o seleziona qualcosa", "warn");
-  const b = bbox(list), start = [S.m.x, S.m.y];
+  const [dx, dy] = jobOffset(), b0 = bbox(list), b = {...b0, x0: b0.x0 + dx, x1: b0.x1 + dx, y0: b0.y0 + dy, y1: b0.y1 + dy, cx: b0.cx + dx, cy: b0.cy + dy}, start = [S.m.x, S.m.y];
   msg("Contorno in corso, laser spento…");
   animate([[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1], [b.x0, b.y0], start], () => {
-    S.ev.contour = {ids: list.map(s => s.id), homed: S.m.homed, box: b}; S.m.trail = null;
+    S.ev.contour = {ids: list.map(s => s.id), homed: S.m.homed, box: b, start: S.start.mode, sig: docSig(), off: [dx, dy]}; S.m.trail = null;
     msg("Contorno completato: il lavoro starà dentro quel rettangolo");
   });
 }
@@ -546,10 +744,13 @@ const W2S = (x, y) => [x * S.view.s + S.view.ox, S.view.oy - y * S.view.s];
 const S2W = (px, py) => [(px - S.view.ox) / S.view.s, (S.view.oy - py) / S.view.s];
 function fit() {
   const c = cv(), W = c.clientWidth, H = c.clientHeight;
-  const cardW = $("mcard").classList.contains("hidden") ? 0 : 360;
-  const left = W > 700 ? cardW : 0, availW = W - left - 50, availH = H - 60;
+  let l, r, t, b;
+  if (S.ui === "banco") ({l, r, t, b} = bancoInsets(W, H));
+  else { const cardW = $("mcard").classList.contains("hidden") ? 0 : 360; l = (W > 700 ? cardW : 0) + 30; r = 20; t = 34; b = 26; }
+  const availW = Math.max(60, W - l - r), availH = Math.max(60, H - t - b);
   const s = Math.min(availW / BED.w, availH / BED.h);
-  S.view.s = s; S.view.ox = left + 30 + (availW - BED.w * s) / 2; S.view.oy = H - 26 - (availH - BED.h * s) / 2;
+  S.view.s = s; S.view.ox = l + (availW - BED.w * s) / 2; S.view.oy = H - b - (availH - BED.h * s) / 2; S.view.user = false;
+  $("szoom").textContent = Math.round(s / 2 * 100) + "%";
   draw();
 }
 function shapePath(s) {
@@ -576,9 +777,11 @@ function draw() {
   g.restore();
   g.strokeStyle = "#7C8A99"; g.lineWidth = 1; g.strokeRect(bx0 + .5, by1 + .5, bw, bh);
   const [ox, oy] = W2S(0, 0); g.fillStyle = "#2FB171"; g.beginPath(); g.arc(ox, oy, 4, 0, 7); g.fill();
+  for (const p of S.pieces || []) drawPiece(g, p);
 
   for (const s of S.doc.shapes) drawShape(g, s);
   if (S.job) drawBurn(g);
+  drawStartMark(g);
   // selezione
   const sel = selShapes();
   if (sel.length) {
@@ -615,6 +818,30 @@ function draw() {
     if (!S.m.homed) { g.font = "700 12px Inter, sans-serif"; g.textAlign = "left"; g.fillText("?", hx + 11, hy - 9); }
   }
   rulers(g, W, H);
+  if (S.ui === "banco") { plateTab(g, bx0, by1); placeCtx(); }
+}
+// pezzo di legno già appoggiato sul piano (non fa parte del disegno: è il materiale)
+function drawPiece(g, p) {
+  const sc = S.view.s, [cx, cy] = W2S(p.x, p.y);
+  g.save(); g.beginPath();
+  if (p.kind === "disk") g.arc(cx, cy, p.r * sc, 0, 7); else g.roundRect(cx - p.w / 2 * sc, cy - p.h / 2 * sc, p.w * sc, p.h * sc, (p.r || 0) * sc);
+  g.fillStyle = "#E3C796"; g.fill(); g.clip();
+  g.strokeStyle = "rgba(150,105,55,.22)"; g.lineWidth = 1;
+  for (let k = -12; k <= 12; k++) { const yy = cy + k * 4.2 * sc / 1.4; g.beginPath(); g.moveTo(cx - 400, yy); g.bezierCurveTo(cx - 60, yy + 3, cx + 60, yy - 3, cx + 400, yy + 1); g.stroke(); }
+  g.restore(); g.beginPath();
+  if (p.kind === "disk") g.arc(cx, cy, p.r * sc, 0, 7); else g.roundRect(cx - p.w / 2 * sc, cy - p.h / 2 * sc, p.w * sc, p.h * sc, (p.r || 0) * sc);
+  g.strokeStyle = "#A9824F"; g.lineWidth = 1.5; g.stroke();
+}
+// punto di partenza del lavoro: rombo viola come in FreeLaserCut (la testa è il cerchio col mirino)
+function drawStartMark(g) {
+  const b = designBox(); if (!b || (S.job && S.job.running)) return;
+  const [dx, dy] = jobOffset(), [ax, ay] = anchorOf(b, S.start.anchor), [px, py] = W2S(ax + dx, ay + dy);
+  if (S.start.mode === "current" && (Math.abs(dx) > .01 || Math.abs(dy) > .01)) { // dove finirà davvero il lavoro
+    const [x0, y0] = W2S(b.x0 + dx, b.y1 + dy), [x1, y1] = W2S(b.x1 + dx, b.y0 + dy);
+    g.setLineDash([6, 4]); g.strokeStyle = "rgba(255,61,180,.75)"; g.lineWidth = 1.3; g.strokeRect(x0, y0, x1 - x0, y1 - y0); g.setLineDash([]);
+  }
+  g.strokeStyle = "#FF3DB4"; g.lineWidth = 2; g.beginPath(); g.moveTo(px, py - 9); g.lineTo(px + 9, py); g.lineTo(px, py + 9); g.lineTo(px - 9, py); g.closePath(); g.stroke();
+  g.beginPath(); g.moveTo(px - 4, py); g.lineTo(px + 4, py); g.moveTo(px, py - 4); g.lineTo(px, py + 4); g.stroke();
 }
 function tag(g, text, x, y) {
   g.font = "600 11px Inter, sans-serif"; const w = g.measureText(text).width + 10;
@@ -658,6 +885,8 @@ function snapPoint(wx, wy, px, py) {
 }
 function evPos(e) { const r = cv().getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 function onDown(e) {
+  if (S.ui === "banco" && bancoLocked()) return msg("Durante il lavoro il piano non si tocca: Pausa e Stop sono in basso");
+  if (e.button === 2 && S.ui === "banco") return openRadial(e);
   if (e.button === 1 || (e.button === 0 && S.space)) { S.drag = {kind: "pan", sx: e.clientX, sy: e.clientY, ox: S.view.ox, oy: S.view.oy}; return; }
   if (e.button !== 0) return;
   closeMenus();
@@ -699,7 +928,7 @@ function onUp() {
     const x = (d.p0[0] + d.cur[0]) / 2, y = (d.p0[1] + d.cur[1]) / 2;
     const s = d.kind === "rect" ? mkRect(x, y, w, h, S.curLayer) : mkEllipse(x, y, w, h, S.curLayer);
     S.doc.shapes.push(s); S.sel = [s.id]; setTool("select");
-    changed(`${shapeName(s)} ${fmt(w, 1)} × ${fmt(h, 1)} mm: per le misure esatte scrivi L e A nella barra in alto`);
+    changed(`${shapeName(s)} ${fmt(w, 1)} × ${fmt(h, 1)} mm: per le misure esatte scrivi L e A nella barra ${UIX("in alto", "sotto la forma")}`);
     return;
   }
   if (d.kind === "band" && d.cur) {
@@ -714,7 +943,7 @@ function onUp() {
 function onWheel(e) {
   e.preventDefault();
   const [px, py] = evPos(e), [wx, wy] = S2W(px, py), k = Math.exp(-e.deltaY * 0.0015);
-  S.view.s = clamp(S.view.s * k, 0.6, 60); S.view.ox = px - wx * S.view.s; S.view.oy = py + wy * S.view.s;
+  S.view.s = clamp(S.view.s * k, 0.6, 60); S.view.ox = px - wx * S.view.s; S.view.oy = py + wy * S.view.s; S.view.user = true;
   $("szoom").textContent = Math.round(S.view.s / 2 * 100) + "%"; draw();
 }
 
@@ -725,7 +954,8 @@ function setTool(t) {
   S.tool = t;
   document.querySelectorAll("#tools [data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === t));
   cv().style.cursor = t === "select" ? "default" : t === "text" ? "text" : "crosshair";
-  if (t === "position" && !S.m.connected) msg("Posiziona laser: prima collega il laser nel pannello Laser", "warn");
+  if (t === "position" && !S.m.connected) msg(UIX("Posiziona laser: prima collega il laser nel pannello Laser", "Posiziona laser: prima collega il laser («Collega il laser», a destra)"), "warn");
+  if (S.ui === "banco") bancoTool();
 }
 function refreshUI() { refreshNum(); refreshTop(); refreshBottom(); draw(); }
 function refreshNum() {
@@ -740,9 +970,13 @@ function refreshNum() {
   $("nLock").textContent = S.lock ? "🔒" : "🔓"; $("nLock").classList.toggle("on", S.lock);
 }
 function refreshTop() {
+  if (S.ui === "banco") return bancoTop();
   document.querySelectorAll("[data-ptab]").forEach(b => b.classList.toggle("on", b.dataset.ptab === S.ptab));
   const el = $("pTop");
-  if (S.ptab === "livelli") {
+  if (S.ptab === "livelli") renderLayerTable(el); else renderProps(el);
+}
+function renderLayerTable(el) {
+  {
     const used = usedLayers();
     if (S.curRow === null || !used.includes(S.curRow)) S.curRow = used[0] ?? null;
     const opt = (i) => Object.entries(MODE_LABEL).map(([k, v]) => `<option value="${k}" ${L(i).mode === k ? "selected" : ""}>${v}</option>`).join("");
@@ -759,12 +993,15 @@ function refreshTop() {
     el.querySelectorAll("input[data-show]").forEach(c => c.onchange = () => { commit(); L(+c.dataset.show).show = c.checked; changed(); });
     el.querySelectorAll("input[data-air]").forEach(c => c.onchange = () => { commit(); L(+c.dataset.air).air = c.checked; changed(); });
     $("bMat").onclick = () => openMaterials(); $("bCuts").onclick = cutsLast;
-  } else {
+  }
+}
+function renderProps(el) {
+  {
     const sel = selShapes();
-    if (!sel.length) { el.innerHTML = `<div class="muted" style="padding:8px 2px">Nessuna selezione. Seleziona una forma per vederne le proprietà.</div>`; return; }
-    if (sel.length > 1) { el.innerHTML = `<div class="sec">${sel.length} oggetti selezionati</div><div class="muted">Le misure del gruppo sono nella barra in alto.</div>`; return; }
+    if (!sel.length) { el.innerHTML = `<div class="muted" style="padding:8px 2px">${S.ui === "banco" ? toolHint() : "Nessuna selezione. Seleziona una forma per vederne le proprietà."}</div>`; return; }
+    if (sel.length > 1) { el.innerHTML = `<div class="sec">${sel.length} oggetti selezionati</div><div class="muted">Le misure del gruppo sono nella barra ${S.ui === "banco" ? "sotto la selezione" : "in alto"}.</div>`; return; }
     const s = sel[0];
-    let h = `<div class="sec">${shapeName(s)}</div><div class="field"><span>Livello</span><span>${esc(layerLabel(s.layer))}</span></div>`;
+    let h = S.ui === "banco" ? "" : `<div class="sec">${shapeName(s)}</div><div class="field"><span>Livello</span><span>${esc(layerLabel(s.layer))}</span></div>`; // nel Banco il livello è nella barra sotto la selezione
     if (s.type === "rect") h += `<div class="sec">Rettangolo</div><div class="field"><label for="pRad">Raggio angoli</label><input id="pRad" value="${fmt(s.r)} mm"></div><div class="lhint">Massimo ${fmt(Math.min(s.w, s.h) / 2)} mm (metà del lato più corto).</div>`;
     if (s.type === "compound") h += `<div class="muted">Contorno esterno e ${s.holes.length} ${s.holes.length === 1 ? "foro" : "fori"}: è un unico pezzo.</div>`;
     if (s.type === "text") h += `<div class="sec">Testo</div><div class="field"><label for="pText">Testo</label><input id="pText" value="${esc(s.text)}"></div>
@@ -776,6 +1013,7 @@ function refreshTop() {
     if (s.type === "code") h += `<div class="sec">Codice</div><div class="field"><span>Contenuto</span><span style="word-break:break-all">${esc(s.data)}</span></div><div class="field"><span>Larghezza</span><span>${fmt(s.w, 1)} mm</span></div>`;
     if (s.type === "group") h += `<div class="muted" style="margin-bottom:8px">Le forme del gruppo si spostano e si scalano insieme.</div><button class="btn" id="pUngroup">Separa (Ctrl+U)</button>`;
     if (s.type === "image") h += `<div class="muted" style="margin-bottom:8px">Un'immagine è fatta di puntini. Per tagliarla o inciderla come linee va vettorizzata.</div><button class="btn" id="pTrace">Vettorizza immagine… (Alt+T)</button>`;
+    if (!h) h = `<div class="muted" style="padding:4px 0">${shapeName(s)}: posizione, misure e livello sono nella barra sotto la selezione.</div>`;
     el.innerHTML = h;
     const r = $("pRad"); if (r) { r.onkeydown = (e) => { if (e.key === "Enter") r.blur(); }; r.onchange = () => { const v = parseNum(r.value); if (v !== null) setRadius(v); else refreshUI(); }; }
     const pt = $("pText"); if (pt) { pt.onkeydown = (e) => { if (e.key === "Enter") pt.blur(); }; pt.onchange = () => setTextProp("text", pt.value); }
@@ -794,28 +1032,71 @@ function cutsLast() {
   S.ev.cutsLast = true; changed("Tagli per ultimi: prima incisioni e riempimenti, poi le linee di taglio");
 }
 function refreshBottom() {
+  if (S.ui === "banco") return bancoBottom();
   document.querySelectorAll("[data-btab]").forEach(b => b.classList.toggle("on", b.dataset.btab === S.btab));
-  const el = $("pBottom"), m = S.m;
-  const state = !m.connected ? "Disconnesso" : m.busy ? "In movimento" : "Inattivo";
-  if (S.btab === "laser") {
+  const el = $("pBottom");
+  if (S.btab === "laser") renderLaser(el); else renderMove(el);
+}
+const machineState = () => !S.m.connected ? "Disconnesso" : S.m.busy ? (S.job && S.job.running ? (S.m.paused ? "In pausa" : "Al lavoro") : "In movimento") : "Inattivo";
+function renderLaser(el) {
+  const m = S.m, state = machineState();
+  {
     el.innerHTML = `<div class="portrow"><select id="port"><option value="sim" ${m.port === "sim" ? "selected" : ""}>Simulatore (senza macchina)</option><option value="com3" ${m.port === "com3" ? "selected" : ""}>COM3 — CH340</option></select>
       <button class="btn ${m.connected ? "" : "pri"}" id="bConn">${m.connected ? "Disconnetti" : "Connetti"}</button><span class="pill ${m.connected ? "ok" : ""}">${state}</span></div>
       <div class="lhint">${m.connected ? (m.homed ? "Macchina pronta. Posizione nota dall'Homing." : "Collegato. La macchina non sa ancora dove si trova: fai l'Homing (Ctrl+H).") : "Laser non connesso: scegli la porta qui sopra e premi Connetti (Ctrl+K)."}</div>
       <div class="grid3" style="margin-top:8px"><button class="btn" id="bStart" ${m.connected && !m.busy ? "" : "disabled"} title="Prepara, verifica e avvia il lavoro (Ctrl+Invio)">▶ Avvia</button><button class="btn" id="bPause" ${S.job && S.job.running ? "" : "disabled"}>${m.paused ? "Riprendi" : "Pausa"}</button><button class="btn" id="bStop" ${S.job && S.job.running ? "" : "disabled"}>Stop</button>
       <button class="btn" id="bFrame">Contorno</button><button class="btn" id="bPrev">Anteprima</button><button class="btn" disabled>Verifica</button></div>
+      <div class="startrow"><span class="muted">Partenza</span><select id="startFrom" title="Da dove parte il lavoro">${START_MODES.map(([k, v, dis]) => `<option value="${k}" ${S.start.mode === k ? "selected" : ""} ${dis ? "disabled" : ""}>${v}</option>`).join("")}</select>${anchorPicker()}</div>
+      <div class="lhint" style="margin-top:2px">${startHint()}</div>
+      <button class="btn" id="bGotoAnc" title="La testa va (a laser spento) sul punto del disegno indicato dai 9 pallini: un angolo, il centro di un lato o il centro">⌖ Porta la testa qui</button>
       <div class="sec">Stima del lavoro</div><div class="${S.doc.shapes.length ? "" : "muted"}">Tempo stimato ${S.doc.shapes.length ? mmss(estimate()) : "—"}</div>`;
     $("port").onchange = (e) => { m.port = e.target.value; refreshBottom(); };
     $("bConn").onclick = connectToggle; $("bFrame").onclick = contour;
     $("bStart").onclick = startJob; $("bPause").onclick = pauseJob; $("bStop").onclick = stopJob; $("bPrev").onclick = openPreview;
-  } else {
+    $("startFrom").onchange = (e) => { S.start.mode = e.target.value; msg(`Partenza: ${START_MODES.find(m => m[0] === S.start.mode)[1]}`); refreshBottom(); draw(); missionCheck(); };
+    el.querySelectorAll("[data-anc]").forEach(b => b.onclick = () => { S.start.anchor = +b.dataset.anc; msg(`Punto di riferimento: ${ANCHOR_NAMES[S.start.anchor]}`); refreshBottom(); draw(); missionCheck(); });
+    $("bGotoAnc").onclick = gotoAnchor;
+  }
+}
+/* ---------------------------------------------------------------- partenza del lavoro (come nel pannello Laser vero) */
+const START_MODES = [["absolute", "Coordinate assolute"], ["current", "Posizione attuale della testa"], ["origin", "Origine utente", 1]];
+const ANCHOR_NAMES = ["in basso a sinistra", "in basso al centro", "in basso a destra", "al centro a sinistra", "al centro", "al centro a destra", "in alto a sinistra", "in alto al centro", "in alto a destra"];
+function anchorPicker() { // 0 = basso-sinistra … 8 = alto-destra, disegnati con la riga alta in alto
+  return `<span class="anc" id="anchorPick" title="Punto di riferimento: il punto del lavoro che va sulla testa">${[6, 7, 8, 3, 4, 5, 0, 1, 2].map(i => `<button data-anc="${i}" class="${S.start.anchor === i ? "on" : ""}" title="${ANCHOR_NAMES[i]}"></button>`).join("")}</span>`;
+}
+const startHint = () => S.start.mode === "current" ? "Il punto scelto con i 9 pallini va dove si trova la testa: il lavoro si sposta lì. Sul piano lo segna il rombo viola."
+  : "Il lavoro va dove lo vedi sul piano. I 9 pallini servono a «Porta la testa qui».";
+function designBox() { const list = S.doc.shapes.filter(s => leaves(s).some(f => L(f.layer).output && L(f.layer).show)); return list.length ? bbox(list) : null; }
+function anchorOf(b, a) { return [[b.x0, b.cx, b.x1][a % 3], [b.y0, b.cy, b.y1][Math.floor(a / 3)]]; }
+// spostamento che il lavoro avrà sul piano rispetto al disegno: zero in coordinate assolute
+function jobOffset() {
+  if (S.start.mode !== "current") return [0, 0];
+  const b = designBox(); if (!b) return [0, 0];
+  const [ax, ay] = anchorOf(b, S.start.anchor); return [S.m.x - ax, S.m.y - ay];
+}
+function gotoAnchor() {
+  if (!needConn()) return;
+  const b = designBox(); if (!b) return msg("Non c'è niente da incidere: disegna o importa qualcosa", "warn");
+  const [x, y] = anchorOf(b, S.start.anchor);
+  msg(`La testa va sul punto del disegno ${ANCHOR_NAMES[S.start.anchor]}`); headTo(clamp(x, 0, BED.w), clamp(y, 0, BED.h), "goto");
+}
+function headToSel(a) {
+  if (!needConn()) return; const sel = selShapes(); if (!sel.length) return msg("Seleziona prima un oggetto", "warn");
+  const [x, y] = anchorOf(bbox(sel), a); headTo(clamp(x, 0, BED.w), clamp(y, 0, BED.h), "goto");
+}
+// pannello Movimento come in FreeLaserCut: frecce in 3 × 3 con le diagonali, al centro «vai all'origine»
+function renderMove(el) {
+  const m = S.m;
+  {
     const pos = m.connected ? (m.homed ? `X ${fmt(m.x)}   Y ${fmt(m.y)}` : `X ?   Y ?   (manca l'Homing)`) : "—";
-    el.innerHTML = `<div class="row"><button class="btn" id="bHome">Homing</button><button class="btn" id="bUnl">Sblocca</button></div>
+    const J = [["-1,1", "↖", "X− Y+"], ["0,1", "↑", "Y+ (indietro)"], ["1,1", "↗", "X+ Y+"], ["-1,0", "←", "X−"], null, ["1,0", "→", "X+"], ["-1,-1", "↙", "X− Y−"], ["0,-1", "↓", "Y− (avanti)"], ["1,-1", "↘", "X+ Y−"]];
+    el.innerHTML = `<div class="mvtop"><div class="jog">${J.map(j => j ? `<button data-jog="${j[0]}" title="${j[2]}">${j[1]}</button>` : `<button id="bJogOrg" title="Vai all'origine di lavoro (X0 Y0)">⌖</button>`).join("")}</div>
+      <div class="mvside"><button class="btn" id="bHome">⌂ Homing</button><button class="btn" id="bUnl">Sblocca</button><button class="btn" disabled>Origine qui</button><button class="btn" disabled>Togli origine</button></div></div>
       <div class="pos">${pos}</div>
-      <div class="sec">Passo (mm)</div><div class="steps">${[0.1, 1, 10, 50, 100].map(v => `<button data-step="${v}" class="${m.step === v ? "on" : ""}">${v}</button>`).join("")}</div>
-      <div class="jog"><span></span><button data-jog="0,1" title="Y+ (indietro)">↑</button><span></span><button data-jog="-1,0" title="X−">←</button><button id="bJogHome" title="Homing">⌂</button><button data-jog="1,0" title="X+">→</button><span></span><button data-jog="0,-1" title="Y− (avanti)">↓</button><span></span></div>
-      <div class="lhint">Con lo strumento «Posiziona laser» (Q) un clic sul piano porta la testa in quel punto.</div>`;
-    $("bHome").onclick = homing; $("bJogHome").onclick = homing; $("bUnl").onclick = unlock;
-    el.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { m.step = +b.dataset.step; refreshBottom(); });
+      <div class="sec">Passo (mm)</div><div class="steps">${[0.1, 1, 10, 50, 100].map(v => `<button data-step="${v}" class="${m.step === v ? "on" : ""}">${v}</button>`).join("")}<label class="muted" style="margin-left:6px"><input type="checkbox" disabled> Continuo</label></div>
+      <div class="lhint">Con lo strumento «Posiziona laser» (Q) un clic sul piano porta la testa in quel punto. Sulla tela, senza niente selezionato, le frecce della tastiera muovono la testa del passo scelto.</div>`;
+    $("bHome").onclick = homing; $("bUnl").onclick = unlock; $("bJogOrg").onclick = () => headTo(0, 0, "jog");
+    el.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { m.step = +b.dataset.step; renderMove(el); });
     el.querySelectorAll("[data-jog]").forEach(b => b.onclick = () => { const [dx, dy] = b.dataset.jog.split(",").map(Number); jog(dx, dy); });
   }
 }
@@ -869,16 +1150,19 @@ const SUB_BOOL = [["Unione", "", () => otherBoolean("Unione")], ["Differenza (la
 const MENUS = {
   file: [["Nuovo", "Ctrl+N", null], ["Apri…", "Ctrl+O", null], ["Importa…", "Ctrl+I", () => openImport()], "-", ["Ricomincia la missione", "", () => restartMission()], ["Torna alle missioni", "", () => goHome()]],
   modifica: [["Annulla", "Ctrl+Z", undo], ["Ripeti", "Ctrl+Y", redo], "-", ["Elimina", "Canc", deleteSel], ["Seleziona tutto", "Ctrl+A", selectAll], "-", ["Offset forme…", "Alt+O", null], ["Vettorizza immagine…", "Alt+T", () => openTrace()]],
-  disponi: [["Raggruppa", "Ctrl+G", () => groupSel()], ["Separa", "Ctrl+U", () => ungroupSel()], "-", ["Allinea", "▸", SUB_ALIGN], ["Operazioni booleane", "▸", SUB_BOOL], "-", ["Serie a griglia…", "Alt+A", () => openGrid()], ["Ottimizza lo spazio…", "Alt+N", null]],
-  strumenti: [["Selezione", "V", () => setTool("select")], ["Rettangolo", "R", () => setTool("rect")], ["Ellisse e cerchio", "E", () => setTool("ellipse")], ["Testo", "T", () => setTool("text")], ["Posiziona laser", "Q", () => setTool("position")], "-",
+  disponi: [["Raggruppa", "Ctrl+G", () => groupSel()], ["Separa", "Ctrl+U", () => ungroupSel()], "-", ["Salda", "Ctrl+W", null], ["Operazioni booleane", "▸", SUB_BOOL], "-",
+    ["Allinea", "▸", SUB_ALIGN], ["Distribuisci", "▸", [["Distribuisci in orizzontale", "", null], ["Distribuisci in verticale", "", null]]], ["Stessa misura", "▸", [["Stessa larghezza", "", null], ["Stessa altezza", "", null]]],
+    ["Distanza esatta…", "", () => openDistance()], ["Porta la testa sulla selezione", "▸", [["Al centro", "", () => headToSel(4)]]], "-", ["Serie a griglia…", "Alt+A", () => openGrid()], ["Ottimizza lo spazio…", "Alt+N", null]],
+  strumenti: [["Selezione", "V", () => setTool("select")], ["Modifica nodi", "N", null], ["Forbici: togli il tratto fra due incroci", "X", null], ["Rettangolo", "R", () => setTool("rect")], ["Ellisse e cerchio", "E", () => setTool("ellipse")], ["Testo", "T", () => setTool("text")], ["Posiziona laser", "Q", () => setTool("position")], "-",
     ["Crea forma con misure esatte…", "Ctrl+Alt+N", null], ["Codice QR o a barre…", "Ctrl+Alt+Q", () => openCode()], ["Testo variabile…", "", null]],
   laser: [["Connetti / disconnetti la macchina", "Ctrl+K", connectToggle], ["Homing", "Ctrl+H", homing], ["Sblocca macchina ($X)", "", unlock], ["Contorno", "Ctrl+Shift+F", contour], ["Verifica il lavoro", "Ctrl+Shift+K", null],
     ["Avvia il lavoro", "Ctrl+Invio", () => startJob()], ["Pausa / riprendi", "Ctrl+Spazio", () => pauseJob()], ["Stop", "Ctrl+Pausa", () => stopJob()], "-", ["Anteprima…", "Alt+P", () => openPreview()], ["Libreria materiali…", "Ctrl+M", () => openMaterials()], ["Test materiale…", "", null], ["Riconosci la macchina…", "", null]],
+  impostazioni: [["Configurazione guidata della macchina…", "", null], ["Funzioni in prova…", "", null], "-", ["Interfaccia", "▸", [["Banco", "", () => setUI("banco", true)], ["Classica ✓", "", () => msg("Stai già usando la Classica")]]], ["Livello di aiuto", "▸", [["Completo", "", null]]], ["Aspetto", "", null], ["Unità di misura", "", null]],
   visualizza: [["Adatta al piano", "", fit], ["Zoom +", "", () => zoomBy(1.25)], ["Zoom −", "", () => zoomBy(0.8)]],
-  aiuto: [["Come funziona il Costrutto", "", () => infoDlg("Il Costrutto", "Questo è un FreeLaserCut simulato. Funzionano i comandi che servono alle missioni; gli altri sono visibili ma spenti, così impari dove si trovano nel programma vero.<br><br>La scheda in alto a sinistra mostra i passi della missione: si spuntano da soli quando li completi. Se ti blocchi, chiedi un indizio.")],
+  aiuto: [["Come funziona il Costrutto", "", () => infoDlg("Il Costrutto", "Questo è un FreeLaserCut simulato. Funzionano i comandi che servono alle missioni; gli altri sono visibili ma spenti, così impari dove si trovano nel programma vero.<br><br>La scheda della missione mostra i passi: si spuntano da soli quando li completi. Se ti blocchi, chiedi un indizio.")],
     ["Sito di FreeLaserCut", "", () => infoDlg("FreeLaserCut", `Il programma vero, gratuito, si scarica dal sito: <a href="https://fringuello79.github.io/FreeLaserCut/" target="_blank" rel="noopener" style="color:var(--ac)">fringuello79.github.io/FreeLaserCut</a>`)]],
 };
-function zoomBy(k) { const c = cv(), px = c.clientWidth / 2, py = c.clientHeight / 2, [wx, wy] = S2W(px, py); S.view.s = clamp(S.view.s * k, 0.6, 60); S.view.ox = px - wx * S.view.s; S.view.oy = py + wy * S.view.s; draw(); }
+function zoomBy(k) { const c = cv(), px = c.clientWidth / 2, py = c.clientHeight / 2, [wx, wy] = S2W(px, py); S.view.s = clamp(S.view.s * k, 0.6, 60); S.view.ox = px - wx * S.view.s; S.view.oy = py + wy * S.view.s; S.view.user = true; $("szoom").textContent = Math.round(S.view.s / 2 * 100) + "%"; draw(); }
 function menuHTML(items) {
   return items.map(it => {
     if (it === "-") return `<div class="sep"></div>`;
@@ -908,6 +1192,7 @@ function onKey(e) {
   if (e.target.closest("input,select,textarea")) { if (e.key === "Escape") e.target.blur(); return; }
   if (!$("dlg").classList.contains("hidden")) { if (e.key === "Escape") closeDlg(); return; }
   const k = e.key.toLowerCase(), c = e.ctrlKey || e.metaKey;
+  if (S.ui === "banco" && bancoKey(e, k, c)) return;
   if (e.code === "Space" && !c) { S.space = true; return; }
   const run = (f) => { e.preventDefault(); f(); };
   if (c && e.shiftKey && k === "f") return run(contour);
@@ -930,8 +1215,9 @@ function onKey(e) {
   if (e.altKey && e.key.startsWith("Arrow")) return run(() => align({ArrowLeft: "left", ArrowRight: "right", ArrowUp: "top", ArrowDown: "bottom"}[e.key]));
   if (c || e.altKey) return;
   if (k === "delete" || k === "backspace") return run(deleteSel);
-  if (k === "escape") { S.sel = []; setTool("select"); closeMenus(); refreshUI(); return; }
+  if (k === "escape") { S.sel = []; setTool("select"); closeMenus(); closePops(); refreshUI(); return; }
   if (e.key.startsWith("Arrow")) {
+    if (S.ui === "banco" && bancoLocked()) return;
     const d = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1]}[e.key];
     if (S.sel.length) { e.preventDefault(); commit(); selShapes().forEach(s => moveShape(s, d[0] * (e.shiftKey ? 10 : 1), d[1] * (e.shiftKey ? 10 : 1))); return changed(); }
     if (S.m.connected) return run(() => jog(d[0], d[1]));
@@ -967,18 +1253,22 @@ function initApp() {
   c.addEventListener("pointerleave", () => { S.snap = null; draw(); });
   c.addEventListener("wheel", onWheel, {passive: false});
   document.addEventListener("keydown", onKey); document.addEventListener("keyup", (e) => { if (e.code === "Space") S.space = false; });
-  window.addEventListener("resize", () => draw());
+  window.addEventListener("resize", () => { if (S.ui === "banco") bancoLayout(); if (!S.view.user && !$("app").classList.contains("hidden")) fit(); else draw(); });
+  c.addEventListener("contextmenu", (e) => e.preventDefault());
+  initBanco();
   let last = performance.now();
-  const loop = (t) => { const dt = Math.min(.05, (t - last) / 1000); last = t; if (stepAnim(dt)) { draw(); if (S.btab === "movimento") refreshBottomPos(); } if (SPOT || !$("spot").classList.contains("hidden")) placeSpot(); requestAnimationFrame(loop); };
+  const loop = (t) => { const dt = Math.min(.05, (t - last) / 1000); last = t; if (stepAnim(dt)) { draw(); refreshBottomPos(); } if (S.ui === "banco") bancoTick();  if (SPOT || !$("spot").classList.contains("hidden")) placeSpot(); requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
 }
-function refreshBottomPos() { const p = document.querySelector("#pBottom .pos"); if (p) p.textContent = S.m.homed ? `X ${fmt(S.m.x)}   Y ${fmt(S.m.y)}` : "X ?   Y ?   (manca l'Homing)"; }
-document.addEventListener("pointerdown", (e) => { if (SPOT && SPOT.mode === "strong" && !e.target.closest(".chip")) { const r = spotRect(TARGETS[SPOT.key]); if (r && e.clientX >= r.left - 6 && e.clientX <= r.right + 6 && e.clientY >= r.top - 6 && e.clientY <= r.bottom + 6) SPOT.until = 0; } }, true);
+function refreshBottomPos() { const p = document.querySelector("#pBottom .pos, #offBody .pos"); if (p) p.textContent = S.m.homed ? `X ${fmt(S.m.x)}   Y ${fmt(S.m.y)}` : "X ?   Y ?   (manca l'Homing)"; if (S.ui === "banco") bancoPill(); }
+document.addEventListener("pointerdown", (e) => { if (SPOT && SPOT.mode === "strong" && !e.target.closest(".chip")) { const r = spotRect(tgt(SPOT.key)); if (r && e.clientX >= r.left - 6 && e.clientX <= r.right + 6 && e.clientY >= r.top - 6 && e.clientY <= r.bottom + 6) SPOT.until = 0; } }, true);
 function resetWorld() {
   SPOT = null;
   S.doc = {shapes: [], layers: {}}; S.sel = []; S.undo = []; S.redo = []; S.ev = {}; S.curLayer = 0; S.curRow = null; S.lock = false;
   S.m = {port: "sim", connected: false, homed: false, x: 180, y: 150, busy: false, step: 10, anim: null, trail: null};
-  S.ptab = "livelli"; S.btab = "laser"; setTool("select"); msg("Pronto.");
+  S.ptab = "livelli"; S.btab = "laser"; S.otab = "laser"; S.off = false; S.railOpen = null; S.railCompact = false; S.safe = {glasses: false, air: false}; S.prevSig = null;
+  S.start = {mode: "absolute", anchor: 0}; S.pieces = []; // partenza del lavoro; pezzi di legno già appoggiati sul piano
+  closePops(); setTool("select"); msg("Pronto.");
 }
 
 /* ---------------------------------------------------------------- segnalatore
@@ -986,6 +1276,7 @@ function resetWorld() {
    il passo diventa quello attuale (si cerca ancora da soli); "strong": cerchio pulsante e freccia,
    a richiesta (parola sottolineata o secondo indizio). Se il comando è in un'altra scheda, la apre. */
 const TARGETS = {
+  "start-from": {sel: "#startFrom", btab: "laser"}, "anchor": {sel: "#anchorPick", btab: "laser"}, "goto-anchor": {sel: "#bGotoAnc", btab: "laser"},
   "port": {sel: "#port", btab: "laser"}, "connect": {sel: "#bConn", btab: "laser"}, "contour": {sel: "#bFrame", btab: "laser"},
   "homing": {sel: "#bHome", btab: "movimento"}, "jog": {sel: ".jog", btab: "movimento"}, "step": {sel: ".steps", btab: "movimento"},
   "tool-position": {sel: "#tools [data-tool=position]"}, "tool-select": {sel: "#tools [data-tool=select]"},
@@ -1002,9 +1293,12 @@ const TARGETS = {
   "preview": {sel: "#bPrev", btab: "laser"}, "start": {sel: "#bStart", btab: "laser"}, "out-03": {sel: ["input[data-out='3']", "#pTop .ltable"], ptab: "livelli"},
 };
 let SPOT = null;
+// nel Banco lo stesso comando sta altrove: TARGETS_B (in banco.js) ha la precedenza
+const tgt = (key) => (S.ui === "banco" && typeof TARGETS_B !== "undefined" && TARGETS_B[key]) || TARGETS[key];
 function spotRect(t) {
+  if (!t) return null;
   const sels = Array.isArray(t.sel) ? t.sel : [t.sel];
-  const vis = (el) => el && el.getClientRects().length && el.offsetParent !== null;
+  const vis = (el) => el && el.getClientRects().length && el.offsetParent !== null && getComputedStyle(el).visibility !== "hidden";
   if (t.union) {
     const rs = sels.map(q => document.querySelector(q)).filter(vis).map(el => el.getBoundingClientRect());
     if (!rs.length) return null;
@@ -1014,14 +1308,18 @@ function spotRect(t) {
   return null;
 }
 function spot(key, mode = "strong", ms = 4000) {
-  let t = TARGETS[key]; if (!t) return;
-  if (mode === "soft") { // lampo leggero: se il comando è in un'altra scheda, indica la scheda e non la apre
+  let t = tgt(key); if (!t) return;
+  if (S.ui === "banco") {
+    if (mode === "soft") { const k2 = bancoSoftKey(t); if (k2) key = k2; }
+    else bancoReveal(t);
+  } else if (mode === "soft") { // lampo leggero: se il comando è in un'altra scheda, indica la scheda e non la apre
     if (t.btab && S.btab !== t.btab) { key = "btab-" + t.btab; TARGETS[key] = {sel: `[data-btab=${t.btab}]`}; }
     else if (t.ptab && S.ptab !== t.ptab) { key = "ptab-" + t.ptab; TARGETS[key] = {sel: `[data-ptab=${t.ptab}]`}; }
   } else {
     if (t.btab && S.btab !== t.btab) { S.btab = t.btab; refreshBottom(); }
     if (t.ptab && S.ptab !== t.ptab) { S.ptab = t.ptab; refreshTop(); }
   }
+  if (mode === "strong") for (const q of [].concat(t.sel)) { const el = document.querySelector(q); if (el && el.offsetParent) { el.scrollIntoView({block: "nearest"}); break; } } // anche dentro un pannello che scorre
   if (SPOT && SPOT.key === key && SPOT.mode === mode && performance.now() < SPOT.until) return; // già acceso: niente ripetizioni
   SPOT = {key, mode, until: performance.now() + (mode === "soft" ? 2450 : 3250)};
   const s = $("spot"), ar = $("spotArrow"); s.className = mode; void s.offsetWidth; // riavvia l'animazione
@@ -1031,7 +1329,7 @@ function spot(key, mode = "strong", ms = 4000) {
 function placeSpot() {
   const s = $("spot"), a = $("spotArrow");
   if (!SPOT || performance.now() > SPOT.until) { SPOT = null; s.className = "hidden"; a.classList.add("hidden"); return; }
-  const r = spotRect(TARGETS[SPOT.key]);
+  const r = spotRect(tgt(SPOT.key));
   if (!r) { s.classList.add("hidden"); a.classList.add("hidden"); return; }
   s.classList.remove("hidden");
   const pad = 5;
@@ -1262,7 +1560,7 @@ function openTextDialog(at) {
     <div class="field"><span>Testo</span><input id="ttext" placeholder="Scrivi qui"></div>
     <div class="field"><span>Altezza</span><input id="tsize" value="5 mm"></div>
     <div class="field"><span>Carattere</span><select id="tfont">${Object.keys(FONTS).map(f => `<option ${f === (S.lastFont || "Arial") ? "selected" : ""}>${f}</option>`).join("")}</select></div>
-    <div class="lhint">Per i numeri di serie usa poi «Inserisci variabile» nel pannello Proprietà.</div></div>
+    <div class="lhint">Per i numeri di serie usa poi «Inserisci variabile» ${UIX("nel pannello Proprietà", "nel riquadro Proprietà a destra")}.</div></div>
     <div class="dfoot"><button class="btn" id="tc">Annulla</button><button class="btn pri" id="to">OK</button></div></div>`;
   D.classList.remove("hidden");
   const ok = () => {
@@ -1389,17 +1687,17 @@ function startJob() {
     <div>${run.length} ${run.length === 1 ? "livello" : "livelli"} in quest'ordine: ${run.map(p => `<b>${esc(layerLabel(p.layer))}</b> (${MODE_LABEL[L(p.layer).mode]})`).join(" → ")}. Tempo stimato ${mmss(estimate(plan))}.</div>
     ${S.m.homed ? "" : `<div style="color:var(--warn);margin-top:6px">Manca l'Homing: la macchina non sa dove si trova.</div>`}
     <div class="sec">Prima di avviare</div>
-    <label style="display:block;margin:5px 0"><input type="checkbox" id="s1"> Occhiali protettivi indossati</label>
-    <label style="display:block;margin:5px 0"><input type="checkbox" id="s2"> Aria e aspirazione accese</label>
-    <div class="lhint">Sul laser vero: resta vicino alla macchina per tutto il lavoro. Nel layout Banco di FreeLaserCut queste due spunte sono obbligatorie prima dell'avvio.</div></div>
+    <label style="display:block;margin:5px 0"><input type="checkbox" id="s1" ${S.ui === "banco" && S.safe.glasses ? "checked" : ""}> Occhiali protettivi indossati</label>
+    <label style="display:block;margin:5px 0"><input type="checkbox" id="s2" ${S.ui === "banco" && S.safe.air ? "checked" : ""}> Aria e aspirazione accese</label>
+    <div class="lhint">Sul laser vero: resta vicino alla macchina per tutto il lavoro. ${UIX("Nel layout Banco di FreeLaserCut queste due spunte sono obbligatorie prima dell'avvio.", "Sono le stesse due spunte del percorso «Dal disegno al pezzo»: senza, il pulsante per incidere non parte.")}</div></div>
     <div class="dfoot"><button class="btn" id="jc">Annulla</button><button class="btn pri" id="jo" disabled>Avvia</button></div></div>`;
   D.classList.remove("hidden");
-  const upd = () => $("jo").disabled = !($("s1").checked && $("s2").checked);
-  $("s1").onchange = upd; $("s2").onchange = upd; $("jc").onclick = closeDlg;
+  const upd = () => { $("jo").disabled = !($("s1").checked && $("s2").checked); if (S.ui === "banco") { S.safe.glasses = $("s1").checked; S.safe.air = $("s2").checked; } };
+  upd(); $("s1").onchange = upd; $("s2").onchange = upd; $("jc").onclick = closeDlg;
   $("jo").onclick = () => { closeDlg(); runJob(plan); };
 }
 function runJob(plan) {
-  const sig = docSig(), run = plan.filter(p => !p.skip), pts = [], marks = [];
+  const sig = docSig(), run = plan.filter(p => !p.skip), pts = [], marks = [], off = jobOffset();
   for (const st of run) {
     for (const s of st.shapes) {
       if (L(st.layer).mode === "line") pts.push(...outlinePts(s));
@@ -1407,13 +1705,14 @@ function runJob(plan) {
     }
     marks.push({layer: st.layer, upto: pts.length});
   }
+  for (const p of pts) { p[0] += off[0]; p[1] += off[1]; } // partenza dalla testa: tutto il lavoro si sposta lì
   const start = [S.m.x, S.m.y]; pts.push(start);
-  S.job = {running: true, plan, marks, done: [], sig, total: pts.length};
+  S.job = {running: true, plan, marks, done: [], sig, total: pts.length, est: estimate(plan), t0: performance.now(), offset: off, startMode: S.start.mode, head: start.slice()};
   if (plan.some(p => p.skip) || run.some((p, i) => i > 0 && L(run[i - 1].layer).mode === "line" && L(p.layer).mode !== "line")) S.ev.badJob = true;
   S.ev.jobStarted = true; msg(`Lavoro in corso: ${run.map(p => layerLabel(p.layer)).join(" → ")}`);
   S.m.busy = true; S.m.anim = {pts, i: 0, job: true, done: () => {
     S.job.running = false; S.job.done = run.map(p => p.layer);
-    S.ev.job = {order: run.map(p => p.layer), skipped: plan.filter(p => p.skip).map(p => p.layer), sig, completed: true};
+    S.ev.job = {order: run.map(p => p.layer), skipped: plan.filter(p => p.skip).map(p => p.layer), sig, completed: true, offset: off, startMode: S.job.startMode, head: S.job.head, anchor: S.start.anchor};
     msg("Lavoro completato nel simulatore. Sul laser vero: aspetta che il fumo sia aspirato prima di aprire il coperchio.");
   }};
   S.m.trail = []; refreshUI();
@@ -1431,7 +1730,7 @@ function pauseJob() {
 function drawBurn(g) {
   const j = S.job, a = S.m.anim, curIdx = a && a.job ? a.i : j.total;
   const doneLayers = new Set(j.running ? j.marks.filter(m => m.upto <= curIdx).map(m => m.layer) : j.done);
-  g.save();
+  g.save(); if (j.offset) g.translate(j.offset[0] * S.view.s, -j.offset[1] * S.view.s);
   for (const s of S.doc.shapes.flatMap(leaves)) {
     if (!doneLayers.has(s.layer)) continue;
     if (L(s.layer).mode === "line") { const p = s.type === "text" || s.type === "code" ? null : shapePath(s); if (p) { g.strokeStyle = "#3b2312"; g.lineWidth = 2; g.stroke(p); } }
@@ -1443,7 +1742,7 @@ function drawBurn(g) {
 }
 function openPreview() {
   const plan = jobPlan(), D = $("dlg"), shapes = plan.filter(p => !p.skip).flatMap(p => p.shapes);
-  S.ev.preview = true; S.ev.previewSig = docSig();
+  S.ev.preview = true; S.ev.previewSig = docSig(); if (S.ui === "banco") renderFlow();
   D.innerHTML = `<div class="dlg" role="dialog" aria-label="Anteprima del lavoro" style="width:760px"><h3>Anteprima del lavoro</h3><div class="dbody">
     <div class="row" style="align-items:flex-start;gap:14px"><canvas id="pcv" width="440" height="300" style="background:#fff;border-radius:6px;flex:0 0 auto"></canvas>
     <div style="flex:1;line-height:1.5"><div class="sec" style="margin-top:0">Ordine di lavoro</div>
@@ -1467,6 +1766,518 @@ function openPreview() {
     g.fillStyle = col; g.beginPath(); g.arc(nx + 8, ny - 8, 10, 0, 7); g.fill(); g.fillStyle = "#fff"; g.font = "700 12px Inter, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(idx + 1), nx + 8, ny - 7.5);
   });
   missionCheck();
+}
+
+/* ---------------------------------------------------------------- Distanza esatta (FreeLaserCut 0.17.16)
+   Stessa definizione del programma: ingombri come in Allinea; si sposta solo l'oggetto non fermo e solo lungo
+   l'asse scelto; il lato si decide dalle posizioni all'apertura; anteprima dal vivo, un solo passo di Annulla. */
+const EDGES = {x: [["min", "Bordo sinistro"], ["center", "Centro"], ["max", "Bordo destro"]], y: [["min", "Bordo in basso"], ["center", "Centro"], ["max", "Bordo in alto"]]};
+const spanOf = (b, ax) => ax === "x" ? [b.x0, b.x1] : [b.y0, b.y1];
+const edgeOf = (b, ax, e) => { const [lo, hi] = spanOf(b, ax); return e === "min" ? lo : e === "max" ? hi : (lo + hi) / 2; };
+const gapSide = (f, m, ax) => edgeOf(m, ax, "center") >= edgeOf(f, ax, "center") - 1e-9 ? 1 : -1;
+const distEdges = (mode, side, ef, em) => mode === "gap" ? (side > 0 ? ["max", "min"] : ["min", "max"]) : mode === "center" ? ["center", "center"] : [ef, em];
+function measureDist(f, m, ax, mode, side, ef, em) { const [a, b] = distEdges(mode, side, ef, em); return (edgeOf(m, ax, b) - edgeOf(f, ax, a)) * side; }
+function distShift(f, m, ax, mode, side, d, ef, em) { const [a, b] = distEdges(mode, side, ef, em); const delta = edgeOf(f, ax, a) + side * d - edgeOf(m, ax, b); return ax === "x" ? [delta, 0] : [0, delta]; }
+function openDistance() {
+  const sel = selShapes();
+  if (sel.length !== 2) return msg("Seleziona due oggetti: quello che resta fermo e quello da spostare (un gruppo conta come uno)", "warn");
+  const snap = snapshot(), ids = sel.map(s => s.id), orig = sel.map(s => JSON.parse(JSON.stringify(s))), ob = orig.map(s => bbox([s]));
+  const name = (i) => `${i + 1}° selezionato: ${shapeName(orig[i])} ${fmt(ob[i].w, 1)} × ${fmt(ob[i].h, 1)} mm`;
+  const st = {fixed: 0, ax: "x", mode: "gap", ef: "max", em: "min", flip: false, d: null};
+  const D = $("dlg");
+  D.innerHTML = `<div class="dlg" role="dialog" aria-label="Distanza esatta" style="width:500px"><h3>Distanza esatta</h3><div class="dbody">
+    <div class="field"><span>Resta fermo</span><select id="dfix"><option value="0">${esc(name(0))}</option><option value="1">${esc(name(1))}</option></select></div>
+    <div class="field"><span>Si sposta</span><span id="dmov"></span></div>
+    <div class="field"><span>Direzione</span><select id="dax"><option value="x">Orizzontale (lungo X)</option><option value="y">Verticale (lungo Y)</option></select></div>
+    <div class="field"><span>Misura</span><select id="dmode"><option value="gap">Spazio vuoto fra i due</option><option value="center">Fra i centri</option><option value="edges">Fra i bordi scelti</option></select></div>
+    <div class="field dedge"><span>Dell'oggetto fermo</span><select id="def"></select></div>
+    <div class="field dedge"><span>Dell'oggetto che si sposta</span><select id="dem"></select></div>
+    <div class="field"><span>Distanza</span><span class="row"><input id="ddist" style="width:110px"><span class="muted">mm</span></span></div>
+    <div class="field"><span></span><label title="Porta l'oggetto dall'altro lato di quello fermo" style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="dflip" style="margin:0"> Dall'altra parte</label></div>
+    <div class="muted" id="dnow" style="margin-top:6px"></div><div id="dwarn" style="color:#d9822b;margin-top:4px" class="hidden">Attenzione: l'oggetto che si sposta esce dall'area di lavoro.</div></div>
+    <div class="dfoot"><button class="btn" id="dno">Annulla</button><button class="btn pri" id="dok">OK</button></div></div>`;
+  D.classList.remove("hidden");
+  const roles = () => [st.fixed, 1 - st.fixed];
+  const side = () => { const [f, m] = roles(), s0 = gapSide(ob[f], ob[m], st.ax); return st.flip ? -s0 : s0; };
+  const now = () => { const [f, m] = roles(); return measureDist(ob[f], ob[m], st.ax, st.mode, side(), st.ef, st.em); };
+  const fillEdges = () => { for (const [id, k] of [["def", "ef"], ["dem", "em"]]) $(id).innerHTML = EDGES[st.ax].map(([v, l]) => `<option value="${v}" ${st[k] === v ? "selected" : ""}>${l}</option>`).join(""); };
+  const live = () => { // rimette gli originali e sposta solo quello che si muove
+    const [f, m] = roles(), d = st.d === null ? Math.max(0, Math.round(now() * 100) / 100) : st.d;
+    const [dx, dy] = distShift(ob[f], ob[m], st.ax, st.mode, side(), d, st.ef, st.em);
+    ids.forEach((id, i) => { const k = S.doc.shapes.findIndex(s => s.id === id); S.doc.shapes[k] = JSON.parse(JSON.stringify(orig[i])); });
+    const mv = S.doc.shapes.find(s => s.id === ids[m]); moveShape(mv, dx, dy);
+    const b = bbox([mv]); $("dwarn").classList.toggle("hidden", b.x0 >= -1e-6 && b.y0 >= -1e-6 && b.x1 <= BED.w + 1e-6 && b.y1 <= BED.h + 1e-6);
+    draw(); return {dx, dy, d};
+  };
+  const changedUI = () => {
+    document.querySelectorAll(".dedge").forEach(e => e.classList.toggle("hidden", st.mode !== "edges"));
+    const [, m] = roles(); $("dmov").textContent = name(m);
+    const n = now(); $("dnow").textContent = n >= 0 ? `Prima della modifica: ${fmt(n, 2)} mm` : `Prima della modifica gli oggetti si sovrappongono (${fmt(n, 2)} mm).`;
+    if (st.d === null) $("ddist").value = fmt(Math.max(0, Math.round(n * 100) / 100), 2); // finché non si scrive, parte da quella attuale
+    live();
+  };
+  fillEdges();
+  $("dfix").onchange = (e) => { st.fixed = +e.target.value; changedUI(); };
+  $("dax").onchange = (e) => { st.ax = e.target.value; fillEdges(); changedUI(); };
+  $("dmode").onchange = (e) => { st.mode = e.target.value; changedUI(); };
+  $("def").onchange = (e) => { st.ef = e.target.value; changedUI(); };
+  $("dem").onchange = (e) => { st.em = e.target.value; changedUI(); };
+  $("dflip").onchange = (e) => { st.flip = e.target.checked; changedUI(); };
+  $("ddist").oninput = () => { const v = parseNum($("ddist").value); if (v !== null && v >= 0) { st.d = Math.min(5000, v); live(); } };
+  $("ddist").onkeydown = (e) => { if (e.key === "Enter") $("dok").click(); };
+  $("dno").onclick = () => { ids.forEach((id, i) => { const k = S.doc.shapes.findIndex(s => s.id === id); S.doc.shapes[k] = orig[i]; }); closeDlg(); draw(); msg("Distanza esatta annullata"); };
+  $("dok").onclick = () => {
+    const r = live(), [f, m] = roles(); closeDlg();
+    S.undo.push(snap); if (S.undo.length > 200) S.undo.shift(); S.redo = [];
+    S.ev.distance = {ax: st.ax, mode: st.mode, d: r.d, flip: st.flip, fixed: ids[f], moved: ids[m]};
+    changed(`Distanza esatta: ${fmt(r.d, 2)} mm ${st.mode === "center" ? "fra i centri" : st.mode === "gap" ? "di spazio vuoto" : "fra i bordi scelti"}, ${st.ax === "x" ? "in orizzontale" : "in verticale"}`);
+  };
+  changedUI(); setTimeout(() => $("ddist").select(), 0);
+}
+
+'use strict';
+/* Interfaccia «Banco» del Costrutto: stessa logica del simulatore, disposizione del Banco di FreeLaserCut 0.17.
+   - barra superiore: progetto, ricerca dei comandi (Ctrl+F), stato del laser, Officina, impostazioni;
+   - strati a sinistra come schede «in ordine di lavoro», modificabili sul posto;
+   - a destra le Proprietà della selezione e il percorso «Dal disegno al pezzo», con avvio a pressione prolungata;
+   - isola degli strumenti in basso, barra contestuale sotto la selezione, menu radiale col tasto destro;
+   - Officina a cassetto (Laser, Movimento, Strati in tabella), cabina con Pausa e Stop durante il lavoro.
+   Tutto ciò che qui è spento esiste nel programma vero ma alle missioni non serve. */
+
+const RAIL_W = 300, RIGHT_W = 300, OFF_W = 520, RUL_X = 22, RUL_Y = 18;
+const ICONS = {
+  logo: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 6v7"/><path d="M9 16h6"/><circle cx="12" cy="16" r="1.2"/>',
+  undo: '<path d="M9 7H4v5"/><path d="M4 12a8 8 0 1 1 3 6"/>', redo: '<path d="M15 7h5v5"/><path d="M20 12a8 8 0 1 0-3 6"/>',
+  select: '<path d="M5 3l14 8-6 2-2 6z"/>', nodes: '<path d="M4 20c4-10 12-6 16-16"/><rect x="2.5" y="18.5" width="3" height="3"/><rect x="18.5" y="2.5" width="3" height="3"/>',
+  line: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>', rect: '<rect x="4" y="6" width="16" height="12" rx="1"/>',
+  ellipse: '<circle cx="12" cy="12" r="8"/>', polygon: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/>',
+  star: '<path d="M12 3l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 17l-5.6 3 1.3-6.2L3 9.5l6.3-.7z"/>',
+  shapes: '<circle cx="8" cy="16" r="4"/><path d="M14 12h6v8h-6z"/><path d="M12 3l4 6H8z"/>', text: '<path d="M5 5h14M12 5v15"/>',
+  import: '<path d="M12 4v10M8 10l4 4 4-4"/><path d="M4 15v4h16v-4"/>',
+  photo: '<rect x="3" y="6" width="14" height="12" rx="1"/><path d="M3 16l4-4 4 4 3-3 3 3"/><path d="M20 3v6M17 6h6"/>',
+  trace: '<path d="M4 20L15 9l2 2L6 22z"/><path d="M17 2v3M20 5h-3M19.5 2.5l-2 2M14 3l1 1.5"/>',
+  exact: '<rect x="3" y="7" width="12" height="11"/><path d="M19 8v6M16 11h6"/>',
+  qr: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14v2"/>',
+  textpath: '<path d="M3 18c4-8 14-8 18 0"/><path d="M8 13l2.2-6 2.2 6M8.8 11h3"/>',
+  puzzle: '<path d="M4 8h4a2 2 0 1 1 4 0h4v4a2 2 0 1 0 0 4v4H4z"/>',
+  trim: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.5 20 18M8.6 16.5 20 6"/>',
+  sculpt: '<path d="M12 3 3 8l9 5 9-5z"/><path d="M3 12l9 5 9-5M3 16l9 5 9-5"/>', variable: '<path d="M9 4 7 20M17 4l-2 16M4 9h16M3 15h16"/>',
+  measure: '<path d="M3 17 17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
+  position: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+  zoomout: '<circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-4-4"/>', zoomin: '<circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-4-4"/>',
+  fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  dup: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>',
+  group: '<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M2 2h4M2 2v4M22 22h-4M22 22v-4"/>',
+  ungroup: '<rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M15 4h5v5M4 15v5h5"/>',
+  weld: '<circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>',
+  nest: '<rect x="3" y="3" width="8" height="10"/><rect x="13" y="3" width="8" height="6"/><rect x="13" y="11" width="8" height="10"/><rect x="3" y="15" width="8" height="6"/>',
+  offset: '<rect x="8" y="8" width="8" height="8" rx="1"/><rect x="3" y="3" width="18" height="18" rx="5"/>',
+  topath: '<path d="M4 18c3-12 13-12 16 0"/><circle cx="4" cy="18" r="1.6"/><circle cx="20" cy="18" r="1.6"/><circle cx="12" cy="7" r="1.6"/>',
+  delete: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  machine: '<rect x="5" y="5" width="14" height="14" rx="3"/><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/>',
+  gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>', help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5v.7M12 17v.1"/>',
+};
+const ic = (n) => `<svg viewBox="0 0 24 24">${ICONS[n] || ""}</svg>`;
+const fmtg = (v) => String(Math.round(v * 10) / 10);
+
+/* ---------------------------------------------------------------- quale interfaccia */
+const UI_KEY = "flc-costrutto-ui";
+function loadUI() {
+  const q = new URLSearchParams(location.search).get("ui");
+  if (q === "banco" || q === "classica") { saveUIPref(q); return q; }
+  try { const v = localStorage.getItem(UI_KEY); if (v === "banco" || v === "classica") return v; } catch (e) { /* niente storage */ }
+  return "banco"; // come FreeLaserCut, che al primo avvio propone il Banco
+}
+function saveUIPref(v) { try { localStorage.setItem(UI_KEY, v); } catch (e) { /* pazienza */ } }
+function setUI(mode, live) {
+  S.ui = mode === "classica" ? "classica" : "banco"; saveUIPref(S.ui);
+  document.body.classList.toggle("ui-banco", S.ui === "banco");
+  const nb = $("numbar");
+  if (S.ui === "banco") $("ctxNum").appendChild(nb);
+  else $("app").insertBefore(nb, document.querySelector("#app > .main"));
+  closeMenus(); closePops(); SPOT = null;
+  if (S.ui === "banco") { $("pTop").innerHTML = ""; $("pBottom").innerHTML = ""; }
+  else { ["bRail", "bPropsIn", "bFlow", "offBody"].forEach(id => $(id).innerHTML = ""); S.off = false; ["left", "top", "maxHeight"].forEach(k => $("mcard").style[k] = ""); }
+  if (typeof renderUIChoice === "function") renderUIChoice();
+  if (!live) return;
+  refreshUI(); if (S.ui === "banco") bancoLayout(); fit();
+  if (typeof CUR !== "undefined" && CUR) { CUR.lastCur = -1; renderCard(); }
+  msg(S.ui === "banco" ? "Interfaccia Banco: stessi comandi, disposizione diversa. Ctrl+F cerca qualsiasi comando." : "Interfaccia Classica: menù in alto, strumenti a sinistra, pannelli a destra.");
+}
+
+/* ---------------------------------------------------------------- costruzione */
+const ISLAND = [["c", "undo", "Annulla (Ctrl+Z)"], ["c", "redo", "Ripeti (Ctrl+Y)"], "|",
+  ["t", "select", "Selezione (V)"], ["d", "nodes", "Modifica nodi (N)"], ["d", "trim", "Forbici: togli il tratto fra due incroci (X)"], ["d", "line", "Linee e curve (L)"], ["t", "rect", "Rettangolo (R)"], ["t", "ellipse", "Ellisse e cerchio (E)"],
+  ["d", "polygon", "Poligono (P)"], ["d", "star", "Stella (S)"], ["d", "shapes", "Forme: frecce, cuore, scudo, medaglia, ingranaggio… (F)"], ["t", "text", "Testo (T)"], "|",
+  ["c", "import", "Importa… (Ctrl+I)"], ["d", "photo", "Prepara foto… (Ctrl+Alt+F)"], ["c", "trace", "Vettorizza immagine… (Alt+T)"], ["d", "exact", "Crea forma con misure esatte… (Ctrl+Alt+N)"],
+  ["c", "qr", "Codice QR o a barre… (Ctrl+Alt+Q)"], ["d", "textpath", "Testo su tracciato… (Ctrl+Alt+T)"], ["d", "puzzle", "Puzzle da foto…"], ["d", "sculpt", "Scultura 3D da modello…"], ["d", "variable", "Testo variabile…"], "|",
+  ["d", "measure", "Misura (M)"], ["t", "position", "Posiziona laser (clic = la testa va lì) (Q)"]];
+const TOOL_NAMES = {select: "Selezione", rect: "Rettangolo", ellipse: "Ellisse e cerchio", text: "Testo", position: "Posiziona laser"};
+const ISL_CMD = {undo: () => undo(), redo: () => redo(), import: () => openImport(), trace: () => openTrace(), qr: () => openCode()};
+const SUB_ALIGN_B = [...SUB_ALIGN, "-", ["Distribuisci in orizzontale", "", null], ["Distribuisci in verticale", "", null], "-", ["Stessa larghezza", "", null], ["Stessa altezza", "", null], "-", ["Distanza esatta…", "", () => openDistance()]];
+const POPS = {
+  allinea: SUB_ALIGN_B, combina: SUB_BOOL,
+  serie: [["Serie a griglia…", "Alt+A", () => openGrid()], ["Serie circolare…", "", null], ["Copia lungo un tracciato…", "", null]],
+  altro: [["Rifletti orizzontalmente", "Ctrl+Shift+H", null], ["Rifletti verticalmente", "", null], ["Ruota di 90° in senso orario", "", null], ["Ruota di 90° in senso antiorario", "", null], "-",
+    ["Porta in primo piano", "Ctrl+Shift+↑", null], ["Porta in fondo", "Ctrl+Shift+↓", null], "-", ["Spezza", "", null], ["Unisci", "", null], ["Chiudi i tracciati", "", null], "-", ["Blocca", "Ctrl+L", null], ["Sblocca", "", null], "-", ["Inquadra la selezione", "", null]],
+};
+const CTX = [["dup", "Duplica (Ctrl+D)", null], ["group", "Raggruppa (Ctrl+G)", () => groupSel()], ["ungroup", "Separa (Ctrl+U)", () => ungroupSel()], ["weld", "Salda (Ctrl+W)", null], "|",
+  ["pop", "allinea", "Allinea"], ["pop", "combina", "Combina"], ["pop", "serie", "Serie"],
+  ["nest", "Ottimizza lo spazio (nesting)… (Alt+N)", null], ["offset", "Offset forme… (Alt+O)", null], ["topath", "Converti in tracciato (Ctrl+Shift+C)", null],
+  ["pop", "altro", "Altro"], "~", ["delete", "Elimina (Canc)", () => deleteSel()]];
+const OTABS = [["laser", "Laser"], ["move", "Movimento"], ["camera", "Camera", 1], ["machine", "Macchina", 1], ["console", "Console", 1], ["layers", "Strati (tabella)"]];
+
+function initBanco() {
+  $("btop").innerHTML = `<span class="blogo">${ic("logo")}</span><div class="bproj"><b id="bProj">Senza titolo</b><span id="bProjSub">nuovo progetto</span></div><span class="flex"></span>
+    <button class="bsearch" id="bSearch" title="Cerca tra tutti i comandi (Ctrl+F)">${ic("search")}<span>Cosa vuoi fare? Cerca tra tutti i comandi…</span><kbd>Ctrl+F</kbd></button><span class="flex"></span>
+    <button class="bpill" id="bPill" title="Clic: connetti / disconnetti il laser"></button>
+    <button class="bchip" id="bOff" title="Laser, movimento, camera, macchina e console (Ctrl+Shift+W)">${ic("machine")}Officina</button>
+    <button class="bchip ico" id="bGear" title="Impostazioni: interfaccia, lingua, vista">${ic("gear")}</button>
+    <button class="bchip ico" id="bHelp" title="Aiuto sui comandi (Maiusc+F1)">${ic("help")}</button>
+    <button class="bsup" id="bSup" title="Sostieni FreeLaserCut: contributo volontario allo sviluppo"><span style="color:#E5484D">♥</span> Sostieni</button>
+    <button class="home-btn" id="btnHomeB">← Missioni</button>`;
+  $("bIsland").innerHTML = ISLAND.map(it => it === "|" ? `<span class="bsep"></span>` :
+    it[0] === "t" ? `<button class="btool" data-tool="${it[1]}" title="${it[2]}">${ic(it[1])}</button>` :
+    it[0] === "c" ? `<button class="btool" data-bcmd="${it[1]}" title="${it[2]}">${ic(it[1])}</button>` :
+    `<button class="btool dis" title="${it[2]}">${ic(it[1])}</button>`).join("") + `<span class="bsep"></span><span class="btlabel" id="bToolLab">Selezione</span>`;
+  $("bView").innerHTML = `<button class="btool sm" data-view="out" title="Rimpicciolisci">${ic("zoomout")}</button><button class="btool sm" data-view="fit" title="Adatta al piano (Ctrl+0)">${ic("fit")}</button><button class="btool sm" data-view="in" title="Ingrandisci">${ic("zoomin")}</button>`;
+  $("bCtxRow").innerHTML = CTX.map(it => it === "|" ? `<span class="bsep"></span>` : it === "~" ? `<span class="flex"></span>` :
+    it[0] === "pop" ? `<button class="bchip" data-pop="${it[1]}">${it[2]} ▾</button>` :
+    `<button class="btool sm ${it[2] ? "" : "dis"}" data-ctx="${it[0]}" title="${it[1]}">${ic(it[0])}</button>`).join("");
+  $("bOffi").innerHTML = `<header><span class="bsec">OFFICINA · laser, camera e macchina</span><button class="bchip sm" id="offX" title="Chiudi l'Officina (resta tutto attivo)">✕</button></header>
+    <div class="otabs">${OTABS.map(t => `<button data-otab="${t[0]}" class="${t[2] ? "dis" : ""}">${t[1]}</button>`).join("")}</div><div class="pane" id="offBody"></div>`;
+  $("bCock").innerHTML = `<div class="ckinfo"><b id="ckState">INCISIONE IN CORSO</b><span id="ckDet"></span></div><div class="ckt"><span class="bsec">TEMPO RIMANENTE</span><b id="ckEta">—</b></div>
+    <button class="ckpause" id="ckPause">Pausa</button><button class="ckstop" id="ckStop">Stop</button>`;
+  // collegamenti
+  $("bSearch").onclick = openPalette; $("bPill").onclick = () => connectToggle(); $("bOff").onclick = toggleOfficina;
+  $("bGear").onclick = (e) => { e.stopPropagation(); popMenu($("bGear"), [["Configurazione guidata della macchina…", "", null], ["Funzioni in prova…", "", null], "-", ["Interfaccia", "▸", [["Banco ✓", "", () => msg("Stai già usando il Banco")], ["Classica", "", () => setUI("classica", true)]]], ["Livello di aiuto", "▸", [["Completo", "", null]]], ["Aspetto", "", null], ["Unità di misura", "", null], ["Lingua", "", null]]); };
+  $("bHelp").onclick = () => msg("Nel programma vero questo pulsante (o Maiusc+F1) spiega il comando su cui passi il mouse");
+  $("bSup").onclick = () => infoDlg("Sostieni FreeLaserCut", `FreeLaserCut è gratuito e lo resterà. Se ti è utile, un contributo volontario aiuta lo sviluppo: <a href="https://fringuello79.github.io/FreeLaserCut/#support" target="_blank" rel="noopener" style="color:var(--ac)">come sostenerlo</a>.`);
+  $("btnHomeB").onclick = goHome;
+  $("bIsland").querySelectorAll("[data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
+  $("bIsland").querySelectorAll("[data-bcmd]").forEach(b => b.onclick = () => ISL_CMD[b.dataset.bcmd]());
+  document.querySelectorAll("#bIsland .btool.dis, #bCtxRow .btool.dis").forEach(b => b.onclick = () => msg(`«${b.title}»: nel Costrutto questo comando non serve ancora`));
+  $("bView").querySelectorAll("[data-view]").forEach(b => b.onclick = () => ({out: () => zoomBy(0.8), fit: () => fit(), in: () => zoomBy(1.25)})[b.dataset.view]());
+  $("bCtxRow").querySelectorAll("[data-ctx]").forEach(b => { const it = CTX.find(c => c[0] === b.dataset.ctx); if (it && it[2]) b.onclick = it[2]; });
+  $("bCtxRow").querySelectorAll("[data-pop]").forEach(b => b.onclick = (e) => { e.stopPropagation(); popMenu(b, POPS[b.dataset.pop]); });
+  $("offX").onclick = () => officinaHide();
+  $("bOffi").querySelectorAll("[data-otab]").forEach(b => b.onclick = () => b.classList.contains("dis") ? msg(`«${b.textContent}»: nel Costrutto questa scheda non serve ancora`) : officinaShow(b.dataset.otab));
+  $("ckPause").onclick = () => pauseJob(); $("ckStop").onclick = () => stopJob();
+  document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".menu.pop, [data-pop], #bGear, #bPal, #bSearch, #bRadial")) closePops(); }, true);
+  document.addEventListener("pointerup", () => { S.hold = null; });
+  setUI(loadUI(), false);
+}
+
+/* ---------------------------------------------------------------- disposizione */
+const bancoLocked = () => !!(S.job && S.job.running);
+const railWidth = () => S.railCompact ? 64 : RAIL_W;
+function bancoInsets(W) {
+  const card = $("mcard"), rightW = (S.off ? Math.min(OFF_W, W - 380) : RIGHT_W) + 28;
+  let l = RUL_X + 10 + railWidth() + 16;
+  if (!card.classList.contains("hidden") && card.offsetWidth) {
+    const r = card.offsetLeft + card.offsetWidth + 14;
+    if (W - r - rightW >= 280) l = r; // il piano a destra della scheda della missione, se c'è posto
+  }
+  return {l, r: rightW, t: RUL_Y + 10 + 30, b: 112};
+}
+function bancoLayout() {
+  if (S.ui !== "banco") return;
+  const st = $("stage"), W = st.clientWidth, H = st.clientHeight, top = RUL_Y + 10, locked = bancoLocked(), rw = railWidth();
+  const rail = $("bRail"); rail.classList.toggle("hidden", locked);
+  Object.assign(rail.style, {left: RUL_X + 10 + "px", top: top + 4 + "px", width: rw + "px", maxHeight: Math.max(160, H - top - 130) + "px"});
+  const card = $("mcard"); Object.assign(card.style, {left: RUL_X + 10 + rw + 12 + "px", top: top + "px", maxHeight: Math.max(160, H - top - 120) + "px"});
+  // isola: al centro dello spazio libero se ci sta, altrimenti al centro della finestra
+  const isl = $("bIsland"), vb = $("bView"), iw = isl.offsetWidth, ih = isl.offsetHeight || 54;
+  const freeL = RUL_X + 10 + rw + 12, freeR = W - RIGHT_W - 28;
+  const ix = iw <= freeR - freeL ? freeL + (freeR - freeL - iw) / 2 : Math.max(RUL_X + 4, (W - iw - vb.offsetWidth - 12) / 2);
+  const iy = H - ih - 14;
+  Object.assign(isl.style, {left: ix + "px", top: iy + "px"}); isl.classList.toggle("hidden", locked);
+  Object.assign(vb.style, {left: W - vb.offsetWidth - 14 + "px", top: H - vb.offsetHeight - 14 + "px"}); vb.classList.toggle("hidden", locked);
+  const hint = $("bHint"); hint.classList.toggle("hidden", locked || W < 900);
+  Object.assign(hint.style, {left: ix + iw / 2 - hint.offsetWidth / 2 + "px", top: iy - 20 + "px"});
+  // colonna destra: non scende sotto l'isola se si sovrappongono
+  const right = $("bRight"), rx = W - RIGHT_W - 14, overlap = ix + iw > rx - 6;
+  right.classList.toggle("hidden", S.off || locked);
+  Object.assign(right.style, {left: rx + "px", top: top + "px", width: RIGHT_W + "px", maxHeight: (overlap ? iy - 10 : H - 14) - top + "px"});
+  $("bProps").classList.toggle("hidden", !propsVisible());
+  right.classList.toggle("tight", propsVisible() && H < 900); // schermi bassi: via le righe accessorie, le Proprietà hanno spazio
+  const off = $("bOffi"), ow = Math.min(OFF_W, W - 380);
+  off.classList.toggle("hidden", !S.off);
+  Object.assign(off.style, {left: W - ow - 14 + "px", top: top + "px", width: ow + "px", height: Math.max(220, (ix + iw > W - ow - 20 ? iy - 10 : H - 14) - top) + "px"});
+  const ck = $("bCock"); ck.classList.toggle("hidden", !locked);
+  if (locked) Object.assign(ck.style, {left: (W - ck.offsetWidth) / 2 + "px", top: H - ck.offsetHeight - 16 + "px"});
+}
+const propsVisible = () => S.sel.length > 0 || ["rect", "ellipse", "text"].includes(S.tool);
+function refitIfAuto() { bancoLayout(); if (!S.view.user) fit(); else draw(); }
+function plateTab(g, bx0, by1) {
+  g.save(); g.font = "700 11px Inter, sans-serif"; const w = g.measureText("Piano 1").width + 22, y = by1 - 19;
+  g.fillStyle = "#fff"; g.strokeStyle = "#7C8A99"; g.lineWidth = 1; g.beginPath(); g.roundRect(bx0 + .5, y + .5, w, 19, [5, 5, 0, 0]); g.fill(); g.stroke();
+  g.fillStyle = "#111"; g.textAlign = "left"; g.textBaseline = "middle"; g.fillText("Piano 1", bx0 + 11, y + 10);
+  g.fillStyle = "#555"; g.font = "600 14px Inter, sans-serif"; g.fillText("+", bx0 + w + 70, y + 9); g.restore();
+}
+function placeCtx() {
+  const ctx = $("bCtx"), sel = selShapes(), d = S.drag;
+  const moving = d && (d.kind === "band" || d.kind === "rect" || d.kind === "ellipse" || (d.kind === "move" && d.moved));
+  if (!sel.length || moving || bancoLocked()) { ctx.classList.add("hidden"); return; }
+  ctx.classList.remove("hidden");
+  const st = $("stage"), W = st.clientWidth, H = st.clientHeight, w = ctx.offsetWidth, h = ctx.offsetHeight;
+  const b = bbox(sel), [x0, y0] = W2S(b.x0, b.y1), [x1, y1] = W2S(b.x1, b.y0);
+  let x = (x0 + x1) / 2 - w / 2, y = y1 + 16;
+  if (y + h > H - 96) y = y0 - h - 16;
+  y = Math.max(8, Math.min(y, H - h - 96));
+  const lo = RUL_X + 10 + railWidth() + 12, hi = W - (S.off ? Math.min(OFF_W, W - 380) : RIGHT_W) - 14 - 12 - w;
+  x = hi >= lo ? clamp(x, lo, hi) : Math.max(RUL_X + 8, hi);
+  const card = $("mcard"); // se si può, non copre la scheda della missione
+  if (!card.classList.contains("hidden")) {
+    const cl = card.offsetLeft, ct = card.offsetTop, cr = cl + card.offsetWidth, cb = ct + card.offsetHeight;
+    if (x < cr && x + w > cl && y < cb && y + h > ct) { if (cr + 12 <= hi) x = cr + 12; else if (cb + 8 + h <= H - 96) y = cb + 8; }
+  }
+  ctx.style.left = Math.round(x) + "px"; ctx.style.top = Math.round(y) + "px";
+}
+
+/* ---------------------------------------------------------------- contenuti */
+function bancoTop() {
+  renderRail();
+  const pin = $("bPropsIn"); if (propsVisible()) renderProps(pin); else pin.innerHTML = "";
+  if (S.off && S.otab === "layers") renderOff();
+}
+function bancoBottom() {
+  renderFlow(); bancoPill(); bancoProject();
+  if (S.off && S.otab !== "layers") renderOff();
+  bancoLayout();
+}
+function bancoTool() {
+  document.querySelectorAll("#bIsland [data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === S.tool));
+  $("bToolLab").textContent = TOOL_NAMES[S.tool] || "";
+  if (S.ui !== "banco" || $("app").classList.contains("hidden")) return;
+  bancoTop(); bancoLayout();
+}
+function toolHint() {
+  return {rect: "Rettangolo: trascina sul piano. Poi, con la forma selezionata, scrivi le misure esatte nella barra che compare sotto la forma.",
+    ellipse: "Ellisse e cerchio: trascina sul piano (con Maiusc viene un cerchio). Le misure esatte nella barra sotto la forma.",
+    text: "Testo: fai clic sul piano nel punto in cui deve stare il testo."}[S.tool] || "Nessuna selezione.";
+}
+function bancoProject() {
+  $("bProj").textContent = typeof CUR !== "undefined" && CUR ? `Missione ${CUR.def.id} — ${CUR.def.title}` : "Senza titolo";
+  $("bProjSub").textContent = S.undo.length ? "modifiche non salvate" : "nuovo progetto";
+}
+function bancoPill() {
+  const p = $("bPill"), m = S.m; if (!p) return;
+  if (!m.connected) { p.className = "bpill"; p.textContent = "○  Laser non connesso"; return; }
+  const run = S.job && S.job.running, state = run ? (m.paused ? "In pausa" : "Al lavoro") : m.busy ? "In movimento" : "Inattivo";
+  p.className = "bpill " + (run ? (m.paused ? "hold" : "run") : "ok");
+  p.textContent = `●  Simulatore · ${state}   ${m.homed ? `X ${m.x.toFixed(1)}  Y ${m.y.toFixed(1)}` : "X ?  Y ?"}`;
+}
+function renderRail() {
+  const el = $("bRail"), used = usedLayers();
+  if (S.railCompact) {
+    el.innerHTML = `<div class="rhead"><button class="bchip sm" id="rComp" title="Allarga gli strati">»</button></div>` +
+      used.map(i => `<button class="rmini" data-lmini="${i}" title="${esc(layerLabel(i))} · ${L(i).speed} mm/min · ${fmtg(L(i).power)}% · ${L(i).passes}×"><span style="background:${LAYER_COLORS[i % 30]};${L(i).output ? "" : "outline:2px dashed #94A0B8;outline-offset:1px"}"></span></button>`).join("");
+    $("rComp").onclick = () => { S.railCompact = false; bancoTop(); refitIfAuto(); };
+    el.querySelectorAll("[data-lmini]").forEach(b => b.onclick = () => { S.railCompact = false; S.railOpen = +b.dataset.lmini; bancoTop(); refitIfAuto(); });
+    return;
+  }
+  const card = (i) => {
+    const ly = L(i), open = S.railOpen === i;
+    return `<div class="lcard ${open ? "on" : ""}" data-lcard="${i}"><div class="lhead" data-lhead="${i}" tabindex="0" title="Clic: apri o chiudi le regolazioni dello strato">
+      <span class="lbar" style="background:${LAYER_COLORS[i % 30]}"></span><span class="ltx"><b>${esc(layerLabel(i))}</b><span>${ly.speed} mm/min · ${fmtg(ly.power)}% · ${ly.passes}×${ly.air ? " · aria" : ""}${ly.output ? "" : " · non inciso"}</span></span>
+      <span class="ltag">${MODE_LABEL[ly.mode].toUpperCase()}</span></div>${open ? railEditor(i) : ""}</div>`;
+  };
+  el.innerHTML = `<div class="rhead"><span class="bsec">STRATI · IN ORDINE DI LAVORO</span><button class="bchip sm" id="rComp" title="Riduci gli strati a una colonna di colori">«</button></div>
+    <div class="rlist">${used.length ? used.map(card).join("") : `<div class="lcard"><div class="muted" style="line-height:1.45">Ancora nessuno strato. Disegna o importa qualcosa: ogni colore diventa uno strato, con velocità, potenza e passate.</div></div>`}</div>
+    <div class="rfoot"><button class="bchip wide" id="rMat" title="Applica i valori di un materiale agli strati">Libreria materiali…</button><button class="bchip wide" id="rTable">Tabella completa degli strati</button></div>`;
+  $("rComp").onclick = () => { S.railCompact = true; bancoTop(); refitIfAuto(); };
+  $("rMat").onclick = () => { if (S.railOpen !== null && usedLayers().includes(S.railOpen)) S.curRow = S.railOpen; openMaterials(); };
+  $("rTable").onclick = () => officinaShow("layers");
+  el.querySelectorAll("[data-lhead]").forEach(h => { const tog = () => { const i = +h.dataset.lhead; S.railOpen = S.railOpen === i ? null : i; S.curRow = i; bancoTop(); bancoLayout(); };
+    h.onclick = tog; h.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tog(); } }; });
+  const set = (i, key, v, text) => { if (L(i)[key] === v) return; commit(); L(i)[key] = v; changed(text); };
+  el.querySelectorAll("select[data-lmode]").forEach(s => s.onchange = () => { const i = +s.dataset.lmode; set(i, "mode", s.value, `${layerLabel(i)}: modalità ${MODE_LABEL[s.value]}`); });
+  const num = (attr, key, lo, hi, label) => el.querySelectorAll(`input[data-${attr}]`).forEach(inp => {
+    const i = +inp.dataset[attr], rng = el.querySelector(`input[data-${attr}r='${i}']`);
+    inp.onkeydown = (e) => { if (e.key === "Enter") inp.blur(); };
+    inp.onchange = () => { const v = parseNum(inp.value); if (v === null) return renderRail(); set(i, key, clamp(Math.round(v), lo, hi), `${layerLabel(i)}: ${label} ${clamp(Math.round(v), lo, hi)}`); };
+    if (rng) { rng.oninput = () => inp.value = rng.value; rng.onchange = () => set(i, key, +rng.value, `${layerLabel(i)}: ${label} ${rng.value}`); }
+  });
+  num("lspeed", "speed", 10, 36000, "velocità"); num("lpow", "power", 0, 100, "potenza %"); num("lpass", "passes", 1, 99, "passate");
+  el.querySelectorAll("input[data-lout]").forEach(c => c.onchange = () => set(+c.dataset.lout, "output", c.checked, c.checked ? "Il livello verrà inciso" : "Non incidere: il livello resta nel disegno ma il laser lo salta"));
+  el.querySelectorAll("input[data-lair]").forEach(c => c.onchange = () => set(+c.dataset.lair, "air", c.checked, c.checked ? "Aria accesa su questo strato" : "Aria spenta su questo strato"));
+  el.querySelectorAll("[data-lfull]").forEach(b => b.onclick = () => msg("«Tutte le impostazioni»: nel Costrutto bastano quelle della scheda"));
+  el.querySelectorAll("[data-lsel]").forEach(b => b.onclick = () => { const i = +b.dataset.lsel; setSel(S.doc.shapes.filter(s => leaves(s).some(f => f.layer === i)).map(s => s.id)); });
+}
+function railEditor(i) {
+  const ly = L(i);
+  return `<div class="led"><select data-lmode="${i}">${Object.entries(MODE_LABEL).map(([k, v]) => `<option value="${k}" ${ly.mode === k ? "selected" : ""}>${v}</option>`).join("")}</select>
+    <div class="lrow"><span class="muted">Velocità</span><span class="flex"></span><input data-lspeed="${i}" value="${ly.speed}"><span class="u">mm/min</span></div>
+    <input type="range" data-lspeedr="${i}" min="10" max="36000" step="100" value="${ly.speed}">
+    <div class="lrow"><span class="muted">Potenza</span><span class="flex"></span><input data-lpow="${i}" value="${fmtg(ly.power)}"><span class="u">%</span></div>
+    <input type="range" data-lpowr="${i}" min="0" max="100" step="1" value="${ly.power}">
+    <div class="lrow"><span class="muted">Passate</span><input data-lpass="${i}" value="${ly.passes}" style="width:54px"></div>
+    <div class="lrow"><label><input type="checkbox" data-lout="${i}" ${ly.output ? "checked" : ""}> Incidi</label><label><input type="checkbox" data-lair="${i}" ${ly.air ? "checked" : ""}> Aria</label></div>
+    <div class="lrow two"><button class="bchip" data-lfull="${i}">Tutte le impostazioni…</button><button class="bchip" data-lsel="${i}" title="Seleziona le forme di questo strato">Seleziona</button></div></div>`;
+}
+function renderFlow() {
+  const el = $("bFlow"), m = S.m, shapes = S.doc.shapes, used = usedLayers(), out = used.filter(i => L(i).output);
+  const b = bbox(shapes), inBed = !b || (b.x0 >= -.01 && b.y0 >= -.01 && b.x1 <= BED.w + .01 && b.y1 <= BED.h + .01);
+  const dot = (n, st) => `<span class="fdot ${st}">${st === "ok" ? "✓" : st === "warn" ? "!" : n}</span>`;
+  const step = (n, st, title, text) => `<div class="fstep">${dot(n, st)}<div><b>${title}</b><span>${text}</span></div></div>`;
+  const nS = shapes.length, nL = used.length;
+  const s1 = !nS ? step(1, "todo", "Disegno", "Ancora vuoto: disegna, scrivi o importa (Ctrl+I)")
+    : step(1, inBed ? "ok" : "warn", "Disegno", (nL !== 1 ? `${nS} oggetti su ${nL} strati` : nS !== 1 ? `${nS} oggetti su 1 strato` : "1 oggetto su 1 strato") + (inBed ? "" : " · qualcosa esce dal piano"));
+  const s2 = out.length ? step(2, "ok", "Strati e materiale", `${out.length === 1 ? "1 strato" : out.length + " strati"} da incidere · valori dalla libreria o a mano`) : step(2, "todo", "Strati e materiale", "Nessuno strato da incidere");
+  const prevOk = nS && S.ev.previewSig && S.ev.previewSig === docSig();
+  const s3 = prevOk ? step(3, "ok", "Controllo", `Lavoro pronto · tempo stimato ${mmss(estimate())}`) : step(3, "todo", "Controllo", "Guarda l'anteprima: calcola percorso e tempo");
+  const s4 = m.connected ? step(4, "todo", "Posiziona sul materiale", "Fai il contorno o guarda la foto del piano") : step(4, "warn", "Posiziona sul materiale", "Laser non connesso");
+  const running = !!(S.job && S.job.running), ready = m.connected && out.length && !running && !m.busy, safe = S.safe.glasses && S.safe.air;
+  const label = !m.connected ? "Collega il laser" : "Tieni premuto per incidere";
+  const note = !m.connected ? "Clic per connettere la macchina sull'ultima porta usata" : !safe ? "Spunta le due voci di sicurezza per abilitare l'avvio" : ready ? "Tieni premuto un secondo: si apre la conferma finale" : "";
+  el.innerHTML = `<div class="bsec">DAL DISEGNO AL PEZZO</div>${s1}${s2}
+    <div class="frow"><button class="bchip" id="bfMat">Materiali…</button><button class="bchip dis" id="bfTest">Test materiale…</button></div>${s3}
+    <div class="frow"><button class="bchip" id="bfPrev" title="Simula il percorso del laser e calcola il tempo (Alt+P)">Anteprima</button><button class="bchip dis" title="La scheda controlla tutto il G-code prima di partire">Verifica</button></div>${s4}
+    <div class="frow three"><button class="bchip ${m.connected ? "" : "dis"}" id="bfFrame" title="La testa percorre il bordo del lavoro (Ctrl+Shift+F)">Contorno</button><button class="bchip dis" id="bfCam">Camera</button><button class="bchip" id="bfOrig" title="Da dove parte il lavoro: piano, posizione attuale, origine utente">Origine</button></div>
+    <div class="fsafe" id="bfSafe"><label><input type="checkbox" id="sfG" ${S.safe.glasses ? "checked" : ""}> Occhiali protettivi indossati</label><label><input type="checkbox" id="sfA" ${S.safe.air ? "checked" : ""}> Aria e aspirazione accese</label>
+      <div class="frow"><button class="bchip dis" title="La camera sorveglia il lavoro e lo ferma se vede una fiamma">Guardia fiamme…</button><button class="bchip dis" title="Pausa, stop, avanzamento e camera dal telefono sulla rete di casa">Controllo dal telefono…</button></div></div>
+    <button class="bstart" id="bfStart" ${!m.connected || (ready && safe) ? "" : "disabled"}><span>${label}</span></button><div class="fnote" id="bfNote">${note}</div>`;
+  $("bfMat").onclick = () => openMaterials(); $("bfPrev").onclick = () => openPreview();
+  $("bfFrame").onclick = () => m.connected ? contour() : needConn(); $("bfOrig").onclick = () => officinaShow("laser");
+  el.querySelectorAll(".frow .bchip.dis").forEach(b => b.onclick = () => msg(`«${b.textContent}»: nel Costrutto non serve ancora`));
+  $("sfG").onchange = (e) => { S.safe.glasses = e.target.checked; renderFlow(); };
+  $("sfA").onchange = (e) => { S.safe.air = e.target.checked; renderFlow(); };
+  const st = $("bfStart");
+  st.onclick = () => { if (!S.m.connected) connectToggle(); else if (!S.hold) msg("Tieni premuto il pulsante per un secondo: si apre la conferma finale"); };
+  st.onpointerdown = (e) => { if (e.button === 0 && S.m.connected && !st.disabled) S.hold = {t0: performance.now()}; };
+  st.onpointerleave = () => { S.hold = null; };
+  st.onkeydown = (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat && S.m.connected && !st.disabled) { e.preventDefault(); S.hold = {t0: performance.now()}; } };
+  st.onkeyup = () => { S.hold = null; };
+}
+// ogni fotogramma: pulsante a pressione prolungata, cabina del lavoro
+function bancoTick() {
+  const st = $("bfStart");
+  if (st) {
+    const p = S.hold ? Math.min(1, (performance.now() - S.hold.t0) / 900) : 0;
+    st.style.setProperty("--p", (p * 100).toFixed(1) + "%");
+    if (S.hold && p >= 1) { S.hold = null; st.style.setProperty("--p", "0%"); startJob(); }
+  }
+  const run = bancoLocked();
+  if (run !== !!S.cockOn) { S.cockOn = run; refreshUI(); bancoLayout(); }
+  if (run) {
+    const a = S.m.anim, done = a && a.job ? a.i / S.job.total : 1, t = (performance.now() - S.job.t0) / 1000, rest = done > .03 ? t * (1 - done) / done : null;
+    $("ckState").textContent = S.m.paused ? "IN PAUSA" : "INCISIONE IN CORSO";
+    $("ckDet").textContent = `${Math.round(done * 100)}% · ${S.job.plan.filter(p => !p.skip).map(p => layerLabel(p.layer)).join(" → ")}`;
+    $("ckEta").textContent = rest === null ? "…" : mmss(rest); $("ckPause").textContent = S.m.paused ? "Riprendi" : "Pausa";
+    $("bCock").classList.toggle("paused", !!S.m.paused);
+  }
+}
+
+/* ---------------------------------------------------------------- Officina */
+function renderOff() {
+  const el = $("offBody");
+  $("bOffi").querySelectorAll("[data-otab]").forEach(b => b.classList.toggle("on", b.dataset.otab === S.otab));
+  if (S.otab === "laser") renderLaser(el); else if (S.otab === "move") renderMove(el); else if (S.otab === "layers") renderLayerTable(el);
+}
+function officinaShow(tab) { if (tab) S.otab = tab; S.off = true; $("pTop").innerHTML = ""; renderOff(); refitIfAuto(); }
+function officinaHide() { S.off = false; $("offBody").innerHTML = ""; refreshUI(); refitIfAuto(); }
+function toggleOfficina() { S.off ? officinaHide() : officinaShow(); }
+
+/* ---------------------------------------------------------------- menù a comparsa, ricerca, menu radiale */
+function closePops() { document.querySelectorAll(".menu.pop").forEach(m => m.remove()); $("bPal")?.classList.add("hidden"); $("bRadial")?.classList.add("hidden"); }
+function popMenu(anchor, items) {
+  const was = anchor.dataset.popOpen === "1"; closePops(); document.querySelectorAll("[data-pop-open]").forEach(a => delete a.dataset.popOpen);
+  if (was) return;
+  const m = document.createElement("div"); m.className = "menu pop"; m.innerHTML = menuHTML(items); document.body.appendChild(m);
+  const r = anchor.getBoundingClientRect(), h = m.offsetHeight, w = m.offsetWidth;
+  m.style.left = Math.min(r.left, innerWidth - w - 8) + "px"; m.style.top = (r.bottom + h + 8 < innerHeight ? r.bottom + 4 : r.top - h - 4) + "px";
+  anchor.dataset.popOpen = "1";
+  m.querySelectorAll(".it[data-label]").forEach(el => el.onclick = (e) => {
+    e.stopPropagation(); const a = findAction(items, el.dataset.label);
+    if (!a) return msg(`«${el.dataset.label}»: nel Costrutto questo comando non serve ancora`);
+    closePops(); delete anchor.dataset.popOpen; a();
+  });
+}
+const norm = (t) => t.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const MENU_NAMES = {file: "File", modifica: "Modifica", disponi: "Disponi", strumenti: "Strumenti", laser: "Laser", visualizza: "Visualizza", aiuto: "Aiuto"};
+function paletteCmds() {
+  const out = [];
+  const walk = (items, path) => items.forEach(it => { if (it === "-") return; const [label, key, act] = it; if (Array.isArray(act)) walk(act, `${path} → ${label}`); else out.push({label, key, act, path}); });
+  for (const [k, items] of Object.entries(MENUS)) if (MENU_NAMES[k]) walk(items, MENU_NAMES[k]);
+  out.push({label: "Apri / chiudi l'Officina", key: "Ctrl+Shift+W", act: toggleOfficina, path: "Banco"});
+  return out;
+}
+function openPalette() {
+  closePops();
+  const P = $("bPal"), cmds = paletteCmds(); let list = [], cur = 0;
+  P.innerHTML = `<input id="palIn" placeholder="Cosa vuoi fare? Scrivi una parola: offset, testo, contorno, homing…" autocomplete="off"><div id="palList"></div><div class="palhint">Invio: esegue · ↑↓: scorre · Esc: chiude</div>`;
+  P.classList.remove("hidden");
+  const draw = () => {
+    $("palList").innerHTML = list.map((c, i) => `<div class="pit ${i === cur ? "on" : ""} ${c.act ? "" : "dis"}" data-i="${i}"><span>${esc(c.label)}<small>${esc(c.path)}${c.act ? "" : " · nel Costrutto non serve ancora"}</small></span><kbd>${c.key && c.key !== "▸" ? c.key : ""}</kbd></div>`).join("") || `<div class="pit dis">Nessun comando con queste parole</div>`;
+    $("palList").querySelectorAll("[data-i]").forEach(d => { d.onmouseenter = () => { cur = +d.dataset.i; draw(); }; d.onclick = () => run(+d.dataset.i); });
+    $("palList").querySelector(".pit.on")?.scrollIntoView({block: "nearest"});
+  };
+  const filter = (q) => { const w = norm(q).split(/\s+/).filter(Boolean); list = cmds.filter(c => w.every(x => norm(`${c.label} ${c.path}`).includes(x))).slice(0, 40); cur = 0; draw(); };
+  const run = (i) => { const c = list[i]; if (!c) return; if (!c.act) return msg(`«${c.label}»: nel Costrutto questo comando non serve ancora`); closePops(); c.act(); };
+  const inp = $("palIn");
+  inp.oninput = () => filter(inp.value);
+  inp.onkeydown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); closePops(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); cur = Math.min(list.length - 1, cur + 1); draw(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); cur = Math.max(0, cur - 1); draw(); }
+    else if (e.key === "Enter") { e.preventDefault(); run(cur); }
+    e.stopPropagation();
+  };
+  filter(""); setTimeout(() => inp.focus(), 0);
+}
+function openRadial(e) {
+  closePops(); closeMenus();
+  const [px, py] = evPos(e), hit = hitTest(px, py);
+  if (hit && !S.sel.includes(hit.id)) { S.sel = [hit.id]; refreshUI(); }
+  const n = hit ? S.sel.length : 0;
+  const items = n ? [["Duplica", null], n > 1 ? ["Raggruppa", groupSel] : ["Separa", ungroupSel], ["Offset", null], ["Serie", () => openGrid()], ["In tracciato", null], ["Rifletti", null], ["Elimina", deleteSel], ["Inquadra", null]]
+    : [["Incolla", null], ["Tutto", selectAll], ["Forme", null], ["Testo", () => setTool("text")], ["Importa", () => openImport()], ["Annulla", undo], ["Ottimizza", null], ["Adatta", () => fit()]];
+  const R = $("bRadial"), cx = e.clientX, cy = e.clientY;
+  R.innerHTML = `<div class="rcen">${n ? (n > 1 ? `${n} oggetti` : "Selezione") : "Piano"}</div>` + items.map(([lab, f], i) => {
+    const a = -Math.PI / 2 + i * Math.PI / 4, x = Math.cos(a) * 112, y = Math.sin(a) * 84;
+    return `<button class="rit ${f ? "" : "dis"}" data-ri="${i}" style="left:${x}px;top:${y}px">${lab}</button>`; }).join("");
+  Object.assign(R.style, {left: clamp(cx, 130, innerWidth - 130) + "px", top: clamp(cy, 110, innerHeight - 110) + "px"}); R.classList.remove("hidden");
+  R.querySelectorAll("[data-ri]").forEach(b => b.onclick = () => { const [lab, f] = items[+b.dataset.ri]; closePops(); if (!f) return msg(`«${lab}»: nel Costrutto questo comando non serve ancora`); f(); });
+}
+function bancoKey(e, k, c) {
+  if ((c && !e.shiftKey && !e.altKey && k === "f") || e.key === "F3") { e.preventDefault(); openPalette(); return true; } // Ctrl+Maiusc+F resta il Contorno
+  if (c && e.shiftKey && k === "w") { e.preventDefault(); toggleOfficina(); return true; }
+  if (c && k === "0") { e.preventDefault(); fit(); return true; }
+  if (bancoLocked() && !c && (k === "delete" || k === "backspace")) return true;
+  return false;
+}
+
+/* ---------------------------------------------------------------- segnalatore nel Banco */
+const TARGETS_B = {
+  "port": {sel: "#port", off: "laser"}, "connect": {sel: ["#bfStart", "#bPill"], right: 1}, "pill": {sel: "#bPill"}, "officina": {sel: "#bOff"}, "search": {sel: "#bSearch"},
+  "contour": {sel: "#bfFrame", right: 1}, "homing": {sel: "#bHome", off: "move"}, "jog": {sel: "#offBody .jog", off: "move"}, "step": {sel: "#offBody .steps", off: "move"},
+  "tool-position": {sel: "#bIsland [data-tool=position]"}, "tool-select": {sel: "#bIsland [data-tool=select]"}, "tool-rect": {sel: "#bIsland [data-tool=rect]"},
+  "tool-ellipse": {sel: "#bIsland [data-tool=ellipse]"}, "tool-text": {sel: "#bIsland [data-tool=text]"},
+  "tab-prop": {sel: "#bProps", right: 1}, "radius": {sel: ["#pRad", "#bProps"], right: 1},
+  "ctx-combina": {sel: "#bCtx [data-pop=combina]"}, "ctx-allinea": {sel: "#bCtx [data-pop=allinea]"},
+  "start-from": {sel: "#startFrom", off: "laser"}, "anchor": {sel: "#anchorPick", off: "laser"}, "goto-anchor": {sel: "#bGotoAnc", off: "laser"}, "origine": {sel: "#bfOrig", right: 1}, "ctx-serie": {sel: "#bCtx [data-pop=serie]"}, "ctx": {sel: "#bCtx"},
+  "palette": {sel: "#nLayer"}, "palette-01": {sel: "#nLayer"}, "palette-02": {sel: "#nLayer"},
+  "mode-01": {sel: ["select[data-lmode='1']", "[data-lhead='1']"], card: 1}, "mode-02": {sel: ["select[data-lmode='2']", "[data-lhead='2']"], card: 2},
+  "mode-04": {sel: ["select[data-lmode='4']", "[data-lhead='4']"], card: 4}, "out-03": {sel: ["input[data-lout='3']", "[data-lhead='3']"], card: 3},
+  "materials": {sel: ["#rMat", "#bfMat"]}, "table": {sel: "#rTable"}, "cuts": {sel: "#bCuts", off: "layers"},
+  "var": {sel: ["#pVar", "#bIsland [data-tool=text]"], right: 1},
+  "isl-import": {sel: "#bIsland [data-bcmd=import]"}, "isl-trace": {sel: "#bIsland [data-bcmd=trace]"}, "isl-code": {sel: "#bIsland [data-bcmd=qr]"},
+  "lock": {sel: "#nLock"}, "preview": {sel: "#bfPrev", right: 1}, "start": {sel: "#bfStart", right: 1}, "safety": {sel: "#bfSafe", right: 1},
+};
+// lampo leggero: se il comando è in un cassetto chiuso o in una scheda chiusa, indica quella e non la apre
+function bancoSoftKey(t) {
+  if (t.right && S.off) { TARGETS_B._offx = {sel: "#offX"}; return "_offx"; } // il percorso a destra è sotto l'Officina aperta
+  if (t.off && (!S.off || S.otab !== t.off)) { const k = S.off ? "_otab_" + t.off : "_offbtn"; TARGETS_B[k] = {sel: S.off ? `[data-otab=${t.off}]` : "#bOff"}; return k; }
+  if (t.card !== undefined && S.railOpen !== t.card) { const k = "_card_" + t.card; TARGETS_B[k] = {sel: S.railCompact ? "#rComp" : `[data-lhead='${t.card}']`}; return k; }
+  return null;
+}
+// indicazione forte: apre il cassetto o la scheda dello strato, come farebbe un clic
+function bancoReveal(t) {
+  if (t.right && S.off) officinaHide();
+  if (t.off && (!S.off || S.otab !== t.off)) officinaShow(t.off);
+  if (t.card !== undefined && S.railOpen !== t.card && usedLayers().includes(t.card)) { S.railCompact = false; S.railOpen = t.card; bancoTop(); bancoLayout(); }
 }
 
 'use strict';
@@ -1495,6 +2306,24 @@ function stdLayers(fill, cut) {
   Object.assign(L(cut), {name: "Taglio", mode: "line", speed: 1400, power: 100, material: "Tiglio (basswood) · Taglio 3 mm", priority: 2});
 }
 
+// Livello 2
+const COASTER = {kind: "disk", x: 215, y: 140, r: 45};           // sottobicchiere Ø 90 già tagliato
+const BOARD = {kind: "board", x: 205, y: 150, w: 100, h: 30, r: 3}; // tavoletta già tagliata
+function signAndHoles() {
+  const sign = S.doc.shapes.find(s => s.type === "rect" && near(s.w, 120, .05) && near(s.h, 40, .05));
+  const holes = allLeaves().filter(s => s.type === "ellipse" && near(s.w, 5, .05) && near(s.h, 5, .05)).sort((a, b) => a.x - b.x);
+  return sign && holes.length === 2 ? {sign, holes} : null;
+}
+const inPiece = (x, y, p) => p.kind === "disk" ? Math.hypot(x - p.x, y - p.y) <= p.r - .5
+  : x >= p.x - p.w / 2 + .5 && x <= p.x + p.w / 2 - .5 && y >= p.y - p.h / 2 + .5 && y <= p.y + p.h / 2 - .5;
+// tutto quello che il laser farà, spostato dalla partenza, cade sul pezzo di legno?
+function designOnPiece(off, p) {
+  const list = allLeaves().filter(s => L(s.layer).output && L(s.layer).show);
+  return !!off && list.length > 0 && list.every(s => outlinePts(s).every(([x, y]) => inPiece(x + off[0], y + off[1], p)));
+}
+const nameText = () => texts().find(t => !hasVars(t.text) && t.text.trim().length >= 2 && isFill(t.layer) && L(t.layer).output && L(t.layer).material === "Tiglio (basswood) · Incisione");
+const fourHoles = () => allLeaves().filter(s => s.type === "ellipse" && near(s.w, 4, .05) && near(s.h, 4, .05) && L(s.layer).mode === "line" && L(s.layer).output && L(s.layer).material === "Tiglio (basswood) · Taglio 3 mm").sort((a, b) => a.x - b.x);
+
 const MISSIONS = [
   {
     id: 1, title: "Piano e macchina", desc: "Collegarsi, fare l'Homing, muovere la testa e vedere dove finirà il lavoro.",
@@ -1503,20 +2332,27 @@ const MISSIONS = [
     latch() { if (S.m.connected && S.m.homed && !S.m.busy && near(S.m.x, 60, .05) && near(S.m.y, 45, .05)) S.ev.corner = true; },
     steps: [
       {t: "Collegati al laser «[[Simulatore (senza macchina)|port]]» con [[Connetti|connect]]", ok: () => S.ev.connected,
+       tb: "Collega il laser «Simulatore (senza macchina)» con [[Collega il laser|connect]]",
+       hb: ["Dove si vede se il laser è collegato?", "In alto la pillola «[[○ Laser non connesso|pill]]»; a destra, in fondo al percorso «Dal disegno al pezzo», il grande pulsante arancione [[Collega il laser|connect]] (oppure Ctrl+K). La porta si sceglie in [[Officina|officina]] → Laser.", "Premi il pulsante arancione «Collega il laser»: si collega all'ultima porta usata, qui il Simulatore."],
        h: ["Dove si sceglie con quale laser parlare?", "Pannello [[Laser|port]], in basso a destra: menù della porta e pulsante [[Connetti|connect]] (oppure Ctrl+K).", "Nel menù scegli «Simulatore (senza macchina)» e premi Connetti."]},
       {t: "Fai l'[[Homing|homing]]", ok: () => S.ev.homed,
+       hb: ["Dopo il collegamento la macchina sa dove si trova?", "[[Officina|officina]] → scheda Movimento → [[Homing|homing]]; oppure Ctrl+H; oppure Ctrl+F e scrivi «homing».", "Premi Ctrl+H: la testa va nell'angolo di partenza (0, 0)."],
        h: ["Dopo il collegamento la macchina sa dove si trova?", "Laser → Homing, oppure Ctrl+H, oppure il pulsante [[Homing|homing]] nel pannello Movimento.", "Premi Ctrl+H: la testa va nell'angolo di partenza (0, 0)."]},
       {t: "Con le [[frecce|jog]] porta la testa sull'angolo in basso a sinistra del riquadro (60, 45)", ok: () => S.ev.corner,
+       hb: ["Quanto sono lontani 60 e 45 dall'origine? Con che passo ci arrivi in pochi clic?", "[[Officina|officina]] → Movimento: scegli il [[Passo (mm)|step]] e usa le [[frecce|jog]]. La posizione si legge nella pillola in alto.", "Passo 10: sei clic su → (X 60) e quattro su ↑ (Y 40); poi passo 1 e cinque clic su ↑ (Y 45)."],
        h: ["Quanto sono lontani 60 e 45 dall'origine? Con che passo ci arrivi in pochi clic?", "Pannello Movimento: scegli il [[Passo (mm)|step]] e usa le [[frecce|jog]]. La posizione è scritta sopra al passo.", "Passo 10: sei clic su → (X 60) e quattro su ↑ (Y 40); poi passo 1 e cinque clic su ↑ (Y 45)."]},
-      {t: "Con lo strumento [[Posiziona laser|tool-position]] porta la testa al centro del riquadro", ok: () => S.ev.placed && S.ev.placed[2] && near(S.ev.placed[0], 100, 1.5) && near(S.ev.placed[1], 70, 1.5),
+      {t: "Con lo strumento [[Posiziona laser|tool-position]] porta la testa al centro del riquadro",
+       hb: ["C'è un modo più rapido delle frecce per andare in un punto preciso?", "Tasto Q, oppure il [[mirino|tool-position]]: l'ultimo pulsante a destra nell'isola degli strumenti, in basso.", "Premi Q e fai clic al centro del riquadro: il quadratino arancione aggancia il centro."], ok: () => S.ev.placed && S.ev.placed[2] && near(S.ev.placed[0], 100, 1.5) && near(S.ev.placed[1], 70, 1.5),
        h: ["C'è un modo più rapido delle frecce per andare in un punto preciso?", "Strumenti → Posiziona laser, tasto Q, oppure il [[mirino|tool-position]] nella barra degli strumenti a sinistra.", "Premi Q e fai clic al centro del riquadro: il quadratino arancione aggancia il centro."]},
-      {t: "Seleziona il riquadro e fai il [[Contorno|contour]]", ok: () => S.ev.contour && S.ev.contour.homed && S.ev.contour.ids.length === 1 && S.doc.shapes[0] && S.ev.contour.ids[0] === S.doc.shapes[0].id,
+      {t: "Seleziona il riquadro e fai il [[Contorno|contour]]",
+       hb: ["Quale comando percorre il bordo del lavoro a laser spento?", "Nel percorso «Dal disegno al pezzo», al passo 4, il pulsante [[Contorno|contour]] (oppure Ctrl+Shift+F).", "Premi V, clic sul riquadro rosso, poi Contorno."], ok: () => S.ev.contour && S.ev.contour.homed && S.ev.contour.ids.length === 1 && S.doc.shapes[0] && S.ev.contour.ids[0] === S.doc.shapes[0].id,
        h: ["Quale comando percorre il bordo del lavoro a laser spento?", "Laser → Contorno (Ctrl+Shift+F), oppure il pulsante [[Contorno|contour]] nel pannello Laser.", "Premi V, clic sul riquadro rosso, poi Ctrl+Shift+F."]},
     ],
     errore: () => S.ev.jogBeforeHome
       ? "Ti è successo: hai mosso la testa prima dell'Homing. Senza Homing la macchina non sa dove si trova e le coordinate non tornano. Sul laser vero, prima l'Homing, sempre."
       : "L'errore più comune è muovere la testa prima dell'Homing: la macchina non sa dove si trova e le coordinate non tornano. Tu non l'hai fatto: bene.",
     recall: ["Quale comando ti mostra dove finirà il lavoro, senza accendere il laser?", "Il Contorno: Laser → Contorno, Ctrl+Shift+F."],
+    recallB: ["Quale comando ti mostra dove finirà il lavoro, senza accendere il laser?", "Il Contorno: il pulsante nel percorso «Dal disegno al pezzo», oppure Ctrl+Shift+F."],
   },
   {
     id: 2, title: "Disegnare a misura", desc: "Un portachiavi 60 × 30 mm con angoli arrotondati e un foro, preciso al decimo.",
@@ -1524,14 +2360,20 @@ const MISSIONS = [
     setup() {},
     steps: [
       {t: "Un [[rettangolo|tool-rect]] di [[60 × 30 mm|numLA]]", ok: () => !!keychainOf(),
+       hb: ["Le misure si inseguono col mouse o si scrivono?", "Strumento [[Rettangolo|tool-rect]] nell'isola in basso (R). Quando il rettangolo è selezionato, sotto compare la barra con i campi [[L e A|numLA]].", "Premi R, trascina un rettangolo qualsiasi, poi scrivi 60 in L e 30 in A (Invio dopo ogni campo)."],
        h: ["Le misure si inseguono col mouse o si scrivono?", "Strumento [[Rettangolo|tool-rect]] (R), poi la barra in alto «Posizione e dimensioni»: campi [[L e A|numLA]].", "Premi R, trascina un rettangolo qualsiasi, poi scrivi 60 in L e 30 in A (Invio dopo ogni campo)."]},
-      {t: "Angoli con [[raggio 5 mm|radius]]", ok: () => { const k = keychainOf(); return k && near(radiusOf(k), 5, .05); },
+      {t: "Angoli con [[raggio 5 mm|radius]]",
+       hb: ["Gli angoli arrotondati sono una proprietà del rettangolo: dove si vedono le proprietà?", "Il riquadro [[Proprietà|radius]] in alto a destra: compare quando una forma è selezionata.", "Seleziona il rettangolo e scrivi 5 in «Raggio angoli»."], ok: () => { const k = keychainOf(); return k && near(radiusOf(k), 5, .05); },
        h: ["Gli angoli arrotondati sono una proprietà del rettangolo: dove si vedono le proprietà?", "Scheda [[Proprietà|tab-prop]], in alto a destra, sezione Rettangolo.", "Seleziona il rettangolo, apri Proprietà e scrivi 5 in «Raggio angoli»."]},
-      {t: "Un [[cerchio|tool-ellipse]] di 5 mm di diametro", ok: () => holeCandidates().some(c => near(c.w, 5, .05) && near(c.h, 5, .05)),
+      {t: "Un [[cerchio|tool-ellipse]] di 5 mm di diametro",
+       hb: ["Con quale strumento si disegna un cerchio?", "Strumento [[Ellisse e cerchio|tool-ellipse]] nell'isola (E); le misure, come sempre, in [[L e A|numLA]] sotto la forma.", "Premi E, trascina un cerchio dentro al rettangolo, poi L = 5 e A = 5."], ok: () => holeCandidates().some(c => near(c.w, 5, .05) && near(c.h, 5, .05)),
        h: ["Con quale strumento si disegna un cerchio?", "Strumento [[Ellisse e cerchio|tool-ellipse]] (E); le misure, come sempre, in [[L e A|numLA]].", "Premi E, trascina un cerchio dentro al rettangolo, poi L = 5 e A = 5."]},
-      {t: "Centro del foro a 6 mm dal bordo sinistro, centrato in altezza ([[X e Y|numXY]])", ok: () => { const k = keychainOf(); return k && holeCandidates().some(c => near(c.w, 5, .05) && near(c.x - (k.x - k.w / 2), 6, .2) && near(c.y, k.y, .2)); },
+      {t: "Centro del foro a 6 mm dal bordo sinistro, centrato in altezza ([[X e Y|numXY]])",
+       hb: ["X e Y, nella barra sotto la selezione, indicano il centro della forma. Dov'è il bordo sinistro del rettangolo?", "Bordo sinistro = [[X|numXY]] del rettangolo − 30. Il centro del foro va 6 mm più a destra; la Y è la stessa del rettangolo.", "Se il rettangolo ha X 100 e Y 70, il cerchio va a X 76 e Y 70. Oppure seleziona entrambi e usa Allinea ▾ → Centra in verticale."], ok: () => { const k = keychainOf(); return k && holeCandidates().some(c => near(c.w, 5, .05) && near(c.x - (k.x - k.w / 2), 6, .2) && near(c.y, k.y, .2)); },
        h: ["X e Y nella barra in alto indicano il centro della forma. Dov'è il bordo sinistro del rettangolo?", "Bordo sinistro = [[X|numXY]] del rettangolo − 30. Il centro del foro va 6 mm più a destra; la Y è la stessa del rettangolo.", "Se il rettangolo ha X 100 e Y 70, il cerchio va a X 76 e Y 70. Oppure seleziona entrambi e usa Disponi → Allinea → Centra in verticale."]},
-      {t: "Togli il foro con la [[Differenza|menu-disponi]]: un solo pezzo", ok: () => { const k = keychainOf(); return k && k.type === "compound" && k.holes.length === 1 && near(k.holes[0].w, 5, .05) && S.doc.shapes.length === 1; },
+      {t: "Togli il foro con la [[Differenza|menu-disponi]]: un solo pezzo",
+       tb: "Togli il foro con la [[Differenza|ctx-combina]]: un solo pezzo",
+       hb: ["Due forme separate al laser diventano un rettangolo e un dischetto. Che operazione unisce le due in un pezzo con il foro?", "Seleziona le due forme: nella barra sotto la selezione, [[Combina ▾|ctx-combina]] → Differenza (la prima meno la seconda).", "Clic sul rettangolo, Maiusc+clic sul cerchio, poi Combina ▾ → Differenza."], ok: () => { const k = keychainOf(); return k && k.type === "compound" && k.holes.length === 1 && near(k.holes[0].w, 5, .05) && S.doc.shapes.length === 1; },
        h: ["Due forme separate al laser diventano un rettangolo e un dischetto. Che operazione unisce le due in un pezzo con il foro?", "[[Disponi|menu-disponi]] → Operazioni booleane → Differenza (la prima meno la seconda).", "Clic sul rettangolo, Maiusc+clic sul cerchio, poi Disponi → Operazioni booleane → Differenza."]},
     ],
     errore: () => S.ev.diffEmpty
@@ -1547,15 +2389,20 @@ const MISSIONS = [
       S.doc.shapes.push(k, mkText("LUCA", 106, 70, 10, 0)); L(0);
     },
     steps: [
-      {t: "Contorno sul [[livello 02|palette-02]] (rosso)", ok: () => S.doc.shapes.find(s => s.type === "compound")?.layer === 2,
+      {t: "Contorno sul [[livello 02|palette-02]] (rosso)",
+       hb: ["Il colore di una forma è il suo livello. Dove si cambia?", "Seleziona la forma: nella barra sotto la selezione c'è il menù [[Livello|palette]].", "Clic sul contorno del portachiavi, poi nel menù Livello scegli «C02»."], ok: () => S.doc.shapes.find(s => s.type === "compound")?.layer === 2,
        h: ["Il colore di una forma è il suo livello. Dove si cambia?", "La [[barra dei colori|palette]] in basso: seleziona la forma e fai clic su un colore.", "Clic sul contorno del portachiavi, poi clic sul quadratino rosso 02 in basso."]},
-      {t: "Livello 02 in [[modalità Linea|mode-02]] (taglio)", ok: () => S.doc.shapes.find(s => s.type === "compound")?.layer === 2 && L(2).mode === "line",
+      {t: "Livello 02 in [[modalità Linea|mode-02]] (taglio)",
+       hb: ["Per tagliare il laser deve seguire il bordo o riempire la superficie?", "Gli strati sono a sinistra: un clic sulla scheda del [[livello 02|mode-02]] la apre, e il primo menù è la modalità.", "Clic sulla scheda C02, poi scegli «Linea»."], ok: () => S.doc.shapes.find(s => s.type === "compound")?.layer === 2 && L(2).mode === "line",
        h: ["Per tagliare il laser deve seguire il bordo o riempire la superficie?", "Tabella Livelli, colonna [[Modalità|mode-02]], alla riga del 02.", "Nella riga 02 scegli «Linea»."]},
-      {t: "Testo sul [[livello 01|palette-01]] (blu) in [[Riempimento|mode-01]]", ok: () => S.doc.shapes.find(s => s.type === "text")?.layer === 1 && L(1).mode === "fill",
+      {t: "Testo sul [[livello 01|palette-01]] (blu) in [[Riempimento|mode-01]]",
+       hb: ["Un testo da incidere pieno: quale modalità?", "Sposta il testo sul livello 01 con il menù [[Livello|palette]] sotto la selezione, poi apri la sua [[scheda|mode-01]] a sinistra.", "Clic sul testo, Livello → C01; poi clic sulla scheda C01 e scegli «Riempimento»."], ok: () => S.doc.shapes.find(s => s.type === "text")?.layer === 1 && L(1).mode === "fill",
        h: ["Un testo da incidere pieno: quale modalità?", "Sposta il testo sul livello 01 con la [[barra dei colori|palette]], poi guarda la sua [[modalità|mode-01]] nella tabella.", "Clic sul testo, clic su 01 in basso, poi nella riga 01 scegli «Riempimento»."]},
-      {t: "[[Materiali|materials]]: Tiglio taglio 3 mm sul 02, incisione sul 01", ok: () => L(2).material === "Tiglio (basswood) · Taglio 3 mm" && L(1).material === "Tiglio (basswood) · Incisione",
+      {t: "[[Materiali|materials]]: Tiglio taglio 3 mm sul 02, incisione sul 01",
+       hb: ["Velocità e potenza si inventano?", "«[[Libreria materiali…|materials]]» sotto le schede degli strati, oppure «Materiali…» nel percorso a destra, oppure Ctrl+M. In alto scegli il livello.", "Livello 02: cerca «tiglio 3», scegli Taglio 3 mm, Applica. Livello 01: cerca «tiglio inc», scegli Incisione, Applica."], ok: () => L(2).material === "Tiglio (basswood) · Taglio 3 mm" && L(1).material === "Tiglio (basswood) · Incisione",
        h: ["Velocità e potenza si inventano?", "Laser → Libreria materiali (Ctrl+M), oppure «[[Materiale…|materials]]» sotto la tabella Livelli. In alto scegli il livello.", "Livello 02: cerca «tiglio 3», scegli Taglio 3 mm, Applica. Livello 01: cerca «tiglio inc», scegli Incisione, Applica."]},
       {t: "[[Tagli per ultimi|cuts]]: prima si incide, poi si taglia", ok: () => L(1).priority < L(2).priority,
+       hb: ["Se tagli prima il contorno, che cosa succede al pezzo mentre incidi il testo?", "Sta nella tabella completa: «[[Tabella completa degli strati|table]]» sotto le schede, oppure [[Officina|officina]] → Strati (tabella).", "Apri la tabella e premi «Tagli per ultimi»: a sinistra la scheda C01 sale sopra la C02."],
        h: ["Se tagli prima il contorno, che cosa succede al pezzo mentre incidi il testo?", "Il pulsante [[Tagli per ultimi|cuts]] è sotto la tabella Livelli.", "Premi «Tagli per ultimi»: la riga 01 va sopra, la 02 sotto."]},
     ],
     errore: () => "Se tagli per primo, il pezzo si stacca e si sposta di un niente: l'incisione esce storta. Per questo i tagli vanno sempre per ultimi. Nota anche che la libreria imposta da sola la modalità: un materiale di taglio mette il livello in Linea.",
@@ -1566,13 +2413,19 @@ const MISSIONS = [
     pre: "Devi fare cinquanta portachiavi, ognuno con il suo numero. Li scriveresti a mano uno per uno?",
     setup() { stdLayers(1, 2); S.doc.shapes.push(keychain(80, 30, 4, 2, 70), mkText("LUCA", 60, 74, 8, 1)); S.curLayer = 1; },
     steps: [
-      {t: "Sotto al nome un [[testo|tool-text]] con il [[numero a 3 cifre|var]]: «N. 001»", ok: () => texts().some(t => /\{N:3\}/i.test(t.text)),
+      {t: "Sotto al nome un [[testo|tool-text]] con il [[numero a 3 cifre|var]]: «N. 001»",
+       hb: ["Un numero che cambia da solo da un pezzo all'altro: si scrive a mano o si inserisce?", "Strumento [[Testo|tool-text]] nell'isola (T), poi nel riquadro Proprietà a destra il pulsante [[Inserisci variabile|var]].", "Premi T, clic sotto al nome, scrivi «N. » e OK; poi Proprietà → Inserisci variabile → Numero a 3 cifre."], ok: () => texts().some(t => /\{N:3\}/i.test(t.text)),
        h: ["Un numero che cambia da solo da un pezzo all'altro: si scrive a mano o si inserisce?", "Strumento [[Testo|tool-text]] (T), poi nel pannello Proprietà il pulsante [[Inserisci variabile|var]].", "Premi T, clic sotto al nome, scrivi «N. » e OK; poi Proprietà → Inserisci variabile → Numero a 3 cifre."]},
-      {t: "Un [[codice QR|menu-strumenti]] di 20 mm con l'indirizzo del sito di FreeLaserCut", ok: () => codes().some(c => near(c.w, 20, .3) && /freelasercut/i.test(c.data)),
+      {t: "Un [[codice QR|menu-strumenti]] di 20 mm con l'indirizzo del sito di FreeLaserCut",
+       tb: "Un [[codice QR|isl-code]] di 20 mm con l'indirizzo del sito di FreeLaserCut",
+       hb: ["Dove si creano i codici che si leggono con il telefono?", "Nell'isola in basso il pulsante [[Codice QR o a barre|isl-code]] (Ctrl+Alt+Q).", "Ctrl+Alt+Q, Contenuto: https://fringuello79.github.io/FreeLaserCut/ , Larghezza 20, Inserisci."], ok: () => codes().some(c => near(c.w, 20, .3) && /freelasercut/i.test(c.data)),
        h: ["Dove si creano i codici che si leggono con il telefono?", "[[Strumenti|menu-strumenti]] → Codice QR o a barre (Ctrl+Alt+Q).", "Ctrl+Alt+Q, Contenuto: https://fringuello79.github.io/FreeLaserCut/ , Larghezza 20, Inserisci."]},
-      {t: "Il QR dentro al portachiavi, a destra del nome, lontano dal foro", ok: () => { const k = keychains(80, 30)[0]; return k && codes().some(c => inside(c, k) && !texts().some(t => overlapsBox(t, c)) && !overlapsBox(c, k.holes[0])); },
+      {t: "Il QR dentro al portachiavi, a destra del nome, lontano dal foro",
+       hb: ["Il portachiavi è largo 80 mm (da X 30 a X 110): dove resta spazio libero?", "Trascina il QR, oppure scrivi X e Y nella barra sotto la selezione.", "Il portachiavi è a X 70, Y 70: metti il QR a X 97 e Y 70."], ok: () => { const k = keychains(80, 30)[0]; return k && codes().some(c => inside(c, k) && !texts().some(t => overlapsBox(t, c)) && !overlapsBox(c, k.holes[0])); },
        h: ["Il portachiavi è largo 80 mm (da X 30 a X 110): dove resta spazio libero?", "Trascina il QR, oppure scrivi X e Y nella barra in alto.", "Il portachiavi è a X 70, Y 70: metti il QR a X 97 e Y 70."]},
-      {t: "[[Serie a griglia|menu-disponi]]: 3 portachiavi in fila, 5 mm fra i bordi", ok: () => { const ks = keychains(80, 30).sort((a, b) => a.x - b.x); return ks.length === 3 && near(ks[1].x - ks[0].x, 85, .1) && near(ks[2].x - ks[1].x, 85, .1) && near(ks[0].y, ks[2].y, .1); },
+      {t: "[[Serie a griglia|menu-disponi]]: 3 portachiavi in fila, 5 mm fra i bordi",
+       tb: "[[Serie a griglia|ctx-serie]]: 3 portachiavi in fila, 5 mm fra i bordi",
+       hb: ["Le copie si fanno una per una o tutte insieme?", "Seleziona tutto il portachiavi (Ctrl+A); nella barra sotto la selezione [[Serie ▾|ctx-serie]] → Serie a griglia (Alt+A).", "Ctrl+A, Alt+A: Colonne 3, Righe 1, Spazio fra i bordi, 5 mm, Crea."], ok: () => { const ks = keychains(80, 30).sort((a, b) => a.x - b.x); return ks.length === 3 && near(ks[1].x - ks[0].x, 85, .1) && near(ks[2].x - ks[1].x, 85, .1) && near(ks[0].y, ks[2].y, .1); },
        h: ["Le copie si fanno una per una o tutte insieme?", "Seleziona tutto il portachiavi (Ctrl+A) e apri [[Disponi|menu-disponi]] → Serie a griglia (Alt+A).", "Ctrl+A, Alt+A: Colonne 3, Righe 1, Spazio fra i bordi, 5 mm, Crea."]},
       {t: "I numeri vanno da soli: 001, 002, 003", ok: () => { const v = texts().filter(t => hasVars(t.text)).map(displayText).join(" "); return ["001", "002", "003"].every(n => v.includes(n)); },
        h: ["Le copie hanno tutte lo stesso numero?", "Il numero di serie si numera da solo nelle copie della Serie a griglia.", "Se vedi tre «001», il testo non contiene la variabile: correggilo e rifai la serie."]},
@@ -1581,23 +2434,33 @@ const MISSIONS = [
       ? "Ti è successo: un testo con le parentesi scritte a mano che non è diventato un numero. Se sbagli una lettera, per esempio {N3}, resta scritto così. Usa sempre «Inserisci variabile»."
       : "L'errore più comune è scrivere le parentesi a mano e sbagliare una lettera: «{N3}» resta scritto così, parentesi comprese. Usa sempre «Inserisci variabile».",
     recall: ["Quale comando crea copie in fila che si numerano da sole?", "Serie a griglia: Disponi → Serie a griglia, Alt+A."],
+    recallB: ["Quale comando crea copie in fila che si numerano da sole?", "Serie a griglia: Serie ▾ nella barra sotto la selezione, Alt+A."],
   },
   {
     id: 5, title: "Importare", desc: "Un logo SVG a colori e una foto trasformata in tracciati.",
     pre: "Hai un logo già pronto, a due colori. Che cosa diventeranno quei due colori dentro FreeLaserCut?",
     setup() { stdLayers(1, 2); S.doc.shapes.push(keychain(80, 30, 4, 2)); },
     steps: [
-      {t: "[[Importa|menu-file]] logo.svg dal kit", ok: () => allLeaves().some(s => s.src === "logo"),
+      {t: "[[Importa|menu-file]] logo.svg dal kit",
+       tb: "[[Importa|isl-import]] logo.svg dal kit",
+       hb: ["I disegni fatti con altri programmi si aprono o si importano?", "Nell'isola in basso il pulsante [[Importa|isl-import]] (Ctrl+I).", "Ctrl+I e scegli logo.svg."], ok: () => allLeaves().some(s => s.src === "logo"),
        h: ["I disegni fatti con altri programmi si aprono o si importano?", "[[File|menu-file]] → Importa (Ctrl+I).", "Ctrl+I e scegli logo.svg."]},
-      {t: "Logo alto 15 mm, senza deformarlo ([[lucchetto|lock]])", ok: () => { const b = bbox(allLeaves().filter(s => s.src === "logo")); return b && near(b.h, 15, .2) && near(b.w / b.h, 1.5, .03); },
+      {t: "Logo alto 15 mm, senza deformarlo ([[lucchetto|lock]])",
+       hb: ["Se cambi solo l'altezza, il logo si schiaccia: che cosa tiene le proporzioni?", "Il [[lucchetto|lock]] tra L e A, nella barra sotto la selezione.", "Seleziona il logo, chiudi il lucchetto, scrivi 15 in A."], ok: () => { const b = bbox(allLeaves().filter(s => s.src === "logo")); return b && near(b.h, 15, .2) && near(b.w / b.h, 1.5, .03); },
        h: ["Se cambi solo l'altezza, il logo si schiaccia: che cosa tiene le proporzioni?", "Il [[lucchetto|lock]] tra L e A nella barra in alto.", "Seleziona il logo, chiudi il lucchetto, scrivi 15 in A."]},
-      {t: "[[Livello 04|mode-04]] (il sole) in Riempimento, con l'incisione del Tiglio", ok: () => isFill(4) && /Incisione/.test(L(4).material || ""),
+      {t: "[[Livello 04|mode-04]] (il sole) in Riempimento, con l'incisione del Tiglio",
+       hb: ["Il livello nuovo arrivato con il logo ha già modalità e materiale?", "La scheda del [[livello 04|mode-04]] a sinistra e la [[Libreria materiali|materials]].", "Libreria materiali…, in alto scegli il livello 04, cerca «tiglio inc», Applica: la modalità diventa Riempimento da sola."], ok: () => isFill(4) && /Incisione/.test(L(4).material || ""),
        h: ["Il livello nuovo arrivato con il logo ha già modalità e materiale?", "Tabella Livelli, riga 04, e la [[Libreria materiali|materials]].", "Seleziona la riga 04, Materiale…, cerca «tiglio inc», Applica."]},
-      {t: "[[Importa|menu-file]] abete.png e [[vettorizzalo|menu-modifica]]", ok: () => allLeaves().some(s => s.src === "abete" && s.type === "poly") && !allLeaves().some(s => s.type === "image"),
+      {t: "[[Importa|menu-file]] abete.png e [[vettorizzalo|menu-modifica]]",
+       tb: "[[Importa|isl-import]] abete.png e [[vettorizzalo|isl-trace]]",
+       hb: ["Una foto è fatta di puntini: il laser può seguirne il contorno così com'è?", "Nell'isola il pulsante [[Vettorizza immagine|isl-trace]] (la bacchetta), con l'immagine selezionata; oppure Alt+T.", "Ctrl+I, abete.png; poi Alt+T e Crea i tracciati, senza tenere l'immagine."], ok: () => allLeaves().some(s => s.src === "abete" && s.type === "poly") && !allLeaves().some(s => s.type === "image"),
        h: ["Una foto è fatta di puntini: il laser può seguirne il contorno così com'è?", "[[Modifica|menu-modifica]] → Vettorizza immagine (Alt+T), con l'immagine selezionata.", "Ctrl+I, abete.png; poi Alt+T e Crea i tracciati, senza tenere l'immagine."]},
-      {t: "Abete alto 20 mm, senza deformarlo", ok: () => allLeaves().some(s => s.src === "abete" && s.type === "poly" && near(s.h, 20, .2) && near(s.w / s.h, 520 / 700, .02)),
+      {t: "Abete alto 20 mm, senza deformarlo",
+       hb: ["Stesso trucco del logo.", "Lucchetto chiuso, campo A, nella barra sotto la selezione.", "Seleziona l'abete, lucchetto chiuso, A = 20."], ok: () => allLeaves().some(s => s.src === "abete" && s.type === "poly" && near(s.h, 20, .2) && near(s.w / s.h, 520 / 700, .02)),
        h: ["Stesso trucco del logo.", "Lucchetto chiuso, campo A.", "Seleziona l'abete, lucchetto chiuso, A = 20."]},
-      {t: "Logo e abete dentro al portachiavi, lontani dal foro e senza toccarsi", ok: () => {
+      {t: "Logo e abete dentro al portachiavi, lontani dal foro e senza toccarsi",
+       hb: ["Il portachiavi va da X 60 a X 140: quanto spazio c'è a destra del foro?", "Trascinali, oppure scrivi X e Y nella barra sotto la selezione.", "Logo a X 85, Y 70; abete a X 112, Y 70."],
+       ok: () => {
          const k = keychains(80, 30)[0], lg = bbox(allLeaves().filter(s => s.src === "logo")), ab = allLeaves().find(s => s.src === "abete" && s.type === "poly");
          if (!k || !lg || !ab) return false;
          const box = (b) => ({x: b.cx, y: b.cy, w: b.w, h: b.h});
@@ -1618,14 +2481,22 @@ const MISSIONS = [
     },
     steps: [
       {t: "Apri l'[[Anteprima|preview]] e cerca i due errori", ok: () => S.ev.preview,
+       hb: ["Dove si vede il lavoro prima di farlo?", "Il pulsante [[Anteprima|preview]] nel percorso «Dal disegno al pezzo», a destra (Alt+P).", "Premi Alt+P: guarda che cosa manca e in che ordine vengono i livelli."],
        h: ["Dove si vede il lavoro prima di farlo?", "Laser → Anteprima (Alt+P), oppure il pulsante [[Anteprima|preview]] nel pannello Laser.", "Premi Alt+P: guarda che cosa manca e in che ordine vengono i livelli."]},
       {t: "Il testo deve essere inciso: [[Inc.|out-03]] sul livello 03", ok: () => L(3).output,
+       tb: "Il testo deve essere inciso: [[Incidi|out-03]] sul livello 03",
+       hb: ["Nell'anteprima il testo c'è?", "La scheda del [[livello 03|out-03]] a sinistra dice «non inciso»: aprila, c'è la casella Incidi.", "Clic sulla scheda Incisione (03) e spunta Incidi."],
        h: ["Nell'anteprima il testo c'è?", "Tabella Livelli, colonna [[Inc.|out-03]].", "Spunta Inc. nella riga 03 (Incisione)."]},
       {t: "Il taglio per ultimo: [[Tagli per ultimi|cuts]]", ok: () => L(3).priority < L(5).priority,
+       hb: ["Nell'anteprima, qual è il numero 1?", "Sta nella [[Tabella completa degli strati|table]], sotto le schede (o Officina → Strati).", "Apri la tabella e premi Tagli per ultimi: la scheda 03 sale sopra la 05."],
        h: ["Nell'anteprima, qual è il numero 1?", "Il pulsante [[Tagli per ultimi|cuts]] sotto la tabella Livelli.", "Premi Tagli per ultimi: 03 sopra, 05 sotto."]},
       {t: "[[Collegati|connect]] al Simulatore e fai l'[[Homing|homing]]", ok: () => S.m.connected && S.m.homed,
+       tb: "[[Collega il laser|connect]] e fai l'[[Homing|homing]]",
+       hb: ["Te lo ricordi dalla missione 1?", "Il pulsante arancione Collega il laser, poi Ctrl+H.", "Collega il laser, poi Ctrl+H."],
        h: ["Te lo ricordi dalla missione 1?", "Pannello Laser: Connetti; poi Ctrl+H.", "Connetti, poi Ctrl+H."]},
-      {t: "[[Avvia|start]] il lavoro con le precauzioni e portalo fino alla fine", ok: () => S.ev.job && S.ev.job.completed && S.ev.job.sig === docSig() && S.ev.job.order.join() === "3,5",
+      {t: "[[Avvia|start]] il lavoro con le precauzioni e portalo fino alla fine",
+       tb: "Spunta le [[due sicurezze|safety]], [[tieni premuto|start]] il pulsante per incidere e porta il lavoro fino alla fine",
+       hb: ["Che cosa controlli prima di partire, sul laser vero?", "In fondo al percorso a destra: le caselle [[Occhiali e Aria|safety]], poi [[tieni premuto|start]] il pulsante arancione per un secondo.", "Spunta «Occhiali protettivi indossati» e «Aria e aspirazione accese», tieni premuto «Tieni premuto per incidere», conferma con Avvia e aspetta la fine."], ok: () => S.ev.job && S.ev.job.completed && S.ev.job.sig === docSig() && S.ev.job.order.join() === "3,5",
        h: ["Che cosa controlli prima di premere Avvia, sul laser vero?", "Pulsante [[Avvia|start]] nel pannello Laser, oppure Ctrl+Invio.", "Ctrl+Invio, spunta occhiali e aspirazione, Avvia, e aspetta la fine."]},
     ],
     errore: () => (S.ev.badJob
@@ -1649,12 +2520,92 @@ const MISSIONS = [
     errore: () => "Hai fatto tutto il percorso: collegarsi, disegnare a misura, livelli e materiali, testo e codici, anteprima e sicurezza. Gli errori di questa missione sono quelli delle sei precedenti: se ne hai fatto qualcuno, rifai quella missione domani.",
     recall: ["Quali sono i sei passi del Costrutto?", "Collegarsi; disegnare a misura; livelli e materiali; testo e codici; importare; anteprima e sicurezza."],
   },
+  /* ---------------------------------------------------------------- Livello 2: lavori veri */
+  {
+    id: 8, level: 2, title: "Distanza esatta", desc: "Due fori a 100 mm esatti fra i centri, alla giusta distanza dal bordo: misure scritte, non a occhio.",
+    pre: "Una targa da appendere con due chiodi già piantati nel muro, a 100 mm l'uno dall'altro. Come metti i fori esattamente a 100 mm?",
+    setup() {
+      stdLayers(1, 2);
+      S.doc.shapes.push(mkRect(150, 110, 120, 40, 2, 4), mkText("LABORATORIO", 150, 106, 8, 1), mkEllipse(96, 122, 5, 5, 2), mkEllipse(191, 118.4, 5, 5, 2));
+    },
+    latch() { const g = signAndHoles(); if (g && g.holes.some(h => !inside(h, g.sign))) S.ev.holesOut = true; },
+    steps: [
+      {t: "I due fori alla stessa altezza: [[Allinea|menu-disponi]] → Centra in verticale", ok: () => { const g = signAndHoles(); return g && near(g.holes[0].y, g.holes[1].y, .01); },
+       tb: "I due fori alla stessa altezza: [[Allinea ▾|ctx-allinea]] → Centra in verticale",
+       h: ["Due fori storti si vedono subito. Quale comando mette due forme alla stessa altezza?", "Seleziona i due fori (clic e Maiusc+clic), poi Disponi → [[Allinea|menu-disponi]] → Centra in verticale.", "Clic sul foro sinistro, Maiusc+clic sul destro, Disponi → Allinea → Centra in verticale."],
+       hb: ["Due fori storti si vedono subito. Quale comando mette due forme alla stessa altezza?", "Seleziona i due fori: nella barra sotto la selezione [[Allinea ▾|ctx-allinea]] → Centra in verticale.", "Clic sul foro sinistro, Maiusc+clic sul destro, Allinea ▾ → Centra in verticale."]},
+      {t: "[[Distanza esatta|menu-disponi]]: 100 mm fra i centri dei due fori", ok: () => { const g = signAndHoles(); return g && near(g.holes[0].y, g.holes[1].y, .01) && near(Math.abs(g.holes[1].x - g.holes[0].x), 100, .01); },
+       tb: "[[Distanza esatta|ctx-allinea]]: 100 mm fra i centri dei due fori",
+       h: ["La misura si insegue col mouse o si scrive?", "Seleziona i due fori: il primo che clicchi resta fermo. Disponi → [[Distanza esatta…|menu-disponi]]: Direzione Orizzontale, Misura «Fra i centri».", "Clic sul foro sinistro, Maiusc+clic sul destro, Disponi → Distanza esatta…: Orizzontale, Fra i centri, 100, OK."],
+       hb: ["La misura si insegue col mouse o si scrive?", "Seleziona i due fori: il primo che clicchi resta fermo. [[Allinea ▾|ctx-allinea]] → Distanza esatta…: Direzione Orizzontale, Misura «Fra i centri».", "Clic sul foro sinistro, Maiusc+clic sul destro, Allinea ▾ → Distanza esatta…: Orizzontale, Fra i centri, 100, OK."]},
+      {t: "Centri dei fori 8 mm sotto il bordo in alto della targa", ok: () => { const g = signAndHoles(); return g && g.holes.every(h => near(h.y, g.sign.y + g.sign.h / 2 - 8, .02)); },
+       h: ["Per spostarli insieme devono diventare una cosa sola. E da quale bordo si misura?", "[[Raggruppa|menu-disponi]] i due fori (Ctrl+G). Poi seleziona prima la targa e poi il gruppo: Distanza esatta…, Verticale, «Fra i bordi scelti».", "Ctrl+G sui fori; clic sul bordo della targa, Maiusc+clic su un foro; Distanza esatta…: Verticale, Fra i bordi scelti, fermo «Bordo in alto», che si sposta «Centro», 8 mm. Se finiscono sopra la targa, spunta «Dall'altra parte»."],
+       hb: ["Per spostarli insieme devono diventare una cosa sola. E da quale bordo si misura?", "Raggruppa i due fori (Ctrl+G, o il pulsante nella barra sotto la selezione). Poi seleziona prima la targa e poi il gruppo: [[Allinea ▾|ctx-allinea]] → Distanza esatta…, Verticale, «Fra i bordi scelti».", "Ctrl+G sui fori; clic sul bordo della targa, Maiusc+clic su un foro; Distanza esatta…: Verticale, Fra i bordi scelti, fermo «Bordo in alto», che si sposta «Centro», 8 mm. Se finiscono sopra la targa, spunta «Dall'altra parte»."]},
+      {t: "I fori centrati sulla targa in orizzontale, senza perdere i 100 mm", ok: () => { const g = signAndHoles(); return g && near((g.holes[0].x + g.holes[1].x) / 2, g.sign.x, .02) && near(Math.abs(g.holes[1].x - g.holes[0].x), 100, .01); },
+       h: ["Il centro dei due fori deve cadere sul centro della targa. Che cosa allinei, e con che cosa?", "Seleziona la targa e il gruppo dei fori, poi [[Allinea|menu-disponi]] → Centra in orizzontale: il gruppo si muove tutto insieme.", "Clic sulla targa, Maiusc+clic sul gruppo, Disponi → Allinea → Centra in orizzontale."],
+       hb: ["Il centro dei due fori deve cadere sul centro della targa. Che cosa allinei, e con che cosa?", "Seleziona la targa e il gruppo dei fori, poi [[Allinea ▾|ctx-allinea]] → Centra in orizzontale: il gruppo si muove tutto insieme.", "Clic sulla targa, Maiusc+clic sul gruppo, Allinea ▾ → Centra in orizzontale."]},
+      {t: "Controlla tutto con l'[[Anteprima|preview]]", ok: () => S.ev.preview && S.ev.previewSig === docSig(),
+       h: ["L'ultimo sguardo prima del laser?", "L'[[Anteprima|preview]] (Alt+P).", "Premi Alt+P."], hb: ["L'ultimo sguardo prima del laser?", "L'[[Anteprima|preview]] nel percorso a destra (Alt+P).", "Premi Alt+P."]},
+    ],
+    errore: () => (S.ev.holesOut ? "Ti è successo: a un certo punto i fori sono finiti fuori dalla targa. Distanza esatta sceglie il lato dalle posizioni all'apertura: «Dall'altra parte» lo cambia. " : "")
+      + "L'errore tipico è allineare la targa con due fori sciolti: «Centra in orizzontale» li mette tutti e due al centro, uno sopra l'altro. Prima si raggruppano, poi si allinea.",
+    recall: ["Due oggetti a una distanza precisa in mm: quale comando, e chi resta fermo?", "Distanza esatta…: resta fermo il primo selezionato; «Fra i centri», «Spazio vuoto» o «Fra i bordi scelti»; «Dall'altra parte» cambia lato."],
+    recallB: ["Due oggetti a una distanza precisa in mm: quale comando, e chi resta fermo?", "Allinea ▾ → Distanza esatta…: resta fermo il primo selezionato; «Fra i centri», «Spazio vuoto» o «Fra i bordi scelti»; «Dall'altra parte» cambia lato."],
+  },
+  {
+    id: 9, level: 2, title: "Incidere su un pezzo già pronto", desc: "Un sottobicchiere già tagliato, appoggiato dove capita: il disegno va al suo centro, non dove sta sul piano.",
+    pre: "Il sottobicchiere è sul piano, ma non sai a che coordinate. Come fai a incidere esattamente al suo centro?",
+    setup() {
+      Object.assign(L(1), {name: "Incisione", mode: "fill", speed: 10000, power: 30, material: "Tiglio (basswood) · Incisione", priority: 1});
+      Object.assign(L(3), {name: "Bordo inciso", mode: "line", speed: 3000, power: 25, priority: 2});
+      S.doc.shapes.push(mkEllipse(80, 80, 70, 70, 3), mkText("CASA", 80, 80, 12, 1));
+      S.pieces = [COASTER]; S.m.x = 180; S.m.y = 60;
+    },
+    latch() { if (S.ev.job && S.ev.job.completed && S.ev.job.startMode !== "current") S.ev.absJob = true; },
+    steps: [
+      {t: "[[Collegati|connect]] e fai l'[[Homing|homing]]", tb: "[[Collega il laser|connect]] e fai l'[[Homing|homing]]", ok: () => S.m.connected && S.m.homed,
+       h: ["Te lo ricordi?", "Pannello Laser: [[Connetti|connect]]; poi Ctrl+H.", "Connetti, poi Ctrl+H."], hb: ["Te lo ricordi?", "Il pulsante arancione [[Collega il laser|connect]], poi Ctrl+H.", "Collega il laser, poi Ctrl+H."]},
+      {t: "[[Partenza|start-from]]: «Posizione attuale della testa», con il [[pallino centrale|anchor]]", ok: () => S.start.mode === "current" && S.start.anchor === 4,
+       h: ["Il disegno sta in un punto del piano, il legno in un altro. Chi decide dove va il lavoro?", "Pannello [[Laser|start-from]]: il menù Partenza e, accanto, i [[9 pallini|anchor]]: il punto del disegno che andrà sulla testa.", "Partenza → «Posizione attuale della testa», poi il pallino in mezzo."],
+       hb: ["Il disegno sta in un punto del piano, il legno in un altro. Chi decide dove va il lavoro?", "[[Officina|officina]] → Laser, oppure il pulsante «[[Origine|origine]]» nel percorso a destra: il menù [[Partenza|start-from]] e i 9 pallini accanto.", "Partenza → «Posizione attuale della testa», poi il pallino in mezzo."]},
+      {t: "Porta la testa al centro del sottobicchiere con [[Posiziona laser|tool-position]]", ok: () => S.m.homed && !S.m.busy && Math.hypot(S.m.x - COASTER.x, S.m.y - COASTER.y) <= 2.5,
+       h: ["Dove deve stare la testa perché il centro del disegno cada al centro del legno?", "Strumento [[Posiziona laser|tool-position]] (Q): un clic porta la testa lì. Il rombo viola e il riquadro tratteggiato mostrano dove finirà il lavoro.", "Premi Q e fai clic al centro del disco di legno; se serve, aggiusta con le frecce e il passo 1."],
+       hb: ["Dove deve stare la testa perché il centro del disegno cada al centro del legno?", "Il [[mirino|tool-position]] nell'isola (Q): un clic porta la testa lì. Il rombo viola e il riquadro tratteggiato mostrano dove finirà il lavoro.", "Premi Q e fai clic al centro del disco di legno; se serve, aggiusta con le frecce dell'Officina e il passo 1."]},
+      {t: "[[Contorno|contour]]: il lavoro deve stare tutto sul legno", ok: () => S.ev.contour && S.ev.contour.start === "current" && S.ev.contour.sig === docSig() && designOnPiece(S.ev.contour.off, COASTER),
+       h: ["Prima di bruciare: come controlli che il disegno non esca dal legno?", "Il [[Contorno|contour]] (Ctrl+Shift+F) ora gira intorno alla testa, non al disegno.", "Premi Ctrl+Shift+F e guarda che il percorso resti dentro il disco."],
+       hb: ["Prima di bruciare: come controlli che il disegno non esca dal legno?", "Il [[Contorno|contour]] nel percorso a destra (Ctrl+Shift+F) ora gira intorno alla testa, non al disegno.", "Premi Contorno e guarda che il percorso resti dentro il disco."]},
+      {t: "Lavoro completo sul sottobicchiere", ok: () => { const j = S.ev.job; return j && j.completed && j.startMode === "current" && j.sig === docSig() && designOnPiece(j.offset, COASTER); },
+       h: ["Le precauzioni sono le stesse di sempre.", "[[Avvia|start]] (Ctrl+Invio) con occhiali e aspirazione.", "Ctrl+Invio, spunta le due voci, Avvia e aspetta la fine."],
+       hb: ["Le precauzioni sono le stesse di sempre.", "Le [[due spunte|safety]], poi [[tieni premuto|start]] il pulsante arancione.", "Spunta occhiali e aspirazione, tieni premuto, Avvia e aspetta la fine."]},
+    ],
+    errore: () => (S.ev.absJob ? "Ti è successo: il lavoro è partito in «Coordinate assolute» ed è finito dove il disegno sta sul piano, sul vuoto. " : "")
+      + "L'errore tipico è dimenticare la Partenza: in «Coordinate assolute» il laser va dove vedi il disegno sul piano, qualunque cosa ci sia sotto. Con un pezzo già pronto si parte dalla testa, e il Contorno lo conferma.",
+    recall: ["Un pezzo già tagliato, posato dove capita: come incidi esattamente al centro?", "Partenza «Posizione attuale della testa» con il pallino centrale, testa al centro del pezzo, Contorno per controllare, poi Avvia."],
+  },
+  {
+    id: 10, level: 2, title: "Missione finale 2", desc: "Una tavoletta già tagliata: nome inciso e due fori a 80 mm, al posto giusto, senza aiuto.", noHints: true,
+    pre: "Ultima prova del secondo livello, senza indizi. Una tavoletta già tagliata da forare e incidere: da dove cominci?",
+    setup() { S.pieces = [BOARD]; S.m.x = 40; S.m.y = 190; },
+    steps: [
+      {t: "Il nome, in Riempimento con l'incisione del Tiglio", ok: () => !!nameText()},
+      {t: "Due fori di 4 mm, in Linea con il taglio Tiglio 3 mm", ok: () => fourHoles().length === 2},
+      {t: "Fori alla stessa altezza, 80 mm fra i centri, con il nome in mezzo", ok: () => { const h = fourHoles(), t = nameText(); return h.length === 2 && t && near(h[0].y, h[1].y, .05) && near(Math.abs(h[1].x - h[0].x), 80, .05) && near(t.x, (h[0].x + h[1].x) / 2, .5) && near(t.y, h[0].y, .5); }},
+      {t: "Prima si incide, per ultimo si taglia", ok: () => { const h = fourHoles(), t = nameText(); return h.length && t && L(t.layer).priority < L(h[0].layer).priority; }},
+      {t: "Partenza dalla testa, pallino centrale, testa al centro della tavoletta", ok: () => S.start.mode === "current" && S.start.anchor === 4 && S.m.homed && !S.m.busy && Math.hypot(S.m.x - BOARD.x, S.m.y - BOARD.y) <= 2.5},
+      {t: "Contorno, Anteprima e lavoro completo, tutto sulla tavoletta", ok: () => { const j = S.ev.job, c = S.ev.contour; return c && c.start === "current" && c.sig === docSig() && designOnPiece(c.off, BOARD) && S.ev.preview && S.ev.previewSig === docSig() && j && j.completed && j.startMode === "current" && j.sig === docSig() && designOnPiece(j.offset, BOARD); }},
+    ],
+    errore: () => "Hai messo insieme le misure scritte (Distanza esatta, Allinea) e il lavoro su un pezzo già pronto (Partenza dalla testa, Contorno). Se qualcosa non tornava, rifai domani la missione 8 o la 9.",
+    recall: ["Quali sono i tre controlli prima di incidere su un pezzo già pronto?", "Partenza dalla testa con il pallino giusto; Contorno dentro il pezzo; Anteprima con l'ordine giusto."],
+  },
 ];
 
 /* ---------------------------------------------------------------- progressi (solo in questo browser) */
 const STORE = "flc-costrutto-v1";
 function loadProg() { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { return {}; } }
 function saveProg(p) { try { localStorage.setItem(STORE, JSON.stringify(p)); } catch (e) { /* storage non disponibile: pazienza */ } }
+// stesso passo, parole diverse nelle due interfacce
+const stepT = (s) => S.ui === "banco" && s.tb ? s.tb : s.t;
+const stepH = (s) => S.ui === "banco" && s.hb ? s.hb : s.h;
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /* ---------------------------------------------------------------- scheda missione */
@@ -1667,7 +2618,7 @@ function startMission(id) {
   CUR = {def, state: "intro", t0: 0, hints: 0, hintStep: -1, hintLevel: 0, timer: null, recallOpen: false};
   S.mission = CUR;
   $("mcard").classList.remove("min", "hidden");
-  renderCard(); refreshUI(); requestAnimationFrame(fit);
+  renderCard(); refreshUI(); if (S.ui === "banco") bancoLayout(); requestAnimationFrame(() => { if (S.ui === "banco") bancoLayout(); fit(); });
 }
 function restartMission() { if (CUR) startMission(CUR.def.id); }
 function goHome() {
@@ -1700,7 +2651,8 @@ function finish() {
   CUR.state = "done"; clearInterval(CUR.timer);
   CUR.time = elapsed();
   const p = loadProg(), prev = p[CUR.def.id];
-  p[CUR.def.id] = {best: prev ? Math.min(prev.best, CUR.time) : CUR.time, last: CUR.time, hints: CUR.hints, runs: (prev?.runs || 0) + 1, at: new Date().toISOString()};
+  const uis = [...new Set([...(prev?.uis || []), S.ui])];
+  p[CUR.def.id] = {best: prev ? Math.min(prev.best, CUR.time) : CUR.time, last: CUR.time, hints: CUR.hints, runs: (prev?.runs || 0) + 1, at: new Date().toISOString(), uis};
   saveProg(p);
   renderCard();
 }
@@ -1709,7 +2661,7 @@ function showHint() {
   if (CUR.hintStep !== cur) { CUR.hintStep = cur; CUR.hintLevel = 0; }
   if (CUR.hintLevel < 3) { CUR.hintLevel++; CUR.hints++; }
   renderCard();
-  if (CUR.hintLevel >= 2) { const k = firstTarget(CUR.def.steps[cur].h[CUR.hintLevel - 1]) || firstTarget(CUR.def.steps[cur].t); if (k) spot(k, "strong"); }
+  if (CUR.hintLevel >= 2) { const st = CUR.def.steps[cur], k = firstTarget(stepH(st)[CUR.hintLevel - 1]) || firstTarget(stepT(st)); if (k) spot(k, "strong"); }
 }
 function renderCard() {
   const el = $("mcard"); if (!CUR) { el.classList.add("hidden"); return; }
@@ -1720,27 +2672,27 @@ function renderCard() {
       <div class="foot"><span class="meta">${d.steps.length} passi</span><button class="btn pri" id="mbegin">Comincia</button></div>`;
   } else if (CUR.state === "play") {
     const {st, cur} = stepStates();
-    body = `<ol>${d.steps.map((s, i) => `<li class="${st[i] ? "ok" : i === cur ? "cur" : ""}"><span class="ck">${st[i] ? "✓" : i + 1}</span><span class="tx">${chips(s.t)}</span></li>`).join("")}</ol>`;
-    if (CUR.hintStep === cur && CUR.hintLevel > 0) body += `<div class="hint"><b>Indizio ${CUR.hintLevel}/3.</b> ${chips(d.steps[cur].h[CUR.hintLevel - 1])}</div>`;
+    body = `<ol>${d.steps.map((s, i) => `<li class="${st[i] ? "ok" : i === cur ? "cur" : ""}"><span class="ck">${st[i] ? "✓" : i + 1}</span><span class="tx">${chips(stepT(s))}</span></li>`).join("")}</ol>`;
+    if (CUR.hintStep === cur && CUR.hintLevel > 0) body += `<div class="hint"><b>Indizio ${CUR.hintLevel}/3.</b> ${chips(stepH(d.steps[cur])[CUR.hintLevel - 1])}</div>`;
     const lvl = CUR.hintStep === cur ? CUR.hintLevel : 0;
     body += `<div class="foot"><span class="meta">${metaText()}</span><span class="row"><button class="btn" id="mrestart" title="Ricomincia la missione">↺</button>${d.noHints ? `<button class="btn" disabled title="È la prova finale">Niente indizi</button>` : `<button class="btn" id="mhint" ${lvl >= 3 ? "disabled" : ""}>${lvl === 0 ? "Indizio" : lvl < 3 ? "Indizio più chiaro" : "Indizi finiti"}</button>`}</span></div>`;
   } else {
-    const [rq, ra] = d.recall, next = MISSIONS.find(m => m.id === d.id + 1);
+    const [rq, ra] = S.ui === "banco" && d.recallB ? d.recallB : d.recall, next = MISSIONS.find(m => m.id === d.id + 1);
     body = `<div class="done"><b>Missione completata</b> in ${mmss(CUR.time)} con ${CUR.hints} ${CUR.hints === 1 ? "indizio" : "indizi"}.</div>
       <div class="err"><b>Errore previsto.</b> ${d.errore()}</div>
       <div class="q"><b>Per la prossima volta.</b> ${rq}${CUR.recallOpen ? `<br><span style="color:#8FE3B9">${ra}</span>` : ` <a href="#" id="mrecall" style="color:var(--ac)">Mostra la risposta</a>`}</div>
-      ${d.id === 7 ? `<div class="done"><b>Hai completato il Costrutto.</b> Ora tocca al programma vero: <a href="https://fringuello79.github.io/FreeLaserCut/" target="_blank" rel="noopener" style="color:var(--ac)">scarica FreeLaserCut</a>. Le sfide: domani rifai questa targhetta a memoria; fra tre giorni un'etichetta rotonda Ø 40 numerata in 2 × 2; fra una settimana la missione 5 da capo.</div>` : `<div class="muted" style="line-height:1.45">Domani prova a rifarla da capo, a memoria: è il passo che fa restare quello che hai imparato.</div>`}
+      ${d.id === 10 ? `<div class="done"><b>Hai completato anche il secondo livello.</b> Le sfide: domani rifai la missione 10 a memoria; fra tre giorni un sottobicchiere tondo con un nome inciso al centro, partendo dalla testa; fra una settimana la missione 8 da capo.</div>` : d.id === 7 ? `<div class="done"><b>Hai completato il primo livello del Costrutto.</b> Ora tocca al programma vero: <a href="https://fringuello79.github.io/FreeLaserCut/" target="_blank" rel="noopener" style="color:var(--ac)">scarica FreeLaserCut</a>. Le sfide: domani rifai questa targhetta a memoria; fra tre giorni un'etichetta rotonda Ø 40 numerata in 2 × 2; fra una settimana la missione 5 da capo. E quando vuoi, il secondo livello: misure esatte e lavori su pezzi già pronti.</div>` : `<div class="muted" style="line-height:1.45">Domani prova a rifarla da capo, a memoria: è il passo che fa restare quello che hai imparato.</div>`}
       <div class="foot"><button class="btn" id="mhome">Missioni</button><span class="row"><button class="btn" id="mrestart">Rifalla</button>${next && !next.soon ? `<button class="btn pri" id="mnext">Missione ${next.id} →</button>` : ""}</span></div>`;
   }
   el.innerHTML = head + `<div class="body">${body}</div>`;
-  $("mhead").onclick = () => { el.classList.toggle("min"); };
+  $("mhead").onclick = () => { el.classList.toggle("min"); if (S.ui === "banco") refitIfAuto(); };
   const on = (id, f) => { const b = $(id); if (b) b.onclick = (e) => { e.preventDefault(); f(); }; };
   on("mbegin", begin); on("mhint", showHint); on("mrestart", restartMission); on("mhome", goHome);
   on("mnext", () => startMission(d.id + 1)); on("mrecall", () => { CUR.recallOpen = true; renderCard(); });
   bindChips(el);
   if (CUR.state === "play") {
     const {cur} = stepStates();
-    if (cur >= 0 && CUR.lastCur !== cur) { CUR.lastCur = cur; const k = firstTarget(d.steps[cur].t); if (k) setTimeout(() => spot(k, "soft"), 350); }
+    if (cur >= 0 && CUR.lastCur !== cur) { CUR.lastCur = cur; const k = firstTarget(stepT(d.steps[cur])); if (k) setTimeout(() => spot(k, "soft"), 350); }
   }
 }
 // [[testo|bersaglio]] → parola cliccabile che fa lampeggiare il punto dell'interfaccia
@@ -1754,12 +2706,18 @@ function bindChips(root) {
 }
 
 /* ---------------------------------------------------------------- pagina iniziale */
+function renderUIChoice() {
+  document.querySelectorAll(".uopt[data-ui]").forEach(b => { const on = b.dataset.ui === S.ui; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false"); b.onclick = () => setUI(b.dataset.ui, false); });
+}
 function renderHome() {
   const p = loadProg();
+  const lvl = {1: ["Livello 1 · Le basi", "Dal collegamento al primo pezzo completo."], 2: ["Livello 2 · Lavori veri", "Misure esatte e incisioni su pezzi già pronti."]};
   $("missions").innerHTML = MISSIONS.map(m => {
+    const lv = m.level || 1, headH = (m === MISSIONS.find(x => (x.level || 1) === lv)) ? `<div class="mlevel"><b>${lvl[lv][0]}</b><span>${lvl[lv][1]}</span></div>` : "";
     const r = p[m.id];
-    const st = m.soon ? `<div class="st">In arrivo</div>` : r ? `<div class="st done">✓ Completata · miglior tempo ${mmss(r.best)}</div>` : `<div class="st">Da fare</div>`;
-    return `<button class="mtile" data-m="${m.id}" ${m.soon ? "disabled" : ""}><span class="n">MISSIONE ${m.id}</span><span class="t">${m.title}</span><span class="d">${m.desc}</span>${st}</button>`;
+    const where = r && r.uis ? ` <span class="ui">· ${r.uis.length > 1 ? "Banco e Classica" : r.uis[0] === "banco" ? "nel Banco" : "nella Classica"}</span>` : "";
+    const st = m.soon ? `<div class="st">In arrivo</div>` : r ? `<div class="st done">✓ Completata · miglior tempo ${mmss(r.best)}${where}</div>` : `<div class="st">Da fare</div>`;
+    return headH + `<button class="mtile" data-m="${m.id}" ${m.soon ? "disabled" : ""}><span class="n">MISSIONE ${m.id}</span><span class="t">${m.title}</span><span class="d">${m.desc}</span>${st}</button>`;
   }).join("");
   document.querySelectorAll(".mtile[data-m]").forEach(b => b.onclick = () => startMission(+b.dataset.m));
 }
@@ -1767,7 +2725,7 @@ function renderHome() {
 initApp();
 renderHome();
 // collegamento diretto a una missione: costrutto.html#m2
-const hm = /^#m(\d)$/.exec(location.hash); if (hm) startMission(+hm[1]);
+const hm = /^#m(\d+)$/.exec(location.hash); if (hm) startMission(+hm[1]);
 
 </script>
 </body>
