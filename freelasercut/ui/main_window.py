@@ -40,6 +40,11 @@ OPEN_FILTER = (tr("Tutti i progetti (*.flcut *.fbrn *.lbrn2 *.lbrn)") + ";;"
                + tr("Progetto FreeLaserCut (*.flcut *.fbrn)") + ";;" + tr("Progetti .lbrn2 e .lbrn (*.lbrn2 *.lbrn)"))
 IMPORT_FILTER = (tr("Tutti i formati supportati (*.svg *.dxf *.lbrn2 *.lbrn *.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)")
                  + ";;SVG (*.svg);;DXF (*.dxf);;" + tr("Immagini (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp)"))
+# 0.18.3: circuiti stampati. Le estensioni si aggiungono al primo filtro senza cambiarne il testo (già tradotto);
+# «Tutti i file» serve perché i programmi per circuiti usano anche estensioni loro (il contenuto decide).
+_PCB_GLOBS = io_formats.gerber_globs()
+IMPORT_FILTER = (IMPORT_FILTER.replace(" *.webp)", " *.webp " + _PCB_GLOBS + ")", 1)
+                 + ";;" + tr("Circuiti stampati: Gerber e fori Excellon") + " (" + _PCB_GLOBS + ");;" + tr("Tutti i file (*)"))
 
 
 
@@ -1242,9 +1247,82 @@ class MainWindow(QMainWindow):
             self.qs.setValue("import_dir", os.path.dirname(paths[0]))
             self.import_files(paths)
 
-    def import_files(self, paths, at=None):
+    def import_gerber(self, paths, opts=None):
+        """File Gerber/Excellon di una basetta (0.18.3): insieme, perché restino a registro. Ritorna le forme pronte
+        (non ancora aggiunte), [] se non c'è niente da importare, None se la finestra viene annullata.
+        opts = None: chiede con la finestra (senza finestre, o da Claude, valgono le scelte automatiche)."""
+        from ..core import gerber
+
+        files, errors = io_formats.load_gerber(paths)
+        if not files:
+            QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}", ", ".join(n for n, _ in errors),
+                                                        "\n".join(e for _, e in errors)))
+            return []
+        asked = False
+        if opts is None and not os.environ.get("FLC_NO_DIALOGS"):
+            from .dialogs_gerber import ask
+
+            opts = ask(self, files, errors)
+            if opts is None:
+                return None
+            asked = True
+        self._gerber_bottom, self._gerber_asked = None, asked
+        try:
+            board = gerber.build(files, opts)
+            shapes = io_formats.gerber_shapes(board, self.editor.doc)
+            if board.two_sided:  # il lato sotto va su un altro piano di lavoro: lo aggiunge import_files, a registro
+                self._gerber_bottom = io_formats.gerber_shapes(board, self.editor.doc, "bottom")
+        except (gerber.GerberError, ValueError) as exc:
+            QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}",
+                                                        ", ".join(os.path.basename(p) for p in paths), exc))
+            return []
+        self.gerber_last = board  # per chi importa senza finestra (Claude, prove): misure, avvisi, scelte applicate
+        self.gerber_errors = errors
+        if errors and not asked:
+            QMessageBox.warning(self, tr("Importa"), "\n".join(tr("{0}: non importato ({1})", n, e) for n, e in errors))
+        w, h = board.size
+        note = tr("Circuito stampato importato: {0:.1f} × {1:.1f} mm", w, h)
+        if board.mirrored:
+            note += " · " + tr("specchiato")
+        if board.two_sided:
+            note += " · " + tr("due facce, una per piano di lavoro")
+        if w > self.profile.bed_x or h > self.profile.bed_y:
+            note += " · " + tr("più grande del piano di lavoro")
+        self._import_note = note
+        return shapes
+
+    def _gerber_second_side(self, bottom, rename_top, select):
+        """Basetta a due facce: il lato sotto (già specchiato e già nella stessa posizione del lato sopra) va su un
+        piano di lavoro nuovo; si resta sul piano del lato sopra, che è il primo da incidere."""
+        ed = self.editor
+        top_i = ed.doc.current
+        if rename_top:
+            ed.rename_plate(top_i, tr("Lato sopra"))
+        i = ed.add_plate()
+        ed.rename_plate(i, tr("Lato sotto (specchiato)"))
+        ed.add(bottom, tr("Importa"))
+        ed.set_plate(top_i)
+        ed.selection = [s for s in select if s in ed.doc.shapes]
+        ed.selection_changed.emit()
+        self.gerber_plates = (ed.doc.plate_name(top_i), ed.doc.plate_name(i))
+        if self._gerber_asked and not os.environ.get("FLC_NO_DIALOGS"):
+            from .dialogs_gerber import two_sided_text
+
+            QMessageBox.information(self, tr("Circuito stampato a due facce"), two_sided_text(*self.gerber_plates))
+
+    def import_files(self, paths, at=None, gerber_opts=None):
         doc = self.editor.doc
         added = []
+        self._import_note = ""
+        self._gerber_bottom = None
+        self.gerber_plates = None
+        pcb = [p for p in paths if io_formats.is_gerber(p)]
+        if pcb:  # i file di un circuito stampato si leggono insieme e non si ridimensionano mai
+            shapes = self.import_gerber(pcb, gerber_opts)
+            if shapes is None:
+                return
+            added += shapes
+            paths = [p for p in paths if p not in pcb]
         for p in paths:
             ext = os.path.splitext(p)[1].lower()
             if ext in (".flcut", ".fbrn"):
@@ -1279,13 +1357,21 @@ class MainWindow(QMainWindow):
         target = at if at is not None else QPointF(self.profile.bed_x / 2, self.profile.bed_y / 2)
         from PySide6.QtGui import QTransform
 
-        ops.transform_all(added, QTransform.fromTranslate(target.x() - b.center().x(), target.y() - b.center().y()))
+        shift = QTransform.fromTranslate(target.x() - b.center().x(), target.y() - b.center().y())
+        ops.transform_all(added, shift)
+        bottom, self._gerber_bottom = self._gerber_bottom, None
+        if bottom:
+            ops.transform_all(bottom, shift)  # lo stesso spostamento del lato sopra: le due facce restano a registro
+        fresh_plate = not doc.shapes and not doc.plate.name
         self.editor.add(added, tr("Importa"))
+        if bottom:
+            self._gerber_second_side(bottom, fresh_plate, added)
         for s in added:
             for leaf, _ in s.leaves():
                 if isinstance(leaf, ImageShape):
                     doc.layer(leaf.layer).mode = "image"
-        self.statusBar().showMessage(tr("Importati {0} oggetti", len(added)), 4000)
+        self.statusBar().showMessage(self._import_note or tr("Importati {0} oggetti", len(added)),
+                                     10000 if self._import_note else 4000)
 
     def file_export(self):
         shapes = self.editor.selection or self.editor.doc.shapes

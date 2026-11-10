@@ -106,7 +106,9 @@ class NestDialog(QDialog):
                                  "pannello alla volta selezionandolo, con «Solo gli oggetti selezionati»"))
         v.addWidget(self.multi)
         self.common = QCheckBox(tr("Linee di taglio comuni: i pezzi si toccano e i lati in comune si tagliano una volta sola"))
-        self.common.setChecked(qs.value("nest_common", "false") in (True, "true"))
+        # 0.18.3: parte sempre spenta e non si ricorda più: unisce i contorni in un tracciato unico, e chi l'aveva
+        # spuntata una volta se la ritrovava attiva a ogni nesting («non riesco più a modificare i pezzi»)
+        self.common.setChecked(False)
         self.common.setToolTip(tr("Meno tempo e meno materiale. Funziona con i lati dritti (rettangoli, poligoni). "
                                   "I contorni di taglio diventano un unico tracciato per livello; il kerf non si applica "
                                   "ai lati condivisi."))
@@ -165,7 +167,7 @@ class NestDialog(QDialog):
         qs.setValue("nest_rot", self.rot.currentData())
         qs.setValue("nest_keep", self.keep.isChecked())
         qs.setValue("nest_multi", self.multi.isChecked())
-        qs.setValue("nest_common", self.common.isChecked())
+        qs.remove("nest_common")  # preferenza delle versioni fino alla 0.18.2
         moving = set(self.parts)
         obstacles = [s for s in self.ed.doc.shapes if s not in moving and s is not self.sheet and not s.hidden
                      and s.layer != TOOL_LAYER]
@@ -191,11 +193,12 @@ class NestDialog(QDialog):
         info = {"saved": 0.0}
         if placed_groups:
             self.ed.run(tr("Ottimizza lo spazio"), self._apply, results, shifts, area, obstacles, common, info)
-        new_sel = [s for s in self.ed.doc.shapes if s in placed or getattr(s, "_nest_new", False)]
         for s in self.ed.doc.shapes:
             if hasattr(s, "_nest_new"):
                 del s._nest_new
-        self.ed.select(left if left else new_sel)
+        # 0.18.3: a fine nesting restano selezionati solo i pezzi che non sono entrati. Prima venivano selezionati
+        # tutti i pezzi sistemati: un unico riquadro che sembrava un oggetto solo
+        self.ed.select(left)
         used_w = max((r.used_w for r in results), default=0.0)
         used_h = max((r.used_h for r in results), default=0.0)
         area_parts = sum(r.parts_area for r in results)
@@ -206,6 +209,9 @@ class NestDialog(QDialog):
             msg += "<br>" + tr("Pannelli usati: {0} (contorni e numeri sul livello T1)", len(results))
         if common:
             msg += "<br>" + tr("Taglio in comune: {0:.0f} mm in meno da percorrere", info["saved"])
+            if info["saved"] > 0:
+                msg += "<br>" + tr("I contorni di taglio ora sono un tracciato unico per livello: Ctrl+Z per riavere i "
+                                   "pezzi separati.")
         if left:
             msg += "<br>" + tr("<span style='color:#E5484D'>Pezzi che non entrano: {0}. Restano dove erano e sono "
                                "selezionati.</span>", len(left))

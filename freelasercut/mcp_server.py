@@ -106,8 +106,14 @@ TOOLS = [
            "thickness_mm": N}, ["layer", "name"])),
     ("flc_set_variables", "set_variables", "Testo variabile: prossimo numero di serie, incremento, cifre, avanzamento "
      "automatico, file CSV.", _obj({"serial": I, "step": I, "pad": I, "auto": B, "csv_path": S})),
-    ("flc_import_file", "import_file", "Importa un file dal PC: SVG, DXF, PNG/JPG/BMP, progetti .lbrn2.",
-     _obj({"path": S, "x": N, "y": N}, ["path"])),
+    ("flc_import_file", "import_file", "Importa un file dal PC: SVG, DXF, PNG/JPG/BMP, progetti .lbrn2, e i file "
+     "Gerber di un circuito stampato con i fori Excellon. Per un circuito passa in more_paths gli altri file della "
+     "stessa basetta (rame, contorno, fori): restano a registro. mirror: specchia (lato sotto; se manca lo decide dal "
+     "file). negative: true = incide lo spazio fra le piste (metodo della vernice, predefinito se c'è il rame), "
+     "false = incide le piste. Due facce: passando insieme il rame del lato sopra e quello del lato sotto, il lato "
+     "sopra va sul piano di lavoro attuale e il lato sotto, specchiato, su un piano nuovo nella stessa posizione "
+     "(mirror non conta); rimettere la basetta al suo posto dopo averla girata resta compito di chi incide.",
+     _obj({"path": S, "x": N, "y": N, "more_paths": {"type": "array", "items": S}, "mirror": B, "negative": B}, ["path"])),
     ("flc_open_project", "open_project", "Apre un progetto .flcut, .lbrn2 o .lbrn.", _obj({"path": S}, ["path"])),
     ("flc_save_project", "save_project", "Salva il progetto (.flcut).", _obj({"path": S})),
     ("flc_new_project", "new_project", "Nuovo progetto vuoto (rifiuta se ci sono modifiche non salvate).", _obj({})),

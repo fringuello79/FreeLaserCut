@@ -479,13 +479,34 @@ class RemoteServer:
         return {k: v for k, v in variables.STATE.items() if k != "rows"} | {"csv_rows": len(variables.STATE["rows"])}
 
     # ------------------------------------------------------------ file
-    def c_import_file(self, path, x=None, y=None):
-        if not os.path.exists(path):
-            raise RemoteError(f"file non trovato: {path}")
+    def c_import_file(self, path, x=None, y=None, more_paths=None, mirror=None, negative=None):
+        """more_paths, mirror, negative: solo per i circuiti stampati (Gerber/Excellon), 0.18.3. I file della stessa
+        basetta vanno passati insieme, così restano a registro; da qui non si apre mai la finestra delle scelte."""
+        from .core import gerber, io_formats
+
+        paths = [path] + [p for p in (more_paths or []) if p]
+        for p in paths:
+            if not os.path.exists(p):
+                raise RemoteError(f"file non trovato: {p}")
         n0 = len(self.doc.shapes)
         at = QPointF(x, y) if x is not None and y is not None else None
-        self.win.import_files([path], at=at)
-        return [self._desc(s) for s in self.doc.shapes[n0:]]
+        pcb = any(io_formats.is_gerber(p) for p in paths)
+        self.win.gerber_last = None
+        self.win.import_files(paths, at=at, gerber_opts=gerber.Options(mirror=mirror, negative=negative) if pcb else None)
+        out = [self._desc(s) for s in self.doc.shapes[n0:]]
+        board = getattr(self.win, "gerber_last", None)
+        if pcb and board is not None:
+            w, h = board.size
+            return {"shapes": out, "pcb": {"width_mm": round(w, 3), "height_mm": round(h, 3), "mirrored": board.mirrored,
+                                           "negative": board.negative, "frame": board.frame,
+                                           "two_sided": board.two_sided,
+                                           "plates": dict(zip(("top", "bottom"), self.win.gerber_plates))
+                                           if getattr(self.win, "gerber_plates", None) else None,
+                                           "layers": [{"role": ly.role, "file": ly.name, "kind": ly.kind, "side": ly.side,
+                                                       "area_mm2": round(ly.area, 2)} for ly in board.layers],
+                                           "warnings": board.warnings,
+                                           "not_imported": [f"{n}: {e}" for n, e in getattr(self.win, "gerber_errors", [])]}}
+        return out
 
     def c_open_project(self, path):
         if not os.path.exists(path):

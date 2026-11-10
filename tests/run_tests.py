@@ -296,6 +296,10 @@ if __name__ == "__main__":
     run_suite("test_v181_anteprima.py", "Anteprima del Riempimento nell'interfaccia Banco", "banco")
     run_suite("test_v182_raggio.py", "Raggio degli angoli nella barra in alto; raggio anche per poligoni e stelle")
     run_suite("test_v182_raggio.py", "Raggio degli angoli nella barra del Banco", "banco")
+    run_suite("test_v183_selezione.py", "Selezione: un clic sceglie un oggetto solo; nesting senza selezione finale")
+    run_suite("test_v183_selezione.py", "Selezione e nesting nell'interfaccia Banco", "banco")
+    run_suite("test_v183_gerber.py", "Circuiti stampati: importazione dei file Gerber e dei fori Excellon")
+    run_suite("test_v183_gerber.py", "Circuiti stampati (Gerber) nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

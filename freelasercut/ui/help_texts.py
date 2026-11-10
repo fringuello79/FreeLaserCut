@@ -34,7 +34,12 @@ HELP = {
     "save": (tr("Salva"), tr("Salva il progetto. La prima volta chiede nome e cartella."), None),
     "save_as": (tr("Salva con nome"), tr("Salva una copia del progetto con un altro nome."), None),
     "import": (tr("Importa"), tr("Aggiunge al progetto aperto disegni e immagini: SVG, DXF, PNG, JPG, BMP e progetti .lbrn2. "
-               "Puoi anche trascinare i file sulla tela."), None),
+               "Puoi anche trascinare i file sulla tela. Circuiti stampati: scegli insieme i file Gerber della basetta "
+               "(rame, contorno) e i fori Excellon; una finestra chiede se incidere lo spazio fra le piste o le piste, "
+               "se specchiare il lato sotto e come segnare i fori, e mostra in anteprima quello che il laser inciderà. "
+               "Due facce: scegliendo insieme il rame del lato sopra e del lato sotto, ogni faccia va su un suo piano "
+               "di lavoro, nella stessa posizione (il lato sotto già specchiato); rimettere la basetta al suo posto "
+               "dopo averla girata, con o senza dima, è compito tuo."), None),
     "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
     "run_file": (tr("Esegui un file G-code"), tr("Invia alla macchina un file G-code già pronto, con anteprima e verifica."), None),

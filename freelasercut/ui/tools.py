@@ -108,6 +108,7 @@ class SelectTool(Tool):
         self.handle = None
         self.band = None
         self.moved = False
+        self._click_one = None  # 0.18.3: forma di una selezione multipla premuta senza Maiusc/Ctrl (clic = solo lei)
 
     def cursor(self):
         return QCursor(Qt.ArrowCursor)
@@ -141,6 +142,7 @@ class SelectTool(Tool):
         self.start = p
         self.start_view = e.position()
         self.moved = False
+        self._click_one = None
         h = self._hit_handle(e.position(), tf) if self.ed.editable() else None
         if h:
             self.mode = "rotate" if h == "rot" else "scale"
@@ -153,6 +155,11 @@ class SelectTool(Tool):
                 self.ed.select([s], "toggle")
             elif s not in self.ed.selection:
                 self.ed.select([s])
+            elif len(self.ed.selection) > 1:
+                # 0.18.3: già selezionata insieme ad altre. Se trascini si spostano tutte (come prima); se è solo un
+                # clic, al rilascio resta selezionata lei sola. Prima il clic non cambiava niente: dopo un nesting
+                # (tutti i pezzi selezionati) sembrava un oggetto unico impossibile da scegliere pezzo per pezzo
+                self._click_one = s
             if s in self.ed.selection and self.ed.editable():
                 self.mode = "move"
                 self._grab()
@@ -268,6 +275,9 @@ class SelectTool(Tool):
             self.band = None
         elif self.mode in ("move", "scale", "rotate") and self.moved:
             self.ed.commit()
+        one, self._click_one = self._click_one, None
+        if one is not None and not self.moved and one in self.ed.selection and len(self.ed.selection) > 1:
+            self.ed.select([one])
         self.mode = None
         self.cv.snap_hint = None
 

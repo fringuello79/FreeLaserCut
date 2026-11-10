@@ -258,7 +258,112 @@ def import_file(path, doc, max_size=None, photo_mm=None):
         return import_dxf(path, doc)
     if ext in IMAGE_EXT:
         return import_image(path, doc, max_size, photo_mm)
+    if is_gerber(path):
+        return import_gerber([path], doc)[0]
     raise ValueError(tr("formato non supportato: {0}", ext))
+
+
+# ======================================================================= Gerber ed Excellon (circuiti stampati)
+_NOT_GERBER = VECTOR_EXT + IMAGE_EXT + (".lbrn2", ".lbrn", ".flcut", ".fbrn", ".gcode", ".nc", ".gc", ".ngc")
+_GERBER_LAYERS = {"copper": (0, "fill"), "drill": (0, "fill"), "other": (1, "fill"), "profile": (2, "line")}
+
+
+def gerber_globs():
+    """Le estensioni dei file dei circuiti stampati, per la finestra «Importa»."""
+    from . import gerber
+
+    return " ".join("*" + e for e in gerber.GERBER_EXT + gerber.DRILL_EXT)
+
+
+def is_gerber(path):
+    """Vero se il file è un Gerber o un file di fori Excellon. Decide il contenuto, non l'estensione
+    (i programmi per circuiti usano decine di estensioni diverse, e anche .txt)."""
+    from . import gerber
+
+    if os.path.splitext(path)[1].lower() in _NOT_GERBER or not os.path.isfile(path):
+        return False
+    return gerber.sniff(path) is not None
+
+
+def load_gerber(paths):
+    """Legge i file di una basetta. Ritorna (file letti, [(nome, errore)])."""
+    from . import gerber
+
+    files, errors = [], []
+    for p in paths:
+        try:
+            files.append(gerber.load(p))
+        except (gerber.GerberError, OSError) as exc:
+            errors.append((os.path.basename(p), str(exc)))
+        except Exception as exc:  # noqa: BLE001  file di terzi rovinato: mai un errore non gestito
+            errors.append((os.path.basename(p), tr("file non leggibile ({0})", type(exc).__name__)))
+    return files, errors
+
+
+def gerber_shapes(board, doc, side=None):
+    """La basetta calcolata -> forme del progetto, con l'ingombro che parte da (0,0) come gli altri import.
+
+    Ogni pezzo va su un livello **non usato da nessuna forma del progetto** (così cambiare il modo del livello,
+    Riempimento per le aree e Linea per il contorno, non tocca il lavoro già fatto); tutta la basetta è un gruppo
+    solo, perché rame, contorno e fori restino a registro.
+
+    Due facce (board.two_sided): side = "top" (predefinito) o "bottom". Le due facce usano gli **stessi livelli**
+    (stesse impostazioni di incisione) e la **stessa origine**, quella dell'ingombro comune: messe nella stessa
+    posizione su due piani di lavoro, combaciano."""
+    if board.two_sided and side is None:
+        side = "top"
+    chosen = getattr(board, "_flc_layers", None)
+    if chosen is None:
+        chosen = board._flc_layers = {}
+    used = {leaf.layer for s in doc.all_shapes() for leaf, _ in s.leaves()} | set(chosen.values())
+    parts = []
+    count = {}
+    for ly in board.side_layers(side):
+        prefer, mode = _GERBER_LAYERS[ly.role]
+        if ly.kind == "line":
+            mode = "line"
+        key = (ly.role, ly.kind, count.get((ly.role, ly.kind), 0))  # lo stesso pezzo dell'altra faccia: stesso livello
+        count[(ly.role, ly.kind)] = key[2] + 1
+        if key in chosen:
+            idx = chosen[key]
+        else:
+            free = [i for i in list(range(prefer, 30)) + list(range(prefer)) if i not in used]
+            idx = free[0] if free else prefer
+            if free:
+                doc.layer(idx).mode = mode
+            chosen[key] = idx
+            used.add(idx)
+        qp = QPainterPath()
+        contours = [c for isl in ly.data for c in isl] if ly.kind == "area" else ly.data
+        for c in contours:
+            pts, closed = (c, True) if ly.kind == "area" else c
+            if len(pts) < 2:
+                continue
+            qp.moveTo(pts[0][0], pts[0][1])
+            for x, y in pts[1:]:
+                qp.lineTo(x, y)
+            if closed:
+                qp.closeSubpath()
+        if qp.elementCount() > 1:
+            parts.append(PathShape(qp, layer=idx))
+    if not parts:
+        raise ValueError(tr("i file non contengono nessun disegno"))
+    shapes = [GroupShape(parts, layer=parts[0].layer)] if len(parts) > 1 else parts
+    t = QTransform.fromTranslate(-board.bounds[0], -board.bounds[1])  # l'ingombro di tutta la basetta, non del pezzo
+    for s_ in shapes:
+        s_.apply(t)
+    return shapes
+
+
+def import_gerber(paths, doc, opts=None):
+    """File Gerber/Excellon di una basetta -> (forme, basetta, errori di lettura). opts: gerber.Options o None."""
+    from . import gerber
+
+    files, errors = load_gerber(paths)
+    if not files:
+        raise ValueError("; ".join(f"{n}: {e}" for n, e in errors) or tr("nessun file"))
+    board = gerber.build(files, opts)
+    return gerber_shapes(board, doc), board, errors
 
 
 # ======================================================================= esportazione SVG
