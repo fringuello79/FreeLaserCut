@@ -134,7 +134,9 @@ def build(spec: TestSpec, profile):
     else:
         w.raw("G10 L2 P2 X0 Y0")
         w.raw("G55")
-    w.raw("M8")
+    air_cmd_on, air_cmd_off = profile.air_cmds() if hasattr(profile, "air_cmds") else ("M8", "M9")
+    if air_cmd_on:
+        w.raw(air_cmd_on)
     w.raw("M4 S0")
     cells = []
     for r, p in enumerate(powers):
@@ -213,7 +215,8 @@ def build(spec: TestSpec, profile):
                            (spec.x0 + W + m, spec.y0 + H + m), (spec.x0 - m, spec.y0 + H + m)], True)
         _emit_polys(w, [b], bc)
     w.raw("M5 S0")
-    w.raw("M9")
+    if air_cmd_off:
+        w.raw(air_cmd_off)
     w.rapid(0.0, 0.0)
     w.raw("G54")
     job.lines = w.lines

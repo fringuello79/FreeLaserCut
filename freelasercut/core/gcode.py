@@ -868,9 +868,12 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     w.raw(f"; FreeLaserCut — {title}")
     w.raw(f"; macchina: {profile.name} · {profile.bed_x:g}×{profile.bed_y:g} mm · S max {profile.s_max:g}")
     w.raw(f"; partenza: {opts.start_from}" + ("" if opts.start_from == "absolute" else f" · ancoraggio {ANCHOR_NAMES[opts.anchor]}"))
+    # 0.18.5: i comandi dell'aria sono quelli del profilo (M8, M7 o nessuno), non più M8/M9 fissi
+    air_cmd_on, air_cmd_off = profile.air_cmds() if hasattr(profile, "air_cmds") else ("M8", "M9")
     w.raw("G90 G21")
     w.raw("M5 S0")
-    w.raw("M9")
+    if air_cmd_off:
+        w.raw(air_cmd_off)
     if opts.start_from == "absolute" and opts.no_g55:
         w.raw("G54")  # la scheda non ha G55: coordinate già corrette per l'offset G54
     elif opts.start_from == "absolute":
@@ -900,7 +903,8 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
             job.warnings.append(tr("{0}: il materiale imparato scelto non c'è (eliminato o su un altro computer), toni senza correzione",
                                    cs.label()))
         if cs.air != air_on:
-            w.raw("M8" if cs.air else "M9")
+            if air_cmd_on:
+                w.raw(air_cmd_on if cs.air else air_cmd_off)
             air_on = cs.air
         w.raw(f"; livello {cs.label()} · {cs.mode} · {cs.speed:g} mm/min · {cs.power_max:g}% · {cs.passes}×")
         layer_cmd = "M3" if getattr(cs, "constant_power", False) else opts.laser_cmd
@@ -977,8 +981,8 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         st.lines = len(w.lines) - n_before
         job.layers.append(st)
     w.raw("M5 S0")
-    if air_on:
-        w.raw("M9")
+    if air_on and air_cmd_off:
+        w.raw(air_cmd_off)
     if opts.finish == "origin":
         # destinazione in coordinate PIANO: casa (assoluto) o punto di ancoraggio (attuale/origine).
         # Con coordinate macchina negative "G0 X0 Y0" porterebbe la testa all'angolo opposto.

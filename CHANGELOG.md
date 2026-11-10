@@ -1,5 +1,19 @@
 # Novità di FreeLaserCut
 
+## 0.18.5 — 10/11/2026
+- **Comando dell'air assist a scelta: M8, M7 o nessuno** (richiesta su GitHub). Nel pannello *Macchina*, sotto l'area di lavoro, c'è la scelta **Air assist**: *M8 (il più comune)*, *M7* oppure *Nessun comando* (aria accesa a mano o sempre accesa). Si salva nel profilo della macchina e vale per i lavori, il test materiale, il test della scansione, la ripresa di un lavoro interrotto e il pulsante *Aria*.
+  - Era anche un difetto: il profilo aveva già il comando dell'aria (e un profilo .lbdev con M7 lo impostava), ma i lavori e il pulsante usavano sempre M8 e M9. Con una scheda che vuole M7 l'aria non partiva.
+  - Chi non tocca niente resta con M8 e M9, come prima.
+- Nuova prova automatica `tests/test_v185_aria.py` (29 controlli, Classica e Banco).
+- **Stampa e taglia (in prova, non ancora attivo per tutti)**, da una richiesta su GitHub («la funzione print and cut sarebbe il top»). Serve a tagliare con il laser attorno a qualcosa di già stampato con la stampante di casa: adesivi, etichette, sagome di cartoncino.
+  - FreeLaserCut mette **due crocette** accanto al disegno (la 1 con un cerchio, la 2 con due) e salva il **PDF da stampare al 100%**, in A4, Letter o A3, con il disegno nelle misure vere. Si stampa quello che sta sui livelli con l'uscita spenta, crocette comprese; si taglia quello che ha l'uscita accesa.
+  - Un'immagine si può aggiungere **a colori** per la stampa (l'importazione normale la porta in grigi, perché il laser incide solo quelli): va su un livello che il laser non tocca.
+  - Il foglio stampato si fissa sul piano come capita, anche storto. Dopo l'homing si porta la testa, con le frecce e il puntino, sul centro delle due crocette: FreeLaserCut calcola dove sta il foglio, di quanto è ruotato e, se si vuole, di quanto la stampante ha sbagliato la scala, e **sposta il disegno sopra il foglio vero** (un solo passo, Ctrl+Z lo riporta com'era). Poi si avvia il lavoro come sempre.
+  - Rifiuta, spiegando perché: crocette troppo vicine, stampa non al 100% (oltre il 3% di differenza), taglio che uscirebbe dall'area di lavoro, macchina senza homing fatto.
+  - La funzione è nascosta finché non viene sbloccata in *Impostazioni → Funzioni in prova…*: per ora serve alle prove sulle macchine vere.
+- I progetti salvano il compito delle forme speciali (le crocette); i progetti senza crocette restano identici.
+- Nuova prova automatica `tests/test_v185_stampa_taglia.py` (63 controlli, 65 nel Banco): calcolo, PDF riletto e misurato, simulatore con un foglio storto di 3°, G-code sul foglio vero.
+
 ## 0.18.4 — 10/11/2026
 Da un rapporto all'assistenza (Creality Falcon A1 10W: «la verifica dà sempre "la scheda ha smesso di rispondere"», e non si riusciva a incidere).
 - **Risposte perse alla fine della verifica e del lavoro.** La scheda del Falcon A1 (ESP32-S3 con USB nativo) ogni tanto non manda la conferma «ok» di una riga: nel registro del rapporto ne mancava 1 su 13483 alla fine della verifica e 2 alla fine di un lavoro inciso per intero. FreeLaserCut aspettava conferme che non sarebbero mai arrivate:

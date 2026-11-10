@@ -307,8 +307,9 @@ def build_job(nmap, pitch, x0, y0, power, speed, profile, alternate=True, title=
     else:
         w.raw("G10 L2 P2 X0 Y0")
         w.raw("G55")
-    if air:
-        w.raw(getattr(profile, "air_on", "M8") or "M8")
+    air_cmd_on, air_cmd_off = profile.air_cmds() if hasattr(profile, "air_cmds") else ("M8", "M9")
+    if air and air_cmd_on:
+        w.raw(air_cmd_on)
     w.raw("M4 S0")
     cs = CutSettings(mode="fill", speed=speed, power_max=power, interval=p, overscan=overscan, bidirectional=True)
     cut0 = w.cut
@@ -336,8 +337,8 @@ def build_job(nmap, pitch, x0, y0, power, speed, profile, alternate=True, title=
                 _emit_scan(w, lines, (0.0, 1.0), cs, bed, 6.0)
     job.layers.append(LayerStats(0, tr("rilievo"), "fill", int(nmap.max()), w.cut - cut0, 0, speed, power))
     w.raw("M5 S0")
-    if air:
-        w.raw(getattr(profile, "air_off", "M9") or "M9")
+    if air and air_cmd_off:
+        w.raw(air_cmd_off)
     w.rapid(0.0, 0.0)
     w.raw("G54")
     job.lines = w.lines

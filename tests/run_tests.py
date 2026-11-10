@@ -301,6 +301,10 @@ if __name__ == "__main__":
     run_suite("test_v183_gerber.py", "Circuiti stampati: importazione dei file Gerber e dei fori Excellon")
     run_suite("test_v183_gerber.py", "Circuiti stampati (Gerber) nell'interfaccia Banco", "banco")
     run_suite("test_v184_risposte.py", "Risposte perse alla fine di verifica e lavoro (Creality Falcon A1)")
+    run_suite("test_v185_stampa_taglia.py", "Stampa e taglia (in prova): crocette, PDF in misure vere, allineamento al foglio")
+    run_suite("test_v185_stampa_taglia.py", "Stampa e taglia nell'interfaccia Banco", "banco")
+    run_suite("test_v185_aria.py", "Comando dell'air assist a scelta: M8, M7 o nessuno")
+    run_suite("test_v185_aria.py", "Comando dell'air assist nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

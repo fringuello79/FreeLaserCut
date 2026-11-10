@@ -371,6 +371,20 @@ class MachinePanel(QWidget):
         al.addWidget(self.btn_area)
         al.addStretch(1)
         pl.addLayout(al)
+        # 0.18.5: comando dell'air assist (richiesta su GitHub): alcune schede lo accendono con M7 invece di M8
+        ar = QHBoxLayout()
+        ar.addWidget(QLabel(tr("Air assist")))
+        self.air_cmd = QComboBox()
+        self.air_cmd.addItem(tr("M8 (il più comune)"), "M8")
+        self.air_cmd.addItem("M7", "M7")
+        self.air_cmd.addItem(tr("Nessun comando"), "")
+        self.air_cmd.setToolTip(tr("Il comando che accende l'aria nei lavori, nel test materiale e con il pulsante Aria. "
+                                   "Se con M8 la tua pompa non parte, prova M7. «Nessun comando» se l'aria la accendi a "
+                                   "mano o resta sempre accesa."))
+        self.air_cmd.activated.connect(lambda *_: self.set_air(self.air_cmd.currentData()))
+        ar.addWidget(self.air_cmd)
+        ar.addStretch(1)
+        pl.addLayout(ar)
         bl = QHBoxLayout()
         self.btn_read = QPushButton(tr("Leggi dalla macchina"))
         self.btn_read.setObjectName("primary")
@@ -498,6 +512,10 @@ class MachinePanel(QWidget):
             sp.blockSignals(True)
             sp.setValue(v)
             sp.blockSignals(False)
+        on = p.air_cmds()[0]
+        if self.air_cmd.findData(on) < 0:  # profilo importato con un altro comando ammesso (M106)
+            self.air_cmd.addItem(on, on)
+        self.air_cmd.setCurrentIndex(self.air_cmd.findData(on))
         fw = f"\nFirmware: {p.firmware_label()}" if p.firmware else ""
         self.profile_sub.setText(
             tr("{0:g}×{1:g} mm  ·  S0–S{2:g}  ·  spot {3}×{4} mm  ·  {5}\nFonte: {6}{7}", p.bed_x, p.bed_y, p.s_max, p.spot_x_mm, p.spot_y_mm, p.optical_power, p.source, fw)
@@ -543,6 +561,20 @@ class MachinePanel(QWidget):
         self.on_profile(p)
         _main(self).statusBar().showMessage(tr("Area di lavoro {0:g} × {1:g} mm salvata nel profilo «{2}»", p.bed_x,
                                                p.bed_y, p.name), 6000)
+
+    def set_air(self, on):
+        """Comando dell'air assist scelto a mano: entra nel profilo, che si salva, e vale da subito."""
+        p = self.profile
+        on = str(on or "").upper()
+        p.air_on, p.air_off = on, ("" if not on else "M107" if on == "M106" else "M9")
+        try:
+            p.save()
+        except OSError as exc:
+            QMessageBox.warning(self, tr("Profilo"), tr("Impossibile salvare il profilo:\n{0}", exc))
+        self.refresh_profile()
+        self.on_profile(p)
+        _main(self).statusBar().showMessage(
+            tr("Air assist: {0}, salvato nel profilo «{1}»", on or tr("Nessun comando"), p.name), 6000)
 
     def save_profile(self):
         path = self.profile.save()

@@ -67,7 +67,9 @@ def build(spec: ScanTestSpec, profile):
     else:
         w.raw("G10 L2 P2 X0 Y0")
         w.raw("G55")
-    w.raw("M8")
+    air_cmd_on, air_cmd_off = profile.air_cmds() if hasattr(profile, "air_cmds") else ("M8", "M9")
+    if air_cmd_on:
+        w.raw(air_cmd_on)
     w.raw("M4 S0")
     cut0 = w.cut
     for r, s in enumerate(speeds):
@@ -95,7 +97,8 @@ def build(spec: ScanTestSpec, profile):
             put(f"{s / 1000:g}k", spec.x0 + lab_x - 2.0, gy0 + r * py + spec.cell_h / 2 - 1.0, 2.4, "right")
         _emit_polys(w, order_polys(polys, w.pb or (0, 0), False, True), lc)
     w.raw("M5 S0")
-    w.raw("M9")
+    if air_cmd_off:
+        w.raw(air_cmd_off)
     w.rapid(0.0, 0.0)
     w.raw("G54")
     job.lines = w.lines
