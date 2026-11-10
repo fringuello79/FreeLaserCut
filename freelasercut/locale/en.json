@@ -2557,5 +2557,8 @@
  "Lato sotto (specchiato)": "Bottom side (mirrored)",
  "due facce": "two sides",
  "due facce, una per piano di lavoro": "two sides, one per plate",
- "Circuito stampato a due facce": "Double-sided printed circuit board"
+ "Circuito stampato a due facce": "Double-sided printed circuit board",
+ "La scheda non ha risposto alle ultime {0} righe della verifica (risposte perse, succede con alcune schede con l'USB nativo): le considero controllate.": "The controller didn't answer the last {0} lines of the check (lost replies, it happens with some boards with native USB): I'm treating them as checked.",
+ "La scheda ha smesso di rispondere durante la verifica ({0} righe senza risposta). Prova a scollegare e ricollegare il cavo USB; se succede ancora, togli la spunta «Verifica il G-code con la scheda prima di partire» e manda un rapporto all'assistenza.": "The controller stopped answering during the check ({0} lines without an answer). Try unplugging and plugging the USB cable back in; if it happens again, untick «Check the G-code with the board before starting» and send a report to support.",
+ "Lavoro completato: {0} righe (la scheda non ha confermato le ultime {1}: risposte perse, la macchina ha finito)": "Job completed: {0} lines (the controller didn't confirm the last {1}: lost replies, the machine has finished)"
 }

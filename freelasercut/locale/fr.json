@@ -2557,5 +2557,8 @@
  "Lato sotto (specchiato)": "Face inférieure (miroir)",
  "due facce": "deux faces",
  "due facce, una per piano di lavoro": "deux faces, une par planche",
- "Circuito stampato a due facce": "Circuit imprimé double face"
+ "Circuito stampato a due facce": "Circuit imprimé double face",
+ "La scheda non ha risposto alle ultime {0} righe della verifica (risposte perse, succede con alcune schede con l'USB nativo): le considero controllate.": "La carte n'a pas répondu aux {0} dernières lignes de la vérification (réponses perdues, cela arrive avec certaines cartes à USB natif) : je les considère comme contrôlées.",
+ "La scheda ha smesso di rispondere durante la verifica ({0} righe senza risposta). Prova a scollegare e ricollegare il cavo USB; se succede ancora, togli la spunta «Verifica il G-code con la scheda prima di partire» e manda un rapporto all'assistenza.": "La carte a cessé de répondre pendant la vérification ({0} lignes sans réponse). Essayez de débrancher et rebrancher le câble USB ; si cela se reproduit, décochez « Vérifier le G-code avec la carte avant de commencer » et envoyez un rapport à l'assistance.",
+ "Lavoro completato: {0} righe (la scheda non ha confermato le ultime {1}: risposte perse, la macchina ha finito)": "Travail terminé : {0} lignes (la carte n'a pas confirmé les {1} dernières : réponses perdues, la machine a terminé)"
 }

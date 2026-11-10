@@ -2557,5 +2557,8 @@
  "Lato sotto (specchiato)": "Lado de baixo (espelhado)",
  "due facce": "duas faces",
  "due facce, una per piano di lavoro": "duas faces, uma por bandeja",
- "Circuito stampato a due facce": "Circuito impresso de duas faces"
+ "Circuito stampato a due facce": "Circuito impresso de duas faces",
+ "La scheda non ha risposto alle ultime {0} righe della verifica (risposte perse, succede con alcune schede con l'USB nativo): le considero controllate.": "A placa não respondeu às últimas {0} linhas da verificação (respostas perdidas, acontece com algumas placas com USB nativo): considero-as verificadas.",
+ "La scheda ha smesso di rispondere durante la verifica ({0} righe senza risposta). Prova a scollegare e ricollegare il cavo USB; se succede ancora, togli la spunta «Verifica il G-code con la scheda prima di partire» e manda un rapporto all'assistenza.": "A placa parou de responder durante a verificação ({0} linhas sem resposta). Tente desligar e voltar a ligar o cabo USB; se acontecer de novo, desmarque «Verifica o G-code com a placa antes de começar» e envie um relatório ao suporte.",
+ "Lavoro completato: {0} righe (la scheda non ha confermato le ultime {1}: risposte perse, la macchina ha finito)": "Trabalho concluído: {0} linhas (a placa não confirmou as últimas {1}: respostas perdidas, a máquina terminou)"
 }
