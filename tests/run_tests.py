@@ -294,6 +294,8 @@ if __name__ == "__main__":
     run_suite("test_v181_sonda.py", "Autofocus: sonda al contrario nell'interfaccia Banco", "banco")
     run_suite("test_v181_anteprima.py", "Anteprima del Riempimento per livello intero, come il G-code")
     run_suite("test_v181_anteprima.py", "Anteprima del Riempimento nell'interfaccia Banco", "banco")
+    run_suite("test_v182_raggio.py", "Raggio degli angoli nella barra in alto; raggio anche per poligoni e stelle")
+    run_suite("test_v182_raggio.py", "Raggio degli angoli nella barra del Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

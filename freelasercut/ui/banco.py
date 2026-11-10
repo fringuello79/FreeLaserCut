@@ -1006,7 +1006,9 @@ class ContextBar(QFrame):
         v.setSpacing(4)
         win.removeToolBar(win.numeric)
         win.numeric.setParent(self)
-        win.numeric.setStyleSheet("QToolBar { background: transparent; border: none; }")
+        # 0.18.2: etichette X, Y, L, A, R chiare: sul pannello scuro il grigio del tema chiaro quasi non si leggeva
+        win.numeric.setStyleSheet("QToolBar { background: transparent; border: none; } "
+                                  "QLabel#numlabel { color: #C3CEE3; }")
         win.numeric.show()
         v.addWidget(win.numeric)
         row = QHBoxLayout()

@@ -2478,5 +2478,11 @@
  "Scrivo ${0}={1} e rileggo le impostazioni della scheda…": "Writing ${0}={1} and reading the board settings again…",
  "Non sono riuscito a rileggere le impostazioni della scheda: controlla $6 nella console ($$).": "I could not read the board settings again: check $6 in the console ($$).",
  "Fatto: ora ${0}={1}. Controlla la riga della sonda qui sopra: libera deve dire «libera», toccandola «TOCCATA».": "Done: now ${0}={1}. Check the probe line above: when free it must say «free», when you touch it «TOUCHED».",
- "La scheda non ha accettato ${0}={1} (ora è ${0}={2}).": "The board did not accept ${0}={1} (now it is ${0}={2})."
+ "La scheda non ha accettato ${0}={1} (ora è ${0}={2}).": "The board did not accept ${0}={1} (now it is ${0}={2}).",
+ "Angoli diversi: qui il più grande; scrivendo un valore tornano tutti uguali": "Different corners: the largest is shown here; typing a value makes them all equal",
+ "Raggio degli angoli (mm) — massimo {0:.2f} mm": "Corner radius (mm) — maximum {0:.2f} mm",
+ "Raggio degli angoli: per rettangoli, poligoni e stelle": "Corner radius: for rectangles, polygons and stars",
+ "Un raggio per ogni angolo del rettangolo": "One radius for each corner of the rectangle",
+ "Vale per tutte le {0} forme selezionate, ognuna al massimo possibile": "Applies to all {0} selected shapes, each up to its maximum",
+ "massimo {0:.2f} mm": "maximum {0:.2f} mm"
 }

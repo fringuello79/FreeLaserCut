@@ -46,6 +46,13 @@ header{position:sticky;top:0;z-index:10;background:rgba(7,10,17,.86);backdrop-fi
 .links{display:flex;gap:18px;margin-left:auto;font-size:14px}
 .links a{color:var(--muted)}
 .links a:hover{color:var(--text);text-decoration:none}
+/* Tutorial in risalto nel menù: arancione, ogni tanto un riflesso lento che lo attraversa */
+.links a.nav-tut{font-weight:700;color:var(--orange);background:linear-gradient(100deg,var(--orange) 0%,var(--orange) 42%,#FFE1CC 50%,var(--orange) 58%,var(--orange) 100%);background-size:260% 100%;background-position:100% 0;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:tutSheen 9s ease-in-out 2.5s infinite}
+.links a.nav-tut:hover{filter:brightness(1.18)}
+@keyframes tutSheen{0%,80%{background-position:100% 0}95%,100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.links a.nav-tut{animation:none}}
+.links .heart{width:12px;height:11px;fill:#F4A7B9;display:inline-block;vertical-align:-1px;margin-right:5px}
+
 .lang{display:flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
 .lang button{background:none;border:0;color:var(--muted);font:600 13px/1 inherit;padding:7px 11px;cursor:pointer}
 .lang button[aria-pressed="true"]{background:var(--card2);color:var(--text)}
@@ -155,9 +162,9 @@ footer p{margin:0 0 8px}
       <a href="#codes"><span class="en">Codes</span><span class="it">Codici</span></a>
       <a href="#machines"><span class="en">Machines</span><span class="it">Macchine</span></a>
       <a href="#guide"><span class="en">Guide</span><span class="it">Guida</span></a>
-      <a href="costrutto.html">Tutorial</a>
+      <a class="nav-tut" href="costrutto.html">Tutorial</a>
       <a href="#future"><span class="en">Roadmap</span><span class="it">Sviluppi</span></a>
-      <a href="#support"><span class="en">Support</span><span class="it">Sostieni</span></a>
+      <a href="#support"><svg class="heart" viewBox="0 0 16 14" aria-hidden="true"><path d="M8 13.6C6.2 12.2 0 8.4 0 4.3 0 1.9 1.9 0 4.2 0 5.8 0 7.2.9 8 2.2 8.8.9 10.2 0 11.8 0 14.1 0 16 1.9 16 4.3c0 4.1-6.2 7.9-8 9.3z"/></svg><span class="en">Support</span><span class="it">Sostieni</span></a>
       <a href="https://github.com/fringuello79/FreeLaserCut">GitHub</a>
       <a href="https://www.youtube.com/@FreeLaserCut" target="_blank" rel="noopener">YouTube</a>
     </nav>

@@ -1,5 +1,12 @@
 # Novità di FreeLaserCut
 
+## 0.18.2 — 10/11/2026
+- **Raggio degli angoli nella barra in alto**, subito dopo larghezza e altezza: campo **R** (mm) per rettangoli, poligoni e stelle, e accanto il pulsante dei **quattro angoli** del rettangolo (↖ ↗ ↘ ↙, «Ogni angolo a parte»). Con più forme selezionate il raggio vale per tutte, ognuna al massimo possibile, in un solo passo da annullare. Il raggio resta anche nel pannello *Proprietà*, e i due posti si aggiornano a vicenda.
+- **Poligoni e stelle con gli angoli arrotondati** restando forme modificabili (lati, punte, rientranza): archi di cerchio tangenti ai lati, in mm veri anche dopo un ridimensionamento, anche negli angoli rientranti delle stelle; un raggio troppo grande si limita da solo senza che i raccordi si sovrappongano. I progetti senza raggio restano identici.
+- Banco: le etichette X, Y, L, A della barra sotto la selezione ora si leggono (erano grigio scuro sul pannello scuro).
+- Nuova prova automatica `tests/test_v182_raggio.py` (33 controlli, Classica e Banco).
+- Sito: il **tutorial interattivo** (*Costrutto*) funziona anche con l'interfaccia **Banco**, scelta all'inizio della pagina, e ha tre missioni nuove di **Livello 2** (sottobicchiere con il punto di partenza, targhetta con la distanza esatta, inciso centrato sul pezzo); voce *Tutorial* in evidenza nel menu, logo e pulsante «Torna alla home» in cima al tutorial, pulsante *Sostieni* discreto con un piccolo cuore anche nelle altre pagine.
+
 ## 0.18.1 — 09/11/2026
 - **Versione per Linux, prima uscita vera.** Con la 0.18.0 la prova automatica di GitHub su Ubuntu ha fermato l'AppImage: su un sistema senza alcune librerie di X11 (le estensioni di libxcb, per esempio libxcb-xkb) la finestra non si apriva. La prova ha fatto il suo lavoro: la Release 0.18.0 è uscita solo per Windows, come previsto. Ora quelle librerie sono dentro l'AppImage (licenza MIT) e la costruzione si ferma da sola se il plugin di Qt ne cerca ancora una nel sistema, tranne libxcb stessa.
 - **Telecamere dei Creality Falcon** (segnalazione di un tester con Falcon A1 10W: «immagine tutta nera»).

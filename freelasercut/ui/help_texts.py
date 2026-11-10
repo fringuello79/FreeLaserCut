@@ -323,6 +323,11 @@ HELP = {
               "Accetta calcoli: *2 raddoppia, /3 divide."), None),
     "num:h": (tr("Altezza (mm)"), tr("Altezza della selezione. Con il lucchetto chiuso anche la larghezza cambia in proporzione."), None),
     "num:lock": (tr("Blocca proporzioni"), tr("Chiuso: larghezza e altezza cambiano insieme. Aperto: si cambiano separatamente."), None),
+    "num:radius": (tr("Raggio degli angoli (mm)"), tr("Arrotonda gli angoli di rettangoli, poligoni e stelle selezionati, "
+                   "in mm veri anche dopo averli ridimensionati. Un valore oltre il massimo diventa il massimo; 0 = "
+                   "spigoli vivi. Con più forme vale per tutte. Lo stesso raggio è anche nel pannello Proprietà."), None),
+    "num:corners": (tr("Un raggio per ogni angolo"), tr("Apre i quattro angoli del rettangolo (↖ ↗ ↘ ↙): con «Ogni angolo "
+                    "a parte» si arrotonda solo uno o alcuni, con raggi diversi (0 = spigolo vivo)."), None),
     "num:rot": (tr("Rotazione (gradi)"), tr("Angolo della forma intorno al punto di riferimento. Positivo = antiorario."), None),
     "num:layer": (tr("Livello della selezione"), tr("Sposta le forme selezionate su un altro livello colore (e quindi su altre "
                   "impostazioni di taglio). Senza selezione sceglie il livello dei nuovi disegni."),

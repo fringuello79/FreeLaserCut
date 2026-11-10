@@ -2478,5 +2478,11 @@
  "Scrivo ${0}={1} e rileggo le impostazioni della scheda…": "J'écris ${0}={1} et je relis les réglages de la carte…",
  "Non sono riuscito a rileggere le impostazioni della scheda: controlla $6 nella console ($$).": "Je n'ai pas pu relire les réglages de la carte : vérifiez $6 dans la console ($$).",
  "Fatto: ora ${0}={1}. Controlla la riga della sonda qui sopra: libera deve dire «libera», toccandola «TOCCATA».": "C'est fait : maintenant ${0}={1}. Regardez la ligne de la sonde ci-dessus : libre, elle doit indiquer « libre », et « TOUCHÉE » quand vous la touchez.",
- "La scheda non ha accettato ${0}={1} (ora è ${0}={2}).": "La carte n'a pas accepté ${0}={1} (actuellement ${0}={2})."
+ "La scheda non ha accettato ${0}={1} (ora è ${0}={2}).": "La carte n'a pas accepté ${0}={1} (actuellement ${0}={2}).",
+ "Angoli diversi: qui il più grande; scrivendo un valore tornano tutti uguali": "Angles différents : ici le plus grand ; en saisissant une valeur ils redeviennent tous égaux",
+ "Raggio degli angoli (mm) — massimo {0:.2f} mm": "Rayon des angles (mm) — maximum {0:.2f} mm",
+ "Raggio degli angoli: per rettangoli, poligoni e stelle": "Rayon des angles : pour rectangles, polygones et étoiles",
+ "Un raggio per ogni angolo del rettangolo": "Un rayon pour chaque angle du rectangle",
+ "Vale per tutte le {0} forme selezionate, ognuna al massimo possibile": "S'applique aux {0} formes sélectionnées, chacune jusqu'à son maximum",
+ "massimo {0:.2f} mm": "maximum {0:.2f} mm"
 }

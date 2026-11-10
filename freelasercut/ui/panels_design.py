@@ -5,7 +5,7 @@ import math
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QTransform
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGridLayout,
+    QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QFrame, QGridLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QSlider, QSpinBox, QStyledItemDelegate, QTabWidget,
     QToolBar, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
@@ -89,6 +89,18 @@ class NumericBar(QToolBar):
         self._lock_icon(True)
         self.addWidget(self.lock)
         self.fh = self._field("A", suffix=" mm", minimum=0.001, help_key="num:h")
+        # 0.18.2: raggio degli angoli accanto alle misure (rettangoli, poligoni e stelle), più i quattro angoli
+        self.frad = self._field("R", suffix=" mm", width=66, minimum=0.0, step=0.5, help_key="num:radius")
+        self.btn_corners = QToolButton()
+        self.btn_corners.setObjectName("minilock")
+        self.btn_corners.setFixedSize(18, 18)
+        self.btn_corners.setIconSize(QSize(12, 12))
+        self.btn_corners.setIcon(style.icon("corners", C["muted"], 14, active=C["accent_hi"]))
+        self.btn_corners.setToolTip(tr("Un raggio per ogni angolo del rettangolo"))
+        self.btn_corners.setProperty("help_key", "num:corners")
+        self.btn_corners.clicked.connect(self.open_corners)
+        self.addWidget(self.btn_corners)
+        self.corners = CornerPopup(self)
         self.addSeparator()
         self.fr = self._field("↻", decimals=2, suffix="°", step=1.0, width=58, help_key="num:rot")
         self.addSeparator()
@@ -120,6 +132,7 @@ class NumericBar(QToolBar):
         self.fw.committed.connect(lambda v: self._size("w", v))
         self.fh.committed.connect(lambda v: self._size("h", v))
         self.fr.committed.connect(self._rotate)
+        self.frad.committed.connect(self.set_radius)
         editor.selection_changed.connect(self.refresh)
         editor.changed.connect(self.refresh)
         editor.live.connect(self.refresh)
@@ -183,6 +196,77 @@ class NumericBar(QToolBar):
 
         self.ed.move_to(4, QRectF(0, 0, self.cv.bed_x, self.cv.bed_y))
 
+    # ---- 0.18.2: raggio degli angoli
+    def radius_shapes(self):
+        """Forme della selezione modificabile che hanno un raggio degli angoli (rettangoli, poligoni, stelle)."""
+        return [s for s in self.ed.editable() if isinstance(s, (RectShape, PolygonShape))]
+
+    @staticmethod
+    def shown_radius(s):
+        """Raggio da mostrare: quello unico, o il più grande se il rettangolo ha angoli diversi (in mm, già limitato)."""
+        if isinstance(s, RectShape) and s.radii is not None:
+            return max(s.corner_radii())
+        return max(0.0, min(s.radius, s.max_radius()))
+
+    def _refresh_radius(self):
+        rs = self.radius_shapes()
+        self.frad.setEnabled(bool(rs))
+        self.btn_corners.setEnabled(bool(rs) and all(isinstance(s, RectShape) for s in rs))
+        if not rs:
+            self.frad.setValue(0.0)
+            self.frad.setToolTip(tr("Raggio degli angoli: per rettangoli, poligoni e stelle"))
+            return
+        s = rs[0]
+        self.frad.setValue(self.shown_radius(s))
+        tip = tr("Raggio degli angoli (mm) — massimo {0:.2f} mm", s.max_radius())
+        if isinstance(s, RectShape) and s.radii is not None:
+            tip += "\n" + tr("Angoli diversi: qui il più grande; scrivendo un valore tornano tutti uguali")
+        if len(rs) > 1:
+            tip += "\n" + tr("Vale per tutte le {0} forme selezionate, ognuna al massimo possibile", len(rs))
+        self.frad.setToolTip(tip)
+
+    def set_radius(self, v):
+        """Raggio unico per tutte le forme col raggio della selezione, ognuna limitata al suo massimo. Un passo."""
+        rs = self.radius_shapes()
+        if not rs:
+            return
+
+        def do():
+            for s in rs:
+                s.radius = max(0.0, min(float(v), round(s.max_radius(), 2)))
+                if isinstance(s, RectShape):
+                    s.radii = None
+                s.invalidate()
+
+        self.ed.run(tr("Raggio angoli"), do)
+
+    def set_corners(self, vals):
+        """vals = [↖, ↗, ↘, ↙] per ogni rettangolo selezionato (None = torna a un raggio unico, il più grande)."""
+        rs = [s for s in self.radius_shapes() if isinstance(s, RectShape)]
+        if not rs:
+            return
+
+        def do():
+            for s in rs:
+                top = round(s.max_radius(), 2)
+                if vals is None:
+                    s.radius = min(max(s.corner_radii()), top)
+                    s.radii = None
+                else:
+                    s.radii = [max(0.0, min(float(x), top)) for x in vals]
+                s.invalidate()
+
+        self.ed.run(tr("Raggio di un angolo") if vals is not None else tr("Raggio angoli"), do)
+
+    def open_corners(self):
+        rs = [s for s in self.radius_shapes() if isinstance(s, RectShape)]
+        if not rs:
+            return
+        self.corners.load(rs[0])
+        g = self.btn_corners.mapToGlobal(self.btn_corners.rect().bottomLeft())
+        self.corners.move(g.x() - 40, g.y() + 4)
+        self.corners.show()
+
     def refresh(self):
         sel = self.ed.selection
         on = bool(sel)
@@ -190,6 +274,13 @@ class NumericBar(QToolBar):
             f.setEnabled(on and bool(self.ed.editable()))
         self.btn_center.setEnabled(on and bool(self.ed.editable()))
         self._sync_layer()
+        self._refresh_radius()
+        if self.corners.isVisible():
+            rs = [s for s in self.radius_shapes() if isinstance(s, RectShape)]
+            if rs:
+                self.corners.load(rs[0])
+            else:
+                self.corners.hide()
         if not on:
             for f in (self.fx, self.fy, self.fw, self.fh, self.fr):
                 f.setValue(0.0)
@@ -238,6 +329,67 @@ class NumericBar(QToolBar):
         r = QTransform()
         r.rotate(v - cur)
         self.ed.transform(ops.about(r, a.x(), a.y()), tr("Ruota"))
+
+
+class CornerPopup(QFrame):
+    """0.18.2: i quattro angoli del rettangolo sotto il pulsante della barra (come nel pannello Proprietà)."""
+
+    ORDER = (("↖", 0, 0), ("↗", 0, 2), ("↘", 1, 2), ("↙", 1, 0))  # ordine dei raggi e posto nella griglia
+
+    def __init__(self, bar):
+        super().__init__(bar, Qt.Popup)
+        self.bar = bar
+        self.setObjectName("cornerPopup")
+        self.setStyleSheet(f"QFrame#cornerPopup {{ background:{C['panel2']}; border:1px solid {C['border']}; "
+                           f"border-radius:8px; }}")
+        v = QVBoxLayout(self)
+        v.setContentsMargins(10, 8, 10, 10)
+        self.each = QCheckBox(tr("Ogni angolo a parte"))
+        self.each.setToolTip(tr("Un raggio per ogni angolo: per arrotondarne solo uno o alcuni (0 = spigolo vivo)"))
+        self.each.toggled.connect(self._toggled)
+        v.addWidget(self.each)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(4)
+        self.spins = []
+        tips = (tr("Angolo in alto a sinistra"), tr("Angolo in alto a destra"), tr("Angolo in basso a destra"),
+                tr("Angolo in basso a sinistra"))
+        for (arrow, r_, c_), tip in zip(self.ORDER, tips):
+            sp = _spin(0, 1000, 0, 2, 0.5, " mm")
+            sp.setToolTip(tip)
+            lab = QLabel(arrow)
+            lab.setToolTip(tip)
+            grid.addWidget(lab, r_, c_)
+            grid.addWidget(sp, r_, c_ + 1)
+            sp.valueChanged.connect(self._changed)
+            self.spins.append(sp)
+        v.addLayout(grid)
+        self.lbl_max = QLabel("")
+        self.lbl_max.setObjectName("muted")
+        v.addWidget(self.lbl_max)
+        self._loading = False
+
+    def load(self, s):
+        self._loading = True
+        vals = s.corner_radii()
+        for sp, x in zip(self.spins, vals):
+            sp.setValue(x)
+        self.each.setChecked(s.radii is not None)
+        for sp in self.spins:
+            sp.setEnabled(s.radii is not None)
+        self.lbl_max.setText(tr("massimo {0:.2f} mm (metà del lato più corto)", s.max_radius()))
+        self._loading = False
+
+    def _toggled(self, on):
+        for sp in self.spins:
+            sp.setEnabled(on)
+        if self._loading:
+            return
+        self.bar.set_corners([sp.value() for sp in self.spins] if on else None)
+
+    def _changed(self, *_):
+        if self._loading or not self.each.isChecked():
+            return
+        self.bar.set_corners([sp.value() for sp in self.spins])
 
 
 def _swatch(color, size=12):
@@ -940,6 +1092,35 @@ class PropertiesPanel(QScrollArea):
             self.rebuild()
             return
         self._update_radius_max()
+        self._sync_radius()
+
+    def _sync_radius(self):
+        """0.18.2: il raggio si cambia anche dalla barra in alto: i campi del pannello seguono il dato (senza
+        generare a loro volta una modifica)."""
+        spins = getattr(self, "radius_spins", None) or []
+        s = self.shape
+        if not spins or not isinstance(s, (RectShape, PolygonShape)):
+            return
+        try:
+            if isinstance(s, RectShape):
+                vals = [max(0.0, min(s.radius, s.max_radius()))] + s.corner_radii()
+                each = getattr(self, "corner_each", None)
+                if each is not None and each.isChecked() != (s.radii is not None):
+                    each.blockSignals(True)
+                    each.setChecked(s.radii is not None)
+                    each.blockSignals(False)
+                    spins[0].setEnabled(s.radii is None)
+                    if spins[1:]:
+                        spins[1].parentWidget().setVisible(s.radii is not None)
+            else:
+                vals = [max(0.0, min(s.radius, s.max_radius()))]
+            for sp, v in zip(spins, vals):
+                if abs(sp.value() - v) > 1e-9:
+                    sp.blockSignals(True)
+                    sp.setValue(v)
+                    sp.blockSignals(False)
+        except RuntimeError:  # pannello già ricostruito
+            self.radius_spins = []
 
     def _update_radius_max(self):
         """0.17.15: il massimo del raggio segue le misure attuali (anche ridimensionando con il pannello aperto)."""
@@ -1399,6 +1580,25 @@ class PropertiesPanel(QScrollArea):
             ratio = _spin(0.05, 0.95, s.star, 2, 0.05)
             ratio.valueChanged.connect(lambda v: self._mod(tr("Rientranza"), star=v))
             f.addRow(tr("Rientranza"), ratio)
+        # 0.18.2: raggio degli angoli anche per poligoni e stelle (in mm veri, al massimo quello possibile)
+        mx = s.max_radius()
+        rad = _spin(0, 1000, min(s.radius, mx), 2, 0.5, " mm")
+
+        def clamp(v):
+            top = round(self.shape.max_radius(), 2) if isinstance(self.shape, PolygonShape) else v
+            if v > top:
+                rad.blockSignals(True)
+                rad.setValue(top)
+                rad.blockSignals(False)
+                return top
+            return v
+
+        rad.valueChanged.connect(lambda v: self._mod(tr("Raggio angoli"), radius=clamp(v)))
+        f.addRow(tr("Raggio angoli"), rad)
+        lab = QLabel(tr("massimo {0:.2f} mm", mx))
+        lab.setObjectName("muted")
+        f.addRow("", lab)
+        self.radius_spins = [rad]
 
     def _image(self, s):
         self.lay.addWidget(section(tr("Immagine")))

@@ -352,6 +352,55 @@ def close_subpaths(subs, tol=0.5):
     return n
 
 
+def corner_limit(pts):
+    """0.18.2: raggio più grande che nessun vertice del poligono chiuso (punti in mm) deve limitare: per ogni vertice
+    metà del lato più corto dei due che lo toccano, per tan(angolo/2)."""
+    n = len(pts)
+    best = math.inf
+    for i in range(n):
+        p, a, b = pts[i], pts[i - 1], pts[(i + 1) % n]
+        la, lb = math.dist(p, a), math.dist(p, b)
+        if la < 1e-9 or lb < 1e-9:
+            continue
+        cosang = max(-1.0, min(1.0, ((a[0] - p[0]) * (b[0] - p[0]) + (a[1] - p[1]) * (b[1] - p[1])) / (la * lb)))
+        ang = math.acos(cosang)
+        if 1e-6 < ang < math.pi - 1e-6:
+            best = min(best, min(la, lb) / 2 * math.tan(ang / 2))
+    return 0.0 if best == math.inf else best
+
+
+def round_corners(pts, r):
+    """0.18.2: poligono chiuso (punti in mm veri) con ogni vertice arrotondato da un arco di cerchio di raggio r,
+    tangente ai due lati. Vertice per vertice il raccordo si limita a metà dei due lati *originali* (quindi due
+    raccordi vicini non si sovrappongono mai); vale anche per i vertici rientranti (stelle). -> SubPath chiuso."""
+    n = len(pts)
+    out = []
+    for i in range(n):
+        p, a, b = pts[i], pts[i - 1], pts[(i + 1) % n]
+        la, lb = math.dist(p, a), math.dist(p, b)
+        if r <= 0 or la < 1e-9 or lb < 1e-9:
+            out.append(Node(*p))
+            continue
+        u1 = ((a[0] - p[0]) / la, (a[1] - p[1]) / la)
+        u2 = ((b[0] - p[0]) / lb, (b[1] - p[1]) / lb)
+        ang = math.acos(max(-1.0, min(1.0, u1[0] * u2[0] + u1[1] * u2[1])))
+        if ang < 1e-6 or ang > math.pi - 1e-6:
+            out.append(Node(*p))  # lati allineati: niente spigolo
+            continue
+        t = r / math.tan(ang / 2)
+        rr = r
+        lim = min(la, lb) / 2
+        if t > lim:
+            t = lim
+            rr = t * math.tan(ang / 2)
+        A = (p[0] + u1[0] * t, p[1] + u1[1] * t)
+        B = (p[0] + u2[0] * t, p[1] + u2[1] * t)
+        h = 4.0 / 3.0 * math.tan((math.pi - ang) / 4) * rr  # maniglie di Bézier di un arco di cerchio
+        out.append(Node(A[0], A[1], cout=(A[0] - u1[0] * h, A[1] - u1[1] * h)))
+        out.append(Node(B[0], B[1], cin=(B[0] - u2[0] * h, B[1] - u2[1] * h)))
+    return SubPath(out, True)
+
+
 def fillet(sp, ni, r):
     """0.17.13: raccordo (arrotonda) lo spigolo nel nodo ni con un arco di raggio r (mm).
     Solo tra due tratti dritti. Ritorna "" se fatto, altrimenti il motivo (in chiaro)."""

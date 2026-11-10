@@ -2478,5 +2478,11 @@
  "Scrivo ${0}={1} e rileggo le impostazioni della scheda…": "Gravando ${0}={1} e lendo de novo as configurações da placa…",
  "Non sono riuscito a rileggere le impostazioni della scheda: controlla $6 nella console ($$).": "Não consegui ler de novo as configurações da placa: verifique $6 no console ($$).",
  "Fatto: ora ${0}={1}. Controlla la riga della sonda qui sopra: libera deve dire «libera», toccandola «TOCCATA».": "Pronto: agora ${0}={1}. Confira a linha da sonda acima: livre deve dizer «livre», tocando-a «TOCADA».",
- "La scheda non ha accettato ${0}={1} (ora è ${0}={2}).": "A placa não aceitou ${0}={1} (agora é ${0}={2})."
+ "La scheda non ha accettato ${0}={1} (ora è ${0}={2}).": "A placa não aceitou ${0}={1} (agora é ${0}={2}).",
+ "Angoli diversi: qui il più grande; scrivendo un valore tornano tutti uguali": "Cantos diferentes: aqui o maior; ao digitar um valor ficam todos iguais",
+ "Raggio degli angoli (mm) — massimo {0:.2f} mm": "Raio dos cantos (mm) — máximo {0:.2f} mm",
+ "Raggio degli angoli: per rettangoli, poligoni e stelle": "Raio dos cantos: para retângulos, polígonos e estrelas",
+ "Un raggio per ogni angolo del rettangolo": "Um raio para cada canto do retângulo",
+ "Vale per tutte le {0} forme selezionate, ognuna al massimo possibile": "Vale para as {0} formas selecionadas, cada uma até o seu máximo",
+ "massimo {0:.2f} mm": "máximo {0:.2f} mm"
 }

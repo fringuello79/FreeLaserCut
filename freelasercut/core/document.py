@@ -129,6 +129,14 @@ class Shape:
     def invalidate(self):
         self._cache = None
 
+    def _scale(self):
+        """Quanto è stirata la forma dalla sua trasformazione (ridimensionata dopo il disegno): mm per unità.
+        (0.17.15 nel rettangolo; 0.18.2 qui per tutte, la usa anche il poligono.)"""
+        t = self.tf
+        sx = math.hypot(t.m11(), t.m12()) or 1.0
+        sy = math.hypot(t.m21(), t.m22()) or 1.0
+        return sx, sy
+
     def path(self) -> QPainterPath:
         if self._cache is None:
             self._cache = self.tf.map(self.local_path())
@@ -189,13 +197,6 @@ class RectShape(Shape):
         self.w, self.h, self.radius = float(w), float(h), float(radius)
         # 0.17.13: raggio di ogni angolo (come si vede sul piano: ↖ ↗ ↘ ↙); None = tutti uguali a «radius»
         self.radii = [float(v) for v in radii] if radii is not None and len(radii) == 4 else None
-
-    def _scale(self):
-        """Quanto è stirata la forma dalla sua trasformazione (ridimensionata dopo il disegno): mm per unità."""
-        t = self.tf
-        sx = math.hypot(t.m11(), t.m12()) or 1.0
-        sy = math.hypot(t.m21(), t.m22()) or 1.0
-        return sx, sy
 
     def max_radius(self):
         """0.17.15: raggio massimo in mm, metà del lato più corto come si vede sul piano."""
@@ -274,13 +275,14 @@ class EllipseShape(Shape):
 class PolygonShape(Shape):
     kind = "polygon"
 
-    def __init__(self, w=10.0, h=10.0, sides=6, star=0.0, layer=1):
+    def __init__(self, w=10.0, h=10.0, sides=6, star=0.0, layer=1, radius=0.0):
         super().__init__(layer)
         self.w, self.h = float(w), float(h)
         self.sides = int(sides)
         self.star = float(star)  # 0 = poligono; 0..0.95 = rientranza della stella
+        self.radius = float(radius)  # 0.18.2: raggio degli angoli in mm veri sul piano (0 = spigoli vivi)
 
-    def local_path(self):
+    def _points(self):
         n = max(3, self.sides)
         rx, ry = self.w / 2, self.h / 2
         pts = []
@@ -289,6 +291,28 @@ class PolygonShape(Shape):
             a = math.pi / 2 + 2 * math.pi * i / count
             k = (1 - self.star) if (self.star > 0 and i % 2 == 1) else 1.0
             pts.append((rx + rx * k * math.cos(a), ry + ry * k * math.sin(a)))
+        return pts
+
+    def max_radius(self):
+        """0.18.2: raggio più grande senza che nessun angolo venga limitato (mm sul piano)."""
+        from . import nodes
+
+        sx, sy = self._scale()
+        return nodes.corner_limit([(x * sx, y * sy) for x, y in self._points()])
+
+    def local_path(self):
+        pts = self._points()
+        if self.radius > 0:
+            from . import nodes
+
+            # gli archi si calcolano in mm veri (forma ridimensionata dopo il disegno) e si riportano in locale
+            sx, sy = self._scale()
+            sp = nodes.round_corners([(x * sx, y * sy) for x, y in pts], self.radius)
+            back = lambda q: None if q is None else (q[0] / sx, q[1] / sy)  # noqa: E731
+            for nd in sp.nodes:
+                nd.x, nd.y = nd.x / sx, nd.y / sy
+                nd.cin, nd.cout = back(nd.cin), back(nd.cout)
+            return nodes.to_path([sp])
         p = QPainterPath()
         p.moveTo(*pts[0])
         for q in pts[1:]:
@@ -297,7 +321,10 @@ class PolygonShape(Shape):
         return p
 
     def params(self):
-        return {"w": self.w, "h": self.h, "sides": self.sides, "star": self.star}
+        d = {"w": self.w, "h": self.h, "sides": self.sides, "star": self.star}
+        if self.radius > 0:  # senza raggio il file resta identico a prima
+            d["radius"] = self.radius
+        return d
 
     def describe(self):
         return f"Stella {self.sides} punte" if self.star > 0 else f"Poligono {self.sides} lati"
@@ -621,7 +648,7 @@ def shape_from_dict(d, images=None):
     elif kind == "ellipse":
         s = EllipseShape(p.get("w", 10), p.get("h", 10))
     elif kind == "polygon":
-        s = PolygonShape(p.get("w", 10), p.get("h", 10), p.get("sides", 6), p.get("star", 0))
+        s = PolygonShape(p.get("w", 10), p.get("h", 10), p.get("sides", 6), p.get("star", 0), radius=p.get("radius", 0))
     elif kind == "path":
         s = PathShape(PathShape.path_from_elements(p.get("elements", [])))
     elif kind in ("text", "textpath"):
