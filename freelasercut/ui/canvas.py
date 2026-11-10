@@ -328,6 +328,7 @@ class Canvas(QGraphicsView):
     tool_changed = Signal(str)
     status = Signal(str)
     zoom_changed = Signal(float)
+    context_requested = Signal(object, object)  # tasto destro senza trascinare: punto nella vista, punto sullo schermo
     view_changed = Signal()  # zoom, spostamento, misure o colore del piano: le linguette dei piani si riposizionano
 
     def __init__(self, editor, bed=(450.0, 440.0), parent=None):
@@ -675,6 +676,9 @@ class Canvas(QGraphicsView):
             self.viewport().setCursor(Qt.ClosedHandCursor)
             return
         self.setFocus()
+        # lo strumento va guardato ADESSO: la Linea col tasto destro chiude il tracciato e passa a Selezione
+        menu_ok = e.button() == Qt.RightButton and self.tool in (self.tools.get("select"), self.tools.get("nodes"))
+        self._rpress = e.position() if menu_ok else None
         self.tool.press(e, self.to_bed(e.position()))
         self.viewport().update()
 
@@ -709,6 +713,15 @@ class Canvas(QGraphicsView):
             self._pan = None
             self.viewport().setCursor(Qt.OpenHandCursor if self._space else self.tool.cursor())
             return
+        p0 = getattr(self, "_rpress", None)
+        if e.button() == Qt.RightButton and p0 is not None:
+            self._rpress = None
+            # 0.18.6: clic destro (senza trascinare) con Selezione o Nodi = menu dei comandi. Con gli altri strumenti
+            # il tasto destro resta loro (la Linea ci chiude il tracciato)
+            if (e.position() - p0).manhattanLength() < 6:
+                self.context_requested.emit(e.position(), e.globalPosition().toPoint())
+                self.viewport().update()
+                return
         self.tool.release(e, self.to_bed(e.position()))
         self.viewport().update()
 
