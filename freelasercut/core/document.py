@@ -120,6 +120,7 @@ class Shape:
         self.tf = QTransform()
         self.locked = False
         self.hidden = False
+        self.role = ""  # 0.18.5: compito speciale della forma («pc1» / «pc2» = crocette di Stampa e taglia)
         self._cache = None
 
     # geometria
@@ -167,8 +168,11 @@ class Shape:
         return {}
 
     def to_dict(self):
-        return {"kind": self.kind, "id": self.id, "layer": self.layer, "tf": geom.transform_to_list(self.tf),
-                "locked": self.locked, "hidden": self.hidden, "p": self.params()}
+        d = {"kind": self.kind, "id": self.id, "layer": self.layer, "tf": geom.transform_to_list(self.tf),
+             "locked": self.locked, "hidden": self.hidden, "p": self.params()}
+        if self.role:  # solo se c'è: i progetti senza restano identici
+            d["role"] = self.role
+        return d
 
     def _load_common(self, d):
         self.id = d.get("id", self.id)
@@ -176,6 +180,8 @@ class Shape:
         self.tf = geom.transform_from_list(d["tf"]) if "tf" in d else QTransform()
         self.locked = d.get("locked", False)
         self.hidden = d.get("hidden", False)
+        role = d.get("role", "")
+        self.role = role if isinstance(role, str) else ""
 
     def clone(self, new_id=True):
         c = shape_from_dict(self.to_dict(), getattr(self, "_doc_images", None))

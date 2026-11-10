@@ -208,6 +208,12 @@ HELP = {
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
         "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
                None),
+    "print_cut": (tr("Stampa e taglia (in prova)"), tr(
+        "Per tagliare attorno a qualcosa di già stampato, come adesivi ed etichette. FreeLaserCut mette due crocette "
+        "accanto al disegno e salva il PDF da stampare al 100%. Poi fissi il foglio sul piano, porti la testa con il "
+        "puntino sul centro delle due crocette e il disegno si sposta sopra il foglio vero, anche se è storto. Si "
+        "stampa quello che sta sui livelli con l'uscita spenta; si taglia quello che ha l'uscita accesa. Mai su "
+        "vinile o PVC."), None),
     "admin_code": (tr("Funzioni in prova"), tr("Sblocca con il codice amministratore le funzioni ancora in prova, "
                                                "oppure le nasconde di nuovo."), None),
     "autofocus": (tr("Asse Z e autofocus"), tr("Per le macchine con l'asse Z motorizzato. Con una sonda collegata "

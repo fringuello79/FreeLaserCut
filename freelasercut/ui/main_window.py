@@ -305,6 +305,9 @@ class MainWindow(QMainWindow):
             "relief": A(tr("Rilievo 3D su tavola (in prova)…"), self.relief_dialog, None, "sculpt",
                         tr("Scolpisce la tavola intera a strati, a testa ferma, da un'immagine in grigi o da un modello "
                            "3D, con il test di profondità obbligatorio")),
+            "print_cut": A(tr("Stampa e taglia (in prova)…"), self.print_cut_dialog, None, "frame",
+                           tr("Taglia attorno a qualcosa di già stampato: due crocette stampate con il disegno dicono "
+                              "al laser dove sta il foglio")),
             "admin_code": A(tr("Funzioni in prova…"), self.admin_dialog, None, None,
                             tr("Sblocca le funzioni ancora in prova con il codice amministratore")),
             "sculpt": A(tr("Scultura 3D da modello…"), self.sculpt_dialog, None, "sculpt",
@@ -534,6 +537,7 @@ class MainWindow(QMainWindow):
         m.addAction(a["puzzle"])
         m.addAction(a["sculpt"])
         m.addAction(a["relief"])
+        m.addAction(a["print_cut"])
         m.addSeparator()
         m.addAction(a["variables"])
         m.addAction(a["photo"])
@@ -2007,6 +2011,7 @@ class MainWindow(QMainWindow):
         from .. import admin
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
+        self.acts["print_cut"].setVisible(admin.unlocked(self.qs))
 
     def admin_dialog(self, *_, code=None):
         """Impostazioni → Funzioni in prova: il codice amministratore le sblocca (o le nasconde di nuovo)."""
@@ -2029,10 +2034,31 @@ class MainWindow(QMainWindow):
         if admin.check(code):
             admin.set_unlocked(self.qs, True)
             self._apply_admin()
-            self.statusBar().showMessage(tr("Funzioni in prova sbloccate: Strumenti → Rilievo 3D su tavola"), 8000)
+            self.statusBar().showMessage(tr("Funzioni in prova sbloccate: nel menu Strumenti trovi Rilievo 3D su tavola e Stampa e taglia"), 8000)
             return True
         QMessageBox.warning(self, tr("Funzioni in prova"), tr("Codice non valido."))
         return False
+
+    def print_cut_dialog(self, *_):
+        """Strumenti → Stampa e taglia (0.18.5, solo con le funzioni in prova sbloccate). La finestra resta aperta
+        accanto al piano: si continua a disegnare e a muovere la testa."""
+        from .. import admin
+
+        if not admin.unlocked(self.qs):
+            return None
+        if getattr(self, "_print_cut_dlg", None) is not None:
+            self._print_cut_dlg.raise_()
+            self._print_cut_dlg.activateWindow()
+            return self._print_cut_dlg
+        from .dialogs_printcut import PrintCutDialog
+
+        dlg = PrintCutDialog(self)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.destroyed.connect(lambda *_: setattr(self, "_print_cut_dlg", None))
+        self._print_cut_dlg = dlg
+        dlg.show()
+        return dlg
 
     def relief_dialog(self, *_):
         """Strumenti → Rilievo 3D su tavola (solo con le funzioni in prova sbloccate)."""
