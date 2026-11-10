@@ -31,8 +31,15 @@ RX_BUFFER = 127
 POINTER_MAX = 20.0  # % massimo del puntino (oltre POINTER_WARN FreeLaserCut avvisa)
 POINTER_WARN = 5.0
 POLL_INTERVAL = 0.2
+# 0.18.4: alcune schede (visto su un Creality Falcon A1, ESP32-S3 con USB nativo) ogni tanto non mandano un «ok».
+# Se alla fine mancano al massimo LOST_OK_MAX risposte e la scheda è ferma e muta da un po', sono risposte perse:
+# la verifica e il lavoro si chiudono normalmente (con un avviso) invece di restare fermi.
+LOST_OK_MAX = 3
+LOST_OK_CHECK_S = 2.0  # in verifica le risposte arrivano in millesimi di secondo
+LOST_OK_JOB_S = 3.0
 _SETTING_RE = re.compile(r"^\$(\d+)=(.*)$")
 _WRITE_RE = re.compile(r"^\$\d+\s*=")
+_DWELL_RE = re.compile(r"G0*4(?!\d)", re.I)  # pausa G4 (non G40, G43…)
 _STATUS_RE = re.compile(r"<[^<>]*>")
 _OPT_RE = re.compile(r"^\[OPT:([^,\]]*),(\d+),(\d+)")
 _USB_HINTS = ("CH340", "CH341", "1A86", "USB-SERIAL", "USB SERIAL", "CP210", "FTDI", "ESP32", "USB JTAG")
@@ -167,6 +174,7 @@ class GrblController(QObject):
         self.stale_check_exit = False  # sto facendo uscire la scheda da un check mode rimasto acceso
         self.trusted_buffer = False  # scheda nota: uso tutto il buffer dichiarato in [OPT]
         self.check_stalled = False  # l'ultima verifica non ha ricevuto tutte le risposte
+        self.lost_replies = 0  # 0.18.4: risposte «ok» mai arrivate alla fine dell'ultima verifica o dell'ultimo lavoro
         self.no_g55 = False  # la scheda ha risposto error:20 a G55
         self._check_end_t = 0.0
         self._fire_timer = None
@@ -208,6 +216,7 @@ class GrblController(QObject):
         self.stale_check_exit = False
         self.trusted_buffer = False
         self.check_stalled = False
+        self.lost_replies = 0
         self.no_g55 = False
         self.last_reply = time.time()
         self._check = None
@@ -450,6 +459,8 @@ class GrblController(QObject):
         self._job_active = True
         self.job_lines = clean
         self.job_acked = 0
+        self.lost_replies = 0
+        self.last_reply = time.time()  # 0.18.4: il silenzio si conta da qui (risposte perse alla fine del lavoro)
         with self._lock:
             for i, line in enumerate(clean):
                 c = _Cmd(line, "job")
@@ -479,6 +490,7 @@ class GrblController(QObject):
             self.message.emit(too_long)
             return False
         self._check = {"total": len(clean), "done": 0, "errors": [], "exiting": False, "lines": clean}
+        self.lost_replies = 0
         self.last_reply = time.time()
         self.send_line("$C", tag="check_enter")  # le righe partono solo dopo il suo «ok» (vedi _finish)
         return True
@@ -661,25 +673,79 @@ class GrblController(QObject):
             self._watch_check()
 
     def _watch_check(self):
+        lost = []
         with self._lock:
             chk = self._check
             waiting = len(self._inflight)
-            stalled = chk is not None and waiting and time.time() - self.last_reply > self.CHECK_STALL_S
+            quiet = time.time() - self.last_reply
+            if (chk is not None and waiting and not self._pending and not chk["exiting"]
+                    and waiting <= LOST_OK_MAX and quiet > LOST_OK_CHECK_S
+                    and all(c.tag == "check" for c in self._inflight)):
+                # 0.18.4: tutte le righe sono partite e ne mancano solo poche: la scheda ha perso le loro risposte
+                lost = list(self._inflight)
+                self._inflight.clear()
+            stalled = (not lost and chk is not None and waiting and quiet > self.CHECK_STALL_S)
             if stalled:
                 self._check = None  # sotto il lucchetto: il filo di lettura non la chiude due volte
+        if lost:
+            self.lost_replies = len(lost)
+            chk["done"] += len(lost)
+            self.check_progress.emit(chk["done"], chk["total"])
+            self.message.emit(tr("La scheda non ha risposto alle ultime {0} righe della verifica (risposte perse, "
+                                 "succede con alcune schede con l'USB nativo): le considero controllate.", len(lost)))
+            chk["exiting"] = True
+            self.send_line("$C", tag="check_exit")
+            return
         if stalled:
             # la scheda non risponde più (risposte perse): chiudo la verifica invece di restare fermo,
             # passo al buffer prudente e la faccio uscire dalla modalità di prova
             self.check_stalled = True
+            was_big = self.rx_buffer > RX_BUFFER
             self.rx_buffer = RX_BUFFER
             errs = list(chk["errors"])
-            errs.append((-1, "", "NO_RISPOSTA", tr("La scheda ha smesso di rispondere durante la verifica ({0} righe "
-                                                   "senza risposta). FreeLaserCut passa a una comunicazione più "
-                                                   "prudente: rifai la verifica.", waiting)))
+            if was_big:
+                why = tr("La scheda ha smesso di rispondere durante la verifica ({0} righe "
+                         "senza risposta). FreeLaserCut passa a una comunicazione più "
+                         "prudente: rifai la verifica.", waiting)
+            else:  # 0.18.4: la comunicazione era già prudente, rifare la verifica darebbe lo stesso risultato
+                why = tr("La scheda ha smesso di rispondere durante la verifica ({0} righe senza risposta). Prova a "
+                         "scollegare e ricollegare il cavo USB; se succede ancora, togli la spunta «Verifica il "
+                         "G-code con la scheda prima di partire» e manda un rapporto "
+                         "all'assistenza.", waiting)
+            errs.append((-1, "", "NO_RISPOSTA", why))
             self._check_end_t = time.time()
             self._clear_queues()
             self.check_finished.emit(errs)
             self.exit_stale_check()
+
+    def _watch_job_end(self):
+        """0.18.4: tutte le righe sono partite, la macchina è ferma (Idle) e la scheda è muta da qualche secondo,
+        ma mancano al massimo LOST_OK_MAX conferme: le risposte si sono perse e il lavoro è finito."""
+        with self._lock:
+            n = len(self._inflight)
+            # le conferme arrivano in ordine: quelle che mancano sono sempre delle ultime righe, ma la risposta persa
+            # può essere di una riga poco prima. Con una pausa G4 fra le ultime righe la scheda potrebbe essere
+            # ancora ferma ad aspettare (in pausa risulta Idle): lì non decido io
+            tail = self.job_lines[-(n + LOST_OK_MAX):] if n else []
+            ok = (not self._pending and 0 < n <= LOST_OK_MAX
+                  and all(c.tag == "job" for c in self._inflight)
+                  and not any(_DWELL_RE.search(l) for l in tail)
+                  and time.time() - self.last_reply > LOST_OK_JOB_S)
+            if not ok:
+                self._job_idle = 0
+                return
+            self._job_idle += 1
+            if self._job_idle < 2:  # due report Idle di fila, come per la fine normale
+                return
+            lost = list(self._inflight)
+            self._inflight.clear()
+        self.lost_replies = len(lost)
+        self._job_done = self._job_total
+        self.job_acked = self._job_total
+        self.job_progress.emit(self._job_done, self._job_total)
+        self._job_active = False
+        self.job_finished.emit(True, tr("Lavoro completato: {0} righe (la scheda non ha confermato le ultime {1}: "
+                                        "risposte perse, la macchina ha finito)", self._job_total, len(lost)))
 
     def _read_loop(self):
         while self._running:
@@ -738,6 +804,10 @@ class GrblController(QObject):
                 if self._job_idle >= 2:
                     self._job_active = False
                     self.job_finished.emit(True, f"Lavoro completato: {self._job_total} righe")
+            elif self._job_active and st["state"] == "Idle":
+                self._watch_job_end()
+            elif self._job_active:
+                self._job_idle = 0
             self.status_changed.emit(st)
             return
 

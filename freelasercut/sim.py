@@ -47,6 +47,8 @@ class SimSerial:
         self.no_g55 = False
         self.drop_check_after = None  # in verifica, dopo N righe le risposte smettono di arrivare
         self._check_lines = 0
+        self.lose_ok_at = set()  # 0.18.4: numeri (da 1) degli «ok» che non partono; _oks li conta tutti
+        self._oks = 0
         self.info_text = None
         self._cpos = None  # verifica: posizione "letta" dal parser (la testa non si muove)
         self._critical = False  # allarme critico (limiti): la scheda ignora tutto finché non arriva un reset
@@ -226,6 +228,9 @@ class SimSerial:
         return x, y
 
     def _ok(self):
+        self._oks += 1
+        if self._oks in self.lose_ok_at:
+            return  # 0.18.4: risposta persa, come nel registro di un Creality Falcon A1 (ESP32-S3, USB nativo)
         self._emit("ok\r\n")
 
     def _status_text(self):

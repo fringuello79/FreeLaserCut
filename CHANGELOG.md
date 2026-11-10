@@ -1,5 +1,15 @@
 # Novità di FreeLaserCut
 
+## 0.18.4 — 10/11/2026
+Da un rapporto all'assistenza (Creality Falcon A1 10W: «la verifica dà sempre "la scheda ha smesso di rispondere"», e non si riusciva a incidere).
+- **Risposte perse alla fine della verifica e del lavoro.** La scheda del Falcon A1 (ESP32-S3 con USB nativo) ogni tanto non manda la conferma «ok» di una riga: nel registro del rapporto ne mancava 1 su 13483 alla fine della verifica e 2 alla fine di un lavoro inciso per intero. FreeLaserCut aspettava conferme che non sarebbero mai arrivate:
+  - la **verifica** si fermava con «la scheda ha smesso di rispondere», **sempre**, e il lavoro non partiva;
+  - il **lavoro** veniva inciso tutto, ma non risultava mai finito («il lavoro non avanza»).
+- Ora, se tutte le righe sono partite, ne mancano **al massimo 3** e la scheda è ferma e muta da qualche secondo, sono risposte perse: la verifica si chiude normalmente (dopo circa 2 secondi invece di 6) e il lavoro risulta completato, con un avviso che dice quante conferme sono mancate. Se mancano più risposte, oppure fra le ultime righe c'è una pausa G4, resta tutto come prima.
+- Il messaggio «FreeLaserCut passa a una comunicazione più prudente: rifai la verifica» compare solo quando la comunicazione cambia davvero. Con le schede che la usano già (come il Falcon A1) rifare la verifica dava lo stesso risultato: ora il messaggio consiglia di scollegare e ricollegare il cavo USB e, se succede ancora, di togliere la spunta «Verifica il G-code con la scheda prima di partire» e mandare un rapporto.
+- Il simulatore può perdere delle risposte scelte, per le prove.
+- Nuova prova automatica `tests/test_v184_risposte.py` (23 controlli).
+
 ## 0.18.3 — 10/11/2026
 - **Dopo il nesting i pezzi si scelgono di nuovo uno per uno** (da un commento sotto il video di presentazione: «dopo il nesting vedo gli oggetti come un oggetto solo e non riesco più a modificarli singolarmente»).
   - **Un clic su un oggetto di una selezione multipla seleziona solo quello.** Prima il clic non cambiava niente: con più oggetti selezionati si potevano solo spostare tutti insieme, e per sceglierne uno bisognava prima cliccare nel vuoto. Trascinando si spostano ancora tutti; Maiusc o Ctrl + clic aggiungono e tolgono come prima.

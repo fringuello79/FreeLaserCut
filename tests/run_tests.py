@@ -300,6 +300,7 @@ if __name__ == "__main__":
     run_suite("test_v183_selezione.py", "Selezione e nesting nell'interfaccia Banco", "banco")
     run_suite("test_v183_gerber.py", "Circuiti stampati: importazione dei file Gerber e dei fori Excellon")
     run_suite("test_v183_gerber.py", "Circuiti stampati (Gerber) nell'interfaccia Banco", "banco")
+    run_suite("test_v184_risposte.py", "Risposte perse alla fine di verifica e lavoro (Creality Falcon A1)")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]
