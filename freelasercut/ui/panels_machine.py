@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QProgressBar, QPushButton, QSlider, QToolButton, QVBoxLayout, QWidget,
 )
 
-from ..grbl import POINTER_MAX, POINTER_WARN
+from ..grbl import GLOW_S, GLOW_UNKNOWN, POINTER_MAX, POINTER_WARN
 from ..theme import C, css
 from . import style
 from .widgets import AnchorPicker, NumField, row, section
@@ -197,6 +197,32 @@ class LaserPanel(QWidget):
         self.b_air = _btn(tr("Aria"), "air", tip=tr("Air assist acceso/spento"), checkable=True)
         self.b_air.toggled.connect(self.ctl.air)
         v.addWidget(row(self.b_fire, self.fire_pct, self.b_air))
+        # 0.18.7: «Lucciola» (idea di Deborah): il laser resta acceso al minimo finché non lo spegni
+        self.glow_cap, self.glow_start = GLOW_UNKNOWN
+        self.b_glow = _btn(tr("Lucciola (resta accesa)"), "fire", checkable=True)
+        self.glow_pct = QDoubleSpinBox()
+        self.glow_pct.setSingleStep(0.1)
+        self.glow_pct.setDecimals(1)
+        self.glow_pct.setSuffix(" %")
+        self.glow_pct.valueChanged.connect(self._glow_pct_changed)
+        self.glow_note = QLabel(tr("⚠ Il laser è acceso. Occhiali indossati, resta vicino alla macchina. Clic sul "
+                                   "pulsante per spegnerlo."))
+        self.glow_note.setWordWrap(True)
+        self.glow_note.setStyleSheet("background:#fff1f0; border:1px solid #f0a8a2; border-radius:6px; color:#7a1410; "
+                                     "padding:6px 8px; font-weight:600;")
+        self.glow_note.hide()
+        self._glow_on = False
+        self._glow_warned = False  # l'avviso si mostra alla prima accensione di ogni sessione
+        self._glow_deadline = 0.0
+        self._glow_pos = None
+        self._glow_phase = False
+        self._glow_timer = QTimer(self)
+        self._glow_timer.setInterval(250)
+        self._glow_timer.timeout.connect(self._glow_tick)
+        self.set_glow_limits(self.glow_cap, self.glow_start)
+        self.b_glow.clicked.connect(self._glow_clicked)
+        v.addWidget(row(self.b_glow, self.glow_pct))
+        v.addWidget(self.glow_note)
         warn = QLabel(tr("Laser di classe 4: occhiali protettivi per 450 nm anche per il puntatore."))
         warn.setWordWrap(True)
         warn.setObjectName("muted")
@@ -291,6 +317,123 @@ class LaserPanel(QWidget):
             return
         self.ctl.fire(on, self.fire_pct.value(), s_max=self.s_max)
 
+    # ---------------------------------------------------------------- Lucciola (0.18.7)
+    def set_glow_limits(self, cap, start):
+        """Tetto e valore di partenza per il laser del profilo (grbl.glow_limits). Il valore scelto prima resta, se
+        sta sotto il tetto nuovo."""
+        running = self.glow_pct.value() if self._glow_on else 0.0  # potenza con cui è accesa adesso
+        self.glow_cap, self.glow_start = float(cap), float(start)
+        try:
+            saved = float(self.qs.value("glow_pct", 0.0))
+        except (TypeError, ValueError):
+            saved = 0.0
+        self.glow_pct.blockSignals(True)
+        self.glow_pct.setRange(0.1, self.glow_cap)
+        self.glow_pct.setValue(saved if 0.1 <= saved <= self.glow_cap else self.glow_start)
+        self.glow_pct.blockSignals(False)
+        self.glow_pct.setToolTip(tr("Potenza della Lucciola: per questo laser al massimo {0:g}%. Parti dal basso e sali "
+                                    "solo finché il punto si vede.", self.glow_cap))
+        self.b_glow.setToolTip(tr(
+            "Accende il laser al minimo e lo lascia acceso, per vedere dove punta la testa mentre sistemi il pezzo. "
+            "Per questo laser al massimo {0:g}%. Si spegne da solo dopo {1:g} minuti (il tempo riparte quando la testa "
+            "si muove), e quando parte un lavoro. Occhiali protettivi sempre, e non lasciare la macchina da sola.\n"
+            "Un'idea di Deborah.", self.glow_cap, GLOW_S / 60.0))
+        if running > self.glow_cap:  # accesa con una potenza che per il laser del profilo nuovo è troppa
+            self.glow_stop()
+
+    def _glow_pct_changed(self, x):
+        self.qs.setValue("glow_pct", float(x))
+        if self._glow_on and self.ctl.connected and self.ctl.fire_active:  # cambia subito, sempre sotto il tetto
+            self.ctl.fire(True, min(x, self.glow_cap), max_pct=self.glow_cap, timeout_s=GLOW_S + 10.0, s_max=self.s_max)
+            self._glow_deadline = time.time() + GLOW_S
+
+    def _glow_clicked(self, on):
+        if on:
+            self.glow_start_on()
+        else:
+            self.glow_stop()
+
+    def glow_start_on(self):
+        """Accende la Lucciola. False (e pulsante spento) se non si può o se l'avviso non viene accettato."""
+        c = self.ctl
+        ok = c.connected and not c.job_active and not c.checking and c.last_status.get("state") not in ("Alarm", "Door")
+        if ok and not self._glow_warned:
+            ok = confirm_glow(self, self.glow_pct.value())
+            self._glow_warned = self._glow_warned or ok
+        if ok:
+            ok = c.fire(True, min(self.glow_pct.value(), self.glow_cap), max_pct=self.glow_cap,
+                        timeout_s=GLOW_S + 10.0, s_max=self.s_max)
+        if not ok:
+            self.b_glow.setChecked(False)
+            return False
+        self._glow_on = True
+        self._glow_deadline = time.time() + GLOW_S
+        self._glow_pos = self._head_xy()
+        self.b_glow.setChecked(True)
+        self.glow_note.show()
+        self._glow_timer.start()
+        self._glow_tick()
+        return True
+
+    def glow_stop(self, send=True):
+        """Spegne la Lucciola. send=False quando il laser è già stato spento da altro (lavoro, verifica, allarme,
+        disconnessione): non va mandato niente alla scheda."""
+        was = self._glow_on
+        self._glow_on = False
+        self._glow_timer.stop()
+        if was and send and self.ctl.connected and self.ctl.fire_active:
+            self.ctl.fire(False)
+        self.b_glow.setChecked(False)
+        self.b_glow.setText(tr("Lucciola (resta accesa)"))
+        self.b_glow.setStyleSheet("")
+        self.b_glow.setGraphicsEffect(None)
+        self.glow_note.hide()
+
+    def glow_seconds_left(self):
+        return max(0.0, self._glow_deadline - time.time()) if self._glow_on else 0.0
+
+    def _head_xy(self):
+        p = self.ctl.last_status.get("MPos")
+        return (float(p[0]), float(p[1])) if p and len(p) >= 2 else None
+
+    def _glow_tick(self):
+        if not self._glow_on:
+            return
+        c = self.ctl
+        if (not c.connected or not c.fire_active or c.job_active or c.checking
+                or c.last_status.get("state") in ("Alarm", "Door")):
+            self.glow_stop(send=False)  # spento da altro: puntino rilasciato, lavoro, allarme, cavo staccato
+            return
+        pos = self._head_xy()
+        if pos is not None and self._glow_pos is not None and \
+                (abs(pos[0] - self._glow_pos[0]) > 0.01 or abs(pos[1] - self._glow_pos[1]) > 0.01):
+            self._glow_deadline = time.time() + GLOW_S  # la testa si muove: qualcuno la sta usando
+            c.fire_extend(GLOW_S + 10.0)
+        self._glow_pos = pos if pos is not None else self._glow_pos
+        left = self._glow_deadline - time.time()
+        if left <= 0:
+            self.glow_stop()
+            return
+        s = int(left + 0.999)
+        self.b_glow.setText(tr("LASER ACCESO · {0}:{1:02d}", s // 60, s % 60))
+        self._glow_phase = not self._glow_phase  # lampeggia come una sirena: due rossi e l'alone che si allarga
+        bright = self._glow_phase
+        self.b_glow.setStyleSheet(
+            "QPushButton { color:#ffffff; font-weight:800; border:1px solid #7a0000; border-radius:7px; background:"
+            + ("qradialgradient(cx:0.5, cy:0.35, radius:0.9, stop:0 #ff9a8c, stop:0.45 #ff2a22, stop:1 #c80000);" if bright
+               else "qradialgradient(cx:0.5, cy:0.35, radius:0.9, stop:0 #e0564a, stop:0.45 #c41210, stop:1 #8e0000);")
+            + " }")
+        fx = self.b_glow.graphicsEffect()
+        if fx is None:
+            from PySide6.QtGui import QColor
+            from PySide6.QtWidgets import QGraphicsDropShadowEffect
+
+            fx = QGraphicsDropShadowEffect(self.b_glow)
+            fx.setOffset(0, 0)
+            fx.setColor(QColor(255, 40, 30, 230))
+            self.b_glow.setGraphicsEffect(fx)
+        fx.setBlurRadius(38 if bright else 14)
+
     def _pause(self, paused):
         if paused:
             self.ctl.feed_hold()
@@ -303,7 +446,7 @@ class LaserPanel(QWidget):
 
     def set_connected(self, ok):
         for b in (self.b_start, self.b_frame, self.b_frame_more, self.b_verify, self.b_fire, self.b_air, self.b_run,
-                  self.b_goto_anchor):
+                  self.b_goto_anchor, self.b_glow):
             b.setEnabled(ok)
         self.update_running()
         if not ok:
@@ -316,7 +459,7 @@ class LaserPanel(QWidget):
         ok = self.ctl.connected
         self.b_pause.setEnabled(ok and self.ctl.job_active)
         self.b_stop.setEnabled(ok and busy)
-        for b in (self.b_start, self.b_frame, self.b_frame_more, self.b_verify, self.b_run, self.b_fire):
+        for b in (self.b_start, self.b_frame, self.b_frame_more, self.b_verify, self.b_run, self.b_fire, self.b_glow):
             b.setEnabled(ok and not busy)
         for w in (self.ov_speed, self.ov_power):
             w.setEnabled(ok)
@@ -676,6 +819,30 @@ class MovePanel(QWidget):
         if r >= 0:
             self.saved.takeItem(r)
             self._store()
+
+
+def confirm_glow(parent, pct):
+    """Avviso alla prima accensione della Lucciola in ogni sessione."""
+    if os.environ.get("FLC_NO_DIALOGS"):
+        return True
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Warning)
+    box.setWindowTitle(tr("Lucciola: il laser resta acceso"))
+    box.setTextFormat(Qt.RichText)
+    box.setText(tr(
+        "<b>Stai per lasciare il laser acceso al {0:g}% della potenza.</b><br><br>"
+        "È poco, ma è sempre un laser: il raggio e i suoi riflessi sono pericolosi per gli occhi e, fermo a lungo "
+        "nello stesso punto, può segnare o scaldare carta e materiali scuri.<br><br>"
+        "• <b>Occhiali protettivi</b> per 450 nm, per tutti i presenti.<br>"
+        "• <b>Resta vicino alla macchina e tienila d'occhio</b> per tutto il tempo: non allontanarti.<br>"
+        "• Niente di infiammabile sotto il raggio; non puntarlo su superfici lucide.<br>"
+        "• Si spegne da solo dopo {1:g} minuti se la testa resta ferma, e quando parte un lavoro. Per spegnerlo "
+        "prima premi di nuovo il pulsante.", pct, GLOW_S / 60.0))
+    yes = box.addButton(tr("Accendi"), QMessageBox.AcceptRole)
+    box.addButton(tr("Annulla"), QMessageBox.RejectRole)
+    box.setDefaultButton(box.buttons()[-1])
+    box.exec()
+    return box.clickedButton() is yes
 
 
 def confirm_high_pointer(parent, pct):

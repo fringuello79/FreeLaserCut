@@ -2202,6 +2202,9 @@ class MainWindow(QMainWindow):
     def on_profile(self, p):
         self.profile = p
         self.laser.s_max = p.s_max
+        from ..grbl import glow_limits
+
+        self.laser.set_glow_limits(*glow_limits(p.optical_power))  # 0.18.7: tetto della Lucciola per questo laser
         self._sync_axes()
         if (self.canvas.bed_x, self.canvas.bed_y) != (p.bed_x, p.bed_y):
             self.canvas.set_bed(p.bed_x, p.bed_y)
@@ -3354,6 +3357,7 @@ class MainWindow(QMainWindow):
             return
         if getattr(self, "phone", None) is not None:
             self.phone.stop()
+        self.laser.glow_stop()  # 0.18.7: uscendo la Lucciola si spegne
         if getattr(self, "banco", None) is None:
             self.qs.setValue("win_state_v5", self.saveState(5))
         else:
