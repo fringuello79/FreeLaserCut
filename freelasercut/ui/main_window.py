@@ -2190,6 +2190,7 @@ class MainWindow(QMainWindow):
         """Spunte «Inverti l'asse X/Y» del pannello Laser ↔ profilo della macchina, e verso dei jog."""
         p = self.profile
         self.ctl.axis_sign = p.axis_sign()
+        self.ctl.air_cmds = p.air_cmds()
         lp = getattr(self, "laser", None)
         if lp is None or not hasattr(lp, "inv_x"):
             return

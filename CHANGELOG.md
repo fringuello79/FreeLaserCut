@@ -1,6 +1,10 @@
 # Novità di FreeLaserCut
 
 ## 0.18.5 — 10/11/2026
+- **Comando dell'air assist a scelta: M8, M7 o nessuno** (richiesta su GitHub). Nel pannello *Macchina*, sotto l'area di lavoro, c'è la scelta **Air assist**: *M8 (il più comune)*, *M7* oppure *Nessun comando* (aria accesa a mano o sempre accesa). Si salva nel profilo della macchina e vale per i lavori, il test materiale, il test della scansione, la ripresa di un lavoro interrotto e il pulsante *Aria*.
+  - Era anche un difetto: il profilo aveva già il comando dell'aria (e un profilo .lbdev con M7 lo impostava), ma i lavori e il pulsante usavano sempre M8 e M9. Con una scheda che vuole M7 l'aria non partiva.
+  - Chi non tocca niente resta con M8 e M9, come prima.
+- Nuova prova automatica `tests/test_v185_aria.py` (29 controlli, Classica e Banco).
 - **Stampa e taglia (in prova, non ancora attivo per tutti)**, da una richiesta su GitHub («la funzione print and cut sarebbe il top»). Serve a tagliare con il laser attorno a qualcosa di già stampato con la stampante di casa: adesivi, etichette, sagome di cartoncino.
   - FreeLaserCut mette **due crocette** accanto al disegno (la 1 con un cerchio, la 2 con due) e salva il **PDF da stampare al 100%**, in A4, Letter o A3, con il disegno nelle misure vere. Si stampa quello che sta sui livelli con l'uscita spenta, crocette comprese; si taglia quello che ha l'uscita accesa.
   - Un'immagine si può aggiungere **a colori** per la stampa (l'importazione normale la porta in grigi, perché il laser incide solo quelli): va su un livello che il laser non tocca.

@@ -40,10 +40,12 @@ def analyse(lines, upto):
                     st["laser"] = f"M{int(val)}"
                 elif val == 5:
                     st["laser"] = "M5"
-                elif val == 8:
+                elif val in (7, 8, 106):  # 0.18.5: l'aria può essere M7 o M106, non solo M8
                     st["air"] = True
-                elif val == 9:
+                    st["air_cmd"] = f"M{int(val)}"
+                elif val in (9, 107):
                     st["air"] = False
+                    st["air_off"] = f"M{int(val)}"
             elif letter == "S":
                 st["s"] = val
             elif letter == "F":
@@ -74,7 +76,10 @@ def resume_program(lines, upto, back=0):
     if st["g55_zero"]:
         out.append("G10 L2 P2 X0 Y0")
     out.append(st["cs"])
-    out.append("M8" if st["air"] else "M9")
+    if st["air"]:
+        out.append(st.get("air_cmd", "M8"))  # lo stesso comando del lavoro
+    elif st.get("air_cmd") or st.get("air_off"):
+        out.append(st.get("air_off", "M9"))  # un lavoro senza comandi dell'aria resta senza
     if st["x"] is not None and st["y"] is not None:
         out.append(f"G0 X{st['x']:.3f} Y{st['y']:.3f}")
     laser = st["laser"] if st["laser"] != "M5" else "M4"

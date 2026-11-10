@@ -193,6 +193,18 @@ class MachineProfile:
             return (self.bed_x, self.bed_y)
         return (0.0, 0.0)
 
+    def air_cmds(self):
+        """(comando che accende l'aria, comando che la spegne) per lavori, prove e pulsante Aria (0.18.5).
+        M8/M9 di solito; M7/M9 su alcune schede; ("", "") = nessun comando (aria a mano o sempre accesa).
+        Valori diversi da quelli ammessi (profilo scritto a mano) non arrivano mai alla scheda."""
+        on = str(self.air_on or "").strip().upper()
+        off = str(self.air_off or "").strip().upper()
+        if on not in ("M7", "M8", "M106"):
+            return "", ""
+        if off not in ("M9", "M107"):
+            off = "M107" if on == "M106" else "M9"
+        return on, off
+
     def axis_sign(self):
         """(+1|-1, +1|-1): verso degli assi della macchina rispetto al piano."""
         return (-1.0 if self.invert_x else 1.0, -1.0 if self.invert_y else 1.0)

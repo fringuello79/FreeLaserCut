@@ -171,6 +171,7 @@ class GrblController(QObject):
         self.auto_backup = True
         self.last_reply = 0.0  # ora dell'ultimo ok/error ricevuto
         self.axis_sign = (1.0, 1.0)  # dal profilo: -1 sugli assi invertiti
+        self.air_cmds = ("M8", "M9")  # dal profilo: comandi che accendono e spengono l'aria
         self.stale_check_exit = False  # sto facendo uscire la scheda da un check mode rimasto acceso
         self.trusted_buffer = False  # scheda nota: uso tutto il buffer dichiarato in [OPT]
         self.check_stalled = False  # l'ultima verifica non ha ricevuto tutte le risposte
@@ -422,7 +423,11 @@ class GrblController(QObject):
         self.send_line(f"$J=G90 G21 X0 Y0 F{feed:.0f}")
 
     def air(self, on):
-        self.send_line("M8" if on else "M9")
+        cmd = self.air_cmds[0] if on else self.air_cmds[1]  # 0.18.5: dal profilo (M8, M7 o nessun comando)
+        if cmd:
+            self.send_line(cmd)
+        else:
+            self.message.emit(tr("Nel profilo della macchina l'aria è «nessun comando»: accendila a mano."))
 
     @property
     def wco(self):
