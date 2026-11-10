@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.18.6 — 10/11/2026
+- **Menu del tasto destro sul piano** (suggerimento di un utente), nell'interfaccia classica: un clic destro con lo strumento *Selezione* o *Nodi* apre il menu con i comandi più usati, gli stessi dei menu in alto e con le stesse scorciatoie.
+  - **Su un oggetto**: *Taglia*, *Copia*, *Incolla*, *Duplica*, *Elimina*; *Raggruppa* o *Separa* (solo quando servono); *Rifletti* in orizzontale e in verticale, *Porta in primo piano* e *in fondo*; *Blocca* o *Sblocca*; *Converti in tracciato*, *Offset*; *Adatta alla selezione*. Se l'oggetto non era selezionato, il clic destro lo seleziona; se era uno di più oggetti selezionati, la selezione resta.
+  - **Nel vuoto**: *Incolla* (gli oggetti arrivano dove hai fatto clic), *Incolla sul posto*, *Annulla*, *Ripeti*, *Seleziona tutto*, *Importa*, *Adatta al piano*.
+  - Trascinando con il tasto destro non si apre niente, e con gli altri strumenti il tasto destro resta loro (la *Linea* ci chiude il tracciato).
+  - Nel Banco non cambia niente: lì c'è già il menu radiale.
+- Nuova prova automatica `tests/test_v186_menu.py` (13 controlli; 2 nel Banco).
+
 ## 0.18.5 — 10/11/2026
 - **Comando dell'air assist a scelta: M8, M7 o nessuno** (richiesta su GitHub). Nel pannello *Macchina*, sotto l'area di lavoro, c'è la scelta **Air assist**: *M8 (il più comune)*, *M7* oppure *Nessun comando* (aria accesa a mano o sempre accesa). Si salva nel profilo della macchina e vale per i lavori, il test materiale, il test della scansione, la ripresa di un lavoro interrotto e il pulsante *Aria*.
   - Era anche un difetto: il profilo aveva già il comando dell'aria (e un profilo .lbdev con M7 lo impostava), ma i lavori e il pulsante usavano sempre M8 e M9. Con una scheda che vuole M7 l'aria non partiva.

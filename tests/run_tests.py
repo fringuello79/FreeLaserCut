@@ -305,6 +305,8 @@ if __name__ == "__main__":
     run_suite("test_v185_stampa_taglia.py", "Stampa e taglia nell'interfaccia Banco", "banco")
     run_suite("test_v185_aria.py", "Comando dell'air assist a scelta: M8, M7 o nessuno")
     run_suite("test_v185_aria.py", "Comando dell'air assist nell'interfaccia Banco", "banco")
+    run_suite("test_v186_menu.py", "Menu del tasto destro sul piano (interfaccia classica)")
+    run_suite("test_v186_menu.py", "Tasto destro nel Banco: resta il menu radiale", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

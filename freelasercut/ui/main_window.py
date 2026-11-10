@@ -1032,6 +1032,7 @@ class MainWindow(QMainWindow):
         c.tool_changed.connect(self._tool_changed)
         c.edit_text.connect(self._edit_text)
         c.goto_requested.connect(self.goto_bed)
+        c.context_requested.connect(self.open_context_menu)  # 0.18.6: solo nella classica (vedi open_context_menu)
         c.jog_requested.connect(lambda dx, dy: ctl.jog(dx * self.move.step(), dy * self.move.step(), self.move.feed.value()))
         e.message.connect(lambda t: self.statusBar().showMessage(t, 5000))
         e.history_changed.connect(self._update_title)
@@ -2005,6 +2006,47 @@ class MainWindow(QMainWindow):
         m.addAction(self.acts["identify"])
         m.addAction(self.acts["serial_speed"])
         m.exec(self.btn_connect.mapToGlobal(pos))
+
+    # ================================================================ menu del tasto destro (0.18.6)
+    def context_menu_keys(self, view_pt=None):
+        """Comandi del menu del tasto destro sul piano (interfaccia classica; il Banco ha il menu radiale).
+        Su un oggetto non selezionato: prima lo seleziona. -> elenco di nomi di azioni, "-" = separatore."""
+        ed, cv = self.editor, self.canvas
+        if view_pt is not None:
+            bed = cv.to_bed(view_pt)
+            cv.cursor_bed = bed  # «Incolla» mette gli oggetti dove hai fatto clic
+            hit = cv.hit_shape(bed)
+            if hit is not None and hit not in ed.selection:
+                ed.select([hit])
+            elif hit is None and ed.selection and not ops.union_bounds(ed.selection).adjusted(-1, -1, 1, 1).contains(bed):
+                ed.select([])  # clic nel vuoto, lontano dalla selezione: menu del piano
+        sel = ed.selection
+        if not sel:
+            return ["paste", "paste_in_place", "-", "undo", "redo", "-", "select_all", "-", "import", "-", "fit"]
+        keys = ["cut", "copy", "paste", "duplicate", "delete", "-"]
+        if len(sel) > 1:
+            keys.append("group")
+        if any(s.kind == "group" for s in sel):
+            keys.append("ungroup")
+        if keys[-1] != "-":
+            keys.append("-")
+        keys += ["flip_h", "flip_v", "front", "back", "-"]
+        if any(not s.locked for s in sel):
+            keys.append("lock")
+        if any(s.locked for s in sel):
+            keys.append("unlock")
+        keys += ["-", "to_path", "offset", "-", "fit_sel"]
+        return keys
+
+    def open_context_menu(self, view_pt, global_pt):
+        if self.banco is not None:
+            return None
+        m = QMenu(self)
+        for k in self.context_menu_keys(view_pt):
+            m.addSeparator() if k == "-" else m.addAction(self.acts[k])
+        self._ctx_menu = m  # resta vivo finché è aperto
+        m.popup(global_pt)
+        return m
 
     # ================================================================ funzioni in prova (0.17.16)
     def _apply_admin(self):
