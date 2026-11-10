@@ -56,7 +56,27 @@ header{position:sticky;top:0;z-index:10;background:rgba(7,10,17,.86);backdrop-fi
 .lang{display:flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
 .lang button{background:none;border:0;color:var(--muted);font:600 13px/1 inherit;padding:7px 11px;cursor:pointer}
 .lang button[aria-pressed="true"]{background:var(--card2);color:var(--text)}
-@media (max-width:1080px){.links{display:none}.nav{justify-content:space-between}}
+/* telefono e tablet (0.18.3): il menù si apre dal pulsante a tre lineette in alto a destra */
+.menu-btn{display:none;position:relative;flex:none;width:44px;height:44px;padding:0;border:1px solid var(--line2);border-radius:12px;background:var(--card);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.menu-btn span{position:absolute;left:11px;right:11px;height:2px;border-radius:2px;background:var(--text);transition:transform .2s ease,opacity .15s ease,top .2s ease}
+.menu-btn span:nth-child(1){top:14px}.menu-btn span:nth-child(2){top:20px}.menu-btn span:nth-child(3){top:26px}
+header.open .menu-btn span:nth-child(1){top:20px;transform:rotate(45deg)}
+header.open .menu-btn span:nth-child(2){opacity:0}
+header.open .menu-btn span:nth-child(3){top:20px;transform:rotate(-45deg)}
+@media (prefers-reduced-motion:reduce){.menu-btn span{transition:none}}
+@media (max-width:1080px){
+  .nav{gap:10px}
+  .lang{margin-left:auto}
+  .lang button{padding:11px 13px;font-size:14px}
+  .menu-btn{display:block}
+  .links{display:none;position:absolute;left:0;right:0;top:100%;margin:0;flex-direction:column;gap:0;padding:6px 20px 12px;background:#0A0E17;border-bottom:1px solid var(--line);box-shadow:0 18px 40px rgba(0,0,0,.55);font-size:17px;max-height:calc(100vh - 62px);max-height:calc(100dvh - 62px);overflow-y:auto;overscroll-behavior:contain}
+  header.open .links{display:flex}
+  .links a{display:flex;align-items:center;min-height:50px;padding:6px 4px;border-bottom:1px solid var(--line);color:var(--text)}
+  .links a:last-child{border-bottom:0}
+  .links a.nav-tut{display:block;line-height:38px;width:max-content;max-width:100%;border-bottom:0}
+  .links a.nav-tut + a{border-top:1px solid var(--line)}
+  .links .heart{margin-right:8px}
+}
 
 /* apertura */
 .hero{padding:64px 0 40px;border-top:0;background:radial-gradient(900px 420px at 70% -10%,rgba(139,124,255,.18),transparent 60%),radial-gradient(700px 380px at 10% 0%,rgba(79,180,255,.12),transparent 60%)}
@@ -155,7 +175,7 @@ footer p{margin:0 0 8px}
 <header>
   <div class="wrap nav">
     <a class="brand" href="#top"><img src="logo/logo_1024.png" alt="">FreeLaserCut</a>
-    <nav class="links" aria-label="Sections">
+    <nav class="links" id="site-menu" aria-label="Sections">
       <a href="#interfaces"><span class="en">Interfaces</span><span class="it">Interfacce</span></a>
       <a href="#features"><span class="en">Features</span><span class="it">Funzioni</span></a>
       <a href="#nesting">Nesting</a>
@@ -172,6 +192,7 @@ footer p{margin:0 0 8px}
       <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
       <button type="button" data-set-lang="it" aria-pressed="false">IT</button>
     </div>
+    <button class="menu-btn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><span></span><span></span><span></span></button>
   </div>
 </header>
 
@@ -615,6 +636,22 @@ let saved = null;
 try { saved = localStorage.getItem("flc-lang"); } catch (e) {}
 setLang(saved || ((navigator.language || "en").toLowerCase().startsWith("it") ? "it" : "en"));
 document.querySelectorAll("[data-set-lang]").forEach(b => b.addEventListener("click", () => setLang(b.dataset.setLang)));
+
+/* menù a lineette (telefono e tablet) */
+(function () {
+  var head = document.querySelector('header'), btn = document.querySelector('.menu-btn'), menu = document.getElementById('site-menu');
+  if (!head || !btn || !menu) return;
+  function set(open) { head.classList.toggle('open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+  btn.addEventListener('click', function (e) { e.stopPropagation(); set(!head.classList.contains('open')); });
+  menu.addEventListener('click', function (e) { if (e.target.closest('a')) set(false); });
+  document.addEventListener('click', function (e) { if (!head.contains(e.target)) set(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && head.classList.contains('open')) { set(false); btn.focus(); } });
+  if (window.matchMedia) {
+    var wide = window.matchMedia('(min-width:1081px)');
+    var close = function (m) { if (m.matches) set(false); };
+    if (wide.addEventListener) wide.addEventListener('change', close); else if (wide.addListener) wide.addListener(close);
+  }
+})();
 </script>
 </body>
 </html>
