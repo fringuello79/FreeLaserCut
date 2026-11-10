@@ -1,5 +1,15 @@
 # Novità di FreeLaserCut
 
+## 0.18.7 — 11/11/2026
+- **Lucciola: il laser resta acceso al minimo** (un'idea di Deborah). Nel pannello *Laser*, sotto *Puntino (tieni premuto)*, c'è il pulsante **Lucciola (resta accesa)**: accende il laser a potenza bassissima e lo lascia acceso, per vedere dove punta la testa mentre si sistema il pezzo, senza tenere premuto niente.
+  - **Potenza limitata in base al laser**, letta dai watt del profilo della macchina: al massimo **2%** fino a 5 W, **1,5%** fino a 10 W, **1%** fino a 20 W, **0,5%** oltre (1% se la potenza non è scritta nel profilo). Il limite non si può superare, né dal campo accanto al pulsante né in altro modo; si parte più in basso e si sale solo finché il punto si vede.
+  - Da acceso il pulsante diventa **rosso e lampeggia**, con scritto **LASER ACCESO** e il **conto alla rovescia**; sotto compare l'avviso di tenere gli occhiali e restare vicino alla macchina.
+  - **Si spegne da solo dopo 5 minuti**; il tempo riparte quando la testa si muove. Si spegne anche quando parte un lavoro o una verifica, in allarme, scollegando la macchina e chiudendo il programma. Un clic sul pulsante lo spegne subito.
+  - Alla prima accensione di ogni sessione un avviso chiede conferma: occhiali protettivi per tutti, restare a sorvegliare la macchina, niente di infiammabile sotto il raggio.
+  - Anche al minimo è un laser vero: gli occhiali servono sempre.
+- Il puntino o la Lucciola rimasti accesi si spengono prima che parta un lavoro o una verifica.
+- Nuova prova automatica `tests/test_v187_lucciola.py` (38 controlli, Classica e Banco).
+
 ## 0.18.6 — 10/11/2026
 - **Menu del tasto destro sul piano** (suggerimento di un utente), nell'interfaccia classica: un clic destro con lo strumento *Selezione* o *Nodi* apre il menu con i comandi più usati, gli stessi dei menu in alto e con le stesse scorciatoie.
   - **Su un oggetto**: *Taglia*, *Copia*, *Incolla*, *Duplica*, *Elimina*; *Raggruppa* o *Separa* (solo quando servono); *Rifletti* in orizzontale e in verticale, *Porta in primo piano* e *in fondo*; *Blocca* o *Sblocca*; *Converti in tracciato*, *Offset*; *Adatta alla selezione*. Se l'oggetto non era selezionato, il clic destro lo seleziona; se era uno di più oggetti selezionati, la selezione resta.

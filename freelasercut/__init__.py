@@ -6,7 +6,7 @@ import os as _os
 _os.environ.setdefault("OPENCV_LOG_LEVEL", "OFF")
 _os.environ.setdefault("OPENCV_VIDEOIO_PRIORITY_OBSENSOR", "0")
 
-__version__ = "0.18.6"
+__version__ = "0.18.7"
 __author__ = "fringuello79"
 __license__ = "GPL-3.0-or-later"
 

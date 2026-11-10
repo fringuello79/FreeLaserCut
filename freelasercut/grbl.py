@@ -31,6 +31,37 @@ RX_BUFFER = 127
 POINTER_MAX = 20.0  # % massimo del puntino (oltre POINTER_WARN FreeLaserCut avvisa)
 POINTER_WARN = 5.0
 POLL_INTERVAL = 0.2
+# 0.18.7: «Lucciola», il laser lasciato acceso al minimo per vedere dove punta. Tetto di potenza in base ai watt
+# ottici del laser (mai oltre il 2%; più il laser è potente, più il tetto scende), spegnimento da solo dopo GLOW_S.
+GLOW_S = 300.0
+GLOW_STEPS = ((5.0, 2.0, 1.0), (10.0, 1.5, 0.8), (20.0, 1.0, 0.5))  # (fino a W, tetto %, valore di partenza %)
+GLOW_BIG = (0.5, 0.3)  # oltre 20 W
+GLOW_UNKNOWN = (1.0, 0.5)  # potenza non scritta nel profilo
+_WATT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:[–—-]\s*(\d+(?:[.,]\d+)?)\s*)?(m?)W\b")
+
+
+def optical_watts(text):
+    """Watt ottici dal testo del profilo («10 W», «44–48 W (4 diodi, 450–460 nm)», «500 mW»): il valore più alto
+    scritto, None se non c'è."""
+    best = None
+    for a, b, milli in _WATT_RE.findall(str(text or "")):
+        for v in (a, b):
+            if v:
+                w = float(v.replace(",", ".")) / (1000.0 if milli else 1.0)
+                best = w if best is None else max(best, w)
+    return best
+
+
+def glow_limits(optical_power):
+    """(tetto %, valore di partenza %) della Lucciola per un laser con quella potenza ottica."""
+    w = optical_watts(optical_power)
+    if w is None or w <= 0:
+        return GLOW_UNKNOWN
+    for upto, cap, start in GLOW_STEPS:
+        if w <= upto:
+            return cap, start
+    return GLOW_BIG
+
 # 0.18.4: alcune schede (visto su un Creality Falcon A1, ESP32-S3 con USB nativo) ogni tanto non mandano un «ok».
 # Se alla fine mancano al massimo LOST_OK_MAX risposte e la scheda è ferma e muta da un po', sono risposte perse:
 # la verifica e il lavoro si chiudono normalmente (con un avviso) invece di restare fermi.
@@ -297,6 +328,10 @@ class GrblController(QObject):
             return
         self._running = False
         self._ser = None
+        if self._fire_timer is not None:  # puntino o Lucciola accesi: l'M5 qui sotto li spegne
+            self._fire_timer.cancel()
+            self._fire_timer = None
+        self.fire_active = False
         try:
             ser.write(b"M5\n")
             ser.close()
@@ -458,6 +493,8 @@ class GrblController(QObject):
         if too_long:
             self.job_finished.emit(False, too_long)
             return
+        if self.fire_active:  # 0.18.7: puntino o Lucciola accesi: si spengono prima del lavoro
+            self.fire(False)
         self._job_total = len(clean)
         self._job_done = 0
         self._job_idle = 0
@@ -494,6 +531,8 @@ class GrblController(QObject):
         if too_long:
             self.message.emit(too_long)
             return False
+        if self.fire_active:  # 0.18.7: puntino o Lucciola accesi: si spengono prima della verifica
+            self.fire(False)
         self._check = {"total": len(clean), "done": 0, "errors": [], "exiting": False, "lines": clean}
         self.lost_replies = 0
         self.last_reply = time.time()
@@ -590,6 +629,17 @@ class GrblController(QObject):
             if self.fire_active or self.connected:
                 self.send_line("M5 S0")
             self.fire_active = False
+        return True
+
+    def fire_extend(self, timeout_s):
+        """Fa ripartire il tempo dello spegnimento automatico senza mandare niente alla scheda (Lucciola: la testa si
+        è mossa). Non accende: vale solo se il laser è già acceso."""
+        if not self.fire_active:
+            return False
+        if self._fire_timer is not None:
+            self._fire_timer.cancel()
+        self._fire_timer = threading.Timer(timeout_s, lambda: self.fire(False))
+        self._fire_timer.start()
         return True
 
     def frame_path(self, points, feed=6000, laser_pct=0.0, s_max=1000.0):
