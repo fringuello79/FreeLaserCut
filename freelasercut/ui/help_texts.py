@@ -208,13 +208,11 @@ HELP = {
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
         "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
                None),
-    "makerhub": (tr("MakerHub (in prova)"), tr(
-        "MakerHub è un servizio esterno, di maker-hub.it: i suoi strumenti, per esempio la scatola a incastri, si "
-        "aprono nel browser sul loro sito, dove serve un account. Collegando FreeLaserCut una volta, con il codice "
-        "di 6 caratteri che ti dà MakerHub, i disegni che mandi dal sito arrivano qui: FreeLaserCut chiede conferma "
-        "e li mette sul piano con le misure vere. Il laser non parte mai da solo. Potenza e velocità proposte da "
-        "MakerHub sono valori di partenza: controllale. FreeLaserCut non manda il nome del computer né quello del "
-        "progetto, e puoi scollegarlo quando vuoi."), None),
+    "makerhub_box": (tr("MakerHub – Scatola a incastri (in prova)"), tr(
+        "Apre nel browser il generatore di scatole a incastri di MakerHub, un servizio esterno (maker-hub.it): si "
+        "scelgono misure, coperchio e gioco sul loro sito, dove serve un account. Poi si scarica l'SVG e lo si porta "
+        "qui con File → Importa. I pezzi escono già compensati per il kerf: in FreeLaserCut non va compensato di "
+        "nuovo. FreeLaserCut non manda niente a MakerHub: apre soltanto la pagina."), None),
     "print_cut": (tr("Stampa e taglia (in prova)"), tr(
         "Per tagliare attorno a qualcosa di già stampato, come adesivi ed etichette. FreeLaserCut mette due crocette "
         "accanto al disegno e salva il PDF da stampare al 100%. Poi fissi il foglio sul piano, porti la testa con il "

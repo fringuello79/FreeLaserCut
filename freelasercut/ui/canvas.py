@@ -620,6 +620,27 @@ class Canvas(QGraphicsView):
             return p
         return bed_pt
 
+    def snap_move(self, box, nodes, dx, dy, exclude_ids=frozenset()):
+        """Aggancio mentre si sposta una selezione (0.18.11): si agganciano gli angoli, le mezzerie, il centro e i
+        nodi della selezione (non il punto del mouse) a quelli delle altre forme; se nessun punto è a tiro, lato su
+        lato con le forme vicine; poi la griglia. box = ingombro della selezione prima dello spostamento, nodes = i
+        suoi nodi prima dello spostamento, (dx, dy) = spostamento chiesto dal mouse. -> (dx, dy) corretti."""
+        from ..core import snapping
+
+        self.snap_hint = None
+        exclude_ids = frozenset(exclude_ids)
+        if self.snap_objects:
+            arr, kinds = self._snap_points(exclude_ids)
+            boxes = [(b.left(), b.top(), b.right(), b.bottom())
+                     for b in (s.bounds() for s in self.editor.doc.shapes if s.id not in exclude_ids and not s.hidden)]
+        else:
+            arr, kinds, boxes = None, [], []
+        r = snapping.move((box.left(), box.top(), box.right(), box.bottom()), nodes, dx, dy, arr, kinds, boxes,
+                          self.px(9), self.grid_step if self.snap_grid else None)
+        if r.hint is not None:
+            self.snap_hint = (QPointF(*r.hint), r.label)
+        return r.dx, r.dy
+
     # ================================================================ selezione a colpo
     def hit_shape(self, bed_pt, tol_px=6):
         tol = self.px(tol_px)

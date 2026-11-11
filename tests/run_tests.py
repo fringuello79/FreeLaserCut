@@ -312,8 +312,10 @@ if __name__ == "__main__":
     run_suite("test_v188_chiusure.py", "Chiusura improvvisa dopo l'invio di un rapporto; traccia quando la finestra si pianta")
     run_suite("test_v188_chiusure.py", "Chiusure improvvise e blocchi nell'interfaccia Banco", "banco")
     run_suite("test_v189_uscita.py", "Finestra chiusa = programma chiuso: timer e chiusura garantita")
-    run_suite("test_v1810_makerhub.py", "MakerHub (in prova): generatori nel browser, collegamento, arrivo dei disegni")
-    run_suite("test_v1810_makerhub.py", "MakerHub nell'interfaccia Banco", "banco")
+    run_suite("test_v1811_makerhub.py", "MakerHub (in prova): collegamento diretto alla Scatola a incastri nel menu Strumenti")
+    run_suite("test_v1811_makerhub.py", "MakerHub nell'interfaccia Banco", "banco")
+    run_suite("test_v1811_aggancio.py", "Aggancio mentre si sposta: angoli, mezzerie, centri e nodi dell'oggetto, non il punto del mouse")
+    run_suite("test_v1811_aggancio.py", "Aggancio mentre si sposta nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

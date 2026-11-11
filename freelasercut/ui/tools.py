@@ -173,6 +173,32 @@ class SelectTool(Tool):
     def _grab(self):
         self.orig = {s.id: (s, QTransform(s.tf)) for s in self.ed.editable()}
         self.box = self.ed.selection_bounds()
+        self._nodes = None  # i nodi della selezione, per l'aggancio: si leggono al primo movimento
+
+    def _move_nodes(self):
+        """I nodi delle forme che si spostano, com'erano alla presa (0.18.11: sono loro ad agganciarsi, insieme
+        agli angoli e alle mezzerie dell'ingombro). Troppi nodi, o solo immagini: lista vuota (basta l'ingombro)."""
+        if self._nodes is None:
+            from ..core import snapping
+
+            pts = []
+            for s, tf0 in self.orig.values():
+                if isinstance(s, ImageShape):
+                    continue
+                path = s.path() if s.tf == tf0 else (s.tf.inverted()[0] * tf0).map(s.path())  # sempre com'era alla presa
+                n = path.elementCount()
+                if len(pts) + n > snapping.MAX_NODES:
+                    pts = []
+                    break
+                for i in range(n):
+                    el = path.elementAt(i)
+                    if el.type in (QPainterPath.ElementType.MoveToElement, QPainterPath.ElementType.LineToElement):
+                        pts.append((el.x, el.y))
+                    elif el.type == QPainterPath.ElementType.CurveToElement and i + 2 < n:
+                        end = path.elementAt(i + 2)
+                        pts.append((end.x, end.y))
+            self._nodes = pts
+        return self._nodes
 
     def _apply(self, T):
         for s, tf0 in self.orig.values():
@@ -208,15 +234,18 @@ class SelectTool(Tool):
             self.band = (self.band[0], e.position())
             return
         if self.mode == "move":
-            excl = frozenset(self.orig)
-            # aggancio: sposto il punto della selezione più vicino al cursore (angolo/centro) sul bersaglio
-            target = p if alt else self.cv.snap(p, excl)
-            dx, dy = target.x() - self.start.x(), target.y() - self.start.y()
-            if shift:
-                if abs(dx) > abs(dy):
-                    dy = 0
-                else:
-                    dx = 0
+            # 0.18.11: si agganciano gli angoli, le mezzerie, il centro e i nodi della SELEZIONE a quelli delle altre
+            # forme (prima si agganciava il punto in cui il mouse aveva preso l'oggetto: l'angolo restava scostato)
+            dx, dy = p.x() - self.start.x(), p.y() - self.start.y()
+            keep_x = abs(dx) > abs(dy)  # con Maiusc: l'asse su cui ci si sposta
+            if shift:  # il vincolo prima dell'aggancio: si cercano i bersagli dove l'oggetto va davvero
+                dx, dy = (dx, 0.0) if keep_x else (0.0, dy)
+            if alt:
+                self.cv.snap_hint = None
+            else:
+                dx, dy = self.cv.snap_move(self.box, self._move_nodes(), dx, dy, frozenset(self.orig))
+            if shift:  # …e dopo: l'aggancio non deve spostare sull'altro asse
+                dx, dy = (dx, 0.0) if keep_x else (0.0, dy)
             self._apply(QTransform.fromTranslate(dx, dy))
             self.cv.status.emit(f"Sposta  ΔX {dx:+.2f}  ΔY {dy:+.2f} mm")
             return

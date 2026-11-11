@@ -1,5 +1,16 @@
 # Novità di FreeLaserCut
 
+## 0.18.11 — 11/11/2026
+- **Aggancio oggetti: ora si agganciano gli angoli dell'oggetto che sposti** (da una segnalazione su un forum: «l'aggancio non avviene fra angolo ed angolo, ma fra l'angolo dell'oggetto vicino e il punto in cui ho preso l'oggetto col mouse; manca l'effetto magnetico che affianca due elementi ai loro angoli e mezzerie»). Aveva ragione: spostando un oggetto si agganciava il punto del mouse, e l'angolo restava scostato di quanto il mouse distava da lui.
+  - **Punto su punto.** Angoli, mezzerie dei lati, centro e nodi dell'oggetto (o di tutta la selezione) si agganciano ad angoli, mezzerie, centri e nodi delle altre forme: angolo su angolo, mezzeria su mezzeria, centro su centro. Non conta più in che punto prendi l'oggetto.
+  - **Lato su lato.** Se nessun punto è a tiro, il bordo dell'oggetto si appoggia al bordo di una forma vicina e ci resta mentre lo fai scorrere: due pezzi si affiancano senza fessure anche se non sono allineati in altezza. Il segno giallo dice «lato».
+  - **Griglia.** Con l'aggancio alla griglia va sulla griglia l'angolo dell'oggetto, non il punto del mouse: un oggetto che era sulla griglia ci resta.
+  - Come prima: raggio di 9 pixel, *Alt* sospende l'aggancio, *Maiusc* tiene lo spostamento su un asse (ora l'aggancio lo rispetta). Disegnare, ridimensionare e spostare i nodi non cambiano.
+- Nuova prova automatica `tests/test_v1811_aggancio.py` (40 controlli, Classica e Banco).
+- **MakerHub: per ora resta il collegamento diretto (in prova, non ancora attivo per tutti).** Con le funzioni in prova sbloccate, nel menu *Strumenti* c'è **MakerHub – Scatola a incastri**, con il loro logo: un clic apre nel browser il generatore di scatole di MakerHub (maker-hub.it, un servizio esterno: serve un account lì). Il disegno si scarica dal loro sito e si porta in FreeLaserCut con *File → Importa*; i pezzi escono già compensati per il kerf, quindi qui non vanno compensati di nuovo (lo ricorda anche la barra in basso dopo il clic).
+  - **Tolta la ricezione automatica dei disegni** preparata nella 0.18.10 (menu *MakerHub* in alto, finestra *Collega MakerHub*, codice di 6 caratteri, ascolto in secondo piano): sul sito di MakerHub quella parte non è ancora attiva. Tornerà quando lo sarà. Da questa versione FreeLaserCut non chiama più i loro server in nessun caso: apre soltanto la pagina nel browser.
+- Prova automatica `tests/test_v1811_makerhub.py` al posto di quella della 0.18.10.
+
 ## 0.18.10 — 11/11/2026
 - **MakerHub dentro FreeLaserCut (in prova, non ancora attivo per tutti).** MakerHub (maker-hub.it) è un servizio esterno, di persone che hanno creduto in FreeLaserCut fin dall'inizio: sul loro sito ci sono generatori di disegni pronti per il laser, per esempio la scatola a incastri. Con le funzioni in prova sbloccate compare il menu **MakerHub**, con il loro logo.
   - **I loro strumenti a un clic.** Ogni voce apre nel browser la pagina giusta del loro sito (serve un account lì). L'elenco si aggiorna dalla finestra *MakerHub*, solo quando lo chiedi.
