@@ -213,7 +213,9 @@ class ReportDialog(QDialog):
         def work():
             ok, info = support.send(path, self.code, user, contact, summary)
             self._sig.done.emit(ok, info)
-        threading.Thread(target=work, daemon=True).start()
+        from . import bg
+
+        bg.run(work, self, self._sig)  # 0.18.8: chiudere la finestra durante l'invio non deve chiudere il programma
 
     def _sent(self, ok, info):
         self._update()

@@ -595,6 +595,10 @@ class NodeTool(Tool):
     def draw(self, p, tf):
         if self.target is None:
             return
+        if self.hover_seg:  # 0.18.8: dopo aver tolto dei nodi il tratto evidenziato può non esistere più
+            si, i, j = self.hover_seg[:3]
+            if si >= len(self.subs) or max(i, j) >= len(self.subs[si].nodes):
+                self.hover_seg = None
         if self.hover_seg:
             si, i, j, t, q = self.hover_seg
             sp = self.subs[si]

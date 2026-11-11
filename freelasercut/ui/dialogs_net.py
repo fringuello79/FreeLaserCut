@@ -114,7 +114,9 @@ class NetDialog(QDialog):
                 self.tested.emit(ok, ver)
             except OSError as ex:
                 self.tested.emit(False, str(ex))
-        threading.Thread(target=work, daemon=True).start()
+        from . import bg
+
+        bg.run(work, self)
         return port
 
     def _show_test(self, ok, info):

@@ -1,5 +1,13 @@
 # Novità di FreeLaserCut
 
+## 0.18.8 — 11/11/2026
+Da due rapporti all'assistenza («chiusura improvvisa»).
+- **Chiusura improvvisa dopo aver mandato un rapporto.** Chiudendo la finestra *Invia un rapporto all'assistenza* mentre l'invio era ancora in corso, pochi secondi dopo FreeLaserCut si chiudeva di colpo, senza messaggi (nel registro: «access violation»). L'invio in secondo piano, finendo, liberava la finestra già chiusa dal posto sbagliato. Ora la finestra resta in vita finché l'invio è finito e viene liberata dal programma principale. Il rapporto arrivava comunque, e arriva ancora.
+  - La stessa protezione vale per le altre finestre che lavorano in secondo piano: *Riconosci la macchina*, la prova della velocità della porta, la prova del collegamento Wi-Fi e la ricerca delle telecamere di rete.
+- **Quando il programma «si pianta» ora resta una traccia.** Se la finestra non risponde per più di 8 secondi, FreeLaserCut scrive nel suo registro che cosa stava facendo in quel momento, e quando ha ripreso. Il registro entra nel rapporto per l'assistenza: finora un blocco non lasciava niente da leggere, e non si poteva capire la causa.
+- Strumento *Nodi*: dopo aver tolto dei nodi con la tastiera, il tratto evidenziato sotto il mouse poteva non esistere più e il piano non si ridisegnava bene finché non si muoveva il mouse.
+- Nuova prova automatica `tests/test_v188_chiusure.py` (12 controlli, Classica e Banco), con la finestra del rapporto chiusa 8 volte durante l'invio.
+
 ## 0.18.7 — 11/11/2026
 - **Lucciola: il laser resta acceso al minimo** (un'idea di Deborah). Nel pannello *Laser*, sotto *Puntino (tieni premuto)*, c'è il pulsante **Lucciola (resta accesa)**: accende il laser a potenza bassissima e lo lascia acceso, per vedere dove punta la testa mentre si sistema il pezzo, senza tenere premuto niente.
   - **Potenza limitata in base al laser**, letta dai watt del profilo della macchina: al massimo **2%** fino a 5 W, **1,5%** fino a 10 W, **1%** fino a 20 W, **0,5%** oltre (1% se la potenza non è scritta nel profilo). Il limite non si può superare, né dal campo accanto al pulsante né in altro modo; si parte più in basso e si sale solo finché il punto si vede.

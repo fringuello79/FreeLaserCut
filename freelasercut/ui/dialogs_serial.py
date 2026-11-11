@@ -149,7 +149,9 @@ class SerialSpeedDialog(QDialog):
         if wait:  # per le prove automatiche
             work()
             return self.result_text
-        threading.Thread(target=work, daemon=True).start()
+        from . import bg
+
+        bg.run(work, self, self._sig)
         return None
 
     def _tested(self, payload):

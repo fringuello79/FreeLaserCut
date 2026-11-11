@@ -399,7 +399,9 @@ class MachineWizard(QDialog):
                 sig.log.emit(f"Errore: {exc}")
                 r = None
             sig.done.emit(r)
-        threading.Thread(target=work, daemon=True).start()
+        from . import bg
+
+        bg.run(work, self, sig)
 
     def _probe_done(self, r):
         self._done(r, self._probe_port)

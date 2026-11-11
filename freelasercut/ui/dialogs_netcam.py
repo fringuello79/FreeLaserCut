@@ -110,7 +110,9 @@ class NetCameraDialog(QDialog):
                 url, img, why = cam.net_url(text), None, str(exc)
             self._done.emit(url, img, why)
 
-        threading.Thread(target=work, daemon=True).start()
+        from . import bg
+
+        bg.run(work, self)
 
     def _on_done(self, url, img, why):
         self._busy = False
@@ -132,7 +134,9 @@ class NetCameraDialog(QDialog):
     def find(self):
         self.b_find.setEnabled(False)
         self.result.setText(tr("Ascolto gli annunci dei laser in Wi-Fi per 5 secondi…"))
-        threading.Thread(target=lambda: self._heard.emit(cam.discover_udp(5.0)), daemon=True).start()
+        from . import bg
+
+        bg.run(lambda: self._heard.emit(cam.discover_udp(5.0)), self)
 
     def _on_heard(self, found):
         self.b_find.setEnabled(True)
