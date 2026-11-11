@@ -25,8 +25,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # se gli archivi di Ubuntu non rispondono (11/11/2026: due Release non uscite), NSIS arriva dagli specchi,
+      # controllato con l'impronta SHA-256 dei pacchetti ufficiali: la versione per Windows esce lo stesso
       - name: NSIS
-        run: bash build/apt_install.sh nsis
+        run: bash build/apt_install.sh nsis || bash build/nsis_senza_apt.sh
       - name: Versione
         id: ver
         run: |

@@ -1,5 +1,11 @@
 # Novità di FreeLaserCut
 
+## 0.18.13 — 11/11/2026
+- **Nemmeno la 0.18.12 è arrivata come aggiornamento**: l'11/11 le macchine che costruiscono gli installatori non raggiungevano più nessun archivio dei pacchetti di Ubuntu, e restavano ferme anche 40 minuti prima di fallire. Il programma è lo stesso della 0.18.12; cambia solo come viene costruito:
+  - la costruzione controlla prima che gli archivi rispondano e, se non rispondono, rinuncia in un paio di minuti invece di restare appesa;
+  - il programma che crea l'installatore per Windows (NSIS) ha una seconda strada: i suoi due pacchetti ufficiali vengono presi da altri specchi e usati solo se la loro impronta SHA-256 è quella di Ubuntu. Così **la versione per Windows esce anche quando gli archivi di Ubuntu sono irraggiungibili**; quella per Linux in quel caso salta, e torna con la versione successiva.
+- Questa versione porta agli utenti le novità delle due precedenti: Longer Ray5 40W nel catalogo (0.18.12), aggancio oggetti rifatto e MakerHub nel menu Strumenti (0.18.11).
+
 ## 0.18.12 — 11/11/2026
 - **Longer Ray5 40W** nel catalogo dei modelli pronti (58 modelli), da un commento sotto un video («ho il Longer Ray5 con laser da 40 W, ma non lo trovo nell'elenco»). È il Ray5 40W uscito nel 2025, diverso dai Ray5 da 5, 10 e 20 W: area di lavoro 385 × 385 mm, velocità fino a 24.000 mm/min, spot 0,10 × 0,15 mm. Dati dall'annuncio ufficiale Longer. Come per tutti i modelli, collegando la macchina area e velocità vere si rileggono dalla scheda.
 - **La versione 0.18.11 non è mai arrivata come aggiornamento**: il programma era pronto e pubblicato su GitHub, ma le macchine che costruiscono gli installatori non riuscivano a scaricare i loro pacchetti di sistema (uno specchio dei pacchetti di Ubuntu era irraggiungibile) e la costruzione è fallita due volte. Ora, quando quello specchio non risponde, la costruzione usa gli archivi ufficiali di Ubuntu e riprova. Questa versione porta quindi anche le novità della 0.18.11 (aggancio oggetti, MakerHub).
