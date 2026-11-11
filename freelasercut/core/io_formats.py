@@ -53,7 +53,9 @@ def _normalize(shapes):
 
 
 # ======================================================================= SVG
-def import_svg(path_or_bytes, doc):
+def import_svg(path_or_bytes, doc, layer_of=None):
+    """layer_of (0.18.10): funzione colore (r, g, b) o None -> indice del livello, al posto del colore più vicino
+    della tavolozza (la usa il collegamento con MakerHub, che dichiara cosa vuol dire ogni colore)."""
     import svgelements as se
 
     src = path_or_bytes if isinstance(path_or_bytes, str) else io.BytesIO(path_or_bytes)
@@ -99,7 +101,7 @@ def import_svg(path_or_bytes, doc):
             if c is not None and c.value is not None and getattr(c, "alpha", 255) > 0:
                 color = (c.red, c.green, c.blue)
                 break
-        shapes.append(PathShape(qp, layer=nearest_layer(color)))
+        shapes.append(PathShape(qp, layer=(layer_of or nearest_layer)(color)))
     shapes = _normalize(shapes)
     return [GroupShape(shapes)] if len(shapes) > 1 else shapes
 
@@ -138,7 +140,24 @@ def _svgpath_to_qpath(p, k):
 _DXF_UNITS = {0: 1.0, 1: 25.4, 2: 304.8, 4: 1.0, 5: 10.0, 6: 1000.0, 8: 0.0000254, 9: 0.0254, 10: 914.4}
 
 
-def import_dxf(path, doc):
+def _dxf_index_color(ent, dwg):
+    """Il colore di un'entità DXF senza colore pieno: quello del suo numero (ACI), o del suo livello. None se manca."""
+    from ezdxf import colors
+
+    try:
+        aci = ent.dxf.get("color", 256)
+        if aci == 256:  # «come il livello»
+            aci = dwg.layers.get(ent.dxf.get("layer", "0")).color
+        if 1 <= aci <= 255:
+            rgb = colors.aci2rgb(aci)
+            return (0, 0, 0) if aci == 7 else (rgb[0], rgb[1], rgb[2])  # il 7 è «nero o bianco»: sul foglio, nero
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def import_dxf(path, doc, layer_of=None):
+    """layer_of (0.18.10): come in import_svg; con lei si leggono anche i colori a numero (ACI) e quelli del livello."""
     import ezdxf
     from ezdxf import path as dxfpath
     from ezdxf.path import Command
@@ -180,7 +199,10 @@ def import_dxf(path, doc):
                             color = ((tc >> 16) & 255, (tc >> 8) & 255, tc & 255)
                     except Exception:  # noqa: BLE001
                         pass
-                    shapes.append(PathShape(qp, layer=nearest_layer(color) if color else 0))
+                    if layer_of is not None:
+                        shapes.append(PathShape(qp, layer=layer_of(color or _dxf_index_color(ent, dwg))))
+                    else:
+                        shapes.append(PathShape(qp, layer=nearest_layer(color) if color else 0))
         except Exception:  # noqa: BLE001
             continue
     shapes = _normalize(shapes)

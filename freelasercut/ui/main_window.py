@@ -308,6 +308,9 @@ class MainWindow(QMainWindow):
             "print_cut": A(tr("Stampa e taglia (in prova)…"), self.print_cut_dialog, None, "frame",
                            tr("Taglia attorno a qualcosa di già stampato: due crocette stampate con il disegno dicono "
                               "al laser dove sta il foglio")),
+            "makerhub": A(tr("Collega MakerHub (in prova)…"), self.makerhub_dialog, None, None,
+                          tr("MakerHub è un servizio esterno: i disegni preparati sul loro sito arrivano sul piano di "
+                             "lavoro, dopo la tua conferma")),
             "admin_code": A(tr("Funzioni in prova…"), self.admin_dialog, None, None,
                             tr("Sblocca le funzioni ancora in prova con il codice amministratore")),
             "sculpt": A(tr("Scultura 3D da modello…"), self.sculpt_dialog, None, "sculpt",
@@ -552,6 +555,10 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
+        from .dialogs_makerhub import Hub, logo_icon
+
+        self.acts["makerhub"].setIcon(logo_icon())
+        self.makerhub = Hub(self, mb)  # 0.18.10: menu «MakerHub» (in prova), fra Impostazioni e Aiuto
         self._apply_admin()  # 0.17.16: funzioni in prova nascoste finché non si sbloccano
         hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "send_report", "report",
                                  "linux_info", "linux_desktop", "-", "updates", "update_auto", "-", "support"])
@@ -2054,6 +2061,8 @@ class MainWindow(QMainWindow):
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["print_cut"].setVisible(admin.unlocked(self.qs))
+        if getattr(self, "makerhub", None) is not None:
+            self.makerhub.apply_admin()  # 0.18.10: menu, e ascolto solo se sbloccato e collegato
 
     def admin_dialog(self, *_, code=None):
         """Impostazioni → Funzioni in prova: il codice amministratore le sblocca (o le nasconde di nuovo)."""
@@ -2080,6 +2089,10 @@ class MainWindow(QMainWindow):
             return True
         QMessageBox.warning(self, tr("Funzioni in prova"), tr("Codice non valido."))
         return False
+
+    def makerhub_dialog(self, *_):
+        """MakerHub → Collega MakerHub (0.18.10, solo con le funzioni in prova sbloccate)."""
+        return self.makerhub.open_dialog()
 
     def print_cut_dialog(self, *_):
         """Strumenti → Stampa e taglia (0.18.5, solo con le funzioni in prova sbloccate). La finestra resta aperta

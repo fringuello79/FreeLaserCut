@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.18.10 — 11/11/2026
+- **MakerHub dentro FreeLaserCut (in prova, non ancora attivo per tutti).** MakerHub (maker-hub.it) è un servizio esterno, di persone che hanno creduto in FreeLaserCut fin dall'inizio: sul loro sito ci sono generatori di disegni pronti per il laser, per esempio la scatola a incastri. Con le funzioni in prova sbloccate compare il menu **MakerHub**, con il loro logo.
+  - **I loro strumenti a un clic.** Ogni voce apre nel browser la pagina giusta del loro sito (serve un account lì). L'elenco si aggiorna dalla finestra *MakerHub*, solo quando lo chiedi.
+  - **Il disegno arriva da solo sul piano.** Si collega FreeLaserCut una volta, con il codice di 6 caratteri che dà MakerHub; poi sul sito si preme «Manda a FreeLaserCut» e il disegno compare qui: FreeLaserCut chiede conferma e lo mette al centro del piano con le misure vere, il taglio e l'incisione su due livelli liberi (quelli già usati non vengono toccati), l'incisione prima del taglio, e i valori di partenza proposti da MakerHub. **Il laser non parte mai da solo.**
+  - Se i pezzi sono già compensati per lo spessore del taglio, la compensazione di FreeLaserCut su quei livelli resta a zero, e lo dice.
+  - **Riservatezza.** FreeLaserCut contatta MakerHub solo dopo che l'hai collegato tu. Manda la sua versione e l'esito di ogni disegno; non manda il nome del computer né quello del progetto, e il modello della macchina solo se lo spunti. *Scollega* ferma tutto. Un lavoro che chiedesse di avviare il laser, o con script, immagini o riferimenti a file esterni, viene scartato.
+  - Il protocollo e il programma di esempio da cui parte il collegamento li ha scritti MakerHub. Resta da provare con il loro sito vero: le prove automatiche usano un MakerHub finto.
+- Nuova prova automatica `tests/test_v1810_makerhub.py` (75 controlli, Classica e Banco).
+
 ## 0.18.9 — 11/11/2026
 - **Finestra chiusa, programma chiuso.** Installando un aggiornamento l'installatore poteva fermarsi su «FreeLaserCut è aperto» anche con il programma chiuso: un processo di FreeLaserCut era rimasto vivo senza finestra, e andava chiuso da Gestione attività. Ora alla chiusura FreeLaserCut aspetta al massimo 3 secondi le operazioni ancora in corso e poi termina comunque; se qualcosa non finiva, lo scrive nel registro (che entra nel rapporto per l'assistenza), così la causa si può trovare.
   - I timer del collegamento con la scheda (spegnimento automatico del puntino e della Lucciola, risveglio della scheda) non possono più tenere aperto il programma dopo la chiusura della finestra.
