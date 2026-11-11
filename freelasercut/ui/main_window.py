@@ -133,6 +133,10 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(2200, self._offer_setup)
         QTimer.singleShot(4000, self.updates.startup)
         QTimer.singleShot(1500, self.linux_notice)  # 0.18.0: solo su Linux, una volta
+        self.mh_link = None  # 0.18.14: il ricevitore dei disegni di MakerHub (spento finché non lo si chiede)
+        self._mh_queue = []
+        self.mh_last = None
+        QTimer.singleShot(900, self._makerhub_resume)
         try:  # comandi da Claude (MCP): solo da questo PC
             from ..remote import RemoteServer
 
@@ -308,9 +312,9 @@ class MainWindow(QMainWindow):
             "print_cut": A(tr("Stampa e taglia (in prova)…"), self.print_cut_dialog, None, "frame",
                            tr("Taglia attorno a qualcosa di già stampato: due crocette stampate con il disegno dicono "
                               "al laser dove sta il foglio")),
-            "makerhub_box": A(tr("MakerHub – Scatola a incastri"), self.makerhub_box, None, None,
-                              tr("Apre nel browser il generatore di scatole a incastri di MakerHub, un servizio "
-                                 "esterno (maker-hub.it)")),
+            "makerhub_receive": A(tr("Ricevi qui i disegni"), self.makerhub_receive, None, None,
+                                  tr("I disegni fatti con gli strumenti di MakerHub arrivano sul piano di lavoro con "
+                                     "il loro pulsante «Manda a FreeLaserCut», senza scaricarli"), checkable=True),
             "admin_code": A(tr("Funzioni in prova…"), self.admin_dialog, None, None,
                             tr("Sblocca le funzioni ancora in prova con il codice amministratore")),
             "sculpt": A(tr("Scultura 3D da modello…"), self.sculpt_dialog, None, "sculpt",
@@ -543,8 +547,14 @@ class MainWindow(QMainWindow):
         m.addAction(a["print_cut"])
         from .. import makerhub
 
-        a["makerhub_box"].setIcon(makerhub.icon())  # 0.18.11: il loro logo, grande come le altre icone
-        m.addAction(a["makerhub_box"])
+        self.m_makerhub = m.addMenu(makerhub.icon(), "MakerHub")  # 0.18.14: il loro logo e i loro quattro strumenti
+        for t in makerhub.TOOLS:
+            a["makerhub_" + t.key] = self._a(f"{t.name} – {t.what}", lambda *_, k=t.key: self.makerhub_open(k), None,
+                                             None, tr("Apre nel browser {0}, uno strumento di MakerHub, un servizio "
+                                                      "esterno (maker-hub.it)", t.name))
+            self.m_makerhub.addAction(a["makerhub_" + t.key])
+        self.m_makerhub.addSeparator()
+        self.m_makerhub.addAction(a["makerhub_receive"])
         m.addSeparator()
         m.addAction(a["variables"])
         m.addAction(a["photo"])
@@ -2061,7 +2071,13 @@ class MainWindow(QMainWindow):
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["print_cut"].setVisible(admin.unlocked(self.qs))
-        self.acts["makerhub_box"].setVisible(admin.unlocked(self.qs))
+        on = admin.unlocked(self.qs)
+        self.m_makerhub.menuAction().setVisible(on)
+        for k, act in self.acts.items():
+            if k.startswith("makerhub_"):
+                act.setVisible(on)  # anche le voci dentro: la ricerca dei comandi guarda quelle
+        if not on:
+            self._makerhub_stop()
 
     def admin_dialog(self, *_, code=None):
         """Impostazioni → Funzioni in prova: il codice amministratore le sblocca (o le nasconde di nuovo)."""
@@ -2089,19 +2105,184 @@ class MainWindow(QMainWindow):
         QMessageBox.warning(self, tr("Funzioni in prova"), tr("Codice non valido."))
         return False
 
-    def makerhub_box(self, *_):
-        """Strumenti → MakerHub – Scatola a incastri (0.18.11, solo con le funzioni in prova sbloccate): apre nel
-        browser il generatore di MakerHub. FreeLaserCut non chiama il loro sito: apre solo la pagina."""
+    # ================================================================ MakerHub (0.18.14)
+    def makerhub_open(self, key):
+        """Strumenti → MakerHub → uno dei loro strumenti (solo con le funzioni in prova sbloccate): lo apre nel
+        browser e si mette in ascolto del pulsante «Manda a FreeLaserCut». FreeLaserCut non chiama il loro sito."""
         from .. import admin, makerhub
 
-        if not admin.unlocked(self.qs):
+        t = makerhub.tool(key)
+        if t is None or not admin.unlocked(self.qs):
             return False
-        if not makerhub.open_box():
-            self.statusBar().showMessage(tr("Non riesco ad aprire il browser. L'indirizzo è: {0}", makerhub.BOX_URL), 20000)
+        listening = self._makerhub_start() if self.qs.value("makerhub/receive", "true") in (True, "true") else False
+        self.qs.setValue("makerhub/used", True)
+        if not makerhub.open_tool(key):
+            self.statusBar().showMessage(tr("Non riesco ad aprire il browser. L'indirizzo è: {0}", t.url), 20000)
             return False
-        self.statusBar().showMessage(tr("Su MakerHub scarica l'SVG e importalo qui con File → Importa. È già compensato "
-                                        "per il kerf: non compensarlo di nuovo."), 20000)
+        self.statusBar().showMessage(
+            tr("Sul sito di MakerHub scegli {0} nel menu a sinistra, prepara il disegno e premi «Manda a "
+               "FreeLaserCut»: arriva qui da solo.", t.name) if listening
+            else tr("Sul sito di MakerHub scegli {0} nel menu a sinistra, scarica il file e importalo qui con "
+                    "File → Importa.", t.name), 30000)
         return True
+
+    def makerhub_receive(self, on=None):
+        """Strumenti → MakerHub → Ricevi qui i disegni: accende o spegne l'ascolto (solo su questo computer)."""
+        from .. import admin
+
+        act = self.acts["makerhub_receive"]
+        on = act.isChecked() if on is None else bool(on)
+        if not admin.unlocked(self.qs):  # voce nascosta: non si accende e non cambia la scelta salvata
+            act.setChecked(False)
+            return False
+        self.qs.setValue("makerhub/receive", on)
+        if on:
+            on = self._makerhub_start()
+            if on:
+                self.statusBar().showMessage(tr("In ascolto: i disegni mandati dagli strumenti di MakerHub arrivano "
+                                                "qui. Si ascolta solo questo computer, mai la rete."), 10000)
+        else:
+            self._makerhub_stop()
+            self.statusBar().showMessage(tr("Non ricevo più i disegni da MakerHub."), 6000)
+        act.setChecked(bool(on))
+        return bool(on)
+
+    def _makerhub_start(self):
+        """Accende il ricevitore. -> True se è in ascolto."""
+        from .. import __version__, admin, makerhub_link
+
+        if self.mh_link is None:
+            self.mh_link = makerhub_link.Receiver(self._makerhub_arrived, __version__,
+                                                  lambda: admin.unlocked(self.qs))
+        ok = self.mh_link.start()
+        self.acts["makerhub_receive"].setChecked(ok)
+        if not ok:
+            self.statusBar().showMessage(tr("Non posso ricevere i disegni da MakerHub: la porta {0} è occupata da un "
+                                            "altro programma. Scarica il file dal sito e importalo con File → Importa.",
+                                            self.mh_link.port), 20000)
+        return ok
+
+    def _makerhub_resume(self):
+        """All'avvio: chi ha già usato gli strumenti di MakerHub (e non ha spento la ricezione) ritrova l'ascolto
+        acceso, così il pulsante sul sito funziona anche se la pagina era rimasta aperta."""
+        from .. import admin
+
+        if admin.unlocked(self.qs) and self.qs.value("makerhub/used") in (True, "true") \
+                and self.qs.value("makerhub/receive", "true") in (True, "true"):
+            self._makerhub_start()
+
+    def _makerhub_stop(self):
+        if getattr(self, "mh_link", None) is not None:
+            self.mh_link.stop()
+        self._mh_queue = []
+        if "makerhub_receive" in getattr(self, "acts", {}):
+            self.acts["makerhub_receive"].setChecked(False)
+
+    def _makerhub_busy(self):
+        """Non è il momento di aggiungere forme: una finestra di dialogo aperta, un trascinamento a metà."""
+        from PySide6.QtWidgets import QApplication
+
+        return (QApplication.activeModalWidget() is not None or QApplication.mouseButtons() != Qt.NoButton
+                or self.editor._pending is not None)
+
+    def _makerhub_arrived(self, arrival):
+        """Un disegno mandato da uno strumento di MakerHub (vedi makerhub_link). Lo legge subito, così a chi l'ha
+        mandato si può dire se è buono; sul piano va subito, oppure appena il programma è libero.
+        -> (riuscito, messaggio per il browser)"""
+        from .. import admin
+
+        if not admin.unlocked(self.qs):
+            return False, tr("Questo sito non può mandare disegni a FreeLaserCut.")
+        doc = self.editor.doc
+        groups, texts, unreadable = [], 0, []
+        for d in arrival.drawings:
+            try:
+                shapes = io_formats.import_svg(d.data, doc)
+            except Exception:  # noqa: BLE001 — un file rovinato non deve fermare gli altri
+                shapes = []
+            if not shapes:
+                unreadable.append(d.name)
+                continue
+            texts += len(re.findall(rb"<text[\s>]", d.data))
+            groups.append((d, shapes))
+        if not groups:
+            return False, tr("Non riesco a leggere il disegno arrivato ({0}).", ", ".join(unreadable[:3]))
+        self._mh_queue.append((arrival, groups, texts))
+        if self._makerhub_flush():
+            return True, tr("Fatto: il disegno è in FreeLaserCut.")
+        return True, tr("FreeLaserCut è occupato: il disegno entrerà appena chiudi la finestra aperta nel programma.")
+
+    def _makerhub_flush(self):
+        """Mette sul piano i disegni in attesa, se il programma è libero. -> True se non ne restano."""
+        if self._mh_queue and self._makerhub_busy():
+            QTimer.singleShot(400, self._makerhub_flush)
+            return False
+        while self._mh_queue:
+            self._makerhub_place(*self._mh_queue.pop(0))
+        return True
+
+    def _makerhub_place(self, arrival, groups, texts):
+        """Un disegno solo (anche un foglio solo): sul piano attivo, al centro, come File → Importa. Più fogli
+        (piano-1.svg, piano-2.svg…): un piano di lavoro per foglio. Più pezzi sciolti: affiancati sullo stesso piano,
+        senza sovrapporli."""
+        from PySide6.QtGui import QTransform
+
+        ed, doc = self.editor, self.editor.doc
+        bed_x, bed_y = self.profile.bed_x, self.profile.bed_y
+        label = tr("Importa da MakerHub")
+        sheets = [(d, s) for d, s in groups if d.sheet is not None]
+        pieces = [(d, s) for d, s in groups if d.sheet is None]
+        loads = [(f"{arrival.tool} {d.sheet}", s) for d, s in sheets]
+        if pieces:
+            row_x = row_y = row_h = 0.0
+            flat = []
+            for _d, shapes in sorted(pieces, key=lambda g: -ops.union_bounds(g[1]).height()):
+                b = ops.union_bounds(shapes)
+                if row_x > 0 and row_x + b.width() > bed_x:  # non ci sta più in larghezza: a capo
+                    row_x, row_y, row_h = 0.0, row_y + row_h + 5.0, 0.0
+                ops.transform_all(shapes, QTransform.fromTranslate(row_x - b.left(), row_y - b.top()))
+                row_x += b.width() + 5.0
+                row_h = max(row_h, b.height())
+                flat += shapes
+            loads.append((arrival.tool if sheets else "", flat))
+        first = None
+        too_big = False
+        for n, (name, shapes) in enumerate(loads):
+            b = ops.union_bounds(shapes)
+            too_big = too_big or b.width() > bed_x + 0.01 or b.height() > bed_y + 0.01
+            ops.transform_all(shapes, QTransform.fromTranslate(bed_x / 2 - b.center().x(), bed_y / 2 - b.center().y()))
+            if len(loads) > 1:
+                if n > 0 or doc.shapes:
+                    ed.add_plate()
+                ed.rename_plate(doc.current, name)
+            ed.add(shapes, label)
+            for s in shapes:
+                for leaf, _ in s.leaves():
+                    if isinstance(leaf, ImageShape):
+                        doc.layer(leaf.layer).mode = "image"
+            if first is None:
+                first = (doc.current, list(shapes))
+        if len(loads) > 1:  # si resta sul primo foglio, che è il primo da tagliare
+            ed.set_plate(first[0])
+            ed.selection = [s for s in first[1] if s in doc.shapes]
+            ed.selection_changed.emit()
+        msg = (tr("Arrivati da MakerHub ({0}) {1} fogli: uno per piano di lavoro.", arrival.tool, len(loads))
+               if len(loads) > 1 else tr("Disegno arrivato da MakerHub ({0}).", arrival.tool))
+        if any(n.lower().startswith("mappa") for n in arrival.skipped):
+            msg += " " + tr("La mappa di montaggio non è da tagliare: resta sul sito.")
+        if texts:
+            msg += " " + tr("Le scritte non sono arrivate: sul sito vanno convertite in tracciati.")
+        if too_big:
+            msg += " · " + tr("più grande del piano di lavoro")
+        self.statusBar().showMessage(msg, 20000)
+        self.mh_last = (arrival.tool, len(loads), msg)
+        from PySide6.QtWidgets import QApplication
+
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
+        QApplication.alert(self)  # se il sistema non lascia venire avanti la finestra, almeno lampeggia
 
     def print_cut_dialog(self, *_):
         """Strumenti → Stampa e taglia (0.18.5, solo con le funzioni in prova sbloccate). La finestra resta aperta
@@ -3379,6 +3560,7 @@ class MainWindow(QMainWindow):
             return
         if getattr(self, "phone", None) is not None:
             self.phone.stop()
+        self._makerhub_stop()
         self.laser.glow_stop()  # 0.18.7: uscendo la Lucciola si spegne
         if getattr(self, "banco", None) is None:
             self.qs.setValue("win_state_v5", self.saveState(5))

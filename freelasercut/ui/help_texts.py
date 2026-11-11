@@ -208,11 +208,32 @@ HELP = {
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
         "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
                None),
-    "makerhub_box": (tr("MakerHub – Scatola a incastri (in prova)"), tr(
-        "Apre nel browser il generatore di scatole a incastri di MakerHub, un servizio esterno (maker-hub.it): si "
-        "scelgono misure, coperchio e gioco sul loro sito, dove serve un account. Poi si scarica l'SVG e lo si porta "
-        "qui con File → Importa. I pezzi escono già compensati per il kerf: in FreeLaserCut non va compensato di "
-        "nuovo. FreeLaserCut non manda niente a MakerHub: apre soltanto la pagina."), None),
+    "makerhub_dima": (tr("MakerHub – Dima Lab (in prova)"), tr(
+        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
+        "sinistra scegli Dima Lab, che prepara le dime per posizionare gli oggetti da incidere. Finito il disegno, "
+        "sul sito premi «Manda a FreeLaserCut»: arriva qui sul piano di lavoro, senza scaricarlo. FreeLaserCut non "
+        "manda niente a MakerHub: apre la pagina e aspetta il disegno su questo computer."), None),
+    "makerhub_forma": (tr("MakerHub – Forma Lab (in prova)"), tr(
+        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
+        "sinistra scegli Forma Lab, per scatole, espositori, organizer, supporti e vassoi su misura. Finito il "
+        "disegno, sul sito premi «Manda a FreeLaserCut»: i pezzi arrivano qui sul piano di lavoro, senza "
+        "scaricarli; se i fogli sono più di uno, ognuno va su un piano di lavoro suo."), None),
+    "makerhub_hinge": (tr("MakerHub – Hinge Lab (in prova)"), tr(
+        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
+        "sinistra scegli Hinge Lab, che fa la fascia flessibile da avvolgere attorno a una sagoma. Finito il "
+        "disegno, sul sito premi «Manda a FreeLaserCut»: base, retro, fascia e rinforzo arrivano qui affiancati. La "
+        "mappa di montaggio non è da tagliare e resta sul sito."), None),
+    "makerhub_split": (tr("MakerHub – Split Lab (in prova)"), tr(
+        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
+        "sinistra scegli Split Lab, che divide un disegno più grande del piano in pezzi a incastro. Finito il "
+        "disegno, sul sito premi «Manda a FreeLaserCut»: ogni foglio arriva su un piano di lavoro suo, da tagliare "
+        "uno alla volta. La mappa di montaggio non è da tagliare e resta sul sito."), None),
+    "makerhub_receive": (tr("MakerHub – Ricevi qui i disegni (in prova)"), tr(
+        "Con la spunta FreeLaserCut aspetta i disegni mandati dal pulsante «Manda a FreeLaserCut» degli strumenti di "
+        "MakerHub. Si accende da sola la prima volta che apri uno strumento da questo menu. Ascolta solo questo "
+        "computer, mai la rete, e accetta disegni solo dal sito di MakerHub; il laser non parte mai da solo e ogni "
+        "disegno arrivato si toglie con Ctrl+Z. Senza la spunta i disegni si scaricano dal sito e si portano qui "
+        "con File → Importa."), None),
     "print_cut": (tr("Stampa e taglia (in prova)"), tr(
         "Per tagliare attorno a qualcosa di già stampato, come adesivi ed etichette. FreeLaserCut mette due crocette "
         "accanto al disegno e salva il PDF da stampare al 100%. Poi fissi il foglio sul piano, porti la testa con il "

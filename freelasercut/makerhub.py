@@ -1,21 +1,42 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""MakerHub (maker-hub.it), un servizio esterno, di altri: per ora un solo collegamento diretto (0.18.11, fra le
-funzioni in prova). Strumenti → «MakerHub – Scatola a incastri» apre nel browser il loro generatore di scatole; il
-disegno si scarica dal loro sito e si importa qui con File → Importa.
+"""MakerHub (maker-hub.it), un servizio esterno, di altri: i loro strumenti per il laser, dal menu Strumenti
+(fra le funzioni in prova).
 
-FreeLaserCut non chiama MakerHub: apre soltanto una pagina nel browser dell'utente, quando lui lo chiede.
+Strumenti → MakerHub apre nel browser uno dei loro quattro programmi: Dima Lab, Forma Lab, Hinge Lab, Split Lab.
+Dalla 0.18.14 quei programmi hanno il pulsante «Manda a FreeLaserCut»: il disegno arriva sul piano di lavoro senza
+scaricarlo e importarlo a mano (vedi makerhub_link.py, che è la parte che lo riceve).
 
-La 0.18.10 aveva anche «FreeLaserCut Live» (codice di collegamento, ascolto in secondo piano, disegni che arrivano
-sul piano). Sul sito di MakerHub quella parte non è ancora attiva, quindi è stata tolta: il codice resta nel tag
-v0.18.10, da riprendere quando la attiveranno.
+Questo file non fa rete: apre soltanto una pagina nel browser dell'utente, quando lui lo chiede.
+
+Storia: la 0.18.10 aveva «FreeLaserCut Live» (codice di collegamento e ascolto del loro server), tolto perché sul
+sito non era attivo: resta nel tag v0.18.10. La 0.18.11 aveva la sola voce «Scatola a incastri».
 
 Nome e logo sono di MakerHub, usati con il loro permesso.
 """
 import os
 import urllib.parse
+from collections import namedtuple
+
+from .i18n import tr
 
 DOMAIN = "maker-hub.it"
-BOX_URL = "https://app.maker-hub.it/?pagina=laser&scheda=scatola&da=freelasercut"  # «da=»: loro contano chi arriva da qui
+SITE_URL = "https://app.maker-hub.it/?da=freelasercut"  # «da=»: loro contano chi arriva da qui
+
+Tool = namedtuple("Tool", "key name url what")
+# I quattro programmi di MakerHub per il laser. «what» è la riga del menu, dopo il nome.
+# Sul loro sito (un'unica pagina, con l'accesso) ogni strumento si sceglie dal menu a sinistra: l'indirizzo è lo
+# stesso per tutti. Se MakerHub darà un indirizzo diretto per ciascuno, va messo qui.
+TOOLS = (
+    Tool("dima", "Dima Lab", SITE_URL, tr("dime per posizionare gli oggetti")),
+    Tool("forma", "Forma Lab", SITE_URL, tr("scatole, espositori, organizer")),
+    Tool("hinge", "Hinge Lab", SITE_URL, tr("fasce flessibili attorno a una sagoma")),
+    Tool("split", "Split Lab", SITE_URL, tr("progetti più grandi del piano, a incastro")),
+)
+
+
+def tool(key):
+    return next((t for t in TOOLS if t.key == key), None)
+
 LOGO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "makerhub.png")
 ICON_SIZE = 20  # come le icone degli altri strumenti (ui/style.icon)
 ICON_INSET = 0.075  # il riquadro arancione sta un po' dentro la casella, come i disegni delle altre icone
@@ -74,10 +95,11 @@ def icon(size=ICON_SIZE):
     return ic
 
 
-def open_box():
-    """Apre nel browser dell'utente il generatore di scatole a incastri di MakerHub. -> True se il sistema l'ha aperto."""
+def open_tool(key):
+    """Apre nel browser dell'utente uno strumento di MakerHub. -> True se il sistema l'ha aperto."""
     from PySide6.QtCore import QUrl
     from PySide6.QtGui import QDesktopServices
 
-    url = safe_url(BOX_URL)
+    t = tool(key)
+    url = safe_url(t.url) if t else None
     return bool(url) and bool(QDesktopServices.openUrl(QUrl(url)))
