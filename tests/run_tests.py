@@ -316,6 +316,8 @@ if __name__ == "__main__":
     run_suite("test_v1811_makerhub.py", "MakerHub nell'interfaccia Banco", "banco")
     run_suite("test_v1811_aggancio.py", "Aggancio mentre si sposta: angoli, mezzerie, centri e nodi dell'oggetto, non il punto del mouse")
     run_suite("test_v1811_aggancio.py", "Aggancio mentre si sposta nell'interfaccia Banco", "banco")
+    run_suite("test_v1812_ray5_40w.py", "Longer Ray5 40W nel catalogo")
+    run_suite("test_v1812_pacchetti.py", "Costruzione su GitHub: lo specchio dei pacchetti che non risponde non ferma più la Release")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

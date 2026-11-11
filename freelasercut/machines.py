@@ -138,6 +138,10 @@ CATALOG = (
     # rivenditori; alla connessione vale quella della scheda.
     ("Sculpfun C1 3W", "Sculpfun", 130, 130, "3 W", 10000),
     ("Sculpfun C1 6W", "Sculpfun", 130, 130, "6 W", 10000),
+    # 0.18.12: richiesto da un utente (commento sotto un video). È il Ray5 40W uscito nel 2025, una macchina diversa
+    # dai Ray5 5/10/20 W: area 385 × 385 mm, 24.000 mm/min, spot 0,10 × 0,15 mm, modulo da 40 W. Dati dall'annuncio
+    # ufficiale Longer (SOURCES, letto l'11/11/2026). Alla connessione area e velocità si rileggono dalla scheda.
+    ("Longer Ray5 40W", "Longer", 385, 385, "40 W", 24000),
 )
 # area dichiarata dal produttore, quando è stata ridotta per prudenza (vedi sopra)
 AREA_NOTE = {
@@ -186,6 +190,8 @@ SOURCES = {
     "Longer Ray5 5W": "https://longer3d.com/products/longer-ray5-laser-engraver",
     "Longer Ray5 10W": "https://www.longer3d.com/products/longer-ray5-10w-laser-engraver",
     "Longer Ray5 20W": "https://www.longer.net/products/longer-ray5-laser-engraver-5w-10w-20w",
+    "Longer Ray5 40W": "https://www.longer3d.com/blogs/news/"
+                       "the-all-new-ray5-40w-ultra-fine-laser-engraver-smarter-control-full-upgrade",
 }
 # firmware che rispondono error:20 a G55 (visto nel registro di un Acmer S1, firmware 1.0.4 del 2025)
 NO_G55 = {"Acmer S1 (2,5W / 3,5W / 6W)"}
@@ -236,7 +242,8 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "Genmitsu Jinsoku LC-40": (0.08, 0.05), "Genmitsu L8 20W": (0.07, 0.13), "Genmitsu L8 40W": (0.07, 0.13),
          "Longer Ray5 5W": (0.08, 0.08), "Longer Ray5 10W": (0.06, 0.06), "Longer Ray5 20W": (0.08, 0.10),
          "Acmer P3 24W": (0.06, 0.08), "Acmer P3 48W": (0.08, 0.10), "Acmer P3 2W IR": (0.02, 0.02),
-         "Acmer P3 2-in-1 (diodo + IR)": (0.06, 0.04), "Sculpfun C1 3W": (0.04, 0.04), "Sculpfun C1 6W": (0.06, 0.06)}
+         "Acmer P3 2-in-1 (diodo + IR)": (0.06, 0.04), "Sculpfun C1 3W": (0.04, 0.04), "Sculpfun C1 6W": (0.06, 0.06),
+         "Longer Ray5 40W": (0.10, 0.15)}
 # correzione della scansione avanti e indietro dichiarata dal produttore: [velocità mm/min, sfasamento mm]
 # (Acmer P3: dai profili ufficiali; nel file è metà dello sfasamento, qui l'intero)
 _P3_SCAN = [[6000.0, 0.14], [12000.0, 0.16], [18000.0, 0.12], [24000.0, 0.12], [30000.0, 0.16], [36000.0, 0.16],

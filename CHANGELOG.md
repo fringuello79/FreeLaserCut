@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.18.12 — 11/11/2026
+- **Longer Ray5 40W** nel catalogo dei modelli pronti (58 modelli), da un commento sotto un video («ho il Longer Ray5 con laser da 40 W, ma non lo trovo nell'elenco»). È il Ray5 40W uscito nel 2025, diverso dai Ray5 da 5, 10 e 20 W: area di lavoro 385 × 385 mm, velocità fino a 24.000 mm/min, spot 0,10 × 0,15 mm. Dati dall'annuncio ufficiale Longer. Come per tutti i modelli, collegando la macchina area e velocità vere si rileggono dalla scheda.
+- **La versione 0.18.11 non è mai arrivata come aggiornamento**: il programma era pronto e pubblicato su GitHub, ma le macchine che costruiscono gli installatori non riuscivano a scaricare i loro pacchetti di sistema (uno specchio dei pacchetti di Ubuntu era irraggiungibile) e la costruzione è fallita due volte. Ora, quando quello specchio non risponde, la costruzione usa gli archivi ufficiali di Ubuntu e riprova. Questa versione porta quindi anche le novità della 0.18.11 (aggancio oggetti, MakerHub).
+- Nuove prove automatiche `tests/test_v1812_ray5_40w.py` e `tests/test_v1812_pacchetti.py`.
+
 ## 0.18.11 — 11/11/2026
 - **Aggancio oggetti: ora si agganciano gli angoli dell'oggetto che sposti** (da una segnalazione su un forum: «l'aggancio non avviene fra angolo ed angolo, ma fra l'angolo dell'oggetto vicino e il punto in cui ho preso l'oggetto col mouse; manca l'effetto magnetico che affianca due elementi ai loro angoli e mezzerie»). Aveva ragione: spostando un oggetto si agganciava il punto del mouse, e l'angolo restava scostato di quanto il mouse distava da lui.
   - **Punto su punto.** Angoli, mezzerie dei lati, centro e nodi dell'oggetto (o di tutta la selezione) si agganciano ad angoli, mezzerie, centri e nodi delle altre forme: angolo su angolo, mezzeria su mezzeria, centro su centro. Non conta più in che punto prendi l'oggetto.

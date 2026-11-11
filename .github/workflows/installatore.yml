@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: NSIS
-        run: sudo apt-get update && sudo apt-get install -y nsis
+        run: bash build/apt_install.sh nsis
       - name: Versione
         id: ver
         run: |
@@ -125,7 +125,7 @@ jobs:
         id: ver
         run: echo "ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
       - name: Librerie xcb da mettere nell'AppImage
-        run: sudo apt-get update && sudo apt-get install -y libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxkbcommon-x11-0 libxcb-randr0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 file
+        run: bash build/apt_install.sh libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxkbcommon-x11-0 libxcb-randr0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 file
       - name: Versione di Python per Linux
         id: py
         run: echo "rel=$(grep -oP 'PY_RELEASE = "\K[^"]+' build/prepara_installer.py)" >> "$GITHUB_OUTPUT"
@@ -151,6 +151,10 @@ jobs:
     needs: build-linux
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4  # solo build/apt_install.sh, in una cartella a parte: qui si prova l'AppImage, non i sorgenti
+        with:
+          path: repo
+          sparse-checkout: build
       - uses: actions/download-artifact@v4
         with:
           name: FreeLaserCut-${{ needs.build-linux.outputs.ver }}-Linux
@@ -158,7 +162,7 @@ jobs:
       - name: SHA-256
         run: cd dist && sha256sum -c SHA256SUMS-linux.txt
       - name: Librerie di un desktop normale (OpenGL, caratteri, X11)
-        run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbcommon0 libxcb1 libx11-xcb1
+        run: bash repo/build/apt_install.sh xvfb libegl1 libgl1 libfontconfig1 libdbus-1-3 libxkbcommon0 libxcb1 libx11-xcb1
       - name: Prova di avvio (X11)
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
