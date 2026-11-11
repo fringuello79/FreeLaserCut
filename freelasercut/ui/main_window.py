@@ -3513,6 +3513,12 @@ def main(app=None, splash=None):
     if listener is not None:  # istanza unica: d'ora in poi un secondo avvio porta qui
         listener.attach(win)
     open_paths(win, sys.argv[1:])
+    try:  # 0.18.8: se la finestra si pianta, il registro dice dov'era ferma
+        from ..app import start_hang_watch
+
+        start_hang_watch(app)
+    except Exception:  # noqa: BLE001 — è solo un aiuto per l'assistenza
+        pass
     sys.exit(app.exec())
 
 

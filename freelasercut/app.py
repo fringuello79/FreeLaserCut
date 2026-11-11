@@ -999,6 +999,9 @@ def _hide_splash():
                 pass
 
 
+_FAULT_FH = None  # registro dei crash nativi e dei blocchi (flc_crash.log), aperto da _install_crash_log
+
+
 def _install_crash_log():
     """Errori imprevisti: scritti in %APPDATA%\\FreeLaserCut\\flc.log e mostrati a schermo."""
     import traceback
@@ -1035,6 +1038,55 @@ def _install_crash_log():
         faulthandler.enable(file=_FAULT_FH, all_threads=True)
     except (OSError, RuntimeError):
         pass
+
+
+_HANG = {"beat": 0.0, "dumped": 0, "since": 0.0}
+HANG_S = 8.0  # la finestra non risponde da più di così: scrivo nel registro che cosa sta facendo il programma
+HANG_MAX = 6  # al massimo tante volte per avvio (il registro entra nel rapporto per l'assistenza)
+
+
+def start_hang_watch(app):
+    """0.18.8: quando il programma «si pianta» non c'è nessun errore da leggere. Un timer nella finestra segna il
+    tempo ogni secondo; un filo a parte controlla: se il segno è fermo da più di HANG_S scrive in flc_crash.log che
+    cosa stanno facendo tutti i fili in quel momento. Così il rapporto per l'assistenza dice dov'era fermo."""
+    import threading
+
+    if _FAULT_FH is None or _HANG.get("timer") is not None:
+        return False
+    _HANG["beat"] = time.time()
+    timer = QTimer(app)
+    timer.setInterval(1000)
+    timer.timeout.connect(lambda: _HANG.__setitem__("beat", time.time()))
+    timer.start()
+    _HANG["timer"] = timer
+
+    def watch():
+        import faulthandler
+
+        while True:
+            time.sleep(1.0)
+            fh = _FAULT_FH
+            if fh is None or fh.closed:
+                return
+            late = time.time() - _HANG["beat"]
+            try:
+                if late > HANG_S and not _HANG["since"] and _HANG["dumped"] < HANG_MAX:
+                    _HANG["since"] = _HANG["beat"]
+                    _HANG["dumped"] += 1
+                    fh.write(f"\n=== blocco {time.strftime('%H:%M:%S')}: la finestra non risponde da {late:.0f} s\n")
+                    fh.flush()
+                    faulthandler.dump_traceback(file=fh, all_threads=True)
+                    fh.flush()
+                elif late < 2.0 and _HANG["since"]:
+                    fh.write(f"=== ripresa {time.strftime('%H:%M:%S')}: era ferma da "
+                             f"{time.time() - _HANG['since']:.0f} s\n")
+                    fh.flush()
+                    _HANG["since"] = 0.0
+            except (OSError, ValueError, RuntimeError):
+                return
+
+    threading.Thread(target=watch, daemon=True, name="flc-sorveglia-blocchi").start()
+    return True
 
 
 def main():
