@@ -318,6 +318,8 @@ if __name__ == "__main__":
     run_suite("test_v1812_pacchetti.py", "Costruzione su GitHub: lo specchio dei pacchetti che non risponde non ferma più la Release")
     run_suite("test_v1814_makerhub.py", "MakerHub (in prova): i quattro strumenti nel menu e il disegno che arriva dal loro sito")
     run_suite("test_v1814_makerhub.py", "MakerHub nell'interfaccia Banco", "banco")
+    run_suite("test_v1815_g55.py", "Scheda che rifiuta G55 con un altro errore e poi tace (OMTech K40)")
+    run_suite("test_v1815_g55.py", "Scheda che rifiuta G55 nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     ko = [n for n, ok in results if not ok]

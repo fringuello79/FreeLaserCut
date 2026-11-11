@@ -215,7 +215,7 @@ class GrblController(QObject):
         self.trusted_buffer = False  # scheda nota: uso tutto il buffer dichiarato in [OPT]
         self.check_stalled = False  # l'ultima verifica non ha ricevuto tutte le risposte
         self.lost_replies = 0  # 0.18.4: risposte «ok» mai arrivate alla fine dell'ultima verifica o dell'ultimo lavoro
-        self.no_g55 = False  # la scheda ha risposto error:20 a G55
+        self.no_g55 = False  # la scheda ha rifiutato G55 (error:20, o un altro errore su quella riga)
         self._check_end_t = 0.0
         self._fire_timer = None
         self.fire_active = False
@@ -888,7 +888,9 @@ class GrblController(QObject):
                 chk = self._check
                 if head is not None and head.tag == "check" and chk is not None:
                     chk["errors"].append((head.data, head.line, code, text))
-                    if code == 20 and head.line.strip().upper() == "G55":
+                    if head.line.strip().upper() == "G55":
+                        # 0.18.15: qualsiasi errore sulla riga G55, non solo error:20 (un OMTech K40 risponde
+                        # error:2 e poi smette di rispondere): la scheda non ha G55, il lavoro si rifà in G54
                         self.no_g55 = True
                 elif head is not None and head.tag == "job" and self._job_active and self.pause_on_error:
                     # sicurezza: alla prima riga rifiutata il lavoro si ferma subito in pausa

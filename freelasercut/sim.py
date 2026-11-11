@@ -45,6 +45,8 @@ class SimSerial:
         self.check_mode = False
         # varianti di firmware per le prove: scheda senza G55, risposte perse in verifica, $I diverso
         self.no_g55 = False
+        self.g55_stalls = False  # in verifica: error:2 su G55 e poi silenzio (OMTech K40)
+        self._g55_mute = False
         self.drop_check_after = None  # in verifica, dopo N righe le risposte smettono di arrivare
         self._check_lines = 0
         self.lose_ok_at = set()  # 0.18.4: numeri (da 1) degli «ok» che non partono; _oks li conta tutti
@@ -321,6 +323,7 @@ class SimSerial:
         alarm = self.state == "Alarm"
         self._critical = False
         self.check_mode = False
+        self._g55_mute = False
         self._cpos = None
         self.absolute = True  # come GRBL: dopo il reset il parser torna in G90
         self.state = "Alarm" if alarm else "Idle"
@@ -421,6 +424,14 @@ class SimSerial:
         if self._critical:
             return  # stato critico: nessuna risposta finché non arriva Ctrl-X
         up = line.upper().replace(" ", "")
+        if self.check_mode and up != "$C" and self.g55_stalls:
+            # 0.18.15: come la scheda di un OMTech K40 (rapporto FLC-20261111-2131-0A9C): in verifica risponde
+            # error:2 alla riga G55 e da lì non risponde più a niente, finché non si esce dalla verifica
+            if self._g55_mute:
+                return
+            if up == "G55":
+                self._g55_mute = True
+                return self._emit("error:2\r\n")
         if self.check_mode and up != "$C" and self.drop_check_after is not None:
             self._check_lines += 1
             if self._check_lines > self.drop_check_after:
@@ -456,6 +467,7 @@ class SimSerial:
         if up == "$C":
             self.check_mode = not self.check_mode
             self._check_lines = 0
+            self._g55_mute = False
             if self.check_mode:
                 self.state = "Check"
                 self._cpos = list(self.pos)

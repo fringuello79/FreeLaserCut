@@ -2841,11 +2841,15 @@ class MainWindow(QMainWindow):
                 self.profile.save()
             except OSError:
                 pass
-            rest = [e for e in errors if not (e[2] == 20 and str(e[1]).strip().upper() == "G55")]
+            # 0.18.15: conta qualsiasi errore sulla riga G55; e se dopo quel rifiuto la scheda ha smesso di rispondere
+            # (OMTech K40), anche quel silenzio è colpa di G55: si riprova senza
+            stalled = any(e[2] == "NO_RISPOSTA" for e in errors)
+            rest = [e for e in errors if str(e[1]).strip().upper() != "G55" and e[2] != "NO_RISPOSTA"]
             if not rest and not getattr(self, "_job_is_external", False):
                 self.statusBar().showMessage(tr("La scheda non conosce G55: rifaccio il lavoro senza e lo verifico di nuovo"),
                                              8000)
-                QTimer.singleShot(1500, lambda: self._reverify(job is not None))
+                # dopo un silenzio la scheda sta ancora uscendo dalla modalità di prova: le lascio il tempo
+                QTimer.singleShot(6500 if stalled else 1500, lambda: self._reverify(job is not None))
                 return
         if errors and any(e[2] == "NO_RISPOSTA" for e in errors):
             self.statusBar().showMessage(tr("La scheda ha smesso di rispondere durante la verifica"), 10000)
@@ -2862,7 +2866,7 @@ class MainWindow(QMainWindow):
         self.laser.eta.setText(tr("Verifica superata") if not errors else tr("Verifica: {0} errori", len(errors)))
         CheckResultDialog(errors, n, self).exec()
 
-    def _reverify(self, then_start):
+    def _reverify(self, then_start, tries=3):
         """Rifà il lavoro (per esempio senza G55) e lo fa verificare di nuovo alla scheda."""
         ctx = (self.editor.doc.plate.uid, tuple(s.id for s in self.editor.selection))
         want = getattr(self, "_start_ctx", None)
@@ -2881,6 +2885,9 @@ class MainWindow(QMainWindow):
         if not self.ctl.check_job(job.lines):
             self._pending_start = None
             self.laser.update_running()
+            if tries > 1 and self.ctl.connected and not self.ctl.job_active:
+                # scheda non ancora pronta (sta uscendo dalla modalità di prova): riprovo fra poco
+                QTimer.singleShot(2500, lambda: self._reverify(then_start, tries - 1))
 
     def _job_error(self, index, line, code, text):
         box = QMessageBox(self)

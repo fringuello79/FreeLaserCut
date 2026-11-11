@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.18.15 — 11/11/2026
+Da un rapporto all'assistenza (OMTech K40: «all'avvio fa una verifica ma questa fallisce», sempre).
+- **Schede che rifiutano G55 in un altro modo.** La scheda di quel K40, durante la verifica, risponde «errore 2» al comando `G55` e da lì smette di rispondere: la verifica falliva ogni volta e il lavoro non partiva mai. FreeLaserCut sapeva già lavorare senza `G55` (succede con gli Acmer), ma solo quando la scheda rispondeva «errore 20». Ora vale **qualsiasi errore su quella riga**, e il silenzio che segue non conta come un altro errore: il lavoro viene rifatto senza `G55`, verificato di nuovo e avviato da solo, e la scelta resta nel profilo della macchina.
+  - Dopo un silenzio della scheda FreeLaserCut le lascia qualche secondo per uscire dalla modalità di prova, poi riprova da solo.
+  - Un silenzio senza il rifiuto di `G55` resta un errore, come prima.
+- Il simulatore sa comportarsi come quella scheda, per le prove.
+- Nuova prova automatica `tests/test_v1815_g55.py` (10 controlli, Classica e Banco).
+- Non ancora provato su un OMTech K40 vero.
+
 ## 0.18.14 — 11/11/2026
 - **MakerHub: i loro quattro strumenti nel menu, e il disegno che arriva da solo (in prova, non ancora attivo per tutti).** MakerHub (maker-hub.it) è un servizio esterno. Con le funzioni in prova sbloccate, in *Strumenti* c'è la voce **MakerHub**, con il loro logo, e dentro i loro quattro programmi per il laser: **Dima Lab** (dime per posizionare gli oggetti), **Forma Lab** (scatole, espositori, organizer), **Hinge Lab** (fasce flessibili attorno a una sagoma) e **Split Lab** (progetti più grandi del piano, divisi in pezzi a incastro). Ogni voce apre nel browser il loro sito (serve un account lì): lo strumento si sceglie nel loro menu a sinistra. La voce «Scatola a incastri» della 0.18.11 non c'è più.
   - **«Manda a FreeLaserCut».** Nei quattro strumenti, accanto al pulsante che scarica il file, ci sarà il pulsante *Manda a FreeLaserCut* (lo aggiunge un piccolo file che MakerHub deve caricare sul proprio sito: finché non lo fanno il pulsante non c'è, e il disegno si scarica e si importa come prima). Premendolo, il disegno arriva sul piano di lavoro di FreeLaserCut aperto sullo stesso computer, a misura vera, senza scaricarlo e senza *File → Importa*.
