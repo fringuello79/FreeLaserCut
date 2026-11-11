@@ -1089,6 +1089,51 @@ def start_hang_watch(app):
     return True
 
 
+def finish_exit(code=0, grace=3.0):
+    """0.18.9: la finestra è chiusa, il programma deve finire davvero. Aspetta al massimo `grace` secondi i fili
+    che ancora lavorano; se qualcuno non finisce lo scrive in flc_crash.log (chi era e che cosa stava facendo) e
+    poi chiude comunque il processo. Senza, un filo rimasto appeso lasciava FreeLaserCut aperto senza finestra:
+    l'installatore di un aggiornamento trovava «FreeLaserCut è aperto» e bisognava chiuderlo da Gestione attività."""
+    import threading
+
+    end = time.time() + max(0.0, grace)
+    me = threading.current_thread()
+    busy = [t for t in threading.enumerate() if t is not me and not t.daemon and t.is_alive()]
+    for t in busy:
+        t.join(max(0.0, end - time.time()))
+    stuck = [t for t in busy if t.is_alive()]
+    fh = _FAULT_FH
+    try:
+        if stuck and fh is not None and not fh.closed:
+            import faulthandler
+
+            fh.write(f"\n=== chiusura {time.strftime('%H:%M:%S')}: dopo {grace:g} s lavoravano ancora: "
+                     + ", ".join(t.name for t in stuck) + "\n")
+            fh.flush()
+            faulthandler.dump_traceback(file=fh, all_threads=True)
+        if fh is not None and not fh.closed:
+            fh.flush()
+    except (OSError, ValueError, RuntimeError):
+        pass
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except Exception:  # noqa: BLE001
+            pass
+    if sys.platform == "win32":  # come nelle prove: os._exit con Qt ancora in piedi su Windows può dare 0xC0000005
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            k32 = ctypes.windll.kernel32
+            k32.GetCurrentProcess.restype = wintypes.HANDLE
+            k32.TerminateProcess.argtypes = (wintypes.HANDLE, wintypes.UINT)
+            k32.TerminateProcess(k32.GetCurrentProcess(), int(code) & 0xFFFFFFFF)
+        except Exception:  # noqa: BLE001
+            pass
+    os._exit(int(code) if isinstance(code, int) else 0)
+
+
 def main():
     _install_crash_log()
     QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)

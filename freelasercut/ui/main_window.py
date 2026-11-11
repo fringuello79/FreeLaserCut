@@ -3519,7 +3519,15 @@ def main(app=None, splash=None):
         start_hang_watch(app)
     except Exception:  # noqa: BLE001 — è solo un aiuto per l'assistenza
         pass
-    sys.exit(app.exec())
+    code = app.exec()
+    try:  # 0.18.9: finestra chiusa = programma chiuso, sempre (vedi app.finish_exit)
+        win.qs.sync()
+        from ..app import finish_exit
+
+        finish_exit(code)
+    except Exception:  # noqa: BLE001
+        pass
+    sys.exit(code)
 
 
 def open_paths(win, paths):
