@@ -40,6 +40,14 @@ GLOW_UNKNOWN = (1.0, 0.5)  # potenza non scritta nel profilo
 _WATT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:[–—-]\s*(\d+(?:[.,]\d+)?)\s*)?(m?)W\b")
 
 
+def _timer(seconds, fn):
+    """Un timer che non tiene in vita il programma: threading.Timer di suo non è «daemon», e finché non scade il
+    processo resta aperto anche a finestra chiusa (0.18.9: un processo rimasto vivo bloccava l'installatore)."""
+    t = threading.Timer(seconds, fn)
+    t.daemon = True
+    return t
+
+
 def optical_watts(text):
     """Watt ottici dal testo del profilo («10 W», «44–48 W (4 diodi, 450–460 nm)», «500 mW»): il valore più alto
     scritto, None se non c'è."""
@@ -259,9 +267,9 @@ class GrblController(QObject):
         self._write_raw(b"\r\n\r\n")
         self.connection_changed.emit(True, f"Connesso a {port}")
         # le schede Arduino si resettano all'apertura: attendo il banner
-        threading.Timer(1.5, self._after_connect).start()
+        _timer(1.5, self._after_connect).start()
         t0 = time.time()
-        threading.Timer(self.WAKE_AFTER_S, lambda: self._wake_if_silent(t0)).start()
+        _timer(self.WAKE_AFTER_S, lambda: self._wake_if_silent(t0)).start()
         return True
 
     WAKE_AFTER_S = 2.5
@@ -286,7 +294,7 @@ class GrblController(QObject):
                 # 0.17.3: muta anche dopo il Ctrl+X (visto con CH9102 + grblHAL: all'apertura della porta l'ESP32
                 # finisce in modalità di programmazione, dove GRBL non gira). Riavvio vero dalle linee della porta,
                 # come il pulsante: poi la scheda ha bisogno di qualche secondo per ripartire.
-                threading.Timer(self.BOOT_WAIT_S, again_info).start()
+                _timer(self.BOOT_WAIT_S, again_info).start()
                 return
             again_info()
 
@@ -294,7 +302,7 @@ class GrblController(QObject):
             if self.connected:
                 self.request_info()
                 self.request_settings()
-        threading.Timer(1.5, again).start()
+        _timer(1.5, again).start()
         return True
 
     BOOT_WAIT_S = 3.0  # dopo il riavvio dalle linee DTR/RTS: avvio dell'ESP32 e di GRBL
@@ -561,7 +569,7 @@ class GrblController(QObject):
         # niente riga vuota prima: GRBL risponde «ok» anche a quella e le risposte successive slitterebbero di una
         self.send_line("$C", tag="check_exit_stale")
         self.message.emit(tr("La scheda era rimasta in modalità di prova ($C): la faccio uscire"))
-        threading.Timer(4.0, self._stale_timeout).start()
+        _timer(4.0, self._stale_timeout).start()
 
     def _stale_timeout(self):
         if self.stale_check_exit:  # nessun banner: riprovo con un reset
@@ -620,7 +628,7 @@ class GrblController(QObject):
             self.fire_active = True
             if self._fire_timer is not None:
                 self._fire_timer.cancel()
-            self._fire_timer = threading.Timer(timeout_s, lambda: self.fire(False))  # spegnimento automatico
+            self._fire_timer = _timer(timeout_s, lambda: self.fire(False))  # spegnimento automatico
             self._fire_timer.start()
         else:
             if self._fire_timer is not None:
@@ -638,7 +646,7 @@ class GrblController(QObject):
             return False
         if self._fire_timer is not None:
             self._fire_timer.cancel()
-        self._fire_timer = threading.Timer(timeout_s, lambda: self.fire(False))
+        self._fire_timer = _timer(timeout_s, lambda: self.fire(False))
         self._fire_timer.start()
         return True
 
@@ -1007,7 +1015,7 @@ class GrblController(QObject):
                 self._travel_retry = True
                 self.message.emit(tr("La scheda ha risposto {0}: non è un'area di lavoro credibile, rileggo le "
                                      "impostazioni", ", ".join(f"${n}={v}" for n, v in bad)))
-                threading.Timer(0.4, self.request_settings).start()
+                _timer(0.4, self.request_settings).start()
                 return
             if ok and cmd.data and not bad:
                 self._travel_retry = False

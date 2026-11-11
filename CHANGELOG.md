@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.18.9 — in preparazione
+- **Finestra chiusa, programma chiuso.** Installando un aggiornamento l'installatore poteva fermarsi su «FreeLaserCut è aperto» anche con il programma chiuso: un processo di FreeLaserCut era rimasto vivo senza finestra, e andava chiuso da Gestione attività. Ora alla chiusura FreeLaserCut aspetta al massimo 3 secondi le operazioni ancora in corso e poi termina comunque; se qualcosa non finiva, lo scrive nel registro (che entra nel rapporto per l'assistenza), così la causa si può trovare.
+  - I timer del collegamento con la scheda (spegnimento automatico del puntino e della Lucciola, risveglio della scheda) non possono più tenere aperto il programma dopo la chiusura della finestra.
+- Nuova prova automatica `tests/test_v189_uscita.py` (8 controlli).
+
 ## 0.18.8 — 11/11/2026
 Da due rapporti all'assistenza («chiusura improvvisa»).
 - **Chiusura improvvisa dopo aver mandato un rapporto.** Chiudendo la finestra *Invia un rapporto all'assistenza* mentre l'invio era ancora in corso, pochi secondi dopo FreeLaserCut si chiudeva di colpo, senza messaggi (nel registro: «access violation»). L'invio in secondo piano, finendo, liberava la finestra già chiusa dal posto sbagliato. Ora la finestra resta in vita finché l'invio è finito e viene liberata dal programma principale. Il rapporto arrivava comunque, e arriva ancora.
