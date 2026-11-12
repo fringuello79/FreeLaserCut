@@ -56,6 +56,9 @@ def orient_job_preview(job, profile, out_at):
     job.out_to_bed = (o0[0] if fx else ox, o0[1] if fy else oy)
 
 
+TOOL_LAYER = 30  # come ui.editor.TOOL_LAYER: da qui in su sono livelli strumenti
+
+
 @dataclass
 class JobOptions:
     start_from: str = "absolute"  # absolute | current | origin
@@ -812,7 +815,9 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     job = GcodeJob()
     bed = (profile.bed_x, profile.bed_y)
     by_layer = _collect(doc, opts)
-    layers = [cs for cs in doc.used_layers() if cs.output and cs.index in by_layer]
+    # 0.18.16: i livelli strumenti (T1, dal 30 in su: contorno del materiale, guide, numeri dei pannelli) non si
+    # incidono mai. Prima finivano nel lavoro come un livello qualsiasi, e il contorno del materiale veniva tagliato
+    layers = [cs for cs in doc.used_layers() if cs.output and cs.index in by_layer and cs.index < TOOL_LAYER]
     if not layers:
         job.warnings.append(tr("Niente da incidere: nessuna forma su livelli con uscita attiva"))
         return job

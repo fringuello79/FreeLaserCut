@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.18.16 — in preparazione
+- **Nesting manuale: i pezzi dentro un'area disegnata da te**, per sfruttare un avanzo di forma qualsiasi (per esempio un trapezio di legno rimasto). *Disponi → Ottimizza lo spazio (nesting)* ora chiede per prima cosa **Nesting automatico** (com'era) oppure **Nesting manuale**.
+  - Con il manuale compare una finestrella con le istruzioni: **clicchi sul piano lungo il bordo del pezzo di materiale**, un punto dopo l'altro, fino a tornare al primo. Un clic su un punto già messo **lo toglie**, così lo rimetti dove serve; Backspace toglie l'ultimo, Esc annulla; per finire: clic sul primo punto, Invio o *Chiudi l'area e continua*.
+  - Con la spunta **Porta il laser, acceso al minimo, su ogni punto che metto** la testa va su ogni punto con il laser alla potenza della *Lucciola* (stesso limite, stessi avvisi, stesso spegnimento automatico): vedi sul materiale se il punto cade dentro o fuori dal pezzo. Servono il laser collegato e l'homing fatto; un punto fuori dall'area di lavoro si può mettere, ma la testa non ci va.
+  - L'area chiusa diventa una forma sul livello T1 e si apre *Ottimizza lo spazio* già su quell'area. **I pezzi ci entrano tutti oppure non si sposta niente**: se l'area non basta, FreeLaserCut dice quanti pezzi restano fuori e chiede se disegnare una nuova area (con gli stessi pezzi) o annullare.
+  - Un contorno che si incrocia da solo, o con meno di 3 punti, non viene accettato.
+- **Corretto: il livello T1 «strumenti (mai inciso)» veniva inciso.** Le forme sul livello T1 (il contorno del materiale per il nesting, i contorni e i numeri dei pannelli in più) finivano nel lavoro come un livello qualsiasi, con il rischio di tagliare il contorno disegnato. Ora i livelli strumenti non entrano mai nel G-code.
+- Nuova prova automatica `tests/test_v1816_nesting_manuale.py` (43 controlli, Classica e Banco).
+
 ## 0.18.15 — 11/11/2026
 Da un rapporto all'assistenza (OMTech K40: «all'avvio fa una verifica ma questa fallisce», sempre).
 - **Schede che rifiutano G55 in un altro modo.** La scheda di quel K40, durante la verifica, risponde «errore 2» al comando `G55` e da lì smette di rispondere: la verifica falliva ogni volta e il lavoro non partiva mai. FreeLaserCut sapeva già lavorare senza `G55` (succede con gli Acmer), ma solo quando la scheda rispondeva «errore 20». Ora vale **qualsiasi errore su quella riga**, e il silenzio che segue non conta come un altro errore: il lavoro viene rifatto senza `G55`, verificato di nuovo e avviato da solo, e la scelta resta nel profilo della macchina.
