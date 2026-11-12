@@ -231,7 +231,7 @@ def process(pil, st):
 
 
 def engrave_preview(pil, w_mm, h_mm, dpi, dither, brightness=0.0, contrast=0.0, gamma=1.0, negative=False,
-                    halftone_cell=1.0, halftone_angle=45.0, max_dots=900_000, region=None):
+                    halftone_cell=1.0, halftone_angle=45.0, max_dots=900_000, region=None, halftone_size=100.0):
     """Come verrà incisa: i punti veri alla risoluzione del livello (0 = bianco, 1 = punto acceso / nero).
 
     region: (x0, y0, x1, y1) in frazioni per vedere una zona a grandezza reale; senza, tutta la foto
@@ -256,7 +256,7 @@ def engrave_preview(pil, w_mm, h_mm, dpi, dither, brightness=0.0, contrast=0.0, 
     grid = cv2.resize(dark.astype(np.float32), (nx, ny), interpolation=interp)
     grid = imaging.adjust(grid, brightness, contrast, gamma, negative)
     cell_px = max(halftone_cell / step * k, 2.0)
-    return imaging.dither(grid, dither, cell_px, halftone_angle), k
+    return imaging.dither(grid, dither, cell_px, halftone_angle, halftone_size), k
 
 
 def dots_count(w_mm, h_mm, dpi):

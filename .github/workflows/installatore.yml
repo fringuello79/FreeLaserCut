@@ -111,6 +111,22 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "versione sbagliata" }
           & $py -X utf8 -c "from PySide6.QtWidgets import QApplication; app = QApplication([]); from freelasercut.ui.main_window import MainWindow; w = MainWindow(); w.show(); app.processEvents(); print('finestra principale ok'); w.editor.dirty = False; w.close()"
           if ($LASTEXITCODE -ne 0) { throw "la finestra principale non si apre" }
+      # 0.19.0: le librerie compatibili per i processori più vecchi (NumPy 2.3 in python\Lib\site-compat) devono
+      # caricarsi e far aprire il programma. Qui si forzano con FLC_CPU_COMPAT=1 (il processore di GitHub è moderno).
+      # «continue-on-error»: riguarda solo i PC vecchi, non deve fermare la pubblicazione per tutti.
+      - name: Librerie compatibili per i processori più vecchi
+        continue-on-error: true
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          FLC_CPU_COMPAT: "1"
+        run: |
+          $dir = "$env:LOCALAPPDATA\Programs\FreeLaserCut"
+          if (-not (Test-Path "$dir\python\Lib\site-compat\numpy")) { throw "manca la cartella delle librerie compatibili" }
+          & "$dir\python\python.exe" -X utf8 -m freelasercut --self-test | Tee-Object -FilePath compat.txt
+          if (-not (Select-String -Path compat.txt -Pattern 'numpy 2\.3\.' -Quiet)) { throw "non è stata usata la NumPy compatibile" }
+          if (-not (Select-String -Path compat.txt -Pattern 'librerie compatibili: attive' -Quiet)) { throw "le librerie compatibili non risultano attive" }
+          if (-not (Select-String -Path compat.txt -Pattern 'ESITO: tutto a posto' -Quiet)) { throw "con le librerie compatibili il programma non si apre" }
       # 0.18.16: un errore d'avvio messo apposta, con il pythonw.exe installato (quello del collegamento, senza
       # finestra di testo): deve restare scritto in flc.log con i dati di sistema. Dura un paio di secondi.
       # «continue-on-error»: se questo controllo inciampa per un motivo suo, la pubblicazione non si ferma.

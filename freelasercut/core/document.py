@@ -79,6 +79,7 @@ class CutSettings:
     dot_correction: float = 0.0  # mm
     halftone_cell: float = 1.0  # mm
     halftone_angle: float = 45.0
+    halftone_size: float = 100.0  # % del diametro dei punti del retino (0.19.0): 100 = l'area segue lo scuro della foto
     image_start: str = "top"  # immagini: da dove parte (vedi IMAGE_STARTS)
     burn_curve: str = ""  # foto in scala di grigi: curva di un materiale imparato (core/burn_curve), "" = nessuna
 
@@ -100,6 +101,9 @@ class CutSettings:
             cs.image_start = "top"
         if not isinstance(cs.burn_curve, str):
             cs.burn_curve = ""
+        from .halftone import clamp_size
+
+        cs.halftone_size = clamp_size(cs.halftone_size)
         return cs
 
 

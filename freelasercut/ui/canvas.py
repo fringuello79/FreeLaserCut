@@ -326,6 +326,8 @@ class Canvas(QGraphicsView):
     jog_requested = Signal(float, float)  # frecce senza selezione: jog della testa
     edit_text = Signal(object)
     tool_changed = Signal(str)
+    tool_lock_changed = Signal(str)  # 0.19.0: nome dello strumento bloccato, "" quando si sblocca
+    LOCKABLE = ("line", "rect", "ellipse", "polygon", "star", "special")  # gli strumenti che disegnano forme e linee
     status = Signal(str)
     zoom_changed = Signal(float)
     context_requested = Signal(object, object)  # tasto destro senza trascinare: punto nella vista, punto sullo schermo
@@ -392,6 +394,7 @@ class Canvas(QGraphicsView):
         # stato interazione
         self.cursor_bed = QPointF(0, 0)
         self.snap_hint = None  # (QPointF piano, etichetta)
+        self.tool_lock = None  # 0.19.0: strumento di disegno bloccato con il doppio clic (resta attivo dopo ogni forma)
         self._snap_cache = None
         self._pan = None
         self._space = False
@@ -479,7 +482,9 @@ class Canvas(QGraphicsView):
         dith = self.dither_preview and cs is not None and cs.mode == "image"
         key = (leaf.image_id, round(leaf.brightness, 2), round(leaf.contrast, 2), round(leaf.gamma, 3),
                bool(cs and cs.negative), dith, cs.dither if dith else None, cs.dpi if dith else None,
-               round(leaf.w, 2) if dith else None, round(leaf.h, 2) if dith else None)
+               round(leaf.w, 2) if dith else None, round(leaf.h, 2) if dith else None,
+               # 0.19.0: cambiando cella, angolo o dimensione del punto del retino l'anteprima va rifatta
+               (cs.halftone_cell, cs.halftone_angle, cs.halftone_size) if dith and cs.dither == "halftone" else None)
         q = self._img_cache.get(key)
         if q is not None:
             return q
@@ -492,7 +497,8 @@ class Canvas(QGraphicsView):
 
             small = cv2.resize(dark, (nx, ny), interpolation=cv2.INTER_AREA)
             small = imaging.adjust(small, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
-            vals = imaging.dither(small, cs.dither, max(cs.halftone_cell / step, 2), cs.halftone_angle)
+            vals = imaging.dither(small, cs.dither, max(cs.halftone_cell / step, 2), cs.halftone_angle,
+                                  cs.halftone_size)
             lum = (1.0 - vals) * 255
         else:
             dark = imaging.adjust(dark, leaf.brightness, leaf.contrast, leaf.gamma, bool(cs and cs.negative))
@@ -556,9 +562,36 @@ class Canvas(QGraphicsView):
             self.fit_bed()
 
     # ================================================================ strumenti
+    def lock_tool(self, name):
+        """Doppio clic su uno strumento di disegno (0.19.0): resta attivo dopo ogni forma, per disegnarne tante di
+        seguito, finché non si preme Esc o si sceglie un altro strumento. -> True se lo strumento si può bloccare."""
+        if name not in self.LOCKABLE or name not in self.tools:
+            return False
+        if self.tool is not self.tools[name]:
+            self.set_tool(name)
+        self.tool_lock = name
+        self.tool_lock_changed.emit(name)
+        self.viewport().update()
+        return True
+
+    def unlock_tool(self):
+        if self.tool_lock is not None:
+            self.tool_lock = None
+            self.tool_lock_changed.emit("")
+            self.viewport().update()
+
+    def tool_done(self):
+        """Uno strumento di disegno ha finito una forma: si torna a Selezione, a meno che sia bloccato."""
+        if self.tool_lock is not None and self.tool is self.tools.get(self.tool_lock):
+            self.viewport().update()
+            return
+        self.set_tool("select")
+
     def set_tool(self, name):
         if name not in self.tools:
             return
+        if name != self.tool_lock:
+            self.unlock_tool()  # scelto un altro strumento: il blocco finisce
         if self.tool is not None:
             self.tool.deactivate()
         self.tool = self.tools[name]
@@ -763,6 +796,8 @@ class Canvas(QGraphicsView):
             self._space = True
             self.viewport().setCursor(Qt.OpenHandCursor)
             return
+        if e.key() == Qt.Key_Escape:
+            self.unlock_tool()  # Esc toglie sempre il blocco; poi lo strumento fa quello che faceva (torna a Selezione)
         if self.tool.key(e):
             self.viewport().update()
             return
@@ -942,6 +977,17 @@ class Canvas(QGraphicsView):
             p.setFont(style.ui_font(8))
             p.setPen(QColor("#FFD43B"))
             p.drawText(QPointF(v.x() + 9, v.y() - 8), label)
+        if self.tool_lock is not None:  # un cartellino accanto al cursore dice che lo strumento è bloccato
+            v = tf.map(self.cursor_bed)
+            text = tr("bloccato · Esc per finire")
+            p.setFont(style.ui_font(8))
+            w = p.fontMetrics().horizontalAdvance(text) + 10
+            box = QRectF(v.x() + 14, v.y() + 16, w, 17)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(47, 125, 246, 220))
+            p.drawRoundedRect(box, 4, 4)
+            p.setPen(QColor("#FFFFFF"))
+            p.drawText(box, Qt.AlignCenter, text)
         self._draw_rulers(p, tf)
         p.restore()
 

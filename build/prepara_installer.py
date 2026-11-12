@@ -45,6 +45,13 @@ PACKAGES = [
     "numba==0.68.1",
 ]
 
+# 0.19.0: librerie «di prima» per i processori senza le istruzioni x86-64-v2 (fino al 2008-2011 circa), che NumPy
+# dalla 2.4 dà per scontate. Vanno in python\\Lib\\site-compat e si usano solo su quei processori
+# (freelasercut/startup_guard.compat_libs). Devono andare d'accordo con le altre librerie qui sopra (numba: numpy < 2.6).
+COMPAT_PACKAGES = [
+    "numpy==2.3.5",
+]
+
 # cartelle che il programma non usa (strumenti per sviluppatori, Tk, file di sviluppo)
 TRIM_PYTHON = ["tcl", "include", "libs"]
 TRIM_SITE = ["bin", "share", "test", "tests"]
@@ -103,6 +110,19 @@ def main():
                            "--abi", "cp314", "--only-binary=:all:", "--upgrade", *PACKAGES])
     for d in TRIM_SITE:
         shutil.rmtree(os.path.join(site, d), ignore_errors=True)
+    step("Librerie compatibili per i processori più vecchi")
+    compat = os.path.join(py, "Lib", "site-compat")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--target", compat,
+                               "--platform", "win_amd64", "--python-version", "3.14", "--implementation", "cp",
+                               "--abi", "cp314", "--only-binary=:all:", "--no-deps", "--upgrade", *COMPAT_PACKAGES])
+        for d in TRIM_SITE:
+            shutil.rmtree(os.path.join(compat, d), ignore_errors=True)
+    except (subprocess.CalledProcessError, OSError) as exc:
+        # servono solo ai PC più vecchi: se non si riescono a scaricare, l'installatore per tutti si costruisce lo stesso
+        # (il programma se ne accorge e nei registri scrive «librerie compatibili: mancanti»)
+        print(f"ATTENZIONE: librerie compatibili non installate ({exc}): l'installatore ne farà a meno")
+        shutil.rmtree(compat, ignore_errors=True)
     pyside = os.path.join(site, "PySide6")
     for d in TRIM_PYSIDE:
         shutil.rmtree(os.path.join(pyside, d), ignore_errors=True)

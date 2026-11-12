@@ -60,7 +60,8 @@ check("nuovo avvio: la scelta resta e la webcam non si accende", w2.camera.choic
       and not probes, f"{probes} {opened}")
 cam.search(manual=True)
 until(lambda: probes and not cam._searching)
-check("⟳ cerca comunque, ma non accende niente da solo", probes and cam.src is None and cam.combo.count() == 3)
+check("⟳ cerca comunque, ma non accende niente da solo", probes and cam.src is None
+      and cam.combo.count() == 4)  # 0.19.0: nell'elenco c'è anche «Foto del piano dal telefono»
 i2 = cam.combo.findData(2)
 cam.combo.setCurrentIndex(i2); cam.combo.activated.emit(i2)
 check("scelta della camera 2: aperta e ricordata", cam.src is not None and cam.src.index == 2 and cam.choice() == 2)

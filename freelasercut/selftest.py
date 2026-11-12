@@ -33,6 +33,11 @@ def run():
 
         linux.startup()
         say(f"FreeLaserCut {__version__} — prova di avvio")
+        from . import startup_guard
+
+        cpu = startup_guard.cpu_line()  # 0.19.0: istruzioni del processore e librerie compatibili
+        if cpu:
+            say("  " + cpu)
         for mod in ("numpy", "cv2", "numba", "PIL", "serial", "pyclipper", "segno", "barcode", "ezdxf"):
             try:
                 m = __import__(mod)

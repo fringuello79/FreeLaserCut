@@ -17,7 +17,7 @@ from ..core import photo
 from ..core.document import DITHER_LABELS, DITHERS, LAYER_COLORS
 from ..theme import C
 from . import style
-from .widgets import section
+from .widgets import halftone_note, halftone_size_tip, section
 from freelasercut.i18n import tr  # noqa: E402
 
 PREVIEW_SIDE = 1100  # lato lungo dell'immagine usata per le anteprime (la foto vera si elabora solo ad Applica)
@@ -623,6 +623,42 @@ class PhotoDialog(QDialog):
             cb.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
             cb.setMinimumContentsLength(12)
         f.addRow(tr("Metodo"), self.dither)
+        # 0.19.0: con le mezzetinte cella, angolo e dimensione del punto si regolano qui, guardando l'anteprima (prima
+        # stavano solo nelle impostazioni del livello, e da qui non si vedevano)
+        from ..core import halftone as _ht
+
+        self.hcell = QDoubleSpinBox()
+        self.hcell.setRange(0.2, 10.0)
+        self.hcell.setDecimals(2)
+        self.hcell.setSingleStep(0.1)
+        self.hcell.setSuffix(" mm")
+        self.hcell.setValue(float(cs.halftone_cell))
+        self.hcell.setToolTip(tr("Solo con il metodo «Mezzetinte (retino)»: la foto diventa punti tondi, come nelle foto "
+                                 "dei giornali. La cella è la distanza fra un punto e l'altro: più grande = punti grossi e "
+                                 "ben visibili, più piccola = immagine più fine. Sul legno di solito 0,5–1 mm."))
+        self.hangle = QSpinBox()
+        self.hangle.setRange(0, 90)
+        self.hangle.setSingleStep(5)
+        self.hangle.setSuffix(" °")
+        self.hangle.setValue(int(round(cs.halftone_angle)))
+        self.hangle.setToolTip(tr("Solo con il metodo «Mezzetinte (retino)»: inclinazione della griglia dei punti. "
+                                  "45° è il classico e si nota meno a occhio. Non cambia il movimento della testa."))
+        self.hsize = QSpinBox()
+        self.hsize.setRange(int(_ht.SIZE_MIN), int(_ht.SIZE_MAX))
+        self.hsize.setSingleStep(5)
+        self.hsize.setSuffix(" %")
+        self.hsize.setValue(int(round(_ht.clamp_size(cs.halftone_size))))
+        self.hsize.setToolTip(halftone_size_tip())
+        self.hnote = QLabel()
+        self.hnote.setObjectName("muted")
+        self.hnote.setWordWrap(True)
+        self.hnote.setTextFormat(Qt.RichText)
+        self._ht_rows = (self.hcell, self.hangle, self.hsize, self.hnote)
+        f.addRow(tr("Retino: cella"), self.hcell)
+        f.addRow(tr("Retino: angolo"), self.hangle)
+        f.addRow(tr("Retino: dimensione del punto"), self.hsize)
+        f.addRow("", self.hnote)
+        self._form = f
         self.neg = QCheckBox(tr("Negativo"))
         self.neg.setToolTip(tr("Per i materiali che il laser schiarisce: ardesia, alluminio anodizzato"))
         self.neg.setChecked(cs.negative)
@@ -785,6 +821,12 @@ class PhotoDialog(QDialog):
         self.dpi.valueChanged.connect(self._learned_changed)
         self.dither.currentIndexChanged.connect(self._learned_changed)
         self._learned_changed()
+        for w in (self.hcell, self.hangle, self.hsize):
+            w.valueChanged.connect(self._later)
+        for w in (self.hcell, self.hsize, self.dpi):
+            w.valueChanged.connect(self._halftone_changed)
+        self.dither.currentIndexChanged.connect(self._halftone_changed)
+        self._halftone_changed()
         for w in (self.fx_strength, self.fx_detail):
             w.valueChanged.connect(self._later)
         self.tones.valueChanged.connect(self._later)
@@ -1036,13 +1078,30 @@ class PhotoDialog(QDialog):
     def adjust(self):
         return dict(brightness=float(self.bri.value()), contrast=float(self.con.value()), gamma=self.gam.value() / 100.0)
 
+    def _halftone_changed(self, *_):
+        """Cella, angolo e dimensione del punto si vedono solo con le mezzetinte, con sotto le misure dei punti."""
+        on = self.dither.currentData() == "halftone"
+        for w in self._ht_rows:
+            self._form.setRowVisible(w, on)
+        self.hnote.setText(halftone_note(self.hcell.value(), self.hsize.value(), self.dpi.value()) if on else "")
+
     def layer_values(self):
         lv = dict(dither=self.dither.currentData(), dpi=float(self.dpi.value()), negative=self.neg.isChecked(),
                   burn_curve=self.learned.currentData() or "")
+        if lv["dither"] == "halftone":  # con gli altri metodi il retino del livello resta com'è
+            lv.update(halftone_cell=float(self.hcell.value()), halftone_angle=float(self.hangle.value()),
+                      halftone_size=float(self.hsize.value()))
         pw = self.learned_powers()
         if pw is not None and self.learned_pw.isChecked():
             lv["power_min"], lv["power_max"] = pw
         return lv
+
+    def halftone_values(self, lv):
+        """Il retino per l'anteprima: quello scelto qui se il metodo è «Mezzetinte», altrimenti quello del livello."""
+        cs = self.cs
+        return dict(halftone_cell=lv.get("halftone_cell", cs.halftone_cell),
+                    halftone_angle=lv.get("halftone_angle", cs.halftone_angle),
+                    halftone_size=lv.get("halftone_size", cs.halftone_size))
 
     def learned_curve(self):
         from ..core import burn_curve
@@ -1145,13 +1204,11 @@ class PhotoDialog(QDialog):
             if self.real.isChecked():
                 full = self._full_proc(st)  # punti veri: serve la foto vera
                 dots_img, k = photo.engrave_preview(full, w_mm, h_mm, dpi, lv["dither"], negative=lv["negative"],
-                                                    region=(0.4, 0.4, 0.6, 0.6), halftone_cell=self.cs.halftone_cell,
-                                                    halftone_angle=self.cs.halftone_angle, **a)
+                                                    region=(0.4, 0.4, 0.6, 0.6), **self.halftone_values(lv), **a)
                 self.v_res.note = tr("zona centrale 1:1")
             else:
                 dots_img, k = photo.engrave_preview(proc, w_mm, h_mm, dpi, lv["dither"], negative=lv["negative"],
-                                                    halftone_cell=self.cs.halftone_cell,
-                                                    halftone_angle=self.cs.halftone_angle, **a)
+                                                    **self.halftone_values(lv), **a)
                 self.v_res.note = tr("ridotta") if k < 0.999 else ""
         except Exception as ex:  # noqa: BLE001
             self.info.setText(tr("Errore: {0}", ex))
@@ -1212,8 +1269,7 @@ class PhotoDialog(QDialog):
         lv, a = ctx["lv"], ctx["a"]
         try:
             dots, _k = photo.engrave_preview(self._full_proc(ctx["st"]), ctx["w_mm"], ctx["h_mm"], ctx["dpi"], lv["dither"],
-                                             negative=lv["negative"], region=reg, halftone_cell=self.cs.halftone_cell,
-                                             halftone_angle=self.cs.halftone_angle, **a)
+                                             negative=lv["negative"], region=reg, **self.halftone_values(lv), **a)
         except Exception:  # noqa: BLE001 — resta l'anteprima ridotta
             return
         v.detail = (self._tint(dots, lv["negative"]), reg)

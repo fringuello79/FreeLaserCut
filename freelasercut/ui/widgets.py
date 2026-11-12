@@ -239,3 +239,30 @@ def row(*widgets, stretch=True, spacing=6):
     if stretch:
         h.addStretch(1)
     return w
+
+
+# ================================================================ mezzetinte: le misure dei punti (0.19.0)
+def halftone_size_tip():
+    return tr("Solo con il metodo «Mezzetinte (retino)»: ingrandisce o rimpicciolisce tutti i punti lasciando ferma la "
+              "distanza fra loro (la cella). 100% = il punto è grande quanto è scura la foto in quel posto. Più di "
+              "100% = punti più grossi, incisione più scura; meno di 100% = punti più piccoli e staccati, incisione "
+              "più chiara.")
+
+
+def halftone_note(cell_mm, size_pct, dpi):
+    """Le misure dei punti del retino, in parole, con gli avvisi quando servono (testo con il grassetto)."""
+    from ..core import halftone
+
+    d = halftone.dots(cell_mm, size_pct, dpi)
+    text = tr("Punti del retino: il più grande {0:.2f} mm (nero pieno), il più piccolo {1:.2f} mm (zone chiare). "
+              "Righe a {2:.2f} mm.", d["big"], d["small"], d["step"])
+    if d["merged"]:
+        text += " " + tr("Nel nero pieno i punti si fondono: nessun bianco fra loro.")
+    if d["clamped"]:
+        text += "<br>⚠ " + tr("La cella è più stretta di due righe: viene usata una cella di {0:.2f} mm. Aumenta la "
+                              "cella o la risoluzione.", d["cell"])
+    elif d["fine"]:
+        text += "<br>⚠ " + tr("Nelle zone chiare i punti sarebbero più fini di una riga: lì il laser fa puntini singoli "
+                              "e irregolari. Per averli tondi anche nei chiari aumenta la cella, la dimensione del punto "
+                              "o la risoluzione.")
+    return text

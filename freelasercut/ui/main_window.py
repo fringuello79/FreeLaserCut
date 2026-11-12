@@ -425,7 +425,7 @@ class MainWindow(QMainWindow):
             a.setShortcut(QKeySequence(key))
             a.setToolTip(f"{label}  ({key})")
             a.setCheckable(True)
-            a.triggered.connect(lambda _=False, n=name: self.canvas.set_tool(n))
+            a.triggered.connect(lambda _=False, n=name: self._pick_tool(n))
             grp.addAction(a)
             self.addAction(a)
             self.tool_actions[name] = a
@@ -1132,6 +1132,21 @@ class MainWindow(QMainWindow):
             self.canvas.clear_preview()
             self.canvas.clear_trail()  # la traccia del lavoro finito non corrisponde più al disegno
 
+    def _pick_tool(self, name):
+        """Un clic sceglie lo strumento. Due clic di fila sullo stesso strumento di disegno (doppio clic sul pulsante,
+        o due volte il tasto) lo bloccano (0.19.0): resta attivo dopo ogni forma, fino a Esc o a un altro strumento."""
+        now = time.monotonic()
+        stack = self.editor.undo_stack
+        stamp = id(stack[-1]) if stack else 0  # fra i due clic non deve essere stato disegnato niente
+        last_name, last_t, last_stamp = getattr(self, "_tool_pick", ("", 0.0, 0))
+        self._tool_pick = (name, now, stamp)
+        if (last_name == name and stamp == last_stamp and now - last_t <= QApplication.doubleClickInterval() / 1000.0
+                and self.canvas.lock_tool(name)):
+            self.statusBar().showMessage(tr("Strumento bloccato: disegna quante forme vuoi. Esc o un altro strumento per "
+                                            "finire."), 8000)
+            return
+        self.canvas.set_tool(name)
+
     def _tool_changed(self, name):
         if not self.editor.selection:
             self.props.rebuild()
@@ -1515,7 +1530,7 @@ class MainWindow(QMainWindow):
         return self.nest_manual_start()
 
     def nest_manual_start(self, parts=None):
-        """Nesting manuale: si disegna l'area sul piano; alla chiusura si apre «Ottimizza lo spazio» su quell'area."""
+        """Nesting manuale: si disegna l'area sul piano e, nella stessa finestra, si dispongono i pezzi."""
         from . import nest_manual
 
         # 0.18.17: solo i pezzi selezionati prima di scegliere il comando; senza selezione non parte
@@ -1526,24 +1541,15 @@ class MainWindow(QMainWindow):
             return None
         panel = nest_manual.NestAreaPanel(self, parts)
         self._nest_panel = panel
-        panel.done.connect(lambda shape, pr=parts: self._nest_area_done(shape, pr))
+        panel.done.connect(self._nest_manual_done)
         self.statusBar().showMessage(tr("Nesting manuale: clicca sul piano lungo il bordo del materiale per disegnare "
                                         "l'area"), 10000)
         return panel.start()
 
-    def _nest_area_done(self, shape, parts):
+    def _nest_manual_done(self, *_):
+        """0.19.0: area e «Disponi» stanno nella stessa finestra (nest_manual.NestAreaPanel); qui arriva solo la
+        fine del comando."""
         self._nest_panel = None
-        if shape is None:
-            return None
-        from .dialogs_nest import NestDialog
-
-        dlg = NestDialog(self, manual=shape)
-        self._nest_manual_dlg = dlg
-        if not os.environ.get("FLC_NO_DIALOGS"):
-            dlg.exec()
-            if dlg.again:  # l'area non bastava: se ne disegna un'altra, con gli stessi pezzi
-                QTimer.singleShot(0, lambda: self.nest_manual_start(dlg.parts))
-        return dlg
 
     def along_path_dialog(self):
         n, ok = QInputDialog.getInt(self, tr("Copia lungo un tracciato"), tr("Numero di copie:"), 10, 1, 1000)
@@ -1631,6 +1637,8 @@ class MainWindow(QMainWindow):
                     c = doc.layer(img.layer)
                     c.mode = "image"
                     c.dither, c.dpi, c.negative = lay["dither"], lay["dpi"], lay["negative"]
+                    for f_ in ("halftone_cell", "halftone_angle", "halftone_size"):  # 0.19.0: retino scelto nella finestra
+                        setattr(c, f_, lay.get(f_, getattr(c, f_)))
                     c.burn_curve = lay.get("burn_curve", c.burn_curve)
                     if "power_max" in lay:  # potenza consigliata per il materiale imparato
                         c.power_min, c.power_max = lay["power_min"], lay["power_max"]
@@ -1704,9 +1712,9 @@ class MainWindow(QMainWindow):
                 for k, (m, li) in enumerate(zip(methods, free)):
                     c = doc.layer(li)
                     for f_ in ("speed", "power_max", "power_min", "passes", "air", "dpi", "negative", "dot_correction",
-                               "halftone_cell", "halftone_angle", "bidirectional", "overscan", "image_start",
-                               "burn_curve"):
-                        setattr(c, f_, getattr(cs, f_))
+                               "halftone_cell", "halftone_angle", "halftone_size", "bidirectional", "overscan",
+                               "image_start", "burn_curve"):
+                        setattr(c, f_, lay.get(f_, getattr(cs, f_)) if f_.startswith("halftone_") else getattr(cs, f_))
                     c.mode, c.dither, c.dpi, c.negative = "image", m, lay["dpi"], lay["negative"]
                     c.burn_curve = lay.get("burn_curve", c.burn_curve)
                     if "power_max" in lay:  # potenza consigliata per il materiale imparato
@@ -3317,6 +3325,15 @@ class MainWindow(QMainWindow):
             return None
         dlg.raise_()
         return dlg.analyze_image(decode_image(data))
+
+    def plate_from_phone(self, data):
+        """0.19.0: foto del piano di lavoro arrivata dal telefono: va al pannello Camera, che la fa allineare sui 4
+        angoli e la mette sotto il piano."""
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
+        return self.camera.plate_photo(data)
 
     def fire_guard_dialog(self, *_):
         """Laser → Guardia fiamme (attivazione, sensibilità e prova dal vivo con la camera)."""

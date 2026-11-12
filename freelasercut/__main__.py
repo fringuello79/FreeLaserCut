@@ -5,6 +5,11 @@ import sys
 
 
 def boot():
+    # 0.19.0: prima di tutto, su un processore troppo vecchio per le librerie nuove si mettono davanti quelle
+    # compatibili (vedi startup_guard.compat_libs). Sui PC normali non fa niente.
+    from . import startup_guard as guard
+
+    guard.compat_libs()
     if "--self-test" in sys.argv[1:]:  # 0.18.0: prova di avvio (workflow e versione per Linux)
         from . import selftest
 
@@ -12,8 +17,6 @@ def boot():
         return
     # 0.18.16: da qui in poi qualsiasi errore finisce in flc.log (o flc_crash.log) e viene mostrato, anche se Qt non
     # si carica. Gli import di Qt stanno qui dentro, non in testa al file, proprio per questo.
-    from . import startup_guard as guard
-
     guard.install()
     guard.stage("lingua")
     from . import i18n

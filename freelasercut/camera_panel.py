@@ -13,7 +13,10 @@ from PySide6.QtWidgets import (
 )
 
 from . import camera as camera_mod
-from .camera import SIM_CAMERA, AutoCam, CameraSource, NetCamera, SimCamera, camera_file, is_net, list_cameras
+from . import plate_photo
+from .camera import (
+    PHONE_CAMERA, SIM_CAMERA, AutoCam, CameraSource, NetCamera, PhonePhoto, SimCamera, camera_file, is_net, list_cameras,
+)
 from .camera_calib import CameraModel
 from .theme import C, css
 from freelasercut.i18n import tr  # noqa: E402
@@ -42,6 +45,9 @@ class CameraPanel(QWidget):
         self.detected = []
         self.cameras = []
         self._searching = False
+        self.phone_top = None  # 0.19.0: la foto dal telefono già raddrizzata sull'area di lavoro
+        self.phone_corners = None
+        self._plate_dlg = None
         if os.path.exists(camera_file()):
             try:
                 self.model, self.saved = CameraModel.load(camera_file())
@@ -76,6 +82,19 @@ class CameraPanel(QWidget):
         cl.addLayout(row)
         self.state = muted(tr("Cerco le telecamere…"))
         cl.addWidget(self.state)
+        # 0.19.0: con «Foto del piano dal telefono» un collegamento discreto apre il codice QR del telefono
+        self.phone_link = QLabel()
+        self.phone_link.setTextFormat(Qt.RichText)
+        self.phone_link.setText(f"<a href='#' style='color:{C['accent_hi']}'>" + tr("Apri il codice QR per il telefono")
+                                + "</a>")
+        self.phone_link.setCursor(Qt.PointingHandCursor)
+        self.phone_link.linkActivated.connect(lambda *_: self.open_phone())
+        self.phone_link.hide()
+        cl.addWidget(self.phone_link)
+        self.b_again = QPushButton(tr("Indica di nuovo i 4 angoli…"))
+        self.b_again.clicked.connect(lambda: self.align_phone_photo())
+        self.b_again.hide()
+        cl.addWidget(self.b_again)
         lay.addWidget(cc_)
 
         # --- foto sul piano
@@ -107,6 +126,16 @@ class CameraPanel(QWidget):
         self.method.addItem(tr("Automatico (consigliato)"), "auto")
         self.method.addItem(tr("Solo puntino laser (non incide)"), "spot")
         self.method.addItem(tr("Solo bersaglio inciso su cartone"), "target")
+        # 0.19.0: la telecamera così com'è, senza calibrarla: per guardare il piano, non per posizionare
+        self.method.addItem(tr("Mostra senza calibrazione"), "raw")
+        self.method.setItemData(self.method.count() - 1,
+                                tr("La telecamera si vede sotto il piano così com'è, senza calibrazione: utile per "
+                                   "dare un'occhiata. Non è allineata al piano: non usarla per posizionare i pezzi."),
+                                Qt.ToolTipRole)
+        qs_ = getattr(window, "qs", None)
+        if qs_ is not None and qs_.value("camera_raw", "false") in (True, "true"):
+            self.method.setCurrentIndex(self.method.findData("raw"))
+        self.method.currentIndexChanged.connect(self._method_changed)
         mrow.addWidget(self.method, 1)
         kl.addLayout(mrow)
         brow = QHBoxLayout()
@@ -171,8 +200,8 @@ class CameraPanel(QWidget):
         if qs is None:
             return
         idx = self.combo.currentData()
-        if idx == SIM_CAMERA:
-            return  # la camera simulata non è una scelta da ricordare
+        if idx in (SIM_CAMERA, PHONE_CAMERA):
+            return  # la camera simulata e la foto dal telefono non sono scelte da ricordare
         qs.setValue("camera_choice", "none" if idx is None else idx if is_net(idx) else int(idx))
 
     # ---------------------------------------------------------------- ricerca
@@ -183,9 +212,16 @@ class CameraPanel(QWidget):
             # «Nessuna telecamera» scelta dalla persona: all'avvio e alla connessione non apro nessuna camera
             # (cercarle accende per un attimo anche la webcam del PC). Il pulsante ⟳ cerca comunque.
             self.combo.blockSignals(True)
+            keep_phone = self.is_phone()
             self.combo.clear()
             self.combo.addItem(tr("Nessuna telecamera"), None)
+            self.combo.addItem(tr("📱 Foto del piano dal telefono"), PHONE_CAMERA)
+            if keep_phone:
+                self.combo.setCurrentIndex(1)
             self.combo.blockSignals(False)
+            if keep_phone:
+                self.update_state()
+                return
             self._close_src()
             self.update_state()
             self.state.setText(tr("Telecamera spenta (scelta tua). Per usarne una premi ⟳ e sceglila."))
@@ -288,7 +324,7 @@ class CameraPanel(QWidget):
         self._searching = False
         self.combo.setEnabled(True)
         current = self.combo.currentData()
-        if self.src is not None and self.src.index != SIM_CAMERA:
+        if self.src is not None and self.src.index not in (SIM_CAMERA, PHONE_CAMERA):
             frame = self.src.get(after=0, timeout=0.5)
             if frame is not None:
                 h, w = frame.shape[:2]
@@ -310,6 +346,7 @@ class CameraPanel(QWidget):
                 self.combo.addItem(label, idx)
             else:
                 self.combo.addItem(QIcon(QPixmap.fromImage(to_qimage(thumb))), label, idx)
+        self.combo.addItem(tr("📱 Foto del piano dal telefono"), PHONE_CAMERA)
         if self.ctl.sim is not None:
             self.combo.addItem(tr("Camera simulata (per provare AutoCam)"), SIM_CAMERA)
         self.combo.blockSignals(False)
@@ -346,7 +383,17 @@ class CameraPanel(QWidget):
         if self.src is not None and getattr(self.src, "index", None) == idx and idx != SIM_CAMERA:
             return
         self._close_src()
+        self.phone_top = self.phone_corners = None
         if idx is None:
+            self.update_state()
+            if self.chk_live.isChecked():
+                self.chk_live.setChecked(False)
+            return
+        if idx == PHONE_CAMERA:  # la foto arriva dal telefono: niente da aprire e niente calibrazione AutoCam
+            self.src = PhonePhoto()
+            self.phone_top = self.phone_corners = None
+            self.win.bed.clear_camera()
+            self.chk_live.setChecked(False)
             self.update_state()
             return
         try:
@@ -383,19 +430,123 @@ class CameraPanel(QWidget):
         self.update_state()
         if self.model is not None:
             self.chk_live.setChecked(True)
+        elif self.chk_live.isChecked() and not self.can_show():
+            self.chk_live.setChecked(False)  # 0.19.0: quello che c'era sotto il piano era di un'altra sorgente
 
     def _close_src(self):
         if self.src is not None:
             self.src.close()
         self.src = None
 
+    # ---------------------------------------------------------------- senza calibrazione, foto dal telefono (0.19.0)
+    def is_phone(self):
+        return self.src is not None and getattr(self.src, "index", None) == PHONE_CAMERA
+
+    def is_raw(self):
+        return self.method.currentData() == "raw" and not self.is_phone()
+
+    def can_show(self):
+        """C'è qualcosa da mettere sotto il piano? Foto dal telefono allineata, telecamera senza calibrazione, oppure
+        telecamera calibrata."""
+        if self.src is None:
+            return False
+        if self.is_phone():
+            return self.phone_top is not None
+        return self.is_raw() or self.model is not None
+
+    def bed_size(self):
+        p = self.win.profile
+        return (float(p.bed_x), float(p.bed_y))
+
+    def _method_changed(self, *_):
+        qs = getattr(self.win, "qs", None)
+        if qs is not None:
+            qs.setValue("camera_raw", self.method.currentData() == "raw")
+        self.update_state()
+        if self.chk_live.isChecked():
+            if self.can_show():
+                self.snapshot()
+            else:  # tolto «senza calibrazione» e la telecamera non è calibrata: sotto il piano non resta niente
+                self.chk_live.setChecked(False)
+
+    def open_phone(self):
+        """«Apri il codice QR per il telefono»: la finestra del controllo dal telefono (lì si accende la pagina)."""
+        fn = getattr(self.win, "phone_dialog", None)
+        return fn() if fn is not None else None
+
+    def plate_photo(self, data):
+        """Una foto del piano arrivata dal telefono. -> True se è una foto (e si passa ai 4 angoli)."""
+        frame = plate_photo.decode(data)
+        if frame is None:
+            self.win.statusBar().showMessage(tr("Dal telefono è arrivato un file che non è una foto."), 8000)
+            return False
+        i = self.combo.findData(PHONE_CAMERA)
+        if not self.is_phone() and i >= 0:
+            self.combo.setCurrentIndex(i)  # chi manda la foto dal telefono vuole vederla: scelgo io la voce
+        if not self.is_phone():
+            return False
+        self.src.set(frame)
+        self.phone_top = self.phone_corners = None
+        self.update_state()
+        self.win.statusBar().showMessage(tr("Foto del piano arrivata dal telefono: indica i 4 angoli dell'area di "
+                                            "lavoro."), 10000)
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            self.align_phone_photo()
+        return True
+
+    def align_phone_photo(self, corners=None):
+        """I 4 angoli dell'area di lavoro sulla foto del telefono: con una finestra, oppure dati (prove, comandi).
+        -> True se la foto è stata raddrizzata e messa sotto il piano."""
+        frame = self.src.get() if self.is_phone() else None
+        if frame is None:
+            return False
+        if corners is None:
+            from .ui.dialogs_plate import PlateCornersDialog
+
+            dlg = self._plate_dlg = PlateCornersDialog(frame, self.bed_size(), self.win)
+            ok = dlg.exec() == QDialog.Accepted
+            corners = dlg.corners() if ok else None
+            self._plate_dlg = None
+        if corners is None or plate_photo.check_corners(corners, (frame.shape[1], frame.shape[0])) is not None:
+            return False
+        self.phone_corners = [tuple(c) for c in corners]
+        self.phone_top = plate_photo.rectify(frame, self.phone_corners, self.bed_size(), PPM)
+        self.update_state()
+        if self.chk_live.isChecked():
+            self.snapshot()
+        else:
+            self.chk_live.setChecked(True)
+        return True
+
     def update_state(self):
         cam_ok = self.src is not None
         cal_ok = self.model is not None
-        self.chk_live.setEnabled(cam_ok and cal_ok)
-        self.btn_shot.setEnabled(cam_ok and cal_ok)
-        self.btn_cal.setEnabled(cam_ok and self.ctl.connected and self.autocam is None)
-        self.btn_manual.setEnabled(cam_ok and self.ctl.connected and self.autocam is None)
+        phone, raw = self.is_phone(), self.is_raw()
+        self.chk_live.setEnabled(self.can_show())
+        self.btn_shot.setEnabled(self.can_show() and not phone)
+        self.btn_cal.setEnabled(cam_ok and self.ctl.connected and self.autocam is None and not phone and not raw)
+        self.btn_manual.setEnabled(cam_ok and self.ctl.connected and self.autocam is None and not phone and not raw)
+        self.method.setEnabled(not phone)
+        self.phone_link.setVisible(phone)
+        self.b_again.setVisible(phone and self.src.get() is not None)
+        if phone:
+            if self.phone_top is not None:
+                self.state.setText(tr("Foto dal telefono delle {0}, allineata a mano sui 4 angoli: precisione "
+                                      "indicativa.", time.strftime("%H:%M", time.localtime(self.src.time))))
+                self.state.setStyleSheet(f"color:{C['success']};")
+            elif self.src.get() is not None:
+                self.state.setText(tr("Foto arrivata: indica i 4 angoli dell'area di lavoro per metterla sotto il piano."))
+                self.state.setStyleSheet(f"color:{C['warn']};")
+            else:
+                self.state.setText(tr("Nessuna foto ancora. Apri sul telefono la pagina di FreeLaserCut e tocca «Foto "
+                                      "del piano di lavoro»: fotografa il piano dall'alto, con tutta l'area dentro."))
+                self.state.setStyleSheet(f"color:{C['warn']};")
+            return
+        if cam_ok and raw:
+            self.state.setText(tr("Telecamera mostrata così com'è: NON è allineata al piano. Va bene per guardare, non "
+                                  "per posizionare i pezzi: per quello serve la calibrazione."))
+            self.state.setStyleSheet(f"color:{C['warn']};")
+            return
         if not cam_ok:
             self.state.setText(tr("Nessuna telecamera selezionata"))
         elif cal_ok:
@@ -413,7 +564,7 @@ class CameraPanel(QWidget):
     def _hint(self):
         """0.18.1: spiegazione quando la telecamera non dà un'immagine utile (nera, o la rete non risponde)."""
         src = self.src
-        if src is None or self.autocam is not None:
+        if src is None or self.autocam is not None or self.is_phone():
             return
         if isinstance(src, NetCamera) and src.error and src.get(after=0, timeout=0) is None:
             text = tr("La telecamera di rete non manda la foto: {0}. Durante un lavoro alcuni laser non mandano "
@@ -440,11 +591,16 @@ class CameraPanel(QWidget):
         frame = self.src.get(after=0, timeout=0.05)
         if frame is None:
             return
-        if self.model is not None and tuple(self.model.frame_size) != tuple(self.src.size):
+        if self.is_phone():  # una foto ferma: sotto il piano c'è già, qui serve solo l'anteprima
+            if self.isVisible():
+                self._show_preview(frame)
+            return
+        if (self.model is not None and not self.is_raw()
+                and tuple(self.model.frame_size) != tuple(self.src.size)):
             self.state.setText(tr("La risoluzione della camera è cambiata: ricalibra"))
         if self.isVisible():
             self._show_preview(frame)
-        if self.chk_live.isChecked() and self.model is not None:
+        if self.chk_live.isChecked() and self.can_show():
             self._show_on_bed(frame)
 
     def _show_preview(self, frame):
@@ -456,11 +612,20 @@ class CameraPanel(QWidget):
         self.preview.setPixmap(QPixmap.fromImage(to_qimage(cv2.resize(view, (w, h)))))
 
     def _show_on_bed(self, frame):
-        top = self.model.rectify(frame, PPM)
-        self.win.bed.set_camera_image(to_qimage(top), PPM, self.opacity.value() / 100)
+        if self.is_phone():
+            top = self.phone_top  # raddrizzata sui 4 angoli indicati a mano
+        elif self.is_raw():
+            top = plate_photo.fit_raw(frame, self.bed_size(), PPM)  # così com'è, intera, non allineata
+        else:
+            top = self.model.rectify(frame, PPM)
+        if top is not None:
+            self.win.bed.set_camera_image(to_qimage(top), PPM, self.opacity.value() / 100)
 
     def snapshot(self):
-        if self.src is None or self.model is None:
+        if not self.can_show():
+            return
+        if self.is_phone():
+            self._show_on_bed(None)
             return
         frame = self.src.get(after=time.time(), timeout=2)
         if frame is not None:

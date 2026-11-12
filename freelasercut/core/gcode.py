@@ -775,7 +775,8 @@ def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
     spread = compact > 1 and compact_spreads(cs.dither)
     if spread:  # 0.17.2: dithering su punti lunghi k lungo la riga (la diffusione dell'errore li mette dove servono)
         grid = _block_mean(grid, int(compact), scan_axis)
-    vals = imaging.dither(grid[::-1].copy(), cs.dither, cell_px, cs.halftone_angle)[::-1]  # dithering dall'alto
+    vals = imaging.dither(grid[::-1].copy(), cs.dither, cell_px, cs.halftone_angle,
+                          getattr(cs, "halftone_size", 100.0))[::-1]  # dithering dall'alto
     if spread:
         vals = np.repeat(vals, int(compact), axis=scan_axis)[:ny, :nx]
     pmin, pmax = cs.power_min, cs.power_max

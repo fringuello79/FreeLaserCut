@@ -233,18 +233,18 @@ ed.select(big)
 u0 = len(ed.undo_stack)
 before_all = pos(ed.doc.shapes)
 dlg = draw([(40, 40), (110, 40), (75, 90)])
-dlg.ask_new_area = lambda left, total: False
 r = dlg.run()
+dlg.reject()  # 0.19.0: la scelta si fa nella stessa finestra
 check("l'area non basta + «Annulla»: niente spostato, contorno sparito, nessun passo nella cronologia",
       r is None and not dlg.again and not tool_shapes() and pos(ed.doc.shapes) == before_all and len(ed.undo_stack) == u0)
 check("…i pezzi restano selezionati", ed.selection == big)
 dlg = draw([(40, 40), (110, 40), (75, 90)])
-dlg.ask_new_area = lambda left, total: True
 r = dlg.run()
-check("l'area non basta + «Disegna una nuova area»: contorno sparito, nessun passo nella cronologia, stessi pezzi",
+dlg.redraw()
+check("l'area non basta + «Ridisegna l'area»: contorno sparito, nessun passo nella cronologia, stessi pezzi",
       r is None and dlg.again and not tool_shapes() and len(ed.undo_stack) == u0 and dlg.parts == big)
-panel = w.nest_manual_start(dlg.parts)
-check("la nuova area si disegna con gli stessi pezzi", panel is not None and panel.parts == big)
+panel = w._nest_panel
+check("la nuova area si disegna con gli stessi pezzi", panel is not None and panel.parts == big and panel.step == 1)
 panel.cancel()
 check("disegno annullato: niente cambia", not tool_shapes() and pos(ed.doc.shapes) == before_all and len(ed.undo_stack) == u0)
 ed.doc.remove([big[0]])

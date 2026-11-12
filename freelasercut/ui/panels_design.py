@@ -50,7 +50,7 @@ from ..theme import C, css
 from . import style
 from .canvas import TOOL_LAYER_COLOR
 from .editor import TOOL_LAYER
-from .widgets import AnchorPicker, NumField, Swatch, hline, row, section
+from .widgets import AnchorPicker, NumField, Swatch, halftone_note, halftone_size_tip, hline, row, section
 
 
 # ======================================================================= barra numerica
@@ -584,11 +584,24 @@ class CutSettingsDialog(QDialog):
         self.hangle = _spin(0, 90, cs.halftone_angle, 0, 5, " °")
         self.hangle.setToolTip(tr("Solo con il metodo «Mezzetinte (retino)»: inclinazione della griglia dei punti. "
                                   "45° è il classico e si nota meno a occhio. Non cambia il movimento della testa."))
+        from ..core import halftone as _ht
+
+        self.hsize = _spin(_ht.SIZE_MIN, _ht.SIZE_MAX, _ht.clamp_size(cs.halftone_size), 0, 5, " %")
+        self.hsize.setToolTip(halftone_size_tip())
         self.hcell_name = QLabel(tr("Retino: cella"))
         self.hangle_name = QLabel(tr("Retino: angolo"))
-        for lab_, w_ in ((self.hcell_name, self.hcell), (self.hangle_name, self.hangle)):
+        self.hsize_name = QLabel(tr("Retino: dimensione del punto"))
+        for lab_, w_ in ((self.hcell_name, self.hcell), (self.hangle_name, self.hangle), (self.hsize_name, self.hsize)):
             lab_.setToolTip(w_.toolTip())
             iff.addRow(lab_, w_)
+        # 0.19.0: le misure dei punti che ne escono, aggiornate a ogni ritocco di cella, dimensione o risoluzione
+        self.hnote = QLabel()
+        self.hnote.setObjectName("muted")
+        self.hnote.setWordWrap(True)
+        self.hnote.setTextFormat(Qt.RichText)
+        iff.addRow("", self.hnote)
+        for w_ in (self.hcell, self.hsize, self.dpi):
+            w_.valueChanged.connect(self._halftone_note)
         self.dither.currentIndexChanged.connect(self._dither_changed)
         from ..core import burn_curve as _bc
 
@@ -635,12 +648,18 @@ class CutSettingsDialog(QDialog):
     def _dither_changed(self, *_):
         """Cella e angolo del retino servono solo alle mezzetinte: con gli altri metodi restano grigi."""
         on = self.dither.currentData() == "halftone"
-        for w_ in (self.hcell, self.hangle, self.hcell_name, self.hangle_name):
+        for w_ in (self.hcell, self.hangle, self.hsize, self.hcell_name, self.hangle_name, self.hsize_name):
             w_.setEnabled(on)
+        self._halftone_note()
         if hasattr(self, "curve"):
             gray = self.dither.currentData() == "grayscale"
             self.curve.setEnabled(gray)
             self.curve_name.setEnabled(gray)
+
+    def _halftone_note(self, *_):
+        on = self.dither.currentData() == "halftone"
+        self.hnote.setText(halftone_note(self.hcell.value(), self.hsize.value(), self.dpi.value()) if on else "")
+        self.hnote.setVisible(on)
 
     def _mode_tab(self):
         m = self.mode.currentData()
@@ -662,6 +681,7 @@ class CutSettingsDialog(QDialog):
                     fill_grouping=self.grouping.currentData(), dpi=self.dpi.value(), dither=self.dither.currentData(),
                     negative=self.negative.isChecked(), dot_correction=self.dotc.value(),
                     halftone_cell=self.hcell.value(), halftone_angle=self.hangle.value(),
+                    halftone_size=self.hsize.value(),
                     image_start=self.istart.currentData() or "top", burn_curve=self.curve.currentData() or "")
 
 

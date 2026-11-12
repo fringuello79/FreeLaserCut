@@ -78,8 +78,9 @@ def adjust(dark, brightness=0.0, contrast=0.0, gamma=1.0, negative=False):
     return np.clip(d, 0.0, 1.0)
 
 
-def dither(dark, method, cell_px=6.0, angle=45.0):
-    """dark 0..1 -> per 'grayscale' potenza 0..1; altrimenti 0/1 (punto acceso)."""
+def dither(dark, method, cell_px=6.0, angle=45.0, dot_size=100.0):
+    """dark 0..1 -> per 'grayscale' potenza 0..1; altrimenti 0/1 (punto acceso).
+    dot_size (0.19.0): solo per le mezzetinte, dimensione del punto in % (100 = l'area del punto segue lo scuro)."""
     if method == "grayscale":
         return dark.astype(np.float32)
     if method == "threshold":
@@ -89,7 +90,7 @@ def dither(dark, method, cell_px=6.0, angle=45.0):
         tile = np.tile(_BAYER8, (h // 8 + 1, w // 8 + 1))[:h, :w]
         return (dark > tile).astype(np.float32)
     if method == "halftone":
-        return _halftone(dark, cell_px, angle)
+        return _halftone(dark, cell_px, angle, dot_size)
     kern, div = KERNELS.get(method, KERNELS["floyd"])
     kx = np.array([k[0] for k in kern], np.int64)
     ky = np.array([k[1] for k in kern], np.int64)
@@ -100,8 +101,11 @@ def dither(dark, method, cell_px=6.0, angle=45.0):
     return (1 - out).astype(np.float32)
 
 
-def _halftone(dark, cell, angle):
-    """Retino a punti tondi: l'area del punto è proporzionale allo scuro medio della cella."""
+def _halftone(dark, cell, angle, dot_size=100.0):
+    """Retino a punti tondi: l'area del punto è proporzionale allo scuro medio della cella. dot_size (%) ingrandisce
+    o rimpicciolisce tutti i punti lasciando ferma la distanza fra loro (vedi core/halftone)."""
+    from .halftone import clamp_size
+
     h, w = dark.shape
     cell = max(cell, 2.0)
     blur = cv2.GaussianBlur(dark.astype(np.float32), (0, 0), cell / 2.5)
@@ -113,6 +117,9 @@ def _halftone(dark, cell, angle):
     dv = (v / cell) - np.floor(v / cell) - 0.5
     dist = np.sqrt(du * du + dv * dv)  # 0 al centro della cella, ~0.707 agli angoli
     radius = np.sqrt(np.clip(blur, 0, 1) / math.pi)  # area = scuro
+    size = clamp_size(dot_size) / 100.0
+    if size != 1.0:
+        radius = radius * np.float32(size)
     return (dist <= radius).astype(np.float32)
 
 

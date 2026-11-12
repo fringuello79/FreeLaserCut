@@ -30,6 +30,7 @@ from . import camera_calib as cc
 from .profile import config_dir
 
 SIM_CAMERA = -1
+PHONE_CAMERA = "telefono"  # 0.19.0: non una telecamera ma la foto del piano mandata dal telefono
 CAMERA_FILE = "camera.json"
 
 
@@ -548,6 +549,31 @@ class _FrameSource:
         self._running = False
         with self._lock:
             self._lock.notify_all()
+
+
+class PhonePhoto:
+    """La «telecamera» che è una foto mandata dal telefono (0.19.0): un'immagine ferma, finché non ne arriva
+    un'altra. Ha la stessa faccia delle altre sorgenti (index, size, get, close) ma nessun thread."""
+
+    index = PHONE_CAMERA
+    black = False
+    mode = "foto"
+
+    def __init__(self):
+        self._frame = None
+        self.size = (0, 0)
+        self.time = 0.0
+
+    def set(self, frame):
+        self._frame = frame
+        self.size = (frame.shape[1], frame.shape[0])
+        self.time = time.time()
+
+    def get(self, after=0.0, timeout=0.0):
+        return None if self._frame is None else self._frame.copy()
+
+    def close(self):
+        pass
 
 
 class CameraSource(_FrameSource):

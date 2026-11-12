@@ -113,7 +113,7 @@ orig = [s.bounds().center().toTuple() for s in parts]
 check("senza domande (prove): la scelta è «automatico»", nest_manual.choose_mode(w) == "auto")
 panel = w.nest_dialog(mode="manual")
 check("nesting manuale: compare la finestrella con le istruzioni e la spunta del laser",
-      panel is not None and panel.isVisible() and "bordo" in panel.findChildren(type(panel.info))[0].text()
+      panel is not None and panel.isVisible() and any("bordo" in lab.text() for lab in panel.findChildren(type(panel.info)))
       and not panel.laser.isChecked() and not panel.b_done.isEnabled() and cv.tool is panel.tool)
 check("una seconda richiesta non ne apre un'altra", w.nest_dialog(mode="manual") is panel)
 for p in TRAP[:3]:
@@ -134,7 +134,8 @@ n_undo = len(ed.undo_stack)
 click(TRAP[0])  # clic sul primo punto: chiude
 area = next((s for s in ed.doc.shapes if s.layer == TOOL_LAYER), None)
 check("clic sul primo punto: l'area si chiude e diventa una forma del livello T1",
-      area is not None and len(ed.doc.shapes) == n_shapes + 1 and area.closed() and not panel.isVisible()
+      area is not None and len(ed.doc.shapes) == n_shapes + 1 and area.closed()
+      and panel.isVisible() and panel.step == 2  # 0.19.0: la finestra resta, e passa al passo 2
       and abs(area.bounds().width() - 160) < 0.6 and abs(area.bounds().height() - 90) < 0.6, area and area.bounds())
 check("…un solo passo nella cronologia, strumento di nuovo Selezione, area e pezzi selezionati",
       len(ed.undo_stack) == n_undo + 1 and cv.tool is cv.tools["select"] and area in ed.selection
@@ -146,7 +147,7 @@ check("l'area non viene mai incisa (prima il livello T1 finiva nel lavoro come g
 
 # ================================================================== nesting dentro il trapezio
 dlg = w._nest_manual_dlg
-check("si apre «Ottimizza lo spazio» sull'area disegnata (non si cambia, niente altri pannelli)",
+check("il passo 2 lavora sull'area disegnata (non si cambia, niente altri pannelli)",
       dlg is not None and dlg.manual is area and dlg.area.currentData() == "sheet" and not dlg.area.isEnabled()
       and dlg.multi.isHidden() and len(dlg.parts) == 6)
 res = dlg.run()
@@ -170,26 +171,24 @@ for p in ((40, 40), (110, 40), (75, 90)):
 key(Qt.Key_Return)
 dlg = w._nest_manual_dlg
 before = [s.bounds().center().toTuple() for s in parts]
-asked = []
-dlg.ask_new_area = lambda left, total: (asked.append((left, total)), True)[1]
 res = dlg.run()
-check("area troppo piccola: avviso con quanti pezzi restano fuori", res is None and len(asked) == 1 and asked[0][1] == 14
-      and asked[0][0] >= 1, asked)
+check("area troppo piccola: avviso con quanti pezzi restano fuori", res is None and dlg.no_fit is not None
+      and dlg.no_fit[1] == 14 and dlg.no_fit[0] >= 1, dlg.no_fit)
 check("…non si sposta niente", [s.bounds().center().toTuple() for s in parts] == before)
-check("…scelta «nuova area»: l'area vecchia sparisce e si ridisegna con gli stessi pezzi", dlg.again
-      and not [s for s in ed.doc.shapes if s.layer == TOOL_LAYER] and len(dlg.parts) == 14)
-panel = w.nest_manual_start(dlg.parts)
+dlg.redraw()  # 0.19.0: la scelta si fa nella stessa finestra («Ridisegna l'area»)
+check("…scelta «Ridisegna l'area»: l'area vecchia sparisce e si ridisegna con gli stessi pezzi", dlg.again
+      and not [s for s in ed.doc.shapes if s.layer == TOOL_LAYER] and len(dlg.parts) == 14
+      and w._nest_panel is panel and panel.step == 1 and len(panel.parts) == 14)
 for p in ((20, 20), (320, 20), (300, 200), (40, 200)):
     click(p)
-check("pulsante «Chiudi l'area e continua»", panel.finish() is True)
+check("pulsante «Chiudi l'area»", panel.finish() is True)
 dlg = w._nest_manual_dlg
-asked.clear()
-dlg.ask_new_area = lambda left, total: (asked.append((left, total)), False)[1]
 res = dlg.run()
 big = dlg.manual  # 0.18.17: a nesting fatto il contorno dell'area non è più sul piano
 bp = [(e.x, e.y) for e in (big.path().elementAt(i) for i in range(big.path().elementCount() - 1))]
-check("nell'area più grande entrano tutti e 14, senza altre domande", res is not None and not asked
-      and all(inside(s, bp) for s in parts), asked)
+check("nell'area più grande entrano tutti e 14, senza altre domande", res is not None and dlg.no_fit is None
+      and all(inside(s, bp) for s in parts), dlg.no_fit)
+dlg.accept()
 # annulla
 ed.doc.shapes.clear()
 ed.selection = []
@@ -199,9 +198,9 @@ for p in ((40, 40), (110, 40), (75, 90)):
     click(p)
 panel.finish()
 dlg = w._nest_manual_dlg
-dlg.ask_new_area = lambda left, total: False
 before = [s.bounds().center().toTuple() for s in parts]
 dlg.run()
+dlg.reject()  # 0.19.0: «Annulla» nella stessa finestra
 check("scelta «annulla»: niente spostato, nessun nuovo disegno, e (0.18.17) il contorno dell'area sparisce",
       not dlg.again and [s.bounds().center().toTuple() for s in parts] == before
       and len([s for s in ed.doc.shapes if s.layer == TOOL_LAYER]) == 0 and getattr(w, "_nest_panel", None) is None)
@@ -280,6 +279,7 @@ click((100, 140))
 until(lambda: w.ctl.last_status.get("state") == "Idle" and not w.ctl.busy, 15)
 panel.finish()
 check("chiusa l'area: il laser si spegne", until(lambda: not w.ctl.fire_active, 3) and not w.laser._glow_on)
+panel.dlg.reject()
 panel = w.nest_dialog(mode="manual")
 panel.laser.setChecked(True)
 until(lambda: w.ctl.fire_active, 3)

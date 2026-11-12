@@ -18,13 +18,23 @@ Regole:
 - finito il nesting il contorno dell'area sparisce (il comando ha finito il suo ciclo); resta sul livello T1 solo
   con la spunta «Lascia sul piano l'area disegnata…» di «Ottimizza lo spazio»;
 - tutto il comando (area, pezzi sistemati, area tolta) è un solo passo di Ctrl+Z.
+0.19.0 (chiesto da Ale): una finestra sola, stretta e di lato, al posto delle due che si coprivano:
+- passo 1 «Area» e passo 2 «Disponi i pezzi» nella stessa finestra; fatto il passo 1 resta una riga («Area: N punti ·
+  X cm² · Ridisegna»);
+- poche scritte a vista: il resto dietro «Vedi istruzioni» e, al passo 2, dietro «Altre opzioni»;
+- «l'area non basta» è un messaggio nella stessa finestra, con «Ridisegna l'area» e «Cambia le opzioni»;
+- la spunta del laser pensa anche all'homing: lo propone con un avviso da confermare, lo fa e poi accende il laser;
+  se il laser non è collegato lo dice e offre «Collega il laser» (la porta usata l'ultima volta);
+- finché la finestra è aperta la vista si ingrandisce e si sposta, ma i disegni non si toccano (ViewOnly).
 """
 import math
 import os
 
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainterPath, QPolygonF
-from PySide6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import (
+    QApplication, QCheckBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollBar, QVBoxLayout, QWidget,
+)
 
 from ..core.document import ImageShape, PathShape
 from ..theme import C
@@ -34,6 +44,7 @@ from freelasercut.i18n import tr  # noqa: E402
 
 HIT_PX = 9  # un clic entro tanti punti dello schermo da un punto già messo lo prende
 POINT_FEED = 3000  # mm/min con cui la testa va sul punto
+HOMING_WAIT_S = 90.0  # quanto aspetto, al massimo, l'homing chiesto dalla spunta del laser
 
 
 def polygon_area(pts):
@@ -119,24 +130,6 @@ def collapse_history(ed, first, label, sel_before=None):
                       [s.id for s in ed.selection]))
     ed.history_changed.emit()
     return True
-
-
-def ask_new_area(parent, left, total):
-    """I pezzi non entrano: -> True = disegna una nuova area, False = annulla."""
-    if os.environ.get("FLC_NO_DIALOGS"):
-        return False
-    box = QMessageBox(parent)
-    box.setIcon(QMessageBox.Warning)
-    box.setWindowTitle(tr("L'area non basta"))
-    box.setTextFormat(Qt.RichText)
-    box.setText(tr("<b>Nell'area che hai disegnato non entrano tutti i pezzi</b>: ne restano fuori {0} su {1}.<br><br>"
-                   "Non ho spostato niente. Puoi disegnare una nuova area più grande, oppure annullare (e magari "
-                   "permettere più rotazioni o ridurre la distanza tra i pezzi).", left, total))
-    again = box.addButton(tr("Disegna una nuova area"), QMessageBox.AcceptRole)
-    box.addButton(tr("Annulla"), QMessageBox.RejectRole)
-    box.setDefaultButton(again)
-    box.exec()
-    return box.clickedButton() is again
 
 
 class NestAreaTool(Tool):
@@ -235,62 +228,241 @@ class NestAreaTool(Tool):
             p.drawRect(QRectF(v.x() - r, v.y() - r, 2 * r, 2 * r))
 
 
-class NestAreaPanel(QDialog):
-    """La finestrella che guida il disegno dell'area: istruzioni, spunta del laser, chiudi, annulla."""
+VIEW_ACTS = ("zoom_in", "zoom_out", "fit", "fit_sel", "home", "unlock_m", "pause", "stop")
+BANCO_SIDE = ("officina", "pill", "b_off")
+MACHINE_SIDE = ("laser", "move", "machine", "console", "camera", "port_combo", "btn_refresh", "btn_wifi", "btn_connect")
 
-    done = Signal(object)  # la forma dell'area (livello T1), oppure None se annullato
+
+class ViewOnly(QObject):
+    """Finché la finestra del nesting manuale è aperta il progetto si guarda ma non si tocca (0.19.0): la vista si
+    ingrandisce e si sposta, il laser si comanda (collegamento, homing, spostamenti), ma menu, strumenti, livelli e
+    scorciatoie che cambiano i disegni non rispondono. È quello che faceva la finestra di prima, che però bloccava
+    anche la vista e copriva il piano."""
+
+    BLOCK = (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick, QEvent.Type.KeyPress, QEvent.Type.Shortcut,
+             QEvent.Type.ContextMenu, QEvent.Type.DragEnter, QEvent.Type.Drop)
+
+    def __init__(self, panel):
+        super().__init__(panel)
+        self.panel, self.main = panel, panel.main
+        self.on = False
+        self.blocked = 0
+
+    def start(self):
+        if not self.on:
+            QApplication.instance().installEventFilter(self)
+            self.on = True
+
+    def stop(self):
+        if self.on:
+            QApplication.instance().removeEventFilter(self)
+            self.on = False
+
+    def eventFilter(self, obj, ev):
+        try:
+            if ev.type() in self.BLOCK and self.stops(obj, ev):
+                self.blocked += 1
+                if ev.type() != QEvent.Type.DragEnter:
+                    self.main.statusBar().showMessage(tr("Nesting manuale aperto: finisci o annulla dalla sua finestra. "
+                                                         "Intanto puoi ingrandire e spostare la vista."), 6000)
+                    self.panel.raise_()
+                return True
+        except Exception:  # un filtro che inciampa non deve bloccare il programma
+            return False
+        return False
+
+    def stops(self, obj, ev):
+        main = self.main
+        if not isinstance(obj, QWidget) or obj.window() is not main:
+            return False  # la finestra del nesting, i suoi avvisi, le tendine: tutto libero
+        t = ev.type()
+        if t == QEvent.Type.Shortcut:
+            free = [k for name in VIEW_ACTS if name in main.acts for k in main.acts[name].shortcuts()]
+            return ev.key() not in free
+        cv = main.canvas
+        if obj is cv or obj is cv.viewport():
+            return self.canvas_stops(cv, ev)
+        free = [getattr(main, name, None) for name in MACHINE_SIDE]
+        banco = getattr(main, "banco", None)  # interfaccia Banco: l'Officina (i pannelli della macchina) e i comandi
+        if banco is not None:  # del lavoro stanno sopra la tela
+            free += [getattr(banco, name, None) for name in BANCO_SIDE]
+            free += [getattr(getattr(banco, "cockpit", None), name, None) for name in ("top", "side", "bottom")]
+        w = obj
+        while w is not None and w is not main:
+            if w in free:
+                return False
+            if w is cv:  # sopra la tela ci sono anche linguette, strumenti e livelli (Banco): liberi solo gli scorrimenti
+                return not isinstance(obj, QScrollBar)
+            w = w.parentWidget()
+        return True
+
+    def canvas_stops(self, cv, ev):
+        t = ev.type()
+        drawing = self.panel.step == 1  # passo 1: i clic mettono i punti dell'area
+        if t == QEvent.Type.KeyPress:
+            return not (ev.key() == Qt.Key_Space or (drawing and cv.tool.wants_key(ev)))
+        if t in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick):
+            return not (drawing or ev.button() == Qt.MiddleButton or cv._space)
+        return True
+
+
+class _Link(QLabel):
+    """Una scritta cliccabile («Vedi istruzioni», «Ridisegna»)."""
+
+    def __init__(self, text, slot):
+        super().__init__()
+        self.setTextFormat(Qt.RichText)
+        self.setCursor(Qt.PointingHandCursor)
+        self.linkActivated.connect(lambda *_: slot())
+        self.set(text)
+
+    def set(self, text):
+        self.plain = text
+        self.setText(f"<a href='#' style='color:{C['accent_hi']}'>{text}</a>")
+
+
+class NestAreaPanel(QDialog):
+    """La finestra del nesting manuale, una sola e di lato (0.19.0): passo 1 si disegna l'area, passo 2 si scelgono
+    le opzioni e si dispongono i pezzi. Le istruzioni lunghe stanno dietro «Vedi istruzioni»."""
+
+    done = Signal(object)  # fine del comando: il passo 2 (NestDialog) se ci si è arrivati, altrimenti None
 
     def __init__(self, main, parts=None):
         super().__init__(main)
         self.main, self.ed, self.cv, self.ctl = main, main.editor, main.canvas, main.ctl
         self.parts = list(parts or [])  # i pezzi selezionati prima di cominciare: si dispongono solo quelli
         self.shape = None
-        self._closed = False
+        self.dlg = None  # il passo 2, dentro questa finestra
+        self.step = 1
+        self._closed = False  # il disegno dell'area è finito (chiusa o annullata)
+        self._over = False  # il comando è finito: la finestra si chiude
+        self._homing = False
         self.laser_note = ""
-        self.setWindowTitle(tr("Nesting manuale: disegna l'area"))
+        self.setWindowTitle(tr("Nesting manuale"))
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
         self.setModal(False)
-        self.setMinimumWidth(430)
+        self.setFixedWidth(380)
         v = QVBoxLayout(self)
-        how = QLabel(tr("<b>Clicca sul piano lungo il bordo del pezzo di materiale</b>, un punto dopo l'altro, fino a "
-                        "tornare al primo punto (quello verde).<br>"
-                        "• Un clic su un punto già messo lo <b>toglie</b>: poi lo rimetti dove serve.<br>"
-                        "• Per finire: clic sul primo punto, tasto Invio, oppure il pulsante qui sotto.<br>"
-                        "• Backspace toglie l'ultimo punto, Esc annulla."))
+        self.head1 = QLabel()
+        v.addWidget(self.head1)
+        # ---------------------------------------------------------------- passo 1: l'area
+        self.p1 = QWidget()
+        v1 = QVBoxLayout(self.p1)
+        v1.setContentsMargins(0, 0, 0, 0)
+        how = QLabel(tr("Clicca sul piano lungo il bordo del materiale, un punto dopo l'altro, fino a tornare al "
+                        "primo (quello verde)."))
         how.setWordWrap(True)
-        how.setTextFormat(Qt.RichText)
-        v.addWidget(how)
-        self.laser = QCheckBox(tr("Porta il laser, acceso al minimo, su ogni punto che metto"))
-        self.laser.setToolTip(tr("A ogni punto la testa ci va con il laser acceso alla potenza della Lucciola: vedi sul "
-                                 "materiale se il punto cade dentro o fuori dal pezzo. Servono il laser collegato, "
-                                 "l'homing fatto e gli occhiali protettivi."))
+        v1.addWidget(how)
+        self.help_link = _Link(tr("Vedi istruzioni"), self.toggle_help)
+        v1.addWidget(self.help_link)
+        self.help = QLabel(tr("• Un clic su un punto già messo lo <b>toglie</b>: poi lo rimetti dove serve.<br>"
+                              "• Per finire: clic sul primo punto, tasto Invio, oppure «Chiudi l'area».<br>"
+                              "• Backspace toglie l'ultimo punto, Esc annulla.<br>"
+                              "• Con la rotella ingrandisci, con il tasto centrale (o Spazio) sposti la vista.<br>"
+                              "• Con la spunta del laser, a ogni punto la testa ci va con il laser acceso al minimo: "
+                              "vedi sul materiale se il punto è dentro o fuori dal pezzo."))
+        self.help.setWordWrap(True)
+        self.help.setTextFormat(Qt.RichText)
+        self.help.setObjectName("muted")
+        self.help.hide()
+        v1.addWidget(self.help)
+        self.laser = QCheckBox(tr("Porta il laser, acceso al minimo, su ogni punto"))
+        self.laser.setToolTip(tr("A ogni punto la testa ci va con il laser acceso alla potenza della Lucciola. Se serve "
+                                 "l'homing lo faccio io, dopo il tuo OK. Occhiali protettivi indossati."))
         self.laser.toggled.connect(self._laser_toggled)
-        v.addWidget(self.laser)
+        v1.addWidget(self.laser)
+        self.b_connect = QPushButton(tr("Collega il laser"))
+        self.b_connect.clicked.connect(lambda: self.connect_laser())
+        self.b_connect.hide()
+        v1.addWidget(self.b_connect)
         self.info = QLabel("")
         self.info.setWordWrap(True)
-        v.addWidget(self.info)
+        v1.addWidget(self.info)
         row = QHBoxLayout()
         self.b_cancel = QPushButton(tr("Annulla"))
         self.b_cancel.clicked.connect(lambda: self.cancel())
-        self.b_done = QPushButton(tr("Chiudi l'area e continua"))
+        self.b_done = QPushButton(tr("Chiudi l'area"))
         self.b_done.setObjectName("primary")
         self.b_done.clicked.connect(lambda: self.finish())
         row.addStretch(1)
         row.addWidget(self.b_cancel)
         row.addWidget(self.b_done)
-        v.addLayout(row)
+        v1.addLayout(row)
+        v.addWidget(self.p1)
+        # il passo 1 a cose fatte: una riga sola, con «Ridisegna»
+        self.sum1 = QWidget()
+        hs = QHBoxLayout(self.sum1)
+        hs.setContentsMargins(0, 0, 0, 0)
+        self.sum_text = QLabel()
+        self.sum_text.setObjectName("muted")
+        self.redraw_link = _Link(tr("Ridisegna"), self.redraw)
+        hs.addWidget(self.sum_text)
+        hs.addStretch(1)
+        hs.addWidget(self.redraw_link)
+        self.sum1.hide()
+        v.addWidget(self.sum1)
+        # ---------------------------------------------------------------- passo 2: opzioni e «Disponi»
+        self.head2 = QLabel()
+        v.addWidget(self.head2)
+        self.p2 = QWidget()
+        self.v2 = QVBoxLayout(self.p2)
+        self.v2.setContentsMargins(0, 0, 0, 0)
+        self.p2.hide()
+        v.addWidget(self.p2)
         self.tool = NestAreaTool(self.cv, self)
+        self.view_only = ViewOnly(self)
+        self._home_timer = QTimer(self)
+        self._home_timer.setSingleShot(True)
+        self._home_timer.timeout.connect(lambda: self._homing_end(tr("L'homing non è finito in tempo.")))
+        self.ctl.homed_changed.connect(self._homed)
+        self.ctl.alarm_raised.connect(self._alarm)
+        self._heads()
         self._refresh()
 
+    def _heads(self):
+        one, two = tr("1 · Area"), tr("2 · Disponi i pezzi")
+        if self.step == 1:
+            self.head1.setText(f"<b>{one}</b>")
+            self.head2.setText(f"<span style='color:{C['muted']}'>{two}</span>")
+        else:
+            self.head1.setText(f"<span style='color:{C['muted']}'>{one}</span>")
+            self.head2.setText(f"<b>{two}</b>")
+
+    def _fit(self):
+        """La finestra prende l'altezza del suo contenuto (un pezzo è stato aperto o chiuso)."""
+        if self._over:
+            return
+        for wd in self.findChildren(QWidget):  # un riquadro interno appena aperto o chiuso: la sua misura va ricalcolata
+            if wd.layout() is not None:
+                wd.layout().invalidate()
+                wd.updateGeometry()
+        lay = self.layout()
+        lay.invalidate()
+        lay.activate()
+        # le scritte vanno a capo: l'altezza giusta è quella che serve alla larghezza (fissa) della finestra
+        h = lay.totalHeightForWidth(self.width()) if lay.hasHeightForWidth() else lay.totalSizeHint().height()
+        self.setFixedHeight(max(60, h))
+
+    def toggle_help(self):
+        on = self.help.isHidden()
+        self.help.setVisible(on)
+        self.help_link.set(tr("Nascondi istruzioni") if on else tr("Vedi istruzioni"))
+        self._fit()
+
     # ------------------------------------------------------------------ avvio e fine
-    def start(self):
+    def _take_canvas(self):
         cv = self.cv
         cv.tool.deactivate()
         cv.tool = self.tool  # non passa da set_tool: non è uno strumento della barra
         self.tool.activate()
         cv.viewport().setCursor(self.tool.cursor())
         cv.viewport().update()
+
+    def start(self):
+        self._take_canvas()
+        self.view_only.start()
         self.show()
+        self._fit()
         self._place()
         return self
 
@@ -301,12 +473,30 @@ class NestAreaPanel(QDialog):
         except RuntimeError:
             pass
 
+    def _laser_off(self):
+        self._homing = False
+        self._home_timer.stop()
+        if self.laser.isChecked():
+            self.main.laser.glow_stop()
+            self._set_check(False)
+        self.laser.setEnabled(True)
+        self.laser_note = ""
+
     def _leave_tool(self):
         self.tool.ending = True
         if self.cv.tool is self.tool:
             self.cv.set_tool("select")
-        if self.laser.isChecked():
-            self.main.laser.glow_stop()
+        self._laser_off()
+
+    def _finish_command(self, dlg, close=True):
+        """Il comando è finito (in qualsiasi modo): si avvisa una volta sola e la finestra si chiude."""
+        if self._over:
+            return
+        self._over = True
+        self.view_only.stop()
+        self.done.emit(dlg)
+        if close:
+            self.close()
 
     def cancel(self, from_tool=False):
         if self._closed:
@@ -315,21 +505,29 @@ class NestAreaPanel(QDialog):
         self.tool.ending = True
         if not from_tool:
             self._leave_tool()
-        elif self.laser.isChecked():
-            self.main.laser.glow_stop()
+        else:
+            self._laser_off()
         self.main.statusBar().showMessage(tr("Nesting manuale annullato"), 5000)
-        self.done.emit(None)
-        self.close()
+        self._finish_command(None)
 
     def closeEvent(self, ev):
-        if not self._closed:  # chiusa con la X: è un annullamento
-            self._closed = True
-            self._leave_tool()
-            self.done.emit(None)
+        if not self._over:  # chiusa con la X
+            if self.step == 1:  # a metà del disegno: è un annullamento
+                self._closed = True
+                self._leave_tool()
+                self._finish_command(None, close=False)
+            else:  # al passo 2: come «Annulla» prima di disporre, come «Fatto» dopo
+                dlg = self.dlg
+                self._over = True
+                self.view_only.stop()
+                if dlg is not None and not dlg._ended:
+                    dlg.done(0)
+                self.done.emit(dlg)
         super().closeEvent(ev)
 
     def finish(self):
-        """Chiude l'area: forma sul livello T1, selezionata insieme ai pezzi. False (con il motivo) se non si può."""
+        """Chiude l'area: forma sul livello T1, selezionata insieme ai pezzi, e si passa al passo 2 nella stessa
+        finestra. False (con il motivo) se non si può."""
         if self._closed:
             return False
         pts = list(self.tool.pts)
@@ -350,24 +548,85 @@ class NestAreaPanel(QDialog):
         parts = [s for s in self.parts if s in alive]
         self._closed = True
         self._leave_tool()
+        # le impostazioni del livello T1 nascono alla prima forma che ci finisce: le faccio nascere prima, così se poi
+        # si annulla il progetto torna identico e nella cronologia non resta un passo che non fa niente
+        self.ed.doc.layer(TOOL_LAYER)
         self.ed.add([shape], tr("Area del nesting"), select=False)
         self.ed.select([shape] + parts)
         self.parts = parts
         self.shape = shape
-        self.done.emit(shape)
-        self.close()
+        self._arrange(shape, len(pts), polygon_area(pts))
         return True
+
+    # ------------------------------------------------------------------ passo 2
+    def _arrange(self, shape, n, area):
+        from .dialogs_nest import NestDialog
+
+        dlg = NestDialog(self.main, manual=shape, host=self)
+        self.dlg = self.main._nest_manual_dlg = dlg
+        self.step = 2
+        self.p1.hide()
+        self.sum_text.setText(tr("Area: {0} punti · {1:.1f} cm²", n, area / 100.0))
+        self.redraw_link.show()
+        self.sum1.show()
+        self.v2.addWidget(dlg)
+        self.p2.show()
+        dlg.show()
+        dlg.changed.connect(self._dlg_changed)
+        dlg.finished.connect(self._dlg_finished)
+        self._heads()
+        self._fit()
+        dlg.b_run.setFocus()
+
+    def _dlg_changed(self):
+        if self.dlg is not None and self.dlg.placed:
+            self.redraw_link.hide()  # i pezzi sono a posto: un'altra area è un altro comando
+        self._fit()
+
+    def redraw(self):
+        """«Ridisegna»: l'area non va bene, se ne disegna un'altra con gli stessi pezzi (stessa finestra)."""
+        if self.dlg is not None and self.step == 2:
+            self.dlg.redraw()
+
+    def _dlg_finished(self, *_):
+        dlg = self.dlg
+        if dlg is None or self._over:
+            return
+        if not dlg.again:
+            return self._finish_command(dlg)
+        # si ridisegna: di nuovo il passo 1, con i pezzi di prima
+        alive = set(self.ed.doc.shapes)
+        self.parts = [s for s in dlg.parts if s in alive]
+        self.v2.removeWidget(dlg)
+        dlg.setParent(None)
+        dlg.deleteLater()
+        self.dlg = None
+        if not self.parts:
+            return self._finish_command(None)
+        self.shape = None
+        self.step = 1
+        self._closed = False
+        self.tool = NestAreaTool(self.cv, self)
+        self.p2.hide()
+        self.sum1.hide()
+        self.p1.show()
+        self._heads()
+        self._take_canvas()
+        self._refresh(tr("Disegna la nuova area."))
+        self._fit()
 
     # ------------------------------------------------------------------ punti
     def add_point(self, x, y):
         self.tool.pts.append((float(x), float(y)))
-        self.laser_note = self.point_laser(x, y) if self.laser.isChecked() else ""
+        if self.laser.isChecked() and not self._homing:
+            self.laser_note = self.point_laser(x, y)
         self._refresh()
 
     def remove_point(self, i):
         if 0 <= i < len(self.tool.pts):
             del self.tool.pts[i]
-            self.laser_note = ""
+            if not self._homing:
+                self.laser_note = ""
             self._refresh(tr("Punto tolto: clicca dove lo vuoi rimettere."))
 
     def _say(self, text, bad=False):
@@ -385,6 +644,8 @@ class NestAreaPanel(QDialog):
         self.info.setText(text)
         self.b_done.setEnabled(n >= 3)
         self.cv.viewport().update()
+        if self.isVisible():
+            self._fit()
 
     # ------------------------------------------------------------------ laser sul punto
     def laser_ready(self):
@@ -400,31 +661,108 @@ class NestAreaPanel(QDialog):
             return tr("La macchina non è pronta (stato: {0}).", c.last_status.get("state", "?"))
         return None
 
+    def _set_check(self, on):
+        self.laser.blockSignals(True)
+        self.laser.setChecked(on)
+        self.laser.blockSignals(False)
+
+    def ask_homing(self):
+        """La spunta del laser senza homing fatto: lo propongo io (0.19.0). -> True = OK, faccio l'homing."""
+        if os.environ.get("FLC_NO_DIALOGS"):
+            return False
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle(tr("Serve l'homing"))
+        box.setTextFormat(Qt.RichText)
+        box.setText(tr("<b>Per portare il laser sui punti serve l'homing.</b><br><br>"
+                       "La testa va ai finecorsa: <b>tieni libero il piano</b>. Poi il laser si accende al minimo: "
+                       "<b>occhiali protettivi indossati</b>.<br><br>Premi OK per fare l'homing adesso."))
+        box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        box.setDefaultButton(QMessageBox.Ok)
+        return box.exec() == QMessageBox.Ok
+
     def _laser_toggled(self, on):
+        self.b_connect.hide()
         if not on:
+            self._homing = False
+            self._home_timer.stop()
             self.main.laser.glow_stop()
             self.laser_note = ""
             self._refresh()
             return
+        c = self.ctl
+        if not c.connected:
+            self._set_check(False)
+            self.b_connect.show()
+            self._refresh("⚠ " + tr("Il laser non è collegato."))
+            return
+        if self.main.profile.homing and not c.homed and not (c.job_active or c.checking):
+            if not self.ask_homing():
+                self._set_check(False)
+                self._refresh("⚠ " + tr("Senza homing la testa non sa dov'è: la spunta resta spenta."))
+                return
+            self._homing = True
+            self.laser.setEnabled(False)
+            self.laser_note = tr("Homing in corso: la testa va ai finecorsa…")
+            self._refresh()
+            self._home_timer.start(int(HOMING_WAIT_S * 1000))
+            c.home()
+            return
+        self._glow_on_now()
+
+    def _glow_on_now(self):
         why = self.laser_ready()
         if why is None and not self.main.laser._glow_on and not self.main.laser.glow_start_on():
             why = tr("Il laser al minimo non è stato acceso.")
         if why:
-            self.laser.blockSignals(True)
-            self.laser.setChecked(False)
-            self.laser.blockSignals(False)
+            self._set_check(False)
+            self.laser_note = ""
             self._refresh("⚠ " + why)
             return
         self.laser_note = tr("Laser acceso al minimo: a ogni punto la testa ci va. Occhiali indossati.")
         self._refresh()
 
+    def _homed(self, ok, *_):
+        if self._homing and ok:
+            self._homing = False
+            self._home_timer.stop()
+            self.laser.setEnabled(True)
+            self._glow_on_now()
+
+    def _alarm(self, code, *_):
+        if self._homing:
+            self._homing_end(tr("Homing non riuscito (allarme {0}): controlla la macchina e riprova.", code))
+
+    def _homing_end(self, why):
+        if not self._homing:
+            return
+        self._homing = False
+        self._home_timer.stop()
+        self.laser.setEnabled(True)
+        self._set_check(False)
+        self.laser_note = ""
+        self._refresh("⚠ " + why)
+
+    def connect_laser(self):
+        """«Collega il laser»: alla porta usata l'ultima volta, come fa il programma all'avvio."""
+        m = self.main
+        last = m.qs.value("port", "")
+        i = m.port_combo.findData(last) if last else -1
+        if i < 0:
+            return self._say(tr("Non trovo la porta usata l'ultima volta: collega il laser dalla finestra principale "
+                                "(pulsante Connetti), poi rimetti la spunta."), True)
+        m.port_combo.setCurrentIndex(i)
+        m.toggle_connection(quiet=True)
+        if not self.ctl.connected:
+            return self._say(tr("Il laser non risponde su {0}: controlla che sia acceso.", last), True)
+        self.b_connect.hide()
+        return self._say(tr("Laser collegato: ora rimetti la spunta."))
+
     def point_laser(self, x, y):
         """Manda la testa sul punto (laser già acceso al minimo). -> testo da mostrare."""
         lp = self.main.laser
         if not lp._glow_on:  # spenta nel frattempo (5 minuti fermi, allarme…): la spunta non vale più
-            self.laser.blockSignals(True)
-            self.laser.setChecked(False)
-            self.laser.blockSignals(False)
+            self._set_check(False)
             return "⚠ " + tr("Il laser al minimo si è spento: rimetti la spunta per riaccenderlo.")
         why = self.laser_ready()
         if why:

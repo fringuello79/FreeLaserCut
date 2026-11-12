@@ -89,6 +89,99 @@ def log_dir():
 
 
 # ============================================================================ che cosa si scrive
+# ============================================================================ processore e librerie compatibili (0.19.0)
+# Due utenti con Windows 10 a 64 bit: il programma non parte. Una causa possibile, da verificare con i loro registri:
+# dalla versione 2.4 NumPy dà per scontate le istruzioni «x86-64-v2» (SSSE3, SSE4.1, SSE4.2), che i processori fino
+# al 2008-2011 circa (Intel Core 2, AMD Phenom II e Athlon II) non hanno: lì «import numpy» fa chiudere il programma
+# di colpo. Su quei processori, e solo su quelli, si mette davanti una NumPy di prima (2.3), che l'installatore porta
+# in una cartella a parte. Sui PC normali non cambia niente.
+COMPAT_ENV = "FLC_CPU_COMPAT"  # «1» forza le librerie compatibili, «0» le vieta (prove e assistenza)
+CPU_ENV = "FLC_PROVA_CPU"  # prove: le istruzioni di un processore finto, per esempio «sse3»
+COMPAT_DIR_ENV = "FLC_PROVA_COMPAT"  # prove: la cartella delle librerie compatibili
+V2 = ("ssse3", "sse4_1", "sse4_2")  # quello che NumPy 2.4+ dà per scontato (x86-64-v2)
+_WIN_FEATURES = ((13, "sse3"), (36, "ssse3"), (37, "sse4_1"), (38, "sse4_2"), (39, "avx"), (40, "avx2"), (41, "avx512f"))
+_LINUX_FLAGS = (("pni", "sse3"), ("ssse3", "ssse3"), ("sse4_1", "sse4_1"), ("sse4_2", "sse4_2"), ("avx", "avx"),
+                ("avx2", "avx2"), ("avx512f", "avx512f"))
+
+
+def cpuinfo_features(text):
+    """Da /proc/cpuinfo: le istruzioni che contano. None se il file non le elenca (processori non x86)."""
+    for line in str(text).splitlines():
+        if line.startswith("flags"):
+            flags = set(line.split(":", 1)[1].split())
+            return {name for flag, name in _LINUX_FLAGS if flag in flags}
+    return None
+
+
+def cpu_features():
+    """Le istruzioni del processore che contano per le librerie (set di nomi); None se non si riesce a saperlo."""
+    fake = os.environ.get(CPU_ENV)
+    if fake is not None:
+        return set(fake.replace(",", " ").split())
+    if "cpu" not in _state:
+        feats = None
+        try:
+            if sys.platform == "win32":
+                import ctypes
+
+                present = ctypes.windll.kernel32.IsProcessorFeaturePresent
+                feats = {name for code, name in _WIN_FEATURES if present(code)}
+            elif os.path.exists("/proc/cpuinfo"):
+                with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as fh:
+                    feats = cpuinfo_features(fh.read(200_000))
+        except Exception:  # noqa: BLE001
+            feats = None
+        _state["cpu"] = feats
+    return _state["cpu"]
+
+
+def old_cpu(feats="?"):
+    """Il processore non ha le istruzioni x86-64-v2? (Se non si sa che processore è: no.)"""
+    feats = cpu_features() if feats == "?" else feats
+    return feats is not None and not all(f in feats for f in V2)
+
+
+def compat_dir():
+    """La cartella delle librerie compatibili portata dall'installatore (python\\Lib\\site-compat), o None."""
+    cands = [os.environ.get(COMPAT_DIR_ENV) or ""]
+    for base in (sys.prefix, os.path.dirname(sys.executable or "")):
+        cands.append(os.path.join(base, "Lib", "site-compat"))
+    return next((d for d in cands if d and os.path.isdir(d)), None)
+
+
+def compat_libs():
+    """Da chiamare prima di caricare qualsiasi libreria: su un processore senza x86-64-v2 mette davanti le librerie
+    compatibili (se ci sono). Sui PC normali non fa niente. -> True se le ha attivate."""
+    want = os.environ.get(COMPAT_ENV)
+    _state["compat"] = ""
+    if want == "0" or (want != "1" and not old_cpu()):
+        return False
+    d = compat_dir()
+    if not d:
+        _state["compat"] = "mancanti"
+        return False
+    if d not in sys.path:
+        sys.path.insert(0, d)
+    _state["compat"] = "attive"
+    return True
+
+
+def cpu_line():
+    """La riga sul processore per l'intestazione dei registri."""
+    feats = cpu_features()
+    if feats is None:
+        return ""
+    names = [n for _c, n in _WIN_FEATURES]
+    text = "Istruzioni del processore: " + (" ".join(n for n in names if n in feats) or "nessuna di quelle cercate")
+    miss = [n for n in V2 if n not in feats]
+    if miss:
+        text += f" (mancano: {' '.join(miss)}: processore di prima del 2011 circa)"
+    how = _state.get("compat", "")
+    if how:
+        text += f" · librerie compatibili: {how}"
+    return text
+
+
 def version():
     try:
         from . import __version__
@@ -171,6 +264,12 @@ def system_lines(stage=None):
             lines.append(f"Sistema: {platform.platform()} ({platform.machine()})")
     except Exception as exc:  # noqa: BLE001
         lines.append(f"Sistema: non letto ({type(exc).__name__})")
+    try:
+        cpu = cpu_line()
+        if cpu:
+            lines.append(cpu)
+    except Exception:  # noqa: BLE001
+        pass
     key = stage or _state["stage"]
     lines.append("Fase dell'avvio: " + STAGES.get(key, key))
     return lines

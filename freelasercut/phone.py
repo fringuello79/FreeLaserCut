@@ -63,8 +63,9 @@ def _is_local(ip):
 class PhoneServer:
     """state() → dict; frame() → bytes JPEG o None; pause(), stop() → (ok, messaggio); photo(bytes) → messaggio."""
 
-    def __init__(self, state, frame, pause, stop, photo, port=PORT, token=None, host="0.0.0.0"):
+    def __init__(self, state, frame, pause, stop, photo, port=PORT, token=None, host="0.0.0.0", plate=None):
         self.state, self.frame, self.pause, self.stop_job, self.photo = state, frame, pause, stop, photo
+        self.plate = plate  # 0.19.0: plate(bytes) → messaggio; la foto del piano di lavoro fatta con il telefono
         self.token = token or new_token()
         self.want_port = port
         self.host = host
@@ -207,7 +208,10 @@ def _make_handler(srv):
                     self.rfile.read(min(n, 4096))
                 ok, msg = (srv.pause if r == "pausa" else srv.stop_job)()
                 self._send(200, {"ok": bool(ok), "msg": msg})
-            elif r == "foto-test":
+            elif r in ("foto-test", "foto-piano"):
+                if r == "foto-piano" and srv.plate is None:
+                    self._send(404, {"ok": False, "msg": "non trovato"})
+                    return
                 if n <= 0 or n > MAX_PHOTO:
                     self._send(413, {"ok": False, "msg": "foto troppo grande o vuota"})
                     return
@@ -220,7 +224,7 @@ def _make_handler(srv):
                 if len(data) != n:
                     self._send(400, {"ok": False, "msg": "foto incompleta"})
                     return
-                msg = srv.photo(data)
+                msg = srv.photo(data) if r == "foto-test" else srv.plate(data)
                 self._send(200, {"ok": True, "msg": msg})
             else:
                 self._send(404, {"ok": False, "msg": "non trovato"})
@@ -288,6 +292,12 @@ input[type=file]{display:none}
   <div class="mu" style="margin-top:8px">[[Foto dall'alto, con tutto il test e i quattro quadratini agli angoli, luce uniforme e senza riflessi. Arriva nel Test materiale sul PC.]]</div>
   <div id="phmsg" class="mu"></div>
 </div>
+<div class="card">
+  <label class="file" for="pl">📷 [[Foto del piano di lavoro]]</label>
+  <input id="pl" type="file" accept="image/*" capture="environment">
+  <div class="mu" style="margin-top:8px">[[Foto dall'alto, con tutta l'area di lavoro dentro. Sul PC indicherai i 4 angoli dell'area e la foto finirà sotto il piano, per posizionare i pezzi.]]</div>
+  <div id="plmsg" class="mu"></div>
+</div>
 <script>
 const T = {{T}};
 const base = location.pathname.endsWith('/') ? location.pathname : location.pathname + '/';
@@ -341,13 +351,16 @@ async function shrink(file){
     return await new Promise(r => c.toBlob(r,'image/jpeg',0.92));
   }catch(e){ return file; }
 }
-$('ph').onchange = async e => {
-  const f = e.target.files[0]; if(!f) return;
-  $('phmsg').textContent = T.sending;
-  try{ const b = await shrink(f); const r = await post('foto-test', b, 'image/jpeg'); $('phmsg').textContent = r.msg || T.sent; }
-  catch(err){ $('phmsg').textContent = T.failed + err; }
-  e.target.value = '';
-};
+function sender(input, where, out){
+  $(input).onchange = async e => {
+    const f = e.target.files[0]; if(!f) return;
+    $(out).textContent = T.sending;
+    try{ const b = await shrink(f); const r = await post(where, b, 'image/jpeg'); $(out).textContent = r.msg || T.sent; }
+    catch(err){ $(out).textContent = T.failed + err; }
+    e.target.value = '';
+  };
+}
+sender('ph', 'foto-test', 'phmsg'); sender('pl', 'foto-piano', 'plmsg');
 tick(); setInterval(tick, 1000); cam();
 </script></body></html>
 """
@@ -369,6 +382,11 @@ def _html_strings():
     return {"telefono": tr("telefono"), "Pausa": tr("Pausa"), "Stop": tr("Stop"),
             "Mostra la camera": tr("Mostra la camera"), "Controllo attività": tr("Controllo attività"),
             "Invia la foto del test materiale": tr("Invia la foto del test materiale"),
+            "Foto del piano di lavoro": tr("Foto del piano di lavoro"),
+            "Foto dall'alto, con tutta l'area di lavoro dentro. Sul PC indicherai i 4 angoli dell'area e la foto "
+            "finirà sotto il piano, per posizionare i pezzi.":
+                tr("Foto dall'alto, con tutta l'area di lavoro dentro. Sul PC indicherai i 4 angoli dell'area e la foto "
+                   "finirà sotto il piano, per posizionare i pezzi."),
             "Da qui puoi fermare il lavoro, non avviarlo: per partire o riprendere serve essere davanti alla macchina.":
                 tr("Da qui puoi fermare il lavoro, non avviarlo: per partire o riprendere serve essere davanti alla macchina."),
             "Foto dall'alto, con tutto il test e i quattro quadratini agli angoli, luce uniforme e senza riflessi. "

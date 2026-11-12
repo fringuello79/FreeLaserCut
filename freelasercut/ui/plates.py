@@ -15,6 +15,10 @@ from ..core.document import ImageShape
 JOB_COLOR = "#E8792B"
 
 
+# scritte delle linguette: {piano chiaro?: (piano attivo, altri piani)} — 0.19.0
+TAB_TEXT = {True: ("#0B1220", "#4A5568"), False: ("#FFFFFF", "#B4BFD2")}
+
+
 class _Tabs(QTabBar):
     def wheelEvent(self, e):  # la rotella sopra le linguette fa lo zoom della tela, non cambia piano per sbaglio
         e.ignore()
@@ -94,14 +98,19 @@ class PlateBar(QWidget):
         idle = "rgba(255,255,255,210)" if light else "rgba(255,255,255,30)"
         hover = "rgba(255,255,255,220)" if light else "rgba(255,255,255,40)"
         btn = "#5B6578" if light else "#AEB8CB"
+        # 0.19.0: il colore delle scritte va scritto QUI. Il tema del programma dà un colore a tutte le linguette
+        # («QTabBar::tab»), e un foglio di stile vince su setTabTextColor: sul piano chiaro la scritta del piano attivo
+        # usciva chiara su bianco. Piano attivo: scuro e in grassetto (bianco sul piano scuro); gli altri: un grigio
+        # ben leggibile ma diverso.
+        cur, other = TAB_TEXT[light]
         self.setStyleSheet(f"""
 QWidget#plateBar {{ background: transparent; }}
 QTabBar#plateTabs {{ background: transparent; }}
 QTabBar#plateTabs::tab {{ background: {idle}; border: 1px solid {pal["grid_major"]}; border-bottom: none;
     border-top-left-radius: 5px; border-top-right-radius: 5px; padding: 1px 10px 2px 10px; margin-right: 2px;
-    font-size: 9pt; font-weight: 600; min-width: 0; }}
-QTabBar#plateTabs::tab:selected {{ background: {pal["bed"]}; border-color: {pal["edge"]}; font-weight: 700; }}
-QTabBar#plateTabs::tab:hover:!selected {{ background: {hover}; }}
+    font-size: 9pt; font-weight: 600; min-width: 0; color: {other}; }}
+QTabBar#plateTabs::tab:selected {{ background: {pal["bed"]}; border-color: {pal["edge"]}; font-weight: 700; color: {cur}; }}
+QTabBar#plateTabs::tab:hover:!selected {{ background: {hover}; color: {cur}; }}
 QToolButton#plateAdd, QToolButton#plateGhosts, QToolButton#plateOverviewBtn {{ background: transparent; border: none;
     color: {btn}; font-size: 11pt; font-weight: 700; padding: 0 4px 1px 4px; border-radius: 4px; }}
 QToolButton#plateAdd:hover, QToolButton#plateGhosts:hover, QToolButton#plateOverviewBtn:hover {{ background: {hover}; }}
@@ -195,10 +204,10 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
             self.tabs.setTabText(i, self.tab_text(i))
             if i == job:
                 col = JOB_COLOR
-            elif i == doc.current:  # 0.17.7: scritte più scure (prima si leggevano a malapena)
-                col = "#0B1220" if light else "#FFFFFF"
+            elif i == doc.current:  # i colori veri li dà il foglio di stile (vedi _restyle): qui restano uguali
+                col = TAB_TEXT[light][0]
             else:
-                col = "#2E3A4F" if light else "#D6DEEC"
+                col = TAB_TEXT[light][1]
             self.tabs.setTabTextColor(i, QColor(col))
         self._counts()
         if job is not None:

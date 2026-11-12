@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout
                                QVBoxLayout)
 
 from .. import phone
-from ..camera import SIM_CAMERA
+from ..camera import PHONE_CAMERA, SIM_CAMERA
 from ..i18n import tr
 from ..theme import css
 
@@ -20,6 +20,7 @@ class PhoneControl(QObject):
     pause_requested = Signal()
     stop_requested = Signal()
     photo_received = Signal(bytes)
+    plate_received = Signal(bytes)  # 0.19.0: la foto del piano di lavoro
     changed = Signal()
 
     def __init__(self, win):
@@ -33,6 +34,7 @@ class PhoneControl(QObject):
         self.pause_requested.connect(self._do_pause)
         self.stop_requested.connect(self._do_stop)
         self.photo_received.connect(self._do_photo)
+        self.plate_received.connect(self._do_plate)
         self.timer = QTimer(self)
         self.timer.setInterval(500)
         self.timer.timeout.connect(self.refresh)
@@ -46,7 +48,7 @@ class PhoneControl(QObject):
         if self.running:
             return True
         self.server = phone.PhoneServer(lambda: self.snapshot, self._frame, self._pause, self._stop, self._photo,
-                                        token=self.server.token if self.server else None)
+                                        token=self.server.token if self.server else None, plate=self._plate)
         self.server.start()
         self.refresh()
         self.timer.start()
@@ -96,7 +98,7 @@ class PhoneControl(QObject):
         else:
             title = tr("Pronta")
         src = getattr(getattr(self.win, "camera", None), "src", None)
-        cam = src is not None and getattr(src, "index", None) != SIM_CAMERA
+        cam = src is not None and getattr(src, "index", None) not in (SIM_CAMERA, PHONE_CAMERA)
         elapsed = time.time() - self.job_t0 if active and self.job_t0 else 0.0
         left = elapsed * (total - done) / done if active and done > 20 and total else None
         detail = tr("Stato della scheda: {0}", st) if ctl.connected and st else ""
@@ -110,8 +112,8 @@ class PhoneControl(QObject):
     # ---------------------------------------------------------------- chiamate dal thread del server
     def _frame(self):
         src = getattr(getattr(self.win, "camera", None), "src", None)
-        if src is None or getattr(src, "index", None) == SIM_CAMERA:
-            return None
+        if src is None or getattr(src, "index", None) in (SIM_CAMERA, PHONE_CAMERA):
+            return None  # la foto mandata dal telefono non è una telecamera da guardare dal telefono
         f = src.get(after=0, timeout=0.5)
         if f is None:
             return None
@@ -140,6 +142,10 @@ class PhoneControl(QObject):
         self.photo_received.emit(bytes(data))
         return tr("Foto arrivata sul PC: il risultato è nel Test materiale.")
 
+    def _plate(self, data):
+        self.plate_received.emit(bytes(data))
+        return tr("Foto arrivata sul PC: lì indica i 4 angoli dell'area di lavoro.")
+
     # ---------------------------------------------------------------- esecuzione (thread principale)
     def _do_pause(self):
         if self.ctl.job_active and not self.paused():
@@ -159,6 +165,10 @@ class PhoneControl(QObject):
     def _do_photo(self, data):
         self._log(f"foto del test dal telefono ({len(data) // 1024} kB)")
         self.win.photo_from_phone(data)
+
+    def _do_plate(self, data):
+        self._log(f"foto del piano dal telefono ({len(data) // 1024} kB)")
+        self.win.plate_from_phone(data)
 
     def _log(self, text):
         log = getattr(self.win, "comm_log", None)
@@ -190,7 +200,10 @@ def guide_html():
         "<p>Il collegamento resta dentro la rete di casa e si spegne quando chiudi FreeLaserCut. Il codice "
         "nell'indirizzo è casuale: se l'hai dato a qualcuno, premi <i>Cambia codice</i> e il vecchio link smette di "
         "funzionare. Se il telefono non apre la pagina: controlla il Wi-Fi, che la rete sia impostata come "
-        "<i>privata</i> in Windows e che il firewall non blocchi FreeLaserCut.</p>")
+        "<i>privata</i> in Windows e che il firewall non blocchi FreeLaserCut.</p>") + tr(
+        "<p><b>Foto del piano di lavoro</b> (0.19.0): dal telefono puoi anche fotografare il piano dall'alto e "
+        "mandare la foto. Sul PC indichi i 4 angoli dell'area di lavoro e la foto finisce sotto il piano, per "
+        "posizionare i pezzi (pannello Camera, voce «Foto del piano dal telefono»).</p>")
 
 
 class PhoneDialog(QDialog):

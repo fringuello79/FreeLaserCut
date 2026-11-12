@@ -740,7 +740,7 @@ class PenTool(Tool):
         shape = PathShape(nodes.to_path([sp]), layer=self.ed.current_layer)
         self.ed.add([shape], tr("Disegna linea"))
         if switch:
-            self.cv.set_tool("select")  # come le altre forme: finito il disegno si torna alla selezione
+            self.cv.tool_done()  # finito il disegno si torna alla selezione (salvo strumento bloccato, 0.19.0)
 
     def wants_key(self, e):
         return e.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Escape, Qt.Key_Backspace)
@@ -829,7 +829,7 @@ class ShapeTool(Tool):
         s.apply(QTransform.fromTranslate(r.left(), r.top()))
         self.a = self.b = None
         self.ed.add([s], f"Disegna {self.label.lower()}")
-        self.cv.set_tool("select")
+        self.cv.tool_done()
 
     def make(self, r):
         raise NotImplementedError
@@ -922,7 +922,7 @@ class SpecialTool(ShapeTool):
                 s.apply(QTransform.fromTranslate(self.a.x(), self.a.y()))
                 self.a = self.b = None
                 self.ed.add([s], f"Disegna {s.describe().lower()}")
-                self.cv.set_tool("select")
+                self.cv.tool_done()
                 return
         super().release(e, p)
 

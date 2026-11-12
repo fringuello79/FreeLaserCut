@@ -120,6 +120,11 @@ def router_guide():
               "Se non lo fai e un giorno l'indirizzo cambia, FreeLaserCut prova comunque a ritrovare il laser da solo.")
 
 
+# i passi in cui la procedura è arrivata in fondo, bene o male: lì si salva il registro (0.19.0)
+END_STATES = ("ok", "failed", "unknown", "no_port", "other_subnet", "find_none", "mute", "serial_lost", "E2_fail",
+              "off_done")
+
+
 class WifiWizard(QDialog):
     worked = Signal(int, str, object)  # (giro, che cosa, risultato) dai lavori in secondo piano
 
@@ -266,7 +271,19 @@ class WifiWizard(QDialog):
         self.state = state
         self._gen += 1
         self._tick.stop()
+        self._note(state)
         return self._gen
+
+    def _note(self, state):
+        """0.19.0: ogni passo lascia una riga nel registro della comunicazione e, quando la procedura arriva in fondo
+        (riuscita o no), il registro viene salvato nella cartella «diagnostica»: se qualcosa non va ci sono le righe
+        scambiate con la scheda. La password non c'è: nel registro le righe arrivano già mascherate."""
+        log = getattr(self.main, "comm_log", None)
+        if log is None:
+            return
+        log.add("#", f"Wi-Fi guidato: {state}")
+        if state in END_STATES:
+            self.log_file = log.save("wifi")
 
     # ================================================================== pagina 0: che cosa c'è adesso
     def start(self):
