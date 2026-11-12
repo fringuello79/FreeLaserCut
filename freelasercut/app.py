@@ -651,7 +651,10 @@ class ConsolePanel(QWidget):
         cmd = self.input.text().strip()
         if not cmd:
             return
-        self.history.append(cmd)
+        from .wifi_setup import has_secret
+
+        if not has_secret(cmd):  # 0.18.17: un comando con la password del Wi-Fi non resta nella memoria della console
+            self.history.append(cmd)
         self.hidx = len(self.history)
         self.ctl.send_line(cmd)
         self.input.clear()

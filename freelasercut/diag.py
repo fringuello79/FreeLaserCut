@@ -354,7 +354,9 @@ def backups_text(n=6):
     for path, _meta in items:
         try:
             with open(path, encoding="utf-8", errors="replace") as fh:
-                out.append(f"===== {os.path.basename(path)}\n" + fh.read())
+                from .wifi_setup import mask_line  # 0.18.17: le copie fatte prima avevano la password del Wi-Fi
+
+                out.append(f"===== {os.path.basename(path)}\n" + "\n".join(mask_line(l) for l in fh.read().splitlines()))
         except OSError:
             continue
     return "\n".join(out)
@@ -481,8 +483,10 @@ def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=Non
             z.writestr("comunicazione-ora.log", comm.text())
             names.append("comunicazione-ora.log")
             if comm.settings or comm.info:
+                from .wifi_setup import mask_settings  # 0.18.17: la password del Wi-Fi non entra nel rapporto
+
                 txt = "\n".join(comm.info) + "\n\n" + "\n".join(f"${k}={v}" for k, v in sorted(
-                    comm.settings.items(), key=lambda kv: (len(str(kv[0])), str(kv[0]))))
+                    mask_settings(comm.settings).items(), key=lambda kv: (len(str(kv[0])), str(kv[0]))))
                 z.writestr("impostazioni-grbl.txt", sanitize(txt + "\n"))
                 names.append("impostazioni-grbl.txt")
         for fn in ("flc.log", "flc_crash.log"):

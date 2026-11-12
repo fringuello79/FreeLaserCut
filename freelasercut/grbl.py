@@ -76,6 +76,8 @@ def glow_limits(optical_power):
 LOST_OK_MAX = 3
 LOST_OK_CHECK_S = 2.0  # in verifica le risposte arrivano in millesimi di secondo
 LOST_OK_JOB_S = 3.0
+from .wifi_setup import mask_line as _mask  # noqa: E402 — 0.18.17: la password del Wi-Fi non esce mai in chiaro
+
 _SETTING_RE = re.compile(r"^\$(\d+)=(.*)$")
 _WRITE_RE = re.compile(r"^\$\d+\s*=")
 _DWELL_RE = re.compile(r"G0*4(?!\d)", re.I)  # pausa G4 (non G40, G43…)
@@ -170,6 +172,9 @@ class GrblController(QObject):
     check_finished = Signal(object)  # [(indice, riga, codice, spiegazione)] — verifica $C conclusa; None = interrotta
     check_progress = Signal(int, int)
     autofocus_done = Signal(bool, str, object)  # riuscito?, messaggio, Z del tocco (coordinate macchina) o None
+    # 0.18.17: risposta a un comando mandato con tag «ask:…» (etichetta, accettato?, righe arrivate prima dell'ok):
+    # chi fa una domanda alla scheda riceve la SUA risposta, anche se intanto rispondono altri comandi
+    reply_ready = Signal(str, bool, object)
 
     def __init__(self):
         super().__init__()
@@ -383,7 +388,7 @@ class GrblController(QObject):
                 from . import board_backup
 
                 self.last_backup = board_backup.save(self.board_settings, self.board_info,
-                                                     tr("prima della modifica {0}", line), self.port or "")
+                                                     tr("prima della modifica {0}", _mask(line)), self.port or "")
             except (OSError, ValueError):
                 self.last_backup = None
         with self._lock:
@@ -403,7 +408,7 @@ class GrblController(QObject):
             for cmd in to_send:
                 self._write_raw((cmd.line + "\n").encode())
                 if cmd.tag != "job":
-                    self.line_sent.emit(cmd.line)
+                    self.line_sent.emit(_mask(cmd.line))  # console, registro, comando a distanza: mai la password
 
     def realtime(self, byte):
         self._write_raw(bytes([byte]) if isinstance(byte, int) else byte)
@@ -730,7 +735,11 @@ class GrblController(QObject):
     CHECK_STALL_S = 6.0  # in modalità di prova le risposte arrivano subito: 6 s senza risposte = ferma
 
     def _poll_loop(self):
-        while self._running:
+        # 0.18.17: ogni filo resta legato al collegamento per cui è nato. Prima, scollegando e ricollegando in meno
+        # di un decimo di secondo (come fa «Usa il Wi-Fi adesso»), i fili del collegamento vecchio non si accorgevano
+        # del cambio e continuavano sul nuovo: due lettori sulla stessa porta, con righe di risposta perse
+        mine = self._ser
+        while self._running and self._ser is mine:
             self._write_raw(b"?")
             time.sleep(POLL_INTERVAL)
             self._watch_check()
@@ -811,16 +820,19 @@ class GrblController(QObject):
                                         "risposte perse, la macchina ha finito)", self._job_total, len(lost)))
 
     def _read_loop(self):
+        mine = self._ser  # vedi _poll_loop: un solo lettore per collegamento
         while self._running:
-            ser = self._ser
+            ser = mine
             if ser is None:
                 break
             try:
                 raw = ser.readline()
             except Exception as exc:  # noqa: BLE001
-                if self._running:
+                if self._running and self._ser is mine:
                     self.disconnect_port(f"Connessione persa: {exc}")
                 break
+            if self._ser is not mine:
+                break  # nel frattempo il collegamento è cambiato: questa riga non è più affar mio
             if not raw:
                 continue
             line = raw.decode(errors="replace").strip()
@@ -908,7 +920,7 @@ class GrblController(QObject):
                         self.send_line("G90")
                     head = None  # già gestita
                 elif head is None or head.tag != "check_enter":  # il $C rifiutato lo spiega già la verifica
-                    self.error_raised.emit(code, text, head.line if head else "")
+                    self.error_raised.emit(code, text, _mask(head.line) if head else "")
             if head is not None:
                 self._finish(head, is_ok)
             self._pump()
@@ -919,7 +931,7 @@ class GrblController(QObject):
             # illeggibili. Nella console una riga che lo spiega, invece di una riga di simboli
             self.line_received.emit(tr("(messaggio di avvio della scheda a un'altra velocità: illeggibile, è normale)"))
             return
-        self.line_received.emit(line)
+        self.line_received.emit(_mask(line))
         if line.startswith("[PRB:") and self._af is not None:
             # [PRB:x,y,z:1] posizione macchina del tocco; :0 = nessun tocco
             body = line[5:].rstrip("]")
@@ -1007,8 +1019,13 @@ class GrblController(QObject):
                 head.data[int(m.group(1))] = m.group(2).strip()
         elif head.tag == "info" and line.startswith("["):
             head.data.append(line)
+        elif head.tag and head.tag.startswith("ask:"):
+            head.data.append(line)
 
     def _finish(self, cmd, ok=True):
+        if cmd.tag and cmd.tag.startswith("ask:"):
+            self.reply_ready.emit(cmd.tag, bool(ok), list(cmd.data))
+            return
         if cmd.tag == "settings":
             bad = bad_travel(cmd.data) if ok and cmd.data else []
             if bad and not self._travel_retry and self.connected:

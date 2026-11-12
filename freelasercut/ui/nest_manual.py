@@ -10,6 +10,14 @@ Regole:
   suo limite di potenza e i suoi avvisi): si vede sul materiale se il punto è dentro o fuori dal pezzo;
 - l'area chiusa diventa una forma sul livello T1 (mai incisa) e si apre «Ottimizza lo spazio» con quell'area;
 - se i pezzi non entrano tutti non si sposta niente: «Disegna una nuova area» oppure «Annulla».
+0.18.17 (correzioni chieste da Ale):
+- si dispongono SOLO i pezzi selezionati prima di scegliere il nesting manuale (una foto di riferimento sotto, non
+  selezionata, non si tocca); senza selezione il comando non parte e dice di selezionare i pezzi;
+- le altre forme sul piano non contano, nemmeno se stanno sotto l'area o a cavallo del tracciato: i pezzi vanno
+  nell'area disegnata e basta;
+- finito il nesting il contorno dell'area sparisce (il comando ha finito il suo ciclo); resta sul livello T1 solo
+  con la spunta «Lascia sul piano l'area disegnata…» di «Ottimizza lo spazio»;
+- tutto il comando (area, pezzi sistemati, area tolta) è un solo passo di Ctrl+Z.
 """
 import math
 import os
@@ -61,7 +69,8 @@ def choose_mode(parent):
                    "<b>Nesting automatico</b>: sul piano di lavoro, su un rettangolo su misura o sulla forma del "
                    "materiale già disegnata.<br><br>"
                    "<b>Nesting manuale</b>: disegni tu l'area sul piano, punto per punto, per esempio lungo il bordo di "
-                   "un avanzo di forma irregolare. I pezzi andranno esattamente lì dentro."))
+                   "un avanzo di forma irregolare. Ci andranno dentro solo i pezzi che hai selezionato prima; le altre "
+                   "forme sul piano non vengono toccate."))
     auto = box.addButton(tr("Nesting automatico"), QMessageBox.AcceptRole)
     manual = box.addButton(tr("Nesting manuale"), QMessageBox.ActionRole)
     box.addButton(tr("Annulla"), QMessageBox.RejectRole)
@@ -69,6 +78,47 @@ def choose_mode(parent):
     box.exec()
     hit = box.clickedButton()
     return "auto" if hit is auto else "manual" if hit is manual else None
+
+
+def selected_parts(editor):
+    """I pezzi del nesting manuale: solo quelli selezionati in questo momento (0.18.17), senza le forme del livello
+    T1 e senza quelle bloccate o nascoste."""
+    return [s for s in editor.selection if s.layer != TOOL_LAYER and not s.locked and not s.hidden]
+
+
+def need_selection(main):
+    """Nesting manuale senza niente di selezionato: non parte, e dice che cosa fare."""
+    text = tr("Nesting manuale: seleziona prima i pezzi da sistemare, poi scegli di nuovo il comando.")
+    main.statusBar().showMessage(text, 10000)
+    if os.environ.get("FLC_NO_DIALOGS"):
+        return
+    box = QMessageBox(main)
+    box.setIcon(QMessageBox.Information)
+    box.setWindowTitle(tr("Nesting manuale"))
+    box.setTextFormat(Qt.RichText)
+    box.setText(tr("<b>Seleziona prima i pezzi da sistemare.</b><br><br>"
+                   "Il nesting manuale dispone nell'area che disegni solo i pezzi selezionati: tutto il resto (per "
+                   "esempio una foto di riferimento) resta dov'è.<br><br>"
+                   "Seleziona i pezzi e scegli di nuovo <i>Disponi → Ottimizza lo spazio</i>."))
+    box.exec()
+
+
+def collapse_history(ed, first, label, sel_before=None):
+    """Riunisce in un solo passo di Ctrl+Z tutto quello che è successo dal passo `first` (l'area aggiunta) in poi:
+    area, pezzi sistemati, area tolta. Se alla fine non è cambiato niente, non resta nessun passo.
+    -> True se la cronologia è stata riunita."""
+    stack = ed.undo_stack
+    i = next((k for k, e in enumerate(stack) if e is first), None)
+    if i is None:
+        return False
+    last = stack[-1]
+    before, after = first[1], last[3]
+    del stack[i:]
+    if after != before:
+        stack.append((label, before, first[2] if sel_before is None else list(sel_before), after,
+                      [s.id for s in ed.selection]))
+    ed.history_changed.emit()
+    return True
 
 
 def ask_new_area(parent, left, total):
@@ -193,7 +243,7 @@ class NestAreaPanel(QDialog):
     def __init__(self, main, parts=None):
         super().__init__(main)
         self.main, self.ed, self.cv, self.ctl = main, main.editor, main.canvas, main.ctl
-        self.parts = list(parts) if parts is not None else None  # i pezzi scelti prima di cominciare
+        self.parts = list(parts or [])  # i pezzi selezionati prima di cominciare: si dispongono solo quelli
         self.shape = None
         self._closed = False
         self.laser_note = ""
@@ -296,15 +346,13 @@ class NestAreaPanel(QDialog):
             path.lineTo(x, y)
         path.closeSubpath()
         shape = PathShape(path, layer=TOOL_LAYER)
-        if self.parts is None:
-            parts = [s for s in self.ed.doc.shapes if not s.locked and not s.hidden and s.layer != TOOL_LAYER]
-        else:
-            alive = set(self.ed.doc.shapes)
-            parts = [s for s in self.parts if s in alive]
+        alive = set(self.ed.doc.shapes)
+        parts = [s for s in self.parts if s in alive]
         self._closed = True
         self._leave_tool()
         self.ed.add([shape], tr("Area del nesting"), select=False)
         self.ed.select([shape] + parts)
+        self.parts = parts
         self.shape = shape
         self.done.emit(shape)
         self.close()

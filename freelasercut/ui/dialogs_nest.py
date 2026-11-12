@@ -39,10 +39,16 @@ def pieces(editor, sheet=None):
 class NestDialog(QDialog):
     def __init__(self, main, manual=None):
         """manual: la forma dell'area disegnata con il nesting manuale (0.18.16). Con quella i pezzi vanno lì dentro
-        tutti oppure nessuno: se non entrano non si sposta niente e si chiede una nuova area."""
+        tutti oppure nessuno: se non entrano non si sposta niente e si chiede una nuova area. I pezzi (0.18.17) sono
+        solo quelli selezionati prima di disegnare l'area: alla chiusura dell'area sono loro la selezione."""
         super().__init__(main)
         self.manual = manual
         self.again = False  # nesting manuale: l'area non bastava e si vuole disegnarne un'altra
+        self.last, self.results = None, []
+        self._ended = False
+        # il passo «area aggiunta» nella cronologia: alla fine tutto il comando diventa un solo Ctrl+Z
+        stack = main.editor.undo_stack
+        self._hist0 = stack[-1] if manual is not None and stack else None
         self.main = main
         self.ed = main.editor
         qs = main.qs
@@ -54,7 +60,7 @@ class NestDialog(QDialog):
                           "Si annulla con Ctrl+Z."))
         intro.setWordWrap(True)
         v.addWidget(intro)
-        self.sheet = sheet_shape(self.ed)
+        self.sheet = manual if manual is not None else sheet_shape(self.ed)
         self.parts = pieces(self.ed, self.sheet)
         self.what = QLabel()
         self.what.setWordWrap(True)
@@ -109,6 +115,13 @@ class NestDialog(QDialog):
         self.multi.setToolTip(tr("Ogni pannello in più ha il suo contorno sul livello T1 e il suo numero: incidi un "
                                  "pannello alla volta selezionandolo, con «Solo gli oggetti selezionati»"))
         v.addWidget(self.multi)
+        self.keep_area = QCheckBox(tr("Lascia sul piano l'area disegnata, come riferimento per i prossimi nesting"))
+        self.keep_area.setChecked(manual is not None and qs.value("nest_keep_area", "false") in (True, "true"))
+        self.keep_area.setToolTip(tr("Di regola, finito il nesting, il contorno dell'area sparisce. Con la spunta resta "
+                                     "sul livello T1 (mai inciso): per riusarlo selezionalo insieme ai pezzi e scegli "
+                                     "il nesting automatico."))
+        self.keep_area.setVisible(manual is not None)
+        v.addWidget(self.keep_area)
         self.common = QCheckBox(tr("Linee di taglio comuni: i pezzi si toccano e i lati in comune si tagliano una volta sola"))
         # 0.18.3: parte sempre spenta e non si ricorda più: unisce i contorni in un tracciato unico, e chi l'aveva
         # spuntata una volta se la ritrovava attiva a ogni nesting («non riesco più a modificare i pezzi»)
@@ -151,6 +164,9 @@ class NestDialog(QDialog):
         if not n:
             self.what.setText(tr("Non ci sono pezzi da disporre (le forme bloccate, nascoste o sul livello T1 restano ferme)."))
             self.b_run.setEnabled(False)
+        elif self.manual is not None:
+            self.what.setText(tr("Pezzi: le {0} forme che avevi selezionato. Tutto il resto sul piano resta fermo e non "
+                                 "conta: i pezzi vanno nell'area disegnata, anche se sotto c'è altro.", n))
         elif self.ed.selection:
             self.what.setText(tr("Pezzi: le {0} forme selezionate. Le altre forme sul piano restano ferme e vengono evitate.", n))
         else:
@@ -181,6 +197,11 @@ class NestDialog(QDialog):
         moving = set(self.parts)
         obstacles = [s for s in self.ed.doc.shapes if s not in moving and s is not self.sheet and not s.hidden
                      and s.layer != TOOL_LAYER]
+        if self.manual is not None:
+            # 0.18.17: nel nesting manuale contano solo i pezzi selezionati e l'area tracciata. Una forma che sta
+            # sotto l'area o a cavallo del tracciato (una foto di riferimento, un altro disegno) non è un ostacolo
+            obstacles = []
+            qs.setValue("nest_keep_area", self.keep_area.isChecked())
         common = self.common.isChecked()
         kw = dict(keep_touching=self.keep.isChecked(), spacing=0.0 if common else self.gap.value(),
                   margin=self.margin.value(), rotations=self.rot.currentData(), fill_holes=not self.holes.isChecked(),
@@ -221,6 +242,8 @@ class NestDialog(QDialog):
         # 0.18.3: a fine nesting restano selezionati solo i pezzi che non sono entrati. Prima venivano selezionati
         # tutti i pezzi sistemati: un unico riquadro che sembrava un oggetto solo
         self.ed.select(left)
+        if self.manual is not None:  # 0.18.17: nesting fatto, il contorno dell'area ha finito il suo compito
+            self._area_sync()
         used_w = max((r.used_w for r in results), default=0.0)
         used_h = max((r.used_h for r in results), default=0.0)
         area_parts = sum(r.parts_area for r in results)
@@ -242,6 +265,37 @@ class NestDialog(QDialog):
         self.last = results[0] if results else None
         self.results = results
         return self.last
+
+    # ------------------------------------------------------------------ nesting manuale: fine del comando (0.18.17)
+    def _area_sync(self):
+        """L'area disegnata resta sul piano (livello T1) solo con la spunta; altrimenti sparisce."""
+        doc, area = self.ed.doc, self.manual
+        keep = self.keep_area.isChecked()
+        if not keep and area in doc.shapes:
+            if area in self.ed.selection:
+                self.ed.select([s for s in self.ed.selection if s is not area])
+            self.ed.run(tr("Togli l'area del nesting"), lambda: doc.remove([area]))
+        elif keep and area not in doc.shapes and not self.again:
+            self.ed.run(tr("Area del nesting"), lambda: doc.add(area))
+
+    def end_manual(self):
+        """Il comando «nesting manuale» ha finito il suo ciclo (finestra chiusa, in qualsiasi modo): il contorno
+        dell'area sparisce (salvo la spunta), e tutto il comando diventa un solo passo di Ctrl+Z."""
+        if self.manual is None or self._ended:
+            return
+        self._ended = True
+        from . import nest_manual
+
+        self.main.qs.setValue("nest_keep_area", self.keep_area.isChecked())
+        if not self.again:
+            self._area_sync()  # tolta l'area, restano selezionati i pezzi: la selezione di prima del comando
+        if self._hist0 is not None:
+            # annullando si torna a prima del comando, con selezionati i pezzi che lo erano allora
+            nest_manual.collapse_history(self.ed, self._hist0, tr("Nesting manuale"), [s.id for s in self.parts])
+
+    def done(self, r):
+        self.end_manual()
+        super().done(r)
 
     def ask_new_area(self, left, total):
         from . import nest_manual

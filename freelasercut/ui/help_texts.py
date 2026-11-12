@@ -283,6 +283,14 @@ HELP = {
         "Poche domande: il modello del laser, l'angolo in cui sta lo 0 della macchina e, con il laser collegato, la "
         "prova delle frecce. Da qui FreeLaserCut ricava il verso degli assi, così la testa e il lavoro compaiono nel "
         "punto giusto del piano. Compare al primo avvio e si può rifare quando vuoi."), None),
+    "wifi_wizard": (tr("Collegamento Wi-Fi del laser"), tr(
+        "Procedura guidata per usare il laser senza cavo. Serve una scheda con il Wi-Fi integrato (ESP32: Makerbase "
+        "MKS DLC32, Longer, Sculpfun, Atomstack…). Con il cavo USB (oppure senza cavo, se il laser acceso mostra una "
+        "sua rete propria) scegli la rete di casa, la stessa del PC e a 2,4 GHz, e scrivi la password: FreeLaserCut "
+        "la manda alla scheda, trova l'indirizzo del laser, lo prova e lo salva. La password non viene salvata e non "
+        "compare nei registri. Conviene poi prenotare l'indirizzo nel router. Se la scheda torna a 192.168.4.1 non è "
+        "entrata nella rete: rete a 5 GHz, password sbagliata o con caratteri particolari, oppure solo WPA3. Le "
+        "schede con lo schermo touch si impostano dallo schermo."), None),
     "profile_export": (tr("Esporta il profilo della macchina"), tr(
         "Salva il profilo attivo (area di lavoro, velocità, potenza, assi, correzione della scansione) in un file "
         ".flcprofile, da condividere con chi ha la stessa macchina. Le prove fatte sulla tua macchina (assi provati, "

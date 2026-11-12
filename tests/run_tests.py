@@ -387,6 +387,10 @@ if __name__ == "__main__":
     run_suite("test_v1816_avvio.py", "Guardia d'avvio: gli errori prima della finestra vengono scritti e mostrati, anche senza Qt")
     run_suite("test_v1816_nesting_manuale.py", "Nesting manuale: area disegnata sul piano, laser sui punti, T1 mai inciso")
     run_suite("test_v1816_nesting_manuale.py", "Nesting manuale nell'interfaccia Banco", "banco")
+    run_suite("test_v1817_nesting_manuale.py", "Nesting manuale: solo i pezzi selezionati, forme sotto ignorate, contorno che sparisce")
+    run_suite("test_v1817_nesting_manuale.py", "Nesting manuale (correzioni) nell'interfaccia Banco", "banco")
+    run_suite("test_v1817_wifi.py", "Collegamento Wi-Fi del laser: procedura guidata, famiglie di schede, privacy della password")
+    run_suite("test_v1817_wifi.py", "Collegamento Wi-Fi del laser nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

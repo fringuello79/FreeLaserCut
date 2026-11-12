@@ -21,8 +21,12 @@ _G_OK = {0, 1, 2, 3, 4, 10, 17, 18, 19, 20, 21, 28, 30, 38.2, 38.3, 38.4, 38.5, 
 
 
 class SimSerial:
+    preset = None  # prove (0.18.17): funzione chiamata su ogni simulatore nuovo (la scheda Wi-Fi finta che si riavvia)
+
     def __init__(self, *args, speedup=1.0, negative=None, glitch=None, **kwargs):
         self.is_open = True
+        self.wifi = None  # 0.18.17: scheda con il Wi-Fi finta (vedi wifi_board); None = il simulatore di sempre
+        self._broken = False
         self.speedup = speedup
         # GRBL classico: dopo l'homing le coordinate macchina sono negative (0 = fondo corsa)
         self.negative = os.environ.get("FLC_SIM_NEGATIVE") == "1" if negative is None else negative
@@ -141,6 +145,8 @@ class SimSerial:
         threading.Thread(target=self._processor, daemon=True).start()
         threading.Thread(target=self._executor, daemon=True).start()
         self._emit("\r\nGrbl 1.1h ['$' for help]\r\n")
+        if SimSerial.preset is not None:
+            SimSerial.preset(self)
 
     # ---- interfaccia stile pyserial ------------------------------------
     def write(self, data):
@@ -181,6 +187,8 @@ class SimSerial:
         self.ov = [max(10, min(200, f)), 100, max(10, min(200, s))]
 
     def readline(self):
+        if self._broken:  # 0.18.17: la porta è caduta (riavvio della scheda Wi-Fi finta)
+            raise OSError("porta caduta al riavvio della scheda")
         with self._cv:
             if b"\n" not in self._out:
                 self._cv.wait(timeout=0.1)
@@ -420,9 +428,172 @@ class SimSerial:
             time.sleep(0.01)
 
     # ---- interprete -------------------------------------------------------
+    # ---- 0.18.17: scheda con il Wi-Fi (ESP32) finta, per le prove di «Collegamento Wi-Fi del laser» ------------------
+    WIFI_INFO = {
+        "lgt": "[LGT V1.2.3]\r\n[VER:1.1.2023080801:]\r\n[OPT:VPH,63,256]\r\n[MSG:FW:LGT V1.2.3|MB:LS_ESP32-SIM]\r\n",
+        "mks": "[VER:1.1.2022100101:MKS DLC32]\r\n[OPT:VPH,63,256]\r\n[MSG:Using machine:MKS DLC32]\r\n",
+        "grbl_esp32": "[VER:1.3a.20210424:Grbl_ESP32]\r\n[OPT:PHS,15,128]\r\n[MSG:Using machine:ESP32 board]\r\n",
+        "fluidnc": "[VER:3.7 FluidNC v3.7.8:]\r\n[OPT:PH,15,128]\r\n",
+        "numeric": "[VER:1.1h.20190825:]\r\n[OPT:V,15,128]\r\n[MSG:WiFi board]\r\n",
+        "locked": "[VER:1.1f.20230414:]\r\n[OPT:VL,15,254]\r\n[MSG:FW:TOUCH V2|MB:ESP32-S3]\r\n",
+        "none": "[VER:1.1h.20190830:]\r\n[OPT:V,15,128]\r\n",
+    }
+
+    def wifi_board(self, kind="lgt", **kw):
+        """Da qui il simulatore si comporta come una scheda con il Wi-Fi. kind:
+        "lgt" Longer («[ESP110]», «[ESP111]», rete in $53/$54; «[ESP100]» non esiste, come sul B1 vero),
+        "mks" Makerbase («[ESP100]», «[ESP101]»), "grbl_esp32" e "fluidnc" («$Sta/SSID=»…),
+        "numeric" (solo $50…$54), "locked" (ESP32 che rifiuta tutti i comandi), "none" (8 bit, senza Wi-Fi).
+        nets: {rete: password} che esistono «in casa»; join_ip: l'indirizzo che la scheda riceve."""
+        w = dict(kind=kind, mode="OFF", ip="0.0.0.0", ssid="", password="", ap="MKS_DLC",
+                 nets={"CasaMia": "passwordgiusta"}, join_ip="192.168.1.77", messages=True, restart=True, drop=False,
+                 reject=(), boots=0, delay=0.25, log=[])
+        w.update(kw)
+        return self._wifi_resume(w, boot=False)
+
+    def _wifi_resume(self, w, boot=True):
+        self.wifi = w
+        self.info_text = self.WIFI_INFO[w["kind"]]
+        if w["kind"] in ("none", "locked", "fluidnc", "grbl_esp32"):
+            for n in (50, 51, 52, 53, 54):
+                self.settings.pop(n, None)
+        else:
+            self.settings.update({50: "0" if w["mode"] == "OFF" else "2", 51: w["ap"], 52: "12345678", 53: w["ssid"],
+                                  54: w["password"]})
+        if boot:
+            threading.Thread(target=self._wifi_connect, daemon=True).start()
+        return w
+
+    def _wifi_status_line(self):
+        w = self.wifi
+        if w["kind"] == "fluidnc" and w["mode"] == "STA":
+            st = "Connected" if w["ip"] not in ("0.0.0.0", "192.168.4.1") else "Not connected"
+            return f"[MSG: Mode=STA:SSID={w['ssid']}:Status={st}:IP={w['ip']}:MAC=00-00-00-00-00-00]\r\n"
+        if w["kind"] in ("lgt", "mks") and w["mode"] == "OFF":
+            return "[MSG:No Wifi]\r\n"  # sul B1 vuol dire «Wi-Fi spento», non «scheda senza Wi-Fi»
+        return ""
+
+    def _wifi_connect(self):
+        """Dopo un riavvio: la scheda prova a entrare nella rete e lo dice (se i messaggi sono accesi)."""
+        w = self.wifi
+        say = (lambda t: self._emit(t + "\r\n")) if w["messages"] else (lambda t: None)
+        time.sleep(w["delay"])
+        if w["mode"] == "STA":
+            say(f"[MSG:Connecting {w['ssid']}]")
+            time.sleep(w["delay"])
+            if w["ssid"] in w["nets"] and w["nets"][w["ssid"]] == w["password"]:
+                w["ip"] = w["join_ip"]
+                say(f"[MSG:Connected with {w['ip']}]")
+            else:  # come la scheda vera: non entra e torna a fare la sua rete
+                w["mode"], w["ip"] = "AP", "192.168.4.1"
+                say(f"[MSG:Cannot connect to {w['ssid']}]")
+                say(f"[MSG:Local access point {w['ap']} started, 192.168.4.1]")
+        elif w["mode"] == "AP":
+            w["ip"] = "192.168.4.1"
+            say(f"[MSG:Local access point {w['ap']} started, 192.168.4.1]")
+        else:
+            w["ip"] = "0.0.0.0"
+
+    def _wifi_restart(self):
+        w = self.wifi
+        w["boots"] += 1
+        if w["drop"]:  # la porta cade al riavvio; il simulatore che si apre dopo continua da qui
+            w["drop"] = False
+            SimSerial.preset = lambda sim, ww=w: (setattr(SimSerial, "preset", None), sim._wifi_resume(ww))
+            self._broken = True
+            with self._cv:
+                self._cv.notify_all()
+            return
+        self._emit("\r\nGrbl 1.1h ['$' for help]\r\n")
+        threading.Thread(target=self._wifi_connect, daemon=True).start()
+
+    def _wifi_line(self, line):
+        """Una riga per la scheda Wi-Fi finta. -> True se l'ha gestita lei."""
+        w, s = self.wifi, line.strip()
+        kind, up = w["kind"], line.strip().upper()
+        w["log"].append(s)
+        if w.get("mute"):
+            return True  # scheda muta: non risponde a niente
+
+        def rej(code=3):
+            self._emit(f"error:{code}\r\n")
+            return True
+
+        def ok():
+            self._ok()
+            return True
+
+        if any(up.startswith(str(r).upper()) for r in w["reject"]):
+            return rej()
+        if up == "$I":
+            self._emit(self.info_text + self._wifi_status_line())
+            return ok()
+        m = re.match(r"^\[ESP(\d+)\](.*)$", s, re.I)
+        if m:
+            num, arg = m.group(1), m.group(2)
+            if kind not in ("lgt", "mks", "grbl_esp32"):
+                return rej()
+            if num == "110":
+                if not arg:
+                    self._emit(f"$ESP110={w['mode']}\r\n")
+                    return ok()
+                if arg.upper() not in ("STA", "AP", "OFF", "BT"):
+                    return rej(2)
+                w["mode"] = arg.upper()
+                return ok()
+            if num == "111":
+                self._emit(w["ip"] + "\r\n")
+                return ok()
+            if num in ("100", "101"):
+                if kind == "lgt":
+                    return rej()  # sul B1 vero «[ESP100]» risponde error:3
+                if not arg:
+                    return rej(2)
+                w["ssid" if num == "100" else "password"] = arg
+                return ok()
+            if num == "444" and arg.upper() == "RESTART" and w["restart"]:
+                self._ok()
+                self._wifi_restart()
+                return True
+            return rej()
+        m = re.match(r"^\$(5[0-4])=(.*)$", s)
+        if m and kind in ("lgt", "mks", "numeric"):
+            n, v = int(m.group(1)), m.group(2)
+            self.settings[n] = v
+            if n == 53:
+                w["ssid"] = v
+            elif n == 54:
+                w["password"] = v
+            elif n == 50 and kind == "numeric":
+                w["mode"] = {"0": "OFF", "1": "STA", "2": "AP"}.get(v.strip(), w["mode"])
+            return ok()
+        m = re.match(r"^\$(Sta/SSID|Sta/Password|Radio/Mode|WiFi/Mode)(?:=(.*))?$", s, re.I)
+        if m:
+            key, val = m.group(1).lower(), m.group(2)
+            if kind not in ("grbl_esp32", "fluidnc") or (key == "wifi/mode" and kind != "fluidnc") \
+                    or (key == "radio/mode" and kind != "grbl_esp32"):
+                return rej()
+            field = {"sta/ssid": "ssid", "sta/password": "password"}.get(key, "mode")
+            if val is None:
+                shown = "********" if field == "password" else w[field]
+                self._emit(f"${m.group(1)}={shown}\r\n")
+                return ok()
+            w[field] = val.upper() if field == "mode" else val
+            return ok()
+        if up == "$BYE" and kind == "fluidnc" and w["restart"]:
+            self._ok()
+            self._wifi_restart()
+            return True
+        if up.startswith("[ESP") or up.startswith("$STA/") or up.startswith("$RADIO/") or up.startswith("$WIFI/") \
+                or up == "$BYE":
+            return rej()
+        return False
+
     def _process(self, line, gen):
         if self._critical:
             return  # stato critico: nessuna risposta finché non arriva Ctrl-X
+        if self.wifi is not None and self._wifi_line(line):
+            return
         up = line.upper().replace(" ", "")
         if self.check_mode and up != "$C" and self.g55_stalls:
             # 0.18.15: come la scheda di un OMTech K40 (rapporto FLC-20261111-2131-0A9C): in verifica risponde

@@ -90,7 +90,7 @@ def pieces(n, wd=20, h=12):
         s.apply(QTransform.fromTranslate(300 + (i % 4) * 30, 250 + (i // 4) * 25))
         out.append(s)
     ed.add(out, select=False)
-    ed.select([])
+    ed.select(out)  # 0.18.17: il nesting manuale dispone solo i pezzi selezionati prima
     return out
 
 
@@ -155,6 +155,7 @@ check("i 6 pezzi finiscono tutti dentro il trapezio", res is not None and all(in
       [s.bounds().center().toTuple() for s in parts])
 check("…senza sovrapporsi", not any(a.bounds().adjusted(0.05, 0.05, -0.05, -0.05).intersects(b.bounds())
                                     for i, a in enumerate(parts) for b in parts[i + 1:]))
+dlg.accept()  # 0.18.17: chiusa la finestra il comando è finito, ed è un solo passo di Ctrl+Z
 ed.undo()
 check("Ctrl+Z riporta i pezzi dov'erano", [s.bounds().center().toTuple() for s in ed.doc.shapes if s.layer != TOOL_LAYER][:6]
       == orig)
@@ -185,7 +186,7 @@ dlg = w._nest_manual_dlg
 asked.clear()
 dlg.ask_new_area = lambda left, total: (asked.append((left, total)), False)[1]
 res = dlg.run()
-big = next(s for s in ed.doc.shapes if s.layer == TOOL_LAYER)
+big = dlg.manual  # 0.18.17: a nesting fatto il contorno dell'area non è più sul piano
 bp = [(e.x, e.y) for e in (big.path().elementAt(i) for i in range(big.path().elementCount() - 1))]
 check("nell'area più grande entrano tutti e 14, senza altre domande", res is not None and not asked
       and all(inside(s, bp) for s in parts), asked)
@@ -201,9 +202,9 @@ dlg = w._nest_manual_dlg
 dlg.ask_new_area = lambda left, total: False
 before = [s.bounds().center().toTuple() for s in parts]
 dlg.run()
-check("scelta «annulla»: niente spostato, l'area resta sul livello T1, nessun nuovo disegno",
+check("scelta «annulla»: niente spostato, nessun nuovo disegno, e (0.18.17) il contorno dell'area sparisce",
       not dlg.again and [s.bounds().center().toTuple() for s in parts] == before
-      and len([s for s in ed.doc.shapes if s.layer == TOOL_LAYER]) == 1 and getattr(w, "_nest_panel", None) is None)
+      and len([s for s in ed.doc.shapes if s.layer == TOOL_LAYER]) == 0 and getattr(w, "_nest_panel", None) is None)
 
 # ================================================================== aree non valide, Esc
 ed.doc.shapes.clear()

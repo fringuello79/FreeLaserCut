@@ -285,6 +285,13 @@ class SetupWizard(QDialog):
         self.levels[self.main.help_level()].setChecked(True)
         v.addWidget(_text(tr("Puoi cambiare tutto quando vuoi: <i>Impostazioni → Configurazione guidata della macchina</i> "
                              "e <i>Impostazioni → Livello di aiuto</i>.")))
+        # 0.18.17: solo se la scheda collegata ha il Wi-Fi (ESP32)
+        self.wifi_hint = _text(tr("Vuoi usarlo senza cavo? Dopo, apri <i>Impostazioni → Collegamento Wi-Fi del laser…</i>"))
+        from .. import wifi_setup
+
+        ctl = self.main.ctl
+        self.wifi_hint.setVisible(bool(ctl.connected and wifi_setup.esp32_hints(ctl.board_info, ctl.board_settings)))
+        v.addWidget(self.wifi_hint)
         v.addStretch(1)
         self.stack.addWidget(w)
 

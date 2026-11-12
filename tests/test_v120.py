@@ -117,7 +117,10 @@ check("alla connessione: copia automatica delle impostazioni della scheda", len(
       saved[0][1]["reason"] and saved[0][1]["count"] == len(ctl.board_settings) and saved[0][1]["ver"], saved[:1])
 txt = open(saved[0][0], encoding="utf-8").read()
 check("la copia è testo leggibile: «$numero=valore», da incollare anche nella console",
-      txt.startswith(bb.HEADER) and "\n$130=" in txt and bb.parse(txt) == {int(k): str(v) for k, v in ctl.board_settings.items()})
+      txt.startswith(bb.HEADER) and "\n$130=" in txt
+      # 0.18.17: nella copia la password del Wi-Fi ($52, $54) è mascherata; tutto il resto è com'è sulla scheda
+      and bb.parse(txt) == {int(k): str(v) for k, v in __import__("freelasercut.wifi_setup", fromlist=["x"]).mask_settings(
+          ctl.board_settings).items()})
 before = dict(ctl.board_settings)
 ctl.write_setting(130, "300.000")
 check("prima di cambiare un valore: nessun doppione se la copia ha già gli stessi valori", len(bb.list_backups()) == 1)

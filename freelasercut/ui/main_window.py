@@ -392,6 +392,8 @@ class MainWindow(QMainWindow):
             "setup_wizard": A(tr("Configurazione guidata della macchina…"), self.setup_wizard, None, None,
                               tr("Poche domande: il modello, l'angolo dello 0 della macchina e la prova delle frecce. "
                                  "Si può rifare quando vuoi.")),
+            "wifi_wizard": A(tr("Collegamento Wi-Fi del laser…"), self.wifi_wizard, None, None,
+                             tr("Procedura guidata per mettere il laser nella rete di casa e usarlo senza cavo.")),
             "update_auto": A(tr("Controlla gli aggiornamenti ogni giorno"), lambda on: self.updates.set_enabled(on), None, None,
                              tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede a GitHub qual è l'ultima "
                                 "versione. Non invia dati tuoi e non scarica niente senza chiedere."), checkable=True),
@@ -587,6 +589,7 @@ class MainWindow(QMainWindow):
         m = mb.addMenu(tr("&Impostazioni"))
         self.m_settings = m
         m.addAction(self.acts["setup_wizard"])
+        m.addAction(self.acts["wifi_wizard"])
         m.addAction(self.acts["admin_code"])
         m.addSeparator()
         sub = m.addMenu(tr("Interfaccia"))
@@ -1514,11 +1517,14 @@ class MainWindow(QMainWindow):
     def nest_manual_start(self, parts=None):
         """Nesting manuale: si disegna l'area sul piano; alla chiusura si apre «Ottimizza lo spazio» su quell'area."""
         from . import nest_manual
-        from .editor import TOOL_LAYER
 
-        if parts is None and self.editor.selection:  # i pezzi scelti prima di cominciare (senza le forme del livello T1)
-            parts = [s for s in self.editor.selection if s.layer != TOOL_LAYER and not s.locked and not s.hidden]
-        panel = nest_manual.NestAreaPanel(self, parts or None)
+        # 0.18.17: solo i pezzi selezionati prima di scegliere il comando; senza selezione non parte
+        alive = set(self.editor.doc.shapes)
+        parts = nest_manual.selected_parts(self.editor) if parts is None else [s for s in parts if s in alive]
+        if not parts:
+            nest_manual.need_selection(self)
+            return None
+        panel = nest_manual.NestAreaPanel(self, parts)
         self._nest_panel = panel
         panel.done.connect(lambda shape, pr=parts: self._nest_area_done(shape, pr))
         self.statusBar().showMessage(tr("Nesting manuale: clicca sul piano lungo il bordo del materiale per disegnare "
@@ -1835,7 +1841,7 @@ class MainWindow(QMainWindow):
         from .. import netport
 
         ports = [(p.device, p.label(), p.likely) for p in machines.describe_ports()]
-        ports += [(p, netport.label(p), False) for p in netport.saved(self.qs)]  # laser in Wi-Fi già usati
+        ports += [(p, netport.label(p, self.qs), False) for p in netport.saved(self.qs)]  # laser in Wi-Fi già usati
         ports.append((SIM_PORT, tr("Simulatore (senza macchina)"), False))
         for dev, label, likely in ports:
             self.port_combo.addItem(("★  " if likely else "") + label, dev)
@@ -1869,6 +1875,9 @@ class MainWindow(QMainWindow):
 
     def _auto_connect(self):
         """All'avvio si collega da solo alla porta usata l'ultima volta (se c'è ancora)."""
+        from .dialogs_wifi import restore_pc_network
+
+        restore_pc_network()  # 0.18.17: chiuso mentre il PC era sulla rete del laser? Prima lo riporto sulla sua rete
         if self.ctl.connected:
             return
         last = self.qs.value("port", "")
@@ -1876,6 +1885,13 @@ class MainWindow(QMainWindow):
             self.port_combo.setCurrentIndex(self.port_combo.findData(last))
             self.statusBar().showMessage(tr("Mi collego al laser su {0}…", last), 4000)
             self.toggle_connection(quiet=True)
+            from .. import netport
+
+            if not self.ctl.connected and netport.is_net(last):
+                # 0.18.17: il laser non è più a quell'indirizzo (il router gliene ha dato un altro): lo cerco in rete
+                from .dialogs_wifi import refind
+
+                refind(self, last)
 
     def toggle_connection(self, quiet=False):
         if self.ctl.connected:
@@ -3243,6 +3259,20 @@ class MainWindow(QMainWindow):
 
     def expert_mode(self):
         return self.help_level() == "esperto"
+
+    def wifi_wizard(self, *_):
+        """Impostazioni → Collegamento Wi-Fi del laser… (0.18.17). -> l'indirizzo salvato («tcp://…») o None."""
+        from .dialogs_wifi import WifiWizard
+
+        dlg = WifiWizard(self)
+        self._wifi_dlg = dlg
+        dlg.start()
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            dlg.exec()
+            self._wifi_dlg = None
+            self.refresh_ports()
+            return dlg.result
+        return dlg
 
     def setup_wizard(self, *_, first=False):
         """Impostazioni → Configurazione guidata della macchina (anche al primo avvio)."""

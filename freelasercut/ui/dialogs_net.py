@@ -38,10 +38,17 @@ class NetDialog(QDialog):
         self.host.setPlaceholderText("192.168.1.50")
         self.num = QSpinBox()
         self.num.setRange(1, 65535)
-        self.num.setValue(netport.DEFAULT_PORT)
+        self.num.setValue(self.suggested_port(parent))
         f.addRow(tr("Indirizzo della scheda"), self.host)
         f.addRow(tr("Porta"), self.num)
         v.addLayout(f)
+        # 0.18.17: per mettere in rete la scheda c'è la procedura guidata (la stessa di Impostazioni)
+        self.b_wizard = QPushButton(tr("Configura il Wi-Fi della scheda…"))
+        self.b_wizard.setToolTip(tr("Se il laser non è ancora nella rete di casa: procedura guidata, con il cavo USB o "
+                                    "senza"))
+        self.b_wizard.clicked.connect(self._wizard)
+        self.b_wizard.setVisible(hasattr(parent, "wifi_wizard"))
+        v.addWidget(self.b_wizard)
         h = QHBoxLayout()
         self.b_test = QPushButton(tr("Prova il collegamento"))
         self.b_test.clicked.connect(self.test)
@@ -66,10 +73,30 @@ class NetDialog(QDialog):
         self.tested.connect(self._show_test)
         self._fill()
 
+    @staticmethod
+    def suggested_port(main):
+        """8080 per le schede Makerbase e Longer (l'ultima scheda vista), 23 per le altre."""
+        from .. import wifi_setup
+
+        ctl = getattr(main, "ctl", None)
+        info = list(getattr(ctl, "board_info", None) or [])
+        name = getattr(getattr(main, "profile", None), "name", "") or ""
+        if wifi_setup.is_mks_like(info) or any(t in name.upper() for t in ("LONGER", "MKS", "DLC32")):
+            return 8080
+        return netport.DEFAULT_PORT
+
+    def _wizard(self):
+        self.wizard_port = self.parent().wifi_wizard()
+        if self.wizard_port:
+            self.port = self.wizard_port
+            self.accept()
+        else:
+            self._fill()
+
     def _fill(self):
         self.list.clear()
         for p in netport.saved(self.qs):
-            it = QListWidgetItem(netport.label(p))
+            it = QListWidgetItem(netport.label(p, self.qs))
             it.setData(Qt.UserRole, p)
             self.list.addItem(it)
         self.b_forget.setEnabled(self.list.count() > 0)

@@ -30,7 +30,9 @@ def to_text(settings, info=(), reason="", port=""):
     if port:
         lines.append("; porta: " + port)
     lines += ["; " + l for l in info or () if l.startswith("[")]
-    lines += [f"${n}={v}" for n, v in sorted((int(k), str(v)) for k, v in settings.items())]
+    from .wifi_setup import mask_settings  # 0.18.17: la password del Wi-Fi non finisce nelle copie
+
+    lines += [f"${n}={v}" for n, v in sorted((int(k), str(v)) for k, v in mask_settings(settings).items())]
     return "\n".join(lines) + "\n"
 
 
@@ -99,7 +101,9 @@ def save(settings, info=(), reason="manuale", port="", folder=None):
                 old = parse(fh.read())
         except OSError:
             old = {}
-        cur = {int(k): str(v) for k, v in settings.items()}
+        from .wifi_setup import mask_settings
+
+        cur = {int(k): str(v) for k, v in mask_settings(settings).items()}  # nella copia la password è mascherata
         if set(old) == set(cur) and all(_same(old[k], cur[k]) for k in cur):
             return prev[0][0]
     name = time.strftime("scheda-%Y%m%d-%H%M%S")
@@ -121,8 +125,13 @@ def save(settings, info=(), reason="manuale", port="", folder=None):
 def diff(current, saved):
     """[(numero, valore attuale, valore della copia)] per le impostazioni che la scheda conosce e che cambiano.
     Un'area di lavoro non credibile nella copia ($130/$131, es. 234500) non si rimanda mai: vedi not_restored."""
+    from .wifi_setup import MASK, wifi_numbers
+
     cur = {int(k): str(v) for k, v in (current or {}).items()}
     skip = {n for n, _ in not_restored(saved)}
+    # 0.18.17: le impostazioni del Wi-Fi non si ripristinano mai da una copia (la password lì è mascherata, e
+    # cambiare rete per sbaglio staccherebbe il laser): si cambiano solo da «Collegamento Wi-Fi del laser»
+    skip |= wifi_numbers(saved) | wifi_numbers(cur) | {int(n) for n, v in saved.items() if str(v).strip() == MASK}
     out = []
     for n, v in sorted(saved.items()):
         if n in cur and n not in skip and not _same(cur[n], v):

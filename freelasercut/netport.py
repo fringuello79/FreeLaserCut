@@ -8,6 +8,7 @@ la porta seriale (write / readline / close), così il resto di FreeLaserCut non 
 
 Le porte di rete si scrivono «tcp://indirizzo:porta», per esempio «tcp://192.168.1.50:23».
 """
+import json
 import re
 import select
 import socket
@@ -47,9 +48,14 @@ def is_net(port):
     return isinstance(port, str) and port.lower().startswith(PREFIX)
 
 
-def label(port):
+def label(port, qs=None):
+    """«Wi-Fi  192.168.1.50:8080 — Longer B1»: con qs (0.18.17) aggiunge il nome del profilo salvato con l'indirizzo,
+    così con più laser in rete si capisce qual è quale."""
     a = parse_address(port)
-    return f"Wi-Fi  {a[0]}:{a[1]}" if a else str(port)
+    if not a:
+        return str(port)
+    name = info(qs, port).get("name", "") if qs is not None else ""
+    return f"Wi-Fi  {a[0]}:{a[1]}" + (f" — {name}" if name else "")
 
 
 WRITE_TIMEOUT = 2.0  # una rete Wi-Fi lenta può fermare una scrittura per un istante; oltre, il collegamento è perso
@@ -166,3 +172,30 @@ def remember(qs, port):
 
 def forget(qs, port):
     qs.setValue("net_ports", [p for p in saved(qs) if p != port])
+    d = _infos(qs)
+    if d.pop(port, None) is not None:
+        qs.setValue("net_info", json.dumps(d))
+
+
+# ------------------------------------------------------------------ chi c'è a quell'indirizzo (0.18.17)
+def _infos(qs):
+    try:
+        d = json.loads(qs.value("net_info", "") or "{}") if qs is not None else {}
+        return d if isinstance(d, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def info(qs, port):
+    """{"name": profilo della macchina, "ver": riga [VER…] della scheda} salvati con l'indirizzo ({} se non c'è)."""
+    v = _infos(qs).get(port)
+    return v if isinstance(v, dict) else {}
+
+
+def set_info(qs, port, name="", ver=""):
+    """Ricorda di chi è quell'indirizzo: serve all'etichetta e a ritrovare lo stesso laser se l'indirizzo cambia."""
+    d = _infos(qs)
+    d[port] = {"name": str(name or ""), "ver": str(ver or "")}
+    for p in [p for p in d if p not in saved(qs)]:
+        del d[p]
+    qs.setValue("net_info", json.dumps(d))
