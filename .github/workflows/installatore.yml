@@ -111,6 +111,29 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "versione sbagliata" }
           & $py -X utf8 -c "from PySide6.QtWidgets import QApplication; app = QApplication([]); from freelasercut.ui.main_window import MainWindow; w = MainWindow(); w.show(); app.processEvents(); print('finestra principale ok'); w.editor.dirty = False; w.close()"
           if ($LASTEXITCODE -ne 0) { throw "la finestra principale non si apre" }
+      # 0.18.16: un errore d'avvio messo apposta, con il pythonw.exe installato (quello del collegamento, senza
+      # finestra di testo): deve restare scritto in flc.log con i dati di sistema. Dura un paio di secondi.
+      # «continue-on-error»: se questo controllo inciampa per un motivo suo, la pubblicazione non si ferma.
+      - name: Errore d'avvio messo apposta (deve restare scritto)
+        continue-on-error: true
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          FLC_NO_UPDATE: "1"
+          FLC_NO_FIRST_RUN: "1"
+          FLC_NO_DIALOGS: "1"
+          FLC_MULTI: "1"
+          FLC_PROVA_GUASTO: qt
+        run: |
+          $dir = "$env:LOCALAPPDATA\Programs\FreeLaserCut"
+          $log = "$env:APPDATA\FreeLaserCut\flc.log"
+          if (Test-Path $log) { Remove-Item $log }
+          $p = Start-Process -FilePath "$dir\python\pythonw.exe" -ArgumentList '-m', 'freelasercut' -WorkingDirectory "$dir\app" -Wait -PassThru
+          if ($p.ExitCode -eq 0) { throw "un errore d'avvio deve dare un codice d'uscita diverso da 0" }
+          if (-not (Test-Path $log)) { throw "l'errore d'avvio non è stato scritto in flc.log" }
+          Get-Content $log -Tail 25
+          if (-not (Select-String -Path $log -Pattern 'Sistema: Windows' -Quiet)) { throw "mancano i dati di sistema" }
+          if (-not (Select-String -Path $log -Pattern 'guasto di prova' -Quiet)) { throw "manca la traccia dell'errore" }
 
   # ---------------------------------------------------------------- Linux (0.18.0)
   # Ubuntu 22.04: librerie di sistema abbastanza vecchie perché l'AppImage parta anche su distribuzioni non recenti.

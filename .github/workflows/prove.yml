@@ -2,10 +2,13 @@
 # Prove automatiche: a ogni Push (e a ogni proposta di modifica) GitHub fa girare tutte le prove di
 # tests/run_tests.py su Windows e su Linux, senza finestre (Qt "offscreen") e con il simulatore al posto del laser.
 # Se qualcosa si rompe, la spunta del commit diventa rossa e GitHub manda un'email.
+# 0.18.16: una volta sola per versione (il push del tag non le fa ripartire: è lo stesso codice del push su main)
+# e quattro suite insieme invece di una alla volta.
 name: Prove automatiche
 
 on:
   push:
+    branches: ["**"]  # solo i rami: un tag (v0.18.16) punta a un commit già provato
     paths-ignore: ["docs/**", "**.md"]
   pull_request:
     paths-ignore: ["docs/**", "**.md"]
@@ -31,6 +34,7 @@ jobs:
       PYTHONIOENCODING: utf-8
       PYTHONUTF8: "1"
       FLC_NO_FIRST_RUN: "1"
+      FLC_PROVE_INSIEME: "4"  # quattro suite insieme; una che fallisce così viene riprovata da sola (tests/run_tests.py)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

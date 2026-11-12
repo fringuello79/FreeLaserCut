@@ -31,8 +31,9 @@ def check(name, cond, info=""):
 R40 = "Longer Ray5 40W"
 names = machines.catalog_names()
 check("Longer Ray5 40W nel catalogo, sceglibile", R40 in names)
-check("nomi del catalogo senza doppioni; 58 modelli più il generico", len(names) == len(set(names))
-      and len(machines.CATALOG) == 58 and len(names) == 59, (len(machines.CATALOG), len(names)))
+check("nomi del catalogo senza doppioni; almeno 58 modelli più il generico (il conto esatto sta nella prova più recente)",
+      len(names) == len(set(names)) and len(machines.CATALOG) >= 58 and len(names) == len(machines.CATALOG) + 1,
+      (len(machines.CATALOG), len(names)))
 longer = [n for n in names if n.startswith("Longer")]
 check("nell'elenco sta con gli altri Longer, dopo il Ray5 20W",
       names.index(R40) == names.index("Longer Ray5 20W") + 1 and names[0] == "Longer B1 40W", longer)

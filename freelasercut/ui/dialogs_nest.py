@@ -37,8 +37,12 @@ def pieces(editor, sheet=None):
 
 
 class NestDialog(QDialog):
-    def __init__(self, main):
+    def __init__(self, main, manual=None):
+        """manual: la forma dell'area disegnata con il nesting manuale (0.18.16). Con quella i pezzi vanno lì dentro
+        tutti oppure nessuno: se non entrano non si sposta niente e si chiede una nuova area."""
         super().__init__(main)
+        self.manual = manual
+        self.again = False  # nesting manuale: l'area non bastava e si vuole disegnarne un'altra
         self.main = main
         self.ed = main.editor
         qs = main.qs
@@ -133,6 +137,12 @@ class NestDialog(QDialog):
         self.area.currentIndexChanged.connect(self._area_changed)
         if self.sheet is not None:
             self.area.setCurrentIndex(self.area.findData("sheet"))
+        if self.manual is not None:  # l'area è quella disegnata: non si cambia e non si continua su altri pannelli
+            self.setWindowTitle(tr("Ottimizza lo spazio: nesting manuale"))
+            self.area.setItemText(self.area.findData("sheet"), tr("L'area che hai disegnato"))
+            self.area.setEnabled(False)
+            self.multi.setChecked(False)
+            self.multi.hide()
         self._area_changed()
         self._describe()
 
@@ -190,6 +200,18 @@ class NestDialog(QDialog):
         placed_groups = [g for r in results for g in r.placements]
         placed = {s for g in placed_groups for s in g}
         left = [s for s in self.parts if s not in placed]
+        if self.manual is not None and left:
+            # nesting manuale: tutti dentro l'area oppure niente. Non sposto nessun pezzo e chiedo che cosa fare
+            self.result.setText(tr("<span style='color:#E5484D'>Nell'area disegnata non entrano tutti i pezzi: ne "
+                                   "restano fuori {0} su {1}. Non ho spostato niente.</span>", len(left), len(self.parts)))
+            self.results, self.last = [], None
+            self.again = bool(self.ask_new_area(len(left), len(self.parts)))
+            doc = self.ed.doc
+            if self.again and self.manual in doc.shapes:  # l'area vecchia non serve più
+                self.ed.run(tr("Togli l'area del nesting"), lambda: doc.remove([self.manual]))
+            self.ed.select([s for s in self.parts if s in doc.shapes])
+            self.reject()
+            return None
         info = {"saved": 0.0}
         if placed_groups:
             self.ed.run(tr("Ottimizza lo spazio"), self._apply, results, shifts, area, obstacles, common, info)
@@ -220,6 +242,11 @@ class NestDialog(QDialog):
         self.last = results[0] if results else None
         self.results = results
         return self.last
+
+    def ask_new_area(self, left, total):
+        from . import nest_manual
+
+        return nest_manual.ask_new_area(self, left, total)
 
     def _apply(self, results, shifts, area, obstacles, common, info):
         from ..core.document import PathShape, RectShape, TextShape

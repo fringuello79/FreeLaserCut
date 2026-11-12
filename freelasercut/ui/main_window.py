@@ -1493,10 +1493,51 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(tr("Nessun lato in comune fra le forme selezionate"), 6000)
         return total["saved"]
 
-    def nest_dialog(self):
+    def nest_dialog(self, *_, mode=None):
+        """Disponi → Ottimizza lo spazio. 0.18.16: prima la scelta fra nesting automatico e manuale (area disegnata
+        sul piano, vedi nest_manual). mode: "auto" | "manual" per saltare la domanda (prove, comandi)."""
+        from . import nest_manual
         from .dialogs_nest import NestDialog
 
-        NestDialog(self).exec()
+        if getattr(self, "_nest_panel", None) is not None:  # sto già disegnando un'area
+            self._nest_panel.raise_()
+            return self._nest_panel
+        mode = mode or nest_manual.choose_mode(self)
+        if mode is None:
+            return None
+        if mode == "auto":
+            dlg = NestDialog(self)
+            dlg.exec()
+            return dlg
+        return self.nest_manual_start()
+
+    def nest_manual_start(self, parts=None):
+        """Nesting manuale: si disegna l'area sul piano; alla chiusura si apre «Ottimizza lo spazio» su quell'area."""
+        from . import nest_manual
+        from .editor import TOOL_LAYER
+
+        if parts is None and self.editor.selection:  # i pezzi scelti prima di cominciare (senza le forme del livello T1)
+            parts = [s for s in self.editor.selection if s.layer != TOOL_LAYER and not s.locked and not s.hidden]
+        panel = nest_manual.NestAreaPanel(self, parts or None)
+        self._nest_panel = panel
+        panel.done.connect(lambda shape, pr=parts: self._nest_area_done(shape, pr))
+        self.statusBar().showMessage(tr("Nesting manuale: clicca sul piano lungo il bordo del materiale per disegnare "
+                                        "l'area"), 10000)
+        return panel.start()
+
+    def _nest_area_done(self, shape, parts):
+        self._nest_panel = None
+        if shape is None:
+            return None
+        from .dialogs_nest import NestDialog
+
+        dlg = NestDialog(self, manual=shape)
+        self._nest_manual_dlg = dlg
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            dlg.exec()
+            if dlg.again:  # l'area non bastava: se ne disegna un'altra, con gli stessi pezzi
+                QTimer.singleShot(0, lambda: self.nest_manual_start(dlg.parts))
+        return dlg
 
     def along_path_dialog(self):
         n, ok = QInputDialog.getInt(self, tr("Copia lungo un tracciato"), tr("Numero di copie:"), 10, 1, 1000)
@@ -3707,6 +3748,9 @@ def main(app=None, splash=None):
         if splash is not None:
             splash.show()
     say(tr("Apro il piano di lavoro…"))
+    from .. import startup_guard
+
+    startup_guard.stage("apri")
     try:
         win = MainWindow()
     except Exception:  # noqa: BLE001 — prima chiudo lo splash, poi registro e mostro l'errore, poi esco
@@ -3718,6 +3762,7 @@ def main(app=None, splash=None):
         sys.excepthook(*sys.exc_info())
         sys.exit(1)
     win.show()
+    startup_guard.done()  # 0.18.16: la finestra c'è, l'avvio è finito (il segno dell'avvio in corso si toglie)
     if splash is not None:
         splash.finish(win)
     listener = getattr(app, "_flc_single", None)

@@ -59,7 +59,8 @@ VENDORS = (
     ("Mecpow", ("MECPOW",)),
 )
 
-_BAUDS = (115200, 250000, 230400, 57600, 38400, 9600)
+# 0.18.16: 460800 è la velocità del profilo ufficiale dell'Atomstack Swift
+_BAUDS = (115200, 250000, 230400, 460800, 57600, 38400, 9600)
 
 # Incisori a diodo GRBL più diffusi: valori di targa per partire subito, anche senza la macchina collegata.
 # Quando la colleghi, area di lavoro, scala di potenza, velocità e buffer si rileggono dalla scheda ($$, $I).
@@ -142,6 +143,16 @@ CATALOG = (
     # dai Ray5 5/10/20 W: area 385 × 385 mm, 24.000 mm/min, spot 0,10 × 0,15 mm, modulo da 40 W. Dati dall'annuncio
     # ufficiale Longer (SOURCES, letto l'11/11/2026). Alla connessione area e velocità si rileggono dalla scheda.
     ("Longer Ray5 40W", "Longer", 385, 385, "40 W", 24000),
+    # 0.18.16: chiesto da Ale. Dalla pagina ufficiale Atomstack (SOURCES, letta l'11/11/2026): versioni da 7 e 12 W,
+    # area 300 × 300 mm, spot 0,08 × 0,04 mm. Dal profilo ufficiale per LightBurn (pagina «Product Support» di
+    # atomstack.com, Device_SWIFT_V1.02.lbdev): GRBL su seriale a 460800 baud (BAUD), scala S 1000, niente homing
+    # all'avvio. La velocità massima Atomstack non la dichiara: 10.000 è il valore generico, e la nota lo dice.
+    ("Atomstack Swift 7W", "Atomstack", 300, 300, "7 W", 10000),
+    ("Atomstack Swift 12W", "Atomstack", 300, 300, "12 W", 10000),
+    # 0.18.16: chiesto da Ale («una CNC 3018 con laser al posto del mandrino»). Dati dalla pagina ufficiale SainSmart
+    # della Genmitsu 3018-PRO (SOURCES, letta l'11/11/2026): area 300 × 180 mm (Z 45), 1200 mm/min, niente finecorsa;
+    # dal manuale ufficiale del kit laser: 5,5 W a 445 nm, fuoco regolabile, $32=1 per il laser. Spot non dichiarato.
+    ("Genmitsu CNC 3018-PRO con modulo laser", "SainSmart", 300, 180, "5,5 W", 1200),
 )
 # area dichiarata dal produttore, quando è stata ridotta per prudenza (vedi sopra)
 AREA_NOTE = {
@@ -192,6 +203,9 @@ SOURCES = {
     "Longer Ray5 20W": "https://www.longer.net/products/longer-ray5-laser-engraver-5w-10w-20w",
     "Longer Ray5 40W": "https://www.longer3d.com/blogs/news/"
                        "the-all-new-ray5-40w-ultra-fine-laser-engraver-smarter-control-full-upgrade",
+    "Atomstack Swift 7W": "https://atomstack.com/products/atomstack-swift-laser-engraver",
+    "Atomstack Swift 12W": "https://atomstack.com/products/atomstack-swift-laser-engraver",
+    "Genmitsu CNC 3018-PRO con modulo laser": "https://www.sainsmart.com/products/sainsmart-genmitsu-cnc-router-3018-pro-diy-kit",
 }
 # firmware che rispondono error:20 a G55 (visto nel registro di un Acmer S1, firmware 1.0.4 del 2025)
 NO_G55 = {"Acmer S1 (2,5W / 3,5W / 6W)"}
@@ -220,6 +234,18 @@ NOTES["Creality Falcon A1 10W"] = tr(
 for _n in ("Mecpow X3S 7W", "Mecpow X3S 12W"):
     NOTES[_n] = tr("Con il kit di estensione dell'asse Y (venduto a parte) l'area diventa 360 × 730 mm: collegando la "
                    "macchina e premendo «Leggi dalla macchina», l'area vera si legge dalla scheda.")
+NOTES["Genmitsu CNC 3018-PRO con modulo laser"] = tr(
+    "CNC 3018 con il modulo laser al posto del mandrino; vale come partenza anche per le altre CNC 3018 con "
+    "scheda GRBL. Per il laser la scheda deve avere la modalità laser accesa ($32=1; rimettila a 0 quando "
+    "rimonti il mandrino). Non ha finecorsa: l'origine è dove si trova la testa all'accensione, e il fuoco si "
+    "regola a mano. Attenzione: accendendo la macchina o collegando il cavo USB il laser può accendersi per un "
+    "attimo (lo dice il manuale SainSmart): occhiali e niente di infiammabile sotto. Collegando la macchina e "
+    "premendo «Leggi dalla macchina», area e velocità vere si leggono dalla scheda.")
+for _n in ("Atomstack Swift 7W", "Atomstack Swift 12W"):
+    NOTES[_n] = tr("Atomstack Swift: si collega con il cavo USB a 460800 baud (dal profilo ufficiale Atomstack), già "
+                   "impostati scegliendo questo modello. Atomstack non dichiara la velocità massima: qui c'è il valore "
+                   "generico di 10.000 mm/min. Collegando la macchina e premendo «Leggi dalla macchina», velocità e area "
+                   "vere si leggono dalla scheda (anche con il kit di estensione dell'area).")
 # spot del laser (mm) dichiarato dal produttore, dove è diverso dal valore comune (0,08 × 0,10)
 for _n, (_ax, _ay) in AREA_NOTE.items():
     _bx, _by = next((c[2], c[3]) for c in CATALOG if c[0] == _n)
@@ -243,7 +269,9 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "Longer Ray5 5W": (0.08, 0.08), "Longer Ray5 10W": (0.06, 0.06), "Longer Ray5 20W": (0.08, 0.10),
          "Acmer P3 24W": (0.06, 0.08), "Acmer P3 48W": (0.08, 0.10), "Acmer P3 2W IR": (0.02, 0.02),
          "Acmer P3 2-in-1 (diodo + IR)": (0.06, 0.04), "Sculpfun C1 3W": (0.04, 0.04), "Sculpfun C1 6W": (0.06, 0.06),
-         "Longer Ray5 40W": (0.10, 0.15)}
+         "Longer Ray5 40W": (0.10, 0.15), "Atomstack Swift 7W": (0.08, 0.04), "Atomstack Swift 12W": (0.08, 0.04)}
+# velocità della porta seriale dichiarata dal produttore, dove non è la solita (115200)
+BAUD = {"Atomstack Swift 7W": 460800, "Atomstack Swift 12W": 460800}
 # correzione della scansione avanti e indietro dichiarata dal produttore: [velocità mm/min, sfasamento mm]
 # (Acmer P3: dai profili ufficiali; nel file è metà dello sfasamento, qui l'intero)
 _P3_SCAN = [[6000.0, 0.14], [12000.0, 0.16], [18000.0, 0.12], [24000.0, 0.12], [30000.0, 0.16], [36000.0, 0.16],
@@ -269,7 +297,7 @@ def preset_profile(name):
             return MachineProfile(name=n, model=n, source=tr("valori di targa"), bed_x=float(bx), bed_y=float(by),
                                   optical_power=power, max_rate_x=float(rate), max_rate_y=float(rate),
                                   accel_x=ACCEL.get(n, 1500.0), accel_y=ACCEL.get(n, 1500.0), spot_x_mm=sx,
-                                  spot_y_mm=sy, rx_buffer=128, no_g55=n in NO_G55,
+                                  spot_y_mm=sy, rx_buffer=128, no_g55=n in NO_G55, baud=BAUD.get(n, 115200),
                                   scan_offsets=[list(x) for x in SCAN.get(n, [])])
     return MachineProfile(name=tr("Laser GRBL"), model=tr("Laser GRBL"), source=tr("valori di targa"), bed_x=400.0,
                           bed_y=400.0, optical_power="", max_rate_x=10000.0, max_rate_y=10000.0, accel_x=1000.0,

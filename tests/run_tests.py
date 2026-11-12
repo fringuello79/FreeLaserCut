@@ -189,27 +189,88 @@ def test_camera():
     spin(0.3)
 
 
-def run_suite(name, label, *args):
+PARALLEL = 1  # quante suite insieme (0.18.16): 1 = una alla volta, come sempre; GitHub ne fa girare 4
+_queue = []  # suite in attesa quando girano insieme: (nome, etichetta, argomenti)
+
+
+def parallel_from(argv, env):
+    """Quante suite far girare insieme: «--insieme N» oppure la variabile FLC_PROVE_INSIEME; fra 1 e 16."""
+    text = env.get("FLC_PROVE_INSIEME", "1")
+    if "--insieme" in argv and argv.index("--insieme") + 1 < len(argv):
+        text = argv[argv.index("--insieme") + 1]
+    try:
+        return max(1, min(16, int(text)))
+    except ValueError:
+        return 1
+
+
+def _run_one(name, args):
+    """Una suite in un processo a parte. -> (codice d'uscita, uscita, errori)"""
     import subprocess
 
-    print(label)
     # UTF-8 esplicito: su Windows l'uscita catturata sarebbe in cp1252 e "×", "Δ", "→" farebbero cadere la suite
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONIOENCODING="utf-8", PYTHONUTF8="1", PYTHONFAULTHANDLER="1")
     # preferenze pulite per ogni prova: su Windows il registro è in comune e una prova lasciava valori alla successiva
-    env.setdefault("FLC_SETTINGS_INI", os.path.join(tempfile.mkdtemp(), "prova.ini"))
+    env["FLC_SETTINGS_INI"] = os.path.join(tempfile.mkdtemp(), "prova.ini")
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
-    r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8", errors="replace",
-                       env=env, timeout=900)
-    for line in r.stdout.splitlines():
+    try:
+        r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", env=env, timeout=900)
+    except subprocess.TimeoutExpired as ex:
+        out = ex.stdout if isinstance(ex.stdout, str) else (ex.stdout or b"").decode("utf-8", "replace")
+        return 124, out, "tempo scaduto (900 s)"
+    return r.returncode, r.stdout or "", r.stderr or ""
+
+
+def _failed(rc, out):
+    return rc != 0 or any(l.strip().startswith("KO") for l in out.splitlines())
+
+
+def _report(name, label, rc, out, err):
+    print(label)
+    for line in out.splitlines():
         if line.strip().startswith(("OK", "KO")):
             print("  " + line.strip())
             results.append((line.strip(), line.strip().startswith("OK")))
-    if r.returncode != 0 and not any(l.strip().startswith("KO") for l in r.stdout.splitlines()):
-        print(f"  KO  la suite si è interrotta (codice {r.returncode}):\n" + (r.stderr or "")[-2500:])
+    if rc != 0 and not any(l.strip().startswith("KO") for l in out.splitlines()):
+        print(f"  KO  la suite si è interrotta (codice {rc}):\n" + (err or "")[-2500:])
         results.append((name, False))
 
 
+def run_suite(name, label, *args):
+    if PARALLEL <= 1:
+        _report(name, label, *_run_one(name, args))
+    else:
+        _queue.append((name, label, args))  # girano insieme alla fine: vedi flush()
+
+
+def flush(runner=None):
+    """Fa girare le suite in coda, PARALLEL alla volta, e le riporta nell'ordine di sempre.
+    Una suite che fallisce mentre gira insieme ad altre viene riprovata da sola, e conta la seconda volta: così il
+    carico della macchina non fa diventare rossa una prova buona, e una prova rotta resta rossa."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    runner = runner or _run_one
+    todo, outs = list(_queue), {}
+    del _queue[:]
+    if not todo:
+        return
+    with ThreadPoolExecutor(PARALLEL) as ex:
+        futs = {ex.submit(runner, n, a): i for i, (n, _l, a) in enumerate(todo)}
+        for k, f in enumerate(as_completed(futs), 1):
+            outs[futs[f]] = f.result()
+            print(f"  [{k}/{len(todo)}] {todo[futs[f]][0]} {' '.join(todo[futs[f]][2])}".rstrip(), flush=True)
+    for i, (name, label, args) in enumerate(todo):
+        rc, out, err = outs[i]
+        if _failed(rc, out):
+            rc, out, err = runner(name, args)
+            label += "  [fallita insieme alle altre, riprovata da sola: " + ("fallita di nuovo]" if _failed(rc, out)
+                                                                             else "riuscita]")
+        _report(name, label, rc, out, err)
+
+
 if __name__ == "__main__":
+    PARALLEL = parallel_from(sys.argv, os.environ)
     print("Parser");  test_parsers()
     print("Macchina (simulatore)");  test_machine()
     print("Macchina con report di stato a metà riga (come la scheda ESP32 del B1)");  test_machine(glitch=True)
@@ -320,8 +381,15 @@ if __name__ == "__main__":
     run_suite("test_v1814_makerhub.py", "MakerHub nell'interfaccia Banco", "banco")
     run_suite("test_v1815_g55.py", "Scheda che rifiuta G55 con un altro errore e poi tace (OMTech K40)")
     run_suite("test_v1815_g55.py", "Scheda che rifiuta G55 nell'interfaccia Banco", "banco")
+    run_suite("test_v1816_swift.py", "Atomstack Swift 7W e 12W nel catalogo; 460800 baud fra le velocità provate")
+    run_suite("test_v1816_cnc3018.py", "CNC 3018 con il laser al posto del mandrino (Genmitsu 3018-PRO) nel catalogo")
+    run_suite("test_v1816_prove.py", "Prove su GitHub: una volta sola per versione, quattro suite insieme, secondo tentativo da sole")
+    run_suite("test_v1816_avvio.py", "Guardia d'avvio: gli errori prima della finestra vengono scritti e mostrati, anche senza Qt")
+    run_suite("test_v1816_nesting_manuale.py", "Nesting manuale: area disegnata sul piano, laser sui punti, T1 mai inciso")
+    run_suite("test_v1816_nesting_manuale.py", "Nesting manuale nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
+    flush()
     ko = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(ko)}/{len(results)} test superati" + (f" — falliti: {ko}" if ko else ""))
     sys.exit(1 if ko else 0)

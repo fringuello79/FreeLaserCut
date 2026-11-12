@@ -1015,11 +1015,18 @@ def _install_crash_log():
         if tb is None:  # errore partito da Qt (senza traccia Python): salvo almeno dove eravamo
             text += "".join(traceback.format_stack(limit=12))
         try:
+            from . import startup_guard
+
+            if startup_guard._state["stage"] != "finito":  # 0.18.16: errore prima che la finestra compaia: in
+                text = "\n".join(startup_guard.system_lines()) + "\n" + text  # testa i dati di sistema e la fase
+        except Exception:  # noqa: BLE001
+            pass
+        try:
             with open(log_path, "a", encoding="utf-8") as fh:
                 fh.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')}  FreeLaserCut {__version__}\n{text}")
         except OSError:
             pass
-        if QApplication.instance() is not None:
+        if QApplication.instance() is not None and os.environ.get("FLC_NO_DIALOGS") != "1":
             _hide_splash()
             QMessageBox.critical(None, tr("FreeLaserCut — errore"),
                                  tr("Si è verificato un errore imprevisto:\n\n{0}\n\nDettagli salvati in:\n{1}", exc, log_path)
@@ -1031,10 +1038,16 @@ def _install_crash_log():
     try:
         import faulthandler
 
+        from . import startup_guard
+
         global _FAULT_FH
-        _FAULT_FH = open(os.path.join(config_dir(), "flc_crash.log"), "a", encoding="utf-8")  # noqa: SIM115
-        _FAULT_FH.write(f"\n=== avvio {time.strftime('%Y-%m-%d %H:%M:%S')}  FreeLaserCut {__version__}\n")
-        _FAULT_FH.flush()
+        # 0.18.16: se la guardia d'avvio l'ha già aperto (e già intestato) in questa cartella, uso quello: lo stesso
+        # file non si apre due volte
+        _FAULT_FH = startup_guard.fault_file(config_dir())
+        if _FAULT_FH is None:
+            _FAULT_FH = open(os.path.join(config_dir(), "flc_crash.log"), "a", encoding="utf-8")  # noqa: SIM115
+            _FAULT_FH.write(f"\n=== avvio {time.strftime('%Y-%m-%d %H:%M:%S')}  FreeLaserCut {__version__}\n")
+            _FAULT_FH.flush()
         faulthandler.enable(file=_FAULT_FH, all_threads=True)
     except (OSError, RuntimeError):
         pass
