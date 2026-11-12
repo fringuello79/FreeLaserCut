@@ -104,6 +104,7 @@ CMDS = {
         "sta": ("[ESP110]STA", "$Radio/Mode=STA"),
         "off": ("[ESP110]OFF", "$Radio/Mode=OFF"),
         "restart": ("[ESP444]RESTART",),
+        "switch": ("$wifi=1",),  # solo per le schede con l'interruttore «$wifi» (vedi has_wifi_switch)
         "port": 8080,
     },
     "named": {  # Grbl_ESP32 e FluidNC: impostazioni con il nome
@@ -129,6 +130,28 @@ LGT_ORDER = {"ssid": ("$53={0}", "[ESP100]{0}", "$Sta/SSID={0}"), "password": ("
              "sta": ("[ESP110]STA",), "off": ("[ESP110]OFF",)}
 
 
+# Schede con l'interruttore «$wifi» (0.19.1). Provato il 12/11/2026 sul Mecpow di un utente, scheda «THMG LS WIFI
+# V1.1», firmware V1.0.10 del 30/01/2026 (rapporti FLC-20261112-2153 e -2235): «[ESP100]», «[ESP101]» e «[ESP110]STA»
+# rispondono ok e nome e password restano salvati, ma al riavvio la scheda riaccende la sua rete propria SENZA provare
+# a collegarsi finché «$wifi» vale 0; con «$wifi=1» al riavvio entra nella rete di casa. Lì 0 = rete propria,
+# 1 = rete di casa (il valore per «spento» non è noto: non si scrive). Non c'è un documento del produttore: la fonte
+# sono le risposte di quella scheda. La scheda non scrive «Connected with…»: quando è in rete scrive
+# «[MSG:TELNET Started 8080]» senza «Local access point…», e l'indirizzo si legge con «[ESP111]».
+def has_wifi_switch(info_lines):
+    """La scheda è di quelle con l'interruttore «$wifi»? (si capisce dal produttore scritto in $I)"""
+    up = " ".join(str(l) for l in info_lines or ()).upper()
+    return "THMG" in up
+
+
+def parse_switch(lines):
+    """Dalla risposta a «$wifi»: il numero, oppure None se la scheda non ha quella voce."""
+    for l in lines or ():
+        m = re.match(r"^\s*\$wifi\s*=\s*(\d+)\s*$", str(l), re.I)
+        if m:
+            return int(m.group(1))
+    return None
+
+
 def commands(family, what, lgt=False):
     """I comandi da provare, in ordine, per fare `what` ("ssid", "password", "sta", "off", "restart")."""
     table = CMDS.get(family) or {}
@@ -147,7 +170,7 @@ def default_port(family, info_text=""):
 def esp32_hints(info_lines, settings=None):
     """Ci sono indizi che la scheda sia una ESP32 (quindi con il Wi-Fi), anche se non accetta i comandi?"""
     up = " ".join(str(l) for l in info_lines or ()).upper()
-    if any(t in up for t in ("ESP32", "FLUIDNC", "DLC32", "MKS", "WIFI", "LGT ", "LS_ESP")):
+    if any(t in up for t in ("ESP32", "FLUIDNC", "DLC32", "MKS", "WIFI", "LGT ", "LS_ESP", "THMG")):
         return True
     return bool(wifi_numbers(settings))
 
@@ -212,6 +235,11 @@ def parse_message(line):
     low = s.lower()
     if low.startswith("connecting"):
         return "connecting", s[10:].strip(" :")
+    if low.startswith("client started"):  # Grbl_ESP32: sta per provare a entrare nella rete
+        return "connecting", ""
+    if low.startswith("telnet started"):  # i servizi di rete sono partiti: dice anche la porta dei comandi
+        m = re.search(r"(\d{2,5})", s)
+        return "services", m.group(1) if m else ""
     if low.startswith("connected with"):
         return "connected", find_ip(s) or ""
     if "ip=" in low and "status=connected" in low:  # FluidNC: Mode=STA:SSID=x:Status=Connected:IP=…
@@ -579,6 +607,9 @@ def subnet_hosts(ip):
     return [f"{base}.{i}" for i in range(1, 255) if f"{base}.{i}" != ip]
 
 
+_GRBL_ANSWER = re.compile(rb"\[(?:VER|OPT)[^\r\n]*[\r\n]+(?:[^\r\n]*[\r\n]+)*?ok[\r\n]")
+
+
 def probe(host, port, timeout=0.6, wait=2.5):
     """C'è un GRBL che risponde a quell'indirizzo? -> dict(host, port, ver, info) oppure None. Manda solo «$I»."""
     try:
@@ -589,7 +620,10 @@ def probe(host, port, timeout=0.6, wait=2.5):
         s.settimeout(0.3)
         s.sendall(b"\r\n$I\n")
         got, end, more = b"", time.time() + wait, True
-        while b"ok\r" not in got and b"ok\n" not in got and b"error" not in got and len(got) < 4000:
+        # 0.19.1: si legge finché non è arrivata la risposta a «$I» (righe fra quadre e poi «ok»). Prima ci si fermava
+        # al primo «ok»: su una scheda vera è quello della riga vuota mandata per pulire, arriva per primo e da solo,
+        # e la scheda non veniva riconosciuta («È in rete, ma non accetta i comandi» su un Mecpow che rispondeva)
+        while not _GRBL_ANSWER.search(got) and len(got) < 4000:
             if time.time() >= end:
                 # una risposta da GRBL è cominciata ma non è finita (rete lenta): le do ancora un po' di tempo, una volta
                 if more and (b"[" in got or b"Grbl" in got):
@@ -618,13 +652,16 @@ def probe(host, port, timeout=0.6, wait=2.5):
     return {"host": host, "port": int(port), "ver": ver, "info": lines}
 
 
-def find_lasers(hosts, ports=None, max_s=10.0, workers=64, stop=None):
+def find_lasers(hosts, ports=None, max_s=10.0, workers=64, stop=None, skip=()):
     """Cerca i laser GRBL fra `hosts` (la rete locale del PC), sulle porte date. Connessioni brevi, in parallelo,
-    al massimo `max_s` secondi. -> [dict(host, port, ver, info)] in ordine di indirizzo."""
+    al massimo `max_s` secondi. -> [dict(host, port, ver, info)] in ordine di indirizzo.
+    skip (0.19.1): (indirizzo, porta) da non interrogare, cioè il collegamento attivo con il laser: la porta dei
+    comandi accetta un collegamento solo e un secondo farebbe cadere quello buono."""
     hosts = [h for h in hosts if is_private(h)]  # mai fuori dalla rete locale
     ports = tuple(ports or PORTS)
     found, lock, t_end = [], threading.Lock(), time.time() + max_s
-    jobs = [(h, p) for h in hosts for p in ports]
+    skip = {(str(h), int(p)) for h, p in (s for s in skip if s)}
+    jobs = [(h, p) for h in hosts for p in ports if (h, p) not in skip]
     it = iter(jobs)
 
     def work():

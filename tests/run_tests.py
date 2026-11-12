@@ -400,6 +400,8 @@ if __name__ == "__main__":
     run_suite("test_v190_telecamera.py", "Telecamera senza calibrazione e foto del piano dal telefono")
     run_suite("test_v190_telecamera.py", "Telecamera senza calibrazione e foto dal telefono nell'interfaccia Banco", "banco")
     run_suite("test_v190_wifi_registro.py", "Wi-Fi guidato: il registro viene salvato a fine procedura")
+    run_suite("test_v191_wifi.py", "Wi-Fi sul vero: telecamere lontane dalla porta del laser, scheda con «$wifi»")
+    run_suite("test_v191_wifi.py", "Wi-Fi sul vero nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

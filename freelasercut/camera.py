@@ -335,6 +335,63 @@ NET_PORT = 8080
 USB_NET_HOST = "192.168.10.1"  # i Falcon A1 Pro/A1C con il cavo USB: rete «RNDIS», il laser è 192.168.10.1
 
 
+# 0.19.1: l'indirizzo e la porta a cui FreeLaserCut è collegato al laser via rete. Sulle schede Makerbase, Longer e
+# Mecpow la porta dei comandi è la 8080, la stessa della telecamera dei Creality Falcon, e accetta un collegamento
+# solo: se da qui ne parte un secondo (per cercare una telecamera) la scheda chiude quello buono e il laser «cade»
+# dopo pochi secondi (visto su un Mecpow vero, rapporto FLC-20261112-2235). Quindi a quell'indirizzo e a quella porta
+# da questo modulo non parte MAI niente.
+_LASER_LINK = None  # (indirizzo, porta) oppure None
+
+
+def endpoint(text, default_port=None):
+    """(indirizzo, porta) di «tcp://1.2.3.4:8080», «http://1.2.3.4:8080/foto», «1.2.3.4:8080» o «1.2.3.4»; None se
+    non si capisce. Senza porta scritta: default_port, oppure quella del protocollo (80, 443), oppure NET_PORT."""
+    import urllib.parse
+
+    t = str(text or "").strip()
+    if not t:
+        return None
+    bare = "://" not in t
+    if bare:
+        t = "tcp://" + t
+    try:
+        u = urllib.parse.urlsplit(t)
+        host, port = (u.hostname or "").lower(), u.port
+    except ValueError:
+        return None
+    if not host:
+        return None
+    if port is None:  # un indirizzo «http://…» senza porta va alla 80 qualunque sia default_port
+        known = {"http": 80, "https": 443, "rtsp": 554}.get(u.scheme.lower())
+        port = known if known and not bare else (default_port or NET_PORT)
+    return host, int(port)
+
+
+def set_laser_link(port_name):
+    """Il collegamento attivo con il laser: «tcp://indirizzo:porta», oppure None (cavo USB, simulatore, scollegato)."""
+    global _LASER_LINK
+    name = str(port_name or "")
+    _LASER_LINK = endpoint(name) if name.lower().startswith("tcp://") else None
+    return _LASER_LINK
+
+
+def laser_link():
+    return _LASER_LINK
+
+
+def is_laser_link(text, port=None):
+    """Quell'indirizzo è proprio l'indirizzo e la porta dei comandi del laser collegato? (allora non si tocca)"""
+    if _LASER_LINK is None:
+        return False
+    ep = (str(text or "").strip().lower(), int(port)) if port is not None else endpoint(text, NET_PORT)
+    return ep is not None and ep == _LASER_LINK
+
+
+def laser_link_text():
+    return tr("è l'indirizzo dei comandi del laser, non una telecamera: non lo interrogo, altrimenti il collegamento "
+              "con il laser cadrebbe")
+
+
 def net_url(text):
     """Indirizzo scritto dalla persona → URL dell'immagine: «192.168.1.50» diventa
     «http://192.168.1.50:8080/media/getCapturePhoto»; gli URL completi (http, https, rtsp) restano come sono."""
@@ -402,6 +459,8 @@ def fetch_snapshot(url, timeout=12.0, method=None):
     import urllib.error
     import urllib.request
 
+    if is_laser_link(url):  # 0.19.1: mai una richiesta sulla porta dei comandi del laser collegato
+        return None, None, laser_link_text()
     with _host_lock(url):
         return _fetch(url, timeout, method)
 
@@ -442,6 +501,8 @@ def _fetch(url, timeout, method):
 def port_open(host, port=NET_PORT, timeout=0.8):
     import socket
 
+    if is_laser_link(host, port):  # 0.19.1: anche solo aprire e chiudere fa cadere il collegamento con il laser
+        return False
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
@@ -455,6 +516,8 @@ def device_info(host, timeout=3.0):
 
     try:
         hp = host if ":" in host else f"{host}:{NET_PORT}"
+        if is_laser_link(hp):
+            return ""
         with _host_lock(f"http://{hp}/"), _opener().open(f"http://{hp}/system/basicInfo", timeout=timeout) as r:
             d = json.loads(r.read(200_000).decode("utf-8", "replace"))
         p = d.get("payload") or {}
@@ -701,6 +764,9 @@ def probe_net(text, timeout=12.0):
 
     u = urllib.parse.urlsplit(url)
     host, port = u.hostname or "", u.port or (443 if u.scheme == "https" else 80)
+    if is_laser_link(host, port):
+        cam_log(f"rete {safe_url(url)}: è il collegamento del laser, non lo interrogo")
+        return url, None, tr("{0}, porta {1}: {2}.", host, port, laser_link_text())
     if not port_open(host, port, 2.0):
         cam_log(f"rete {safe_url(url)}: porta {port} chiusa o macchina irraggiungibile")
         return url, None, tr("Nessuna risposta da {0} sulla porta {1}: controlla l'indirizzo e che la macchina sia "
@@ -714,8 +780,10 @@ def auto_net_candidates(laser_port=None):
     """Indirizzi da provare da soli: il Falcon col cavo USB (192.168.10.1) e la macchina collegata in Wi-Fi."""
     out = [USB_NET_HOST]
     if isinstance(laser_port, str) and laser_port.startswith("tcp://"):
+        ep = endpoint(laser_port)
         h = laser_port[6:].split(":")[0]
-        if h and h not in out:
+        # 0.19.1: se i comandi del laser passano proprio dalla 8080, lì non c'è una telecamera: non si prova
+        if h and h not in out and not (ep and ep[1] == NET_PORT):
             out.append(h)
     return out
 

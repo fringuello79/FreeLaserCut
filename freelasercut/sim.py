@@ -437,24 +437,32 @@ class SimSerial:
         "numeric": "[VER:1.1h.20190825:]\r\n[OPT:V,15,128]\r\n[MSG:WiFi board]\r\n",
         "locked": "[VER:1.1f.20230414:]\r\n[OPT:VL,15,254]\r\n[MSG:FW:TOUCH V2|MB:ESP32-S3]\r\n",
         "none": "[VER:1.1h.20190830:]\r\n[OPT:V,15,128]\r\n",
+        # 0.19.1: come il Mecpow vero del rapporto FLC-20261112-2153 (interruttore «$wifi», niente $50…$54)
+        "thmg": "[PRODUCER:THMG LS WIFI V1.1]\r\n[V1.0.10(8M.H35.20260130)]\r\n[VER:1.1h.20260130:]\r\n"
+                "[OPT:VPH,63,512]\r\n[MSG:Using machine:THMG LS WIFI V1.1]\r\n",
     }
 
     def wifi_board(self, kind="lgt", **kw):
         """Da qui il simulatore si comporta come una scheda con il Wi-Fi. kind:
         "lgt" Longer («[ESP110]», «[ESP111]», rete in $53/$54; «[ESP100]» non esiste, come sul B1 vero),
         "mks" Makerbase («[ESP100]», «[ESP101]»), "grbl_esp32" e "fluidnc" («$Sta/SSID=»…),
-        "numeric" (solo $50…$54), "locked" (ESP32 che rifiuta tutti i comandi), "none" (8 bit, senza Wi-Fi).
+        "numeric" (solo $50…$54), "locked" (ESP32 che rifiuta tutti i comandi), "none" (8 bit, senza Wi-Fi),
+        "thmg" Mecpow (0.19.1): accetta «[ESP100]», «[ESP101]», «[ESP110]STA» ma al riavvio decide «$wifi» (0 = rete
+        propria, 1 = rete di casa); in rete non scrive «Connected with…» ma «TELNET Started 8080»; con crash=True
+        la prima accensione in rete va in errore e riparte da sola, come è successo sulla scheda vera.
         nets: {rete: password} che esistono «in casa»; join_ip: l'indirizzo che la scheda riceve."""
         w = dict(kind=kind, mode="OFF", ip="0.0.0.0", ssid="", password="", ap="MKS_DLC",
                  nets={"CasaMia": "passwordgiusta"}, join_ip="192.168.1.77", messages=True, restart=True, drop=False,
-                 reject=(), boots=0, delay=0.25, log=[])
+                 reject=(), boots=0, delay=0.25, log=[], switch=0, crash=False, telnet=8080)
+        if kind == "thmg":
+            w.update(mode="AP", ip="192.168.4.1", ap="MECPOW_SIM")
         w.update(kw)
         return self._wifi_resume(w, boot=False)
 
     def _wifi_resume(self, w, boot=True):
         self.wifi = w
         self.info_text = self.WIFI_INFO[w["kind"]]
-        if w["kind"] in ("none", "locked", "fluidnc", "grbl_esp32"):
+        if w["kind"] in ("none", "locked", "fluidnc", "grbl_esp32", "thmg"):
             for n in (50, 51, 52, 53, 54):
                 self.settings.pop(n, None)
         else:
@@ -471,6 +479,10 @@ class SimSerial:
             return f"[MSG: Mode=STA:SSID={w['ssid']}:Status={st}:IP={w['ip']}:MAC=00-00-00-00-00-00]\r\n"
         if w["kind"] in ("lgt", "mks") and w["mode"] == "OFF":
             return "[MSG:No Wifi]\r\n"  # sul B1 vuol dire «Wi-Fi spento», non «scheda senza Wi-Fi»
+        if w["kind"] == "thmg":  # scritto proprio così, «SSDI», quando fa la sua rete
+            if w["mode"] == "STA" and w["ip"] not in ("0.0.0.0", "192.168.4.1"):
+                return f"[MSG:Mode=STA:SSID={w['ssid']}:Status=Connected:IP={w['ip']}:MAC=00-00-00-00-00-00]\r\n"
+            return f"[MSG:Mode=AP:SSDI={w['ap']}:IP=192.168.4.1:MAC=00-00-00-00-00-00]\r\n"
         return ""
 
     def _wifi_connect(self):
@@ -478,6 +490,8 @@ class SimSerial:
         w = self.wifi
         say = (lambda t: self._emit(t + "\r\n")) if w["messages"] else (lambda t: None)
         time.sleep(w["delay"])
+        if w["kind"] == "thmg":
+            return self._wifi_connect_thmg(w, say)
         if w["mode"] == "STA":
             say(f"[MSG:Connecting {w['ssid']}]")
             time.sleep(w["delay"])
@@ -493,6 +507,32 @@ class SimSerial:
             say(f"[MSG:Local access point {w['ap']} started, 192.168.4.1]")
         else:
             w["ip"] = "0.0.0.0"
+
+    def _wifi_connect_thmg(self, w, say):
+        """Mecpow: all'accensione conta solo «$wifi». 0 = rete propria subito, senza provare; 1 = rete di casa, senza
+        dire «Connecting» né «Connected»: solo i servizi che partono."""
+        services = ("[MSG:HTTP Started]", f"[MSG:TELNET Started {w['telnet']}]")
+        if w["switch"] == 1 and w["ssid"] in w["nets"] and w["nets"][w["ssid"]] == w["password"]:
+            time.sleep(w["delay"] * 3)  # entrare in rete richiede qualche secondo (qui accorciato)
+            w["mode"], w["ip"] = "STA", w["join_ip"]
+            say("[MSG:Start mDNS with hostname:http://mks_grbl.local/]")
+            for t in services:
+                say(t)
+            if w["crash"]:  # la prima volta in rete la scheda vera è andata in errore ed è ripartita da sola
+                w["crash"] = False
+                say("Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.")
+                say("Rebooting...")
+                w["ip"] = "0.0.0.0"
+                time.sleep(w["delay"])
+                self._emit("\r\nGrbl 1.1h ['$' for help]\r\n")
+                return self._wifi_connect_thmg(w, say)
+            return
+        w["mode"], w["ip"] = "AP", "192.168.4.1"
+        if w["switch"] == 1:  # rete inesistente o password sbagliata: ci prova per un po', poi torna alla sua
+            time.sleep(w["delay"] * 3)
+        say(f"[MSG:Local access point {w['ap']} started, 192.168.4.1]")
+        for t in services:
+            say(t)
 
     def _wifi_restart(self):
         w = self.wifi
@@ -528,10 +568,20 @@ class SimSerial:
         if up == "$I":
             self._emit(self.info_text + self._wifi_status_line())
             return ok()
+        if kind == "thmg":
+            m = re.match(r"^\$wifi(?:=(.*))?$", s, re.I)
+            if m:
+                if m.group(1) is None:
+                    self._emit(f"$wifi={w['switch']}\r\n")
+                    return ok()
+                if m.group(1).strip() not in ("0", "1"):
+                    return rej(2)
+                w["switch"] = int(m.group(1))
+                return ok()
         m = re.match(r"^\[ESP(\d+)\](.*)$", s, re.I)
         if m:
             num, arg = m.group(1), m.group(2)
-            if kind not in ("lgt", "mks", "grbl_esp32"):
+            if kind not in ("lgt", "mks", "grbl_esp32", "thmg"):
                 return rej()
             if num == "110":
                 if not arg:
@@ -548,6 +598,9 @@ class SimSerial:
                 if kind == "lgt":
                     return rej()  # sul B1 vero «[ESP100]» risponde error:3
                 if not arg:
+                    if kind == "thmg" and num == "100":  # sul Mecpow «[ESP100]» da solo dice la rete salvata
+                        self._emit(f"$ESP100={w['ssid']}\r\n")
+                        return ok()
                     return rej(2)
                 w["ssid" if num == "100" else "password"] = arg
                 return ok()

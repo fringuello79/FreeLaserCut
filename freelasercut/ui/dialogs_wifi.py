@@ -121,8 +121,9 @@ def router_guide():
 
 
 # i passi in cui la procedura è arrivata in fondo, bene o male: lì si salva il registro (0.19.0)
-END_STATES = ("ok", "failed", "unknown", "no_port", "other_subnet", "find_none", "mute", "serial_lost", "E2_fail",
-              "off_done")
+END_STATES = ("ok", "failed", "not_tried", "unknown", "no_port", "other_subnet", "find_none", "mute", "serial_lost",
+              "E2_fail", "off_done")
+NOT_TRIED_S = 5.0  # la rete propria ripartita entro tanti secondi dal riavvio, senza «Connecting»: non ha provato
 
 
 class WifiWizard(QDialog):
@@ -134,6 +135,7 @@ class WifiWizard(QDialog):
         self.sys = system or wifi_setup.System()
         self.state = ""
         self.family, self.lgt, self.mode, self.ip = None, False, None, None
+        self.switch = None  # il valore di «$wifi» sulle schede che ce l'hanno (0.19.1)
         self.nets, self.pc_ssid, self.pc_ip = [], None, None
         self.ssid_sent, self.net_sent, self.pwd_len = "", None, 0
         self.result = None  # "tcp://indirizzo:porta" salvato
@@ -336,6 +338,7 @@ class WifiWizard(QDialog):
         g = self._set("probe")
         self._page(tr("Guardo che scheda è…"), tr("Qualche secondo: leggo come la scheda gestisce il Wi-Fi."), [], busy=0)
         self.family, self.mode, self.ip = None, None, None
+        self.switch = None
         self._silent = 0
 
         def go():
@@ -352,7 +355,18 @@ class WifiWizard(QDialog):
         g = self._gen
         if ok:
             self.family, self.mode = "esp", wifi_setup.parse_mode(lines)
-            return self.talk.ask("[ESP111]", lambda ok2, l2: g == self._gen and self._probed(wifi_setup.find_ip(" ".join(l2))))
+            self.switch = None
+
+            def ask_ip(*_):
+                self.talk.ask("[ESP111]", lambda ok2, l2: g == self._gen and self._probed(wifi_setup.find_ip(" ".join(l2))))
+            if wifi_setup.has_wifi_switch(self.info()):  # 0.19.1: schede con l'interruttore «$wifi» (Mecpow)
+                def got_switch(ok2, l2):
+                    if g != self._gen:
+                        return
+                    self.switch = wifi_setup.parse_switch(l2) if ok2 else None
+                    ask_ip()
+                return self.talk.ask("$wifi", got_switch)
+            return ask_ip()
         self._silent += ok is None
         self.talk.ask("$Sta/SSID", lambda ok2, l2: g == self._gen and self._probe_named(ok2, l2))
 
@@ -727,6 +741,8 @@ class WifiWizard(QDialog):
             except (OSError, ValueError):
                 pass
         steps = [("ssid", ssid)] + ([("password", pwd)] if pwd else []) + [("sta", None)]
+        if getattr(self, "switch", None) is not None and self.family == "esp":
+            steps.append(("switch", None))  # 0.19.1: senza «$wifi=1» queste schede al riavvio tornano alla rete propria
 
         def step(i, k=0):
             if g != self._gen:
@@ -774,6 +790,7 @@ class WifiWizard(QDialog):
         self._t0 = time.time()
         self._lost_at = None
         self._msg = None
+        self._tried = False  # la scheda ha detto che sta provando a collegarsi («Connecting…»)?
         self._port_back = self.ctl.port
         self._page(tr("La scheda si sta collegando a «{0}»…", self.ssid_sent),
                    tr("Di solito bastano dieci secondi."), [], busy=WAIT_S)
@@ -805,9 +822,37 @@ class WifiWizard(QDialog):
         if m[0] == "connected" and m[1]:
             self._tick.stop()
             self._connected(m[1])
-        elif m[0] in ("failed", "own"):
+        elif m[0] == "connecting":
+            self._tried = True
+        elif m[0] == "failed":
             self._tick.stop()
             self._outcome_failed()
+        elif m[0] == "own":
+            self._tick.stop()
+            # 0.19.1: rete propria ripartita subito, senza nessun tentativo: non è la password, è la scheda che non
+            # ha tenuto «rete di casa». Dirlo, invece di far cercare all'utente un errore che non c'è
+            if not self._tried and time.time() - self._t0 < NOT_TRIED_S:
+                self._outcome_not_tried()
+            else:
+                self._outcome_failed()
+        elif m[0] == "services":
+            # 0.19.1: servizi di rete partiti senza rete propria: la scheda è in una rete ma non dice l'indirizzo
+            # (Mecpow). Glielo chiedo subito, senza aspettare 30 secondi. Se sta ancora partendo, riprovo al giro dopo
+            if m[1].isdigit() and 0 < int(m[1]) < 65536:
+                self.port.setValue(int(m[1]))
+            g = self._gen
+            QTimer.singleShot(1000, lambda: g == self._gen and self.state == "wait" and self._ask_ip_now(g))
+
+    def _ask_ip_now(self, g):
+        if not (self.family == "esp" and self.ctl.connected):
+            return
+
+        def got(ok, lines):
+            ip = wifi_setup.find_ip(" ".join(lines)) if ok else None
+            if g == self._gen and self.state == "wait" and ip and ip != "0.0.0.0" and not ip.startswith("192.168.4."):
+                self._tick.stop()
+                self._connected(ip)
+        self.talk.ask("[ESP111]", got)
 
     def _on_connection(self, ok, _msg):
         if self.state == "wait" and not ok and not self.cordless and self._lost_at is None:
@@ -933,12 +978,26 @@ class WifiWizard(QDialog):
     def _outcome_no_port(self, ip):
         self._set("no_port")
         self.result = None
+        tried = " · ".join(str(p) for p in dict.fromkeys([self.port.value(), *wifi_setup.PORTS]))
         self._page(tr("È in rete, ma non accetta i comandi"),
-                   tr("La scheda ha l'indirizzo <b>{0}</b>, ma non risponde né sulla porta {1} né sulle porte 8080 e 23.<br>"
+                   tr("La scheda ha l'indirizzo <b>{0}</b>, ma non risponde ai comandi sulle porte provate ({1}).<br>"
                       "• Apri <a href='http://{0}'>http://{0}</a> nel browser: se compare la pagina della scheda, lì c'è "
                       "scritta la porta («Telnet»).<br>"
-                      "• Poi riprova mettendo quella porta in <i>Avanzate</i>.", ip, self.port.value()),
+                      "• Poi riprova mettendo quella porta in <i>Avanzate</i>.", ip, tried),
                    [self._close_btn(), ("retry", tr("Riprova"), lambda: self._check_port(ip))])
+
+    def _outcome_not_tried(self):
+        self._set("not_tried")
+        self.result = None
+        self._page(tr("La scheda non ha provato a collegarsi"),
+                   tr("La scheda ha accettato nome e password di «{0}», ma al riavvio ha riacceso subito la sua rete "
+                      "propria (192.168.4.1) senza provare a entrare nella rete di casa. <b>Non è un problema di "
+                      "password o di segnale</b>: su questa scheda la rete di casa si attiva in un modo che "
+                      "FreeLaserCut non conosce ancora (dallo schermo del laser, dall'app del produttore o con una "
+                      "sua impostazione).<br>• Mandaci un rapporto da <i>Aiuto → Invia un rapporto all'assistenza</i>: "
+                      "dentro ci sono le risposte della scheda (senza la password) e possiamo aggiungerla.",
+                      self.ssid_sent),
+                   [self._close_btn(), ("retry", tr("Riprova"), self._page_net)])
 
     def _outcome_failed(self):
         self._set("failed")
@@ -965,9 +1024,12 @@ class WifiWizard(QDialog):
         self._t0 = time.time()
         self._tick.start()
 
+        skip = [netport.parse_address(self.ctl.port)] if self.ctl.connected and netport.is_net(self.ctl.port) else []
+
         def work():
             ip = self.sys.local_ip()
-            self.worked.emit(g, "found", (ip, wifi_setup.find_lasers(wifi_setup.subnet_hosts(ip), max_s=FIND_S)))
+            self.worked.emit(g, "found", (ip, wifi_setup.find_lasers(wifi_setup.subnet_hosts(ip), max_s=FIND_S,
+                                                                     skip=skip)))
         bg.run(work, self)
 
     def _found(self, ip, found):

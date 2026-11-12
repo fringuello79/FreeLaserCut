@@ -45,6 +45,7 @@ class CameraPanel(QWidget):
         self.detected = []
         self.cameras = []
         self._searching = False
+        self._closed_note = ""  # 0.19.1: perché una telecamera di rete non è stata aperta (resta scritto nello stato)
         self.phone_top = None  # 0.19.0: la foto dal telefono già raddrizzata sull'area di lavoro
         self.phone_corners = None
         self._plate_dlg = None
@@ -175,6 +176,10 @@ class CameraPanel(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
         self.timer.start(450)
+        # 0.19.1: prima di qualsiasi ricerca, il modulo delle telecamere deve sapere a che indirizzo è collegato il
+        # laser: lì non deve mai mandare niente (vedi camera.set_laser_link)
+        ctl.connection_changed.connect(self._laser_link_changed)
+        self._laser_link_changed(bool(getattr(ctl, "connected", False)))
         ctl.connection_changed.connect(lambda ok, m: QTimer.singleShot(300, self.search))
         self.update_state()
         QTimer.singleShot(500, self.search)
@@ -396,6 +401,13 @@ class CameraPanel(QWidget):
             self.chk_live.setChecked(False)
             self.update_state()
             return
+        if is_net(idx) and camera_mod.is_laser_link(idx):  # 0.19.1: è l'indirizzo dei comandi del laser
+            self.src = None
+            self._closed_note = tr("Non apro questa telecamera di rete: il suo indirizzo {0}.",
+                                   camera_mod.laser_link_text())
+            self.update_state()
+            return
+        self._closed_note = ""
         try:
             if idx == SIM_CAMERA:
                 self.src = SimCamera(self.ctl.sim)
@@ -437,6 +449,23 @@ class CameraPanel(QWidget):
         if self.src is not None:
             self.src.close()
         self.src = None
+
+    def _laser_link_changed(self, ok, *_):
+        link = camera_mod.set_laser_link(getattr(self.ctl, "port", None) if ok else None)
+        src = self.src
+        if link is not None and src is not None and is_net(getattr(src, "index", None)) \
+                and camera_mod.is_laser_link(src.index):
+            # la telecamera di rete scelta ha lo stesso indirizzo e la stessa porta del laser: non è una telecamera
+            self._close_src()
+            i = self.combo.findData(None)
+            self.combo.blockSignals(True)
+            self.combo.setCurrentIndex(max(i, 0))
+            self.combo.blockSignals(False)
+            self._closed_note = tr("Telecamera di rete chiusa: il suo indirizzo {0}.", camera_mod.laser_link_text())
+            self.update_state()
+        elif link is None and self._closed_note:
+            self._closed_note = ""
+            self.update_state()
 
     # ---------------------------------------------------------------- senza calibrazione, foto dal telefono (0.19.0)
     def is_phone(self):
@@ -548,7 +577,8 @@ class CameraPanel(QWidget):
             self.state.setStyleSheet(f"color:{C['warn']};")
             return
         if not cam_ok:
-            self.state.setText(tr("Nessuna telecamera selezionata"))
+            self.state.setText(self._closed_note or tr("Nessuna telecamera selezionata"))
+            self.state.setStyleSheet(f"color:{C['warn']};" if self._closed_note else "")
         elif cal_ok:
             m = self.model
             how = (self.saved or {}).get("method", "")
