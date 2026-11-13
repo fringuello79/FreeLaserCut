@@ -59,6 +59,18 @@ class UpdateManager(QObject):
         if on and self.due():
             self.check(manual=False)
 
+    def preview(self):
+        """Vuole anche le versioni in anteprima (0.19.2)? Di partenza no: solo le stabili, come sempre."""
+        return self.qs.value("update_preview") in (True, "true")
+
+    def set_preview(self, on):
+        self.qs.setValue("update_preview", "true" if on else "false")
+        a = self.win.acts.get("update_preview") if hasattr(self.win, "acts") else None
+        if a is not None and a.isChecked() != bool(on):
+            a.blockSignals(True)
+            a.setChecked(bool(on))
+            a.blockSignals(False)
+
     def due(self):
         try:
             last = float(self.qs.value("update_last", 0) or 0)
@@ -110,7 +122,10 @@ class UpdateManager(QObject):
         self.busy = True
         if manual:
             self.win.statusBar().showMessage(tr("Cerco aggiornamenti su GitHub…"), 4000)
-        updater.check_async(lambda rel, err: self.checked.emit(rel, err, manual))
+        if self.preview():
+            updater.check_async(lambda rel, err: self.checked.emit(rel, err, manual), preview=True)
+        else:
+            updater.check_async(lambda rel, err: self.checked.emit(rel, err, manual))
         return True
 
     def _on_checked(self, rel, err, manual):
@@ -162,6 +177,13 @@ class UpdateManager(QObject):
         head = QLabel(tr("<b>È disponibile FreeLaserCut {0}</b> (hai la {1}).", rel.version, __version__))
         head.setTextFormat(Qt.RichText)
         v.addWidget(head)
+        if getattr(rel, "prerelease", False):  # 0.19.2: si capisce subito che non è una versione stabile
+            pre = QLabel(tr("È una versione in anteprima: la ricevi perché lo hai chiesto in <i>Aiuto → Ricevi anche "
+                            "le versioni in anteprima</i>. Può avere difetti: se ne trovi, mandaci un rapporto."))
+            pre.setTextFormat(Qt.RichText)
+            pre.setWordWrap(True)
+            pre.setObjectName("muted")
+            v.addWidget(pre)
         notes = QTextBrowser()
         notes.setOpenExternalLinks(True)
         notes.setMarkdown(rel.notes[:MAX_NOTES] or tr("Nessuna nota per questa versione."))

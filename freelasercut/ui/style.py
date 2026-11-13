@@ -158,7 +158,7 @@ QTreeWidget::item, QListWidget::item {{ padding: 4px; }}
 QTableWidget {{ background: {C['bg']}; border: 1px solid {C['border']}; border-radius: 8px; gridline-color: {C['border']}; }}
 QTableWidget QTableCornerButton::section, QHeaderView {{ background: {C['panel2']}; }}
 QHeaderView::section {{ background: {C['panel2']}; border: none; border-right: 1px solid {C['border']}; padding: 4px 6px; }}
-QTreeWidget::item:selected, QListWidget::item:selected {{ background: {C['accent_lo']}; }}
+QTreeWidget::item:selected, QListWidget::item:selected {{ background: {C['accent_lo']}; color: {C['text']}; }}
 QCheckBox::indicator {{ width: 16px; height: 16px; border-radius: 4px; border: 1px solid {C['border']}; background: {C['bg']}; }}
 QCheckBox::indicator:checked {{ background: {C['accent']}; border-color: {C['accent_hi']}; }}
 QSlider::groove:horizontal {{ height: 4px; background: {C['border']}; border-radius: 2px; }}

@@ -208,29 +208,16 @@ HELP = {
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
         "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
                None),
-    "makerhub_dima": (tr("MakerHub – Dima Lab (in prova)"), tr(
-        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
-        "sinistra scegli Dima Lab, che prepara le dime per posizionare gli oggetti da incidere. Finito il disegno, "
-        "sul sito premi «Manda a FreeLaserCut»: arriva qui sul piano di lavoro, senza scaricarlo. FreeLaserCut non "
-        "manda niente a MakerHub: apre la pagina e aspetta il disegno su questo computer."), None),
-    "makerhub_forma": (tr("MakerHub – Forma Lab (in prova)"), tr(
-        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
-        "sinistra scegli Forma Lab, per scatole, espositori, organizer, supporti e vassoi su misura. Finito il "
-        "disegno, sul sito premi «Manda a FreeLaserCut»: i pezzi arrivano qui sul piano di lavoro, senza "
-        "scaricarli; se i fogli sono più di uno, ognuno va su un piano di lavoro suo."), None),
-    "makerhub_hinge": (tr("MakerHub – Hinge Lab (in prova)"), tr(
-        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
-        "sinistra scegli Hinge Lab, che fa la fascia flessibile da avvolgere attorno a una sagoma. Finito il "
-        "disegno, sul sito premi «Manda a FreeLaserCut»: base, retro, fascia e rinforzo arrivano qui affiancati. La "
-        "mappa di montaggio non è da tagliare e resta sul sito."), None),
-    "makerhub_split": (tr("MakerHub – Split Lab (in prova)"), tr(
-        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account): nel loro menu a "
-        "sinistra scegli Split Lab, che divide un disegno più grande del piano in pezzi a incastro. Finito il "
-        "disegno, sul sito premi «Manda a FreeLaserCut»: ogni foglio arriva su un piano di lavoro suo, da tagliare "
-        "uno alla volta. La mappa di montaggio non è da tagliare e resta sul sito."), None),
-    "makerhub_receive": (tr("MakerHub – Ricevi qui i disegni (in prova)"), tr(
+    "makerhub_site": (tr("Strumenti MakerHub"), tr(
+        "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account), dove scegli uno "
+        "dei loro strumenti per il laser: Dima Lab (dime per posizionare gli oggetti), Forma Lab (scatole, espositori, "
+        "organizer), Hinge Lab (fasce flessibili attorno a una sagoma), Split Lab (progetti più grandi del piano, a "
+        "incastro). Finito il disegno, sul sito premi «Manda a FreeLaserCut»: arriva qui sul piano di lavoro, senza "
+        "scaricarlo; se i fogli sono più di uno, ognuno va su un piano di lavoro suo. FreeLaserCut non manda niente a "
+        "MakerHub: apre la pagina e aspetta il disegno su questo computer."), None),
+    "makerhub_receive": (tr("MakerHub – Ricevi qui i disegni"), tr(
         "Con la spunta FreeLaserCut aspetta i disegni mandati dal pulsante «Manda a FreeLaserCut» degli strumenti di "
-        "MakerHub. Si accende da sola la prima volta che apri uno strumento da questo menu. Ascolta solo questo "
+        "MakerHub. Si accende da sola la prima volta che apri gli strumenti di MakerHub. Ascolta solo questo "
         "computer, mai la rete, e accetta disegni solo dal sito di MakerHub; il laser non parte mai da solo e ogni "
         "disegno arrivato si toglie con Ctrl+Z. Senza la spunta i disegni si scaricano dal sito e si portano qui "
         "con File → Importa."), None),
@@ -317,6 +304,17 @@ HELP = {
                 "e la installa: FreeLaserCut si chiude e si riapre da solo."), None),
     "update_auto": (tr("Controlla gli aggiornamenti ogni giorno"), tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede "
                     "a GitHub qual è l'ultima versione. Non invia dati tuoi e non scarica niente senza chiedere."), None),
+    "update_preview": (tr("Ricevi anche le versioni in anteprima"), tr(
+        "Le versioni in anteprima escono prima e più spesso delle stabili, per chi vuole provarle e segnalare i "
+        "difetti. Senza questa spunta (è così di partenza) FreeLaserCut ti propone solo le versioni stabili. Si può "
+        "togliere quando vuoi: resti con la versione che hai, fino alla prossima stabile."), None),
+    "prefs": (tr("Preferenze"), tr(
+        "Tutte le regolazioni che si fanno una volta, in una finestra sola con la ricerca: macchina (configurazione "
+        "guidata, Wi-Fi, porta, assi, profili), lavoro, interfaccia (Banco o Classica, aspetto, lingua, unità, livello "
+        "di aiuto) e aggiornamenti. Sono le stesse dei menu e dei pannelli: cambiando di qua cambia anche di là."), None),
+    "palette": (tr("Cerca un comando"), tr(
+        "Scrivi una parola (offset, testo, contorno, homing…) e FreeLaserCut trova il comando, in qualsiasi menu sia: "
+        "Invio lo esegue. Senza scrivere niente, in cima ci sono i comandi che hai usato per ultimi."), None),
     "send_report": (tr("Invia un rapporto all'assistenza"), tr("Racconti cosa è successo e FreeLaserCut prepara il rapporto "
                     "con le informazioni tecniche (niente progetti né foto). Lo puoi vedere prima, salvarlo, mandarlo "
                     "con la mail già scritta oppure, se c'è il collegamento, con Invia. Parte solo con il tuo consenso."),
@@ -357,6 +355,9 @@ HELP = {
     "tool:text": (tr("Testo (T)"), tr("Clic sulla tela e scrivi. Font di Windows e font a linea singola, testo curvo e variabili."), None),
     "tool:measure": (tr("Misura (M)"), tr("Passa sopra una forma per leggerne le misure, trascina per misurare una distanza."), None),
     "tool:position": (tr("Posiziona laser (Q)"), tr("Clic sulla tela: la testa va in quel punto. Serve l'homing."), None),
+    "tools_menu": (tr("Strumenti"), tr("Raccoglie gli strumenti del menu Strumenti che non servono a disegnare a mano: "
+                   "forma con misure esatte, codice QR o a barre, testo su tracciato, puzzle, scultura a strati, testo "
+                   "variabile, preparazione delle foto, vettorizzazione. Un clic apre l'elenco."), None),
     "canvas": (tr("Tela"), tr("Il piano di lavoro in scala reale. Rotella = zoom verso il cursore, tasto centrale o barra "
                "spaziatrice + trascina = sposta la vista. Il comportamento del clic dipende dallo strumento attivo."), None),
     # ------------------------------------------------------------------ barra numerica

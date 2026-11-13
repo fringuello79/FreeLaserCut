@@ -127,11 +127,47 @@ def save_user(items):
         json.dump([asdict(m) for m in items], fh, indent=1, ensure_ascii=False)
 
 
-def library():
-    """Voci dell'utente (prima, hanno la precedenza) + tabella Longer."""
+MIN_SPEED = 100.0  # mm/min: sotto, invece di rallentare ancora, la stima aggiunge passate
+
+
+def scaled(m: Material, ratio):
+    """Stima di partenza per un laser di potenza diversa dal B1 40W della tabella (0.19.2).
+
+    ratio = potenza ottica del laser dell'utente / potenza ottica del B1 40W. L'idea è tenere uguale l'energia per
+    millimetro: si alza la potenza in percentuale; arrivati al 100% si rallenta; sotto MIN_SPEED si aggiungono
+    passate. È una stima (fuoco, punto e materiale contano quanto la potenza): va verificata con il test materiale.
+    Con ratio assente o vicino a 1 la voce resta com'è."""
+    if not ratio or ratio <= 0 or abs(ratio - 1.0) < 0.03:
+        return m
+    from dataclasses import replace
+
+    pct = m.power / ratio
+    speed, passes = float(m.speed), int(m.passes)
+    if pct > 100.0:
+        speed *= 100.0 / pct
+        pct = 100.0
+        if speed < MIN_SPEED:
+            passes = max(passes, int(-(-passes * MIN_SPEED // speed)))
+            speed = MIN_SPEED
+    return replace(m, power=float(max(1, round(pct))), speed=_round2(speed), passes=passes)
+
+
+def _round2(v):
+    """Due cifre significative: una stima non ha senso scritta al millimetro al minuto."""
+    if v <= 0:
+        return v
+    import math
+
+    k = 10 ** (int(math.floor(math.log10(v))) - 1)
+    return float(round(v / k) * k)
+
+
+def library(ratio=None):
+    """Voci dell'utente (prima, hanno la precedenza) + tabella Longer.
+    ratio: vedi scaled(); vale solo per le voci della tabella, quelle dell'utente restano come le ha salvate."""
     user = load_user()
     keys = {m.key() for m in user}
-    return user + [m for m in builtin() if m.key() not in keys]
+    return user + [scaled(m, ratio) for m in builtin() if m.key() not in keys]
 
 
 def apply_to_layer(m: Material, cs):

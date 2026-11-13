@@ -121,7 +121,7 @@ class FireGuard(QObject):
         try:
             self.ctl.stop_job()
         except Exception:  # noqa: BLE001
-            pass
+            diag.ignored("guardia fiamme: stop")
         self.running = False
         self._set_state("allarme")
         path = ""
@@ -138,7 +138,7 @@ class FireGuard(QObject):
             try:
                 log.save("fiamma")
             except Exception:  # noqa: BLE001
-                pass
+                diag.ignored("guardia fiamme: registro")
         self.triggered.emit(path)
         self._alarm_ui(path)
 

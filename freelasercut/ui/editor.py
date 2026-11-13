@@ -426,7 +426,9 @@ class Editor(QObject):
         try:
             QGuiApplication.clipboard().setMimeData(md)
         except Exception:  # noqa: BLE001
-            pass
+            from .. import diag as _diag
+
+            _diag.ignored("appunti")
         self.message.emit(f"Copiate {len(sel)} forme")
 
     def cut(self):

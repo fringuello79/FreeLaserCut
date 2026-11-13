@@ -11,9 +11,10 @@ from PySide6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QIcon,
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDialog, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
     QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QStatusBar, QToolBar, QToolButton, QVBoxLayout, QWidget,
+    QWidgetAction,
 )
 
-from .. import __version__, gcode_preview
+from .. import __version__, diag as _diag, gcode_preview
 from ..core import gcode, geom, io_formats, materials, ops, resume, variables
 from ..core.document import Document, ImageShape
 from ..grbl import SIM_PORT, GrblController, list_serial_ports
@@ -33,6 +34,7 @@ from freelasercut.i18n import tr  # noqa: E402
 from .. import units
 
 ASSETS = style.ASSETS
+STOP_KEYS = ("Ctrl+Pause", "Ctrl+Cancel", "Shift+Esc")  # Stop del lavoro: vedi _build_actions
 STATE_IT = {"Idle": tr("Pronta"), "Run": tr("In lavoro"), "Jog": "Jog", "Hold": tr("In pausa"), "Door": tr("Porta aperta"),
             "Home": tr("Homing"), "Alarm": tr("Allarme"), "Check": tr("Verifica"), "Sleep": tr("Riposo"), "Disconnesso": tr("Disconnessa")}
 FILE_FILTER = tr("Progetto FreeLaserCut (*.flcut)")
@@ -167,6 +169,8 @@ class MainWindow(QMainWindow):
             from .banco import Banco
 
             self.banco = Banco(self)
+        else:
+            self._build_classic_palette()
         self.update_rotary_state()
         from . import cmd_labels
 
@@ -300,7 +304,9 @@ class MainWindow(QMainWindow):
             "verify": A(tr("Verifica il lavoro"), self.verify_job, "Ctrl+Shift+K", "verify"),
             "start": A(tr("Avvia il lavoro"), self.start_job, "Ctrl+Return", "play"),
             "pause": A(tr("Pausa / riprendi"), self._toggle_pause, "Ctrl+Space", "pause"),
-            "stop": A(tr("Stop"), self.ctl.stop_job, "Ctrl+Break", "stop"),
+            # 0.19.2: «Ctrl+Break» non è un nome di tasto per Qt (la scorciatoia non esisteva). Ctrl+Pausa arriva
+            # come Ctrl+Cancel su Windows e come Ctrl+Pause altrove; Maiusc+Esc c'è su ogni tastiera, portatili compresi
+            "stop": A(tr("Stop"), self.ctl.stop_job, list(STOP_KEYS), "stop"),
             "preview": A(tr("Anteprima…"), self.preview_job, "Alt+P", "preview"),
             "exact_shape": A(tr("Crea forma con misure esatte…"), self.exact_shape_dialog, "Ctrl+Alt+N", "ruler_add",
                              tr("Rettangolo, cerchio, poligono o forma della galleria con larghezza, altezza e posizione precise")),
@@ -312,7 +318,10 @@ class MainWindow(QMainWindow):
             "print_cut": A(tr("Stampa e taglia (in prova)…"), self.print_cut_dialog, None, "frame",
                            tr("Taglia attorno a qualcosa di già stampato: due crocette stampate con il disegno dicono "
                               "al laser dove sta il foglio")),
-            "makerhub_receive": A(tr("Ricevi qui i disegni"), self.makerhub_receive, None, None,
+            "makerhub_site": A(tr("Strumenti MakerHub"), self.makerhub_open, None, None,
+                               tr("Apre nel browser gli strumenti di MakerHub per il laser ({0}): un servizio esterno "
+                                  "(maker-hub.it)", "Dima Lab, Forma Lab, Hinge Lab, Split Lab")),
+            "makerhub_receive": A(tr("MakerHub: ricevi qui i disegni"), self.makerhub_receive, None, None,
                                   tr("I disegni fatti con gli strumenti di MakerHub arrivano sul piano di lavoro con "
                                      "il loro pulsante «Manda a FreeLaserCut», senza scaricarli"), checkable=True),
             "admin_code": A(tr("Funzioni in prova…"), self.admin_dialog, None, None,
@@ -397,6 +406,10 @@ class MainWindow(QMainWindow):
             "update_auto": A(tr("Controlla gli aggiornamenti ogni giorno"), lambda on: self.updates.set_enabled(on), None, None,
                              tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede a GitHub qual è l'ultima "
                                 "versione. Non invia dati tuoi e non scarica niente senza chiedere."), checkable=True),
+            "update_preview": A(tr("Ricevi anche le versioni in anteprima"), lambda on: self.updates.set_preview(on), None,
+                                None, tr("Le versioni in anteprima escono prima e più spesso, per chi vuole provarle e "
+                                         "segnalare i difetti. Senza questa spunta ricevi solo le versioni stabili."),
+                                checkable=True),
             "support": A(tr("Sostieni FreeLaserCut…"), self.show_support, None, None,
                          tr("Contributo volontario allo sviluppo (GitHub Sponsors o PayPal)")),
             "claude": A(tr("Collega a Claude (MCP)…"), self.claude_dialog, None, "connect",
@@ -478,6 +491,18 @@ class MainWindow(QMainWindow):
             for k in keys:
                 if k == "-":
                     m.addSeparator()
+                elif isinstance(k, tuple) and k[0] == "§":  # titolo di un gruppo di voci
+                    # (addSection non basta: con lo stile del programma il titolo non verrebbe scritto). È una
+                    # scritta, non un comando: non ha testo d'azione, così ricerca e scorciatoie non la vedono
+                    m.addSeparator()
+                    lab = QLabel(k[1].upper())
+                    lab.setObjectName("menuTitle")
+                    lab.setStyleSheet(f"color:{C['muted']}; font-size:7.5pt; font-weight:700; letter-spacing:0.6px; "
+                                      "padding: 4px 12px 2px 12px; background: transparent;")
+                    head = QWidgetAction(m)
+                    head.setDefaultWidget(lab)
+                    head.setProperty("menu_title", True)
+                    m.addAction(head)
                 elif isinstance(k, tuple):
                     sub = m.addMenu(k[0])
                     for kk in k[1]:
@@ -540,29 +565,24 @@ class MainWindow(QMainWindow):
                      "position"):
             m.addAction(self.tool_actions[name])
         m.addSeparator()
-        m.addAction(a["exact_shape"])
-        m.addAction(a["code"])
-        m.addAction(a["text_path"])
-        m.addAction(a["puzzle"])
-        m.addAction(a["sculpt"])
-        m.addAction(a["relief"])
-        m.addAction(a["print_cut"])
+        for k in self.TOOLS_MENU[:self.TOOLS_MENU.index("-")]:
+            m.addAction(a[k])
         from .. import makerhub
 
-        self.m_makerhub = m.addMenu(makerhub.icon(), "MakerHub")  # 0.18.14: il loro logo e i loro quattro strumenti
-        for t in makerhub.TOOLS:
-            a["makerhub_" + t.key] = self._a(f"{t.name} – {t.what}", lambda *_, k=t.key: self.makerhub_open(k), None,
-                                             None, tr("Apre nel browser {0}, uno strumento di MakerHub, un servizio "
-                                                      "esterno (maker-hub.it)", t.name))
-            self.m_makerhub.addAction(a["makerhub_" + t.key])
-        self.m_makerhub.addSeparator()
-        self.m_makerhub.addAction(a["makerhub_receive"])
+        # 0.19.2: un comando solo con il loro logo (i quattro strumenti si scelgono sul loro sito, in un'unica pagina)
+        a["makerhub_site"].setIcon(makerhub.icon())
+        m.addAction(a["makerhub_site"])
+        m.addAction(a["makerhub_receive"])
         m.addSeparator()
-        m.addAction(a["variables"])
-        m.addAction(a["photo"])
-        m.addAction(a["trace"])
-        menu(tr("&Laser"), ["connect", "identify", "serial_speed", "profile_export", "profile_import", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-                        "materials", "material_test", "learned", "scan_offset", "autofocus", "-", "board_backup", "fire_guard", "phone", "rotary", "-", "save_gcode", "run_file"])
+        for k in self.TOOLS_MENU[self.TOOLS_MENU.index("-") + 1:]:
+            m.addAction(a[k])
+        # 0.19.2: prima i comandi di tutti i giorni, in fondo (sotto un titolo) le regolazioni della macchina che si
+        # fanno una volta; «Salva G-code» ed «Esegui un file G-code» restano solo nel menu File (erano in due menu)
+        self.m_laser = menu(tr("&Laser"), [
+            "connect", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
+            "materials", "material_test", "learned", "-", "fire_guard", "phone", "rotary",
+            ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "scan_offset", "autofocus",
+            "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev"])
         self.m_view.addSeparator()
@@ -573,14 +593,31 @@ class MainWindow(QMainWindow):
         self._build_settings_menu(mb)
         self._apply_admin()  # 0.17.16: funzioni in prova nascoste finché non si sbloccano
         hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "send_report", "report",
-                                 "linux_info", "linux_desktop", "-", "updates", "update_auto", "-", "support"])
+                                 "linux_info", "linux_desktop", "-", "updates", "update_auto", "update_preview", "-", "support"])
+        self.m_help = hm
         hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
         self.acts["update_auto"].setChecked(self.updates.enabled())
         self.acts["update_auto"].setVisible(self.updates.mode in ("installer", "appimage"))  # Store e git: da sé
+        self.acts["update_preview"].setChecked(self.updates.preview())
+        self.acts["update_preview"].setVisible(self.updates.mode in ("installer", "appimage"))
         from .. import linux
 
         self.acts["linux_info"].setVisible(linux.is_linux())  # 0.18.0: solo nella versione per Linux
         self.acts["linux_desktop"].setVisible(linux.appimage_path() is not None)
+
+    def _build_classic_palette(self):
+        """0.19.2: la ricerca dei comandi (Ctrl+F / F3), che c'era solo nel Banco, anche nell'interfaccia classica:
+        stessa finestrella, stesso tasto, stessi comandi (li legge dai menu)."""
+        from .banco import PALETTE_QSS, CommandPalette
+
+        self.cmd_palette = CommandPalette(self)
+        self.cmd_palette.setStyleSheet(PALETTE_QSS)
+        act = self._a(tr("Cerca un comando…"), self.cmd_palette.open, ["Ctrl+F", "F3"], "zoom_in",
+                      tr("Scrivi una parola e trovi il comando, in qualsiasi menu sia"))
+        self.acts["palette"] = act
+        first = self.m_help.actions()[0] if self.m_help.actions() else None
+        self.m_help.insertAction(first, act)
+        self.m_help.insertSeparator(first)
 
     def _build_settings_menu(self, mb):
         """Impostazioni: interfaccia (Banco / Classica), secondo monitor, lingua, vista."""
@@ -588,6 +625,11 @@ class MainWindow(QMainWindow):
 
         m = mb.addMenu(tr("&Impostazioni"))
         self.m_settings = m
+        self.acts["prefs"] = self._a(tr("Preferenze…"), self.preferences_dialog, "Ctrl+,", "settings",
+                                     tr("Tutte le regolazioni in una finestra sola, con la ricerca: macchina, lavoro, "
+                                        "interfaccia, aggiornamenti"))
+        m.addAction(self.acts["prefs"])
+        m.addSeparator()
         m.addAction(self.acts["setup_wizard"])
         m.addAction(self.acts["wifi_wizard"])
         m.addAction(self.acts["admin_code"])
@@ -621,9 +663,19 @@ class MainWindow(QMainWindow):
             sub.addAction(self.acts[k])
         m.addSeparator()
         m.addMenu(self.m_language)  # lo stesso sottomenu di Visualizza: una sola lista di lingue
-        m.addSeparator()
-        for k in ("light_bed", "snap_obj", "snap_grid", "dither_prev"):
-            m.addAction(self.acts[k])
+        # le opzioni di vista stanno nel menu Visualizza; qui si ripetono solo nel Banco, che quel menu non lo mostra
+        # (0.19.2: nella Classica comparivano in due menu)
+        if cur == "banco":
+            m.addSeparator()
+            for k in ("light_bed", "snap_obj", "snap_grid", "dither_prev"):
+                m.addAction(self.acts[k])
+
+    def preferences_dialog(self, *_, section=None):
+        from .dialogs_prefs import PreferencesDialog
+
+        dlg = PreferencesDialog(self, section)
+        dlg.exec()
+        return dlg
 
     def _build_look_menu(self, parent):
         """Impostazioni → Aspetto: tema scuro / chiaro / come Windows e colore principale (vale dal riavvio)."""
@@ -735,6 +787,11 @@ class MainWindow(QMainWindow):
             if not self.close():
                 self._restart = False
 
+    # 0.19.2: gli strumenti che non sono «attrezzi da disegno», nell'ordine del menu Strumenti. Lo stesso elenco fa il
+    # menu del pulsante «Strumenti» nella barra di sinistra (MakerHub ha il suo pulsante, subito sotto)
+    TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "print_cut", "-", "variables",
+                  "photo", "trace")
+
     def _build_toolbars(self):
         a = self.acts
         tb = QToolBar(tr("Principale"))
@@ -800,6 +857,31 @@ class MainWindow(QMainWindow):
                 tools.addSeparator()
             else:
                 tools.addAction(self.tool_actions[name])
+        # 0.19.2: sotto «Posiziona laser», un po' staccati: un pulsante che raccoglie gli altri strumenti del menu
+        # Strumenti e, subito sotto, quello di MakerHub (senza menu: apre il loro sito, dove si sceglie lo strumento)
+        gap = QWidget()
+        gap.setFixedHeight(10)
+        tools.addWidget(gap)
+        tools.addSeparator()
+        b = QToolButton()
+        b.setObjectName("toolsMenu")
+        b.setIcon(style.icon("tools"))
+        b.setIconSize(tools.iconSize())  # un pulsante aggiunto come controllo non prende da solo la misura della barra
+        b.setToolTip(tr("Strumenti: forma con misure esatte, codice QR, testo su tracciato, puzzle, scultura, foto…"))
+        b.setPopupMode(QToolButton.InstantPopup)
+        b.setAutoRaise(True)
+        b.setStyleSheet("QToolButton::menu-indicator { image: none; width: 0px; }")
+        b.setProperty("help_key", "tools_menu")
+        b.setText(tr("Strumenti"))  # si vede solo con «i nomi sotto i comandi» (livello Principiante)
+        tools.toolButtonStyleChanged.connect(b.setToolButtonStyle)
+        tm = QMenu(b)
+        for k in self.TOOLS_MENU:
+            tm.addSeparator() if k == "-" else tm.addAction(a[k])
+        b.setMenu(tm)
+        self.btn_tools = b
+        tools.addWidget(b)
+        tools.addAction(a["makerhub_site"])
+        self.tools_bar = tools
         self.addToolBar(Qt.LeftToolBarArea, tools)
         self.palette = PaletteBar(self.editor)
         self.addToolBar(Qt.BottomToolBarArea, self.palette)
@@ -906,11 +988,22 @@ class MainWindow(QMainWindow):
         self.resizeDocks([d1, d3], [420, 520], Qt.Vertical)
         self.resizeDocks([d1], [430], Qt.Horizontal)
         self.docks = {"layers": d1, "props": d2, "laser": d3, "move": d4, "camera": d5, "machine": d6, "console": d7}
-        conn = QFrame()
+        # 0.19.2: la riga era più larga del pannello (porta con il nome lungo + stato scritto per esteso) e il
+        # pannello veniva tagliato a destra. Ora la porta si stringe (il nome intero è nel suggerimento e nell'elenco)
+        # e, se proprio non c'è posto, spariscono prima lo stato scritto (è anche nella barra in basso) e poi
+        # «Riconosci la macchina» (è nel menu Laser)
+        from .widgets import SqueezeRow
+
+        conn = SqueezeRow()
         conn.setObjectName("connbar")
         hl = QHBoxLayout(conn)
         hl.setContentsMargins(6, 4, 6, 4)
         hl.setSpacing(4)
+        self.port_combo.setMinimumWidth(70)
+        self.port_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.port_combo.setMinimumContentsLength(6)
+        self.port_combo.view().setTextElideMode(Qt.ElideNone)
+        self.port_combo.view().setMinimumWidth(320)
         hl.addWidget(self.port_combo, 1)
         hl.addWidget(self.btn_refresh)
         hl.addWidget(self.btn_wifi)
@@ -919,6 +1012,8 @@ class MainWindow(QMainWindow):
         hl.addWidget(ib)
         hl.addWidget(self.btn_connect)
         hl.addWidget(self.pill)
+        conn.set_optional([self.pill, ib])
+        self.connbar = conn
         self.laser.layout().insertWidget(0, conn)
         QTimer.singleShot(0, self._clean_tabbars)
         QTimer.singleShot(250, self._balance_docks)
@@ -1082,6 +1177,7 @@ class MainWindow(QMainWindow):
         ctl.travel_suspect.connect(self._travel_suspect)
         ctl.check_finished.connect(self._check_done)
         ctl.job_error.connect(self._job_error)
+        ctl.g55_refused.connect(self._g55_refused)
         ctl.job_finished.connect(self._job_finished)
         # offset G54 della scheda: serve ai test (materiale, scansione) sulle schede senza G55
         ctl.status_changed.connect(lambda _st: setattr(self.profile, "wcs_offset", self.ctl.wco))
@@ -1433,7 +1529,7 @@ class MainWindow(QMainWindow):
             d.path, d.name = path0, name0
             self.qs.setValue("autosave_pending", True)
         except Exception:  # noqa: BLE001
-            pass
+            _diag.ignored("salvataggio automatico")
 
     def _offer_recovery(self):
         p = os.path.join(config_dir(), "autosave.flcut")
@@ -2136,13 +2232,7 @@ class MainWindow(QMainWindow):
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["print_cut"].setVisible(admin.unlocked(self.qs))
-        on = admin.unlocked(self.qs)
-        self.m_makerhub.menuAction().setVisible(on)
-        for k, act in self.acts.items():
-            if k.startswith("makerhub_"):
-                act.setVisible(on)  # anche le voci dentro: la ricerca dei comandi guarda quelle
-        if not on:
-            self._makerhub_stop()
+        # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
 
     def admin_dialog(self, *_, code=None):
         """Impostazioni → Funzioni in prova: il codice amministratore le sblocca (o le nasconde di nuovo)."""
@@ -2171,35 +2261,29 @@ class MainWindow(QMainWindow):
         return False
 
     # ================================================================ MakerHub (0.18.14)
-    def makerhub_open(self, key):
-        """Strumenti → MakerHub → uno dei loro strumenti (solo con le funzioni in prova sbloccate): lo apre nel
-        browser e si mette in ascolto del pulsante «Manda a FreeLaserCut». FreeLaserCut non chiama il loro sito."""
-        from .. import admin, makerhub
+    def makerhub_open(self, *_):
+        """Strumenti MakerHub (menu Strumenti e barra di sinistra; dalla 0.19.2 per tutti, non più fra le funzioni
+        in prova): apre nel browser il loro sito, dove si sceglie lo strumento, e si mette in ascolto del pulsante
+        «Manda a FreeLaserCut». FreeLaserCut non chiama il loro sito."""
+        from .. import makerhub
 
-        t = makerhub.tool(key)
-        if t is None or not admin.unlocked(self.qs):
-            return False
         listening = self._makerhub_start() if self.qs.value("makerhub/receive", "true") in (True, "true") else False
         self.qs.setValue("makerhub/used", True)
-        if not makerhub.open_tool(key):
-            self.statusBar().showMessage(tr("Non riesco ad aprire il browser. L'indirizzo è: {0}", t.url), 20000)
+        if not makerhub.open_site():
+            self.statusBar().showMessage(tr("Non riesco ad aprire il browser. L'indirizzo è: {0}", makerhub.SITE_URL),
+                                         20000)
             return False
         self.statusBar().showMessage(
-            tr("Sul sito di MakerHub scegli {0} nel menu a sinistra, prepara il disegno e premi «Manda a "
-               "FreeLaserCut»: arriva qui da solo.", t.name) if listening
-            else tr("Sul sito di MakerHub scegli {0} nel menu a sinistra, scarica il file e importalo qui con "
-                    "File → Importa.", t.name), 30000)
+            tr("Sul sito di MakerHub scegli lo strumento, prepara il disegno e premi «Manda a FreeLaserCut»: arriva "
+               "qui da solo.") if listening
+            else tr("Sul sito di MakerHub scegli lo strumento, scarica il file e importalo qui con File → Importa."),
+            30000)
         return True
 
     def makerhub_receive(self, on=None):
-        """Strumenti → MakerHub → Ricevi qui i disegni: accende o spegne l'ascolto (solo su questo computer)."""
-        from .. import admin
-
+        """Strumenti → MakerHub: ricevi qui i disegni. Accende o spegne l'ascolto (solo su questo computer)."""
         act = self.acts["makerhub_receive"]
         on = act.isChecked() if on is None else bool(on)
-        if not admin.unlocked(self.qs):  # voce nascosta: non si accende e non cambia la scelta salvata
-            act.setChecked(False)
-            return False
         self.qs.setValue("makerhub/receive", on)
         if on:
             on = self._makerhub_start()
@@ -2217,6 +2301,7 @@ class MainWindow(QMainWindow):
         from .. import __version__, admin, makerhub_link
 
         if self.mh_link is None:
+            # i disegni da una pagina aperta dal disco (chi prova gli strumenti in sviluppo) restano legati al codice
             self.mh_link = makerhub_link.Receiver(self._makerhub_arrived, __version__,
                                                   lambda: admin.unlocked(self.qs))
         ok = self.mh_link.start()
@@ -2230,9 +2315,7 @@ class MainWindow(QMainWindow):
     def _makerhub_resume(self):
         """All'avvio: chi ha già usato gli strumenti di MakerHub (e non ha spento la ricezione) ritrova l'ascolto
         acceso, così il pulsante sul sito funziona anche se la pagina era rimasta aperta."""
-        from .. import admin
-
-        if admin.unlocked(self.qs) and self.qs.value("makerhub/used") in (True, "true") \
+        if self.qs.value("makerhub/used") in (True, "true") \
                 and self.qs.value("makerhub/receive", "true") in (True, "true"):
             self._makerhub_start()
 
@@ -2254,10 +2337,6 @@ class MainWindow(QMainWindow):
         """Un disegno mandato da uno strumento di MakerHub (vedi makerhub_link). Lo legge subito, così a chi l'ha
         mandato si può dire se è buono; sul piano va subito, oppure appena il programma è libero.
         -> (riuscito, messaggio per il browser)"""
-        from .. import admin
-
-        if not admin.unlocked(self.qs):
-            return False, tr("Questo sito non può mandare disegni a FreeLaserCut.")
         doc = self.editor.doc
         groups, texts, unreadable = [], 0, []
         for d in arrival.drawings:
@@ -2661,19 +2740,29 @@ class MainWindow(QMainWindow):
             if r != QMessageBox.Yes:
                 return None
             self._big_photo_ok = True  # fino alla prossima modifica del disegno
+        # 0.19.2: un lavoro lungo non blocca più la finestra: avanzamento e Annulla dopo un attimo (vedi ui/busy.py)
+        from . import busy as _busy
+
+        work = _busy.start(self, tr("Preparo il lavoro…"))
+        tick = work.tick if work is not None else None
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            job = gcode.generate(self.editor.doc, self.profile, opts)
+            job = gcode.generate(self.editor.doc, self.profile, opts, tick=tick)
             if opts.rotary:  # anteprima: il disegno com'è sul piano, non l'asse Y scalato del rotativo
                 from dataclasses import replace as _dc_replace
 
-                flat = gcode.generate(self.editor.doc, self.profile, _dc_replace(opts, rotary=None))
+                flat = gcode.generate(self.editor.doc, self.profile, _dc_replace(opts, rotary=None), tick=tick)
                 pv, pv_off = flat.preview, flat.out_to_bed  # spostamento della SUA anteprima (con Y invertito cambia)
             else:
                 pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
                 pv_off = job.out_to_bed
+        except _busy.Cancelled:
+            self.statusBar().showMessage(tr("Preparazione del lavoro annullata"), 6000)
+            return None  # il lavoro di prima (self.job) resta com'era
         finally:
             QApplication.restoreOverrideCursor()
+            if work is not None:
+                work.close()
         self.job, self.job_preview, self.job_preview_off = job, pv, pv_off
         if show:
             # durante un lavoro sul piano resta il percorso del lavoro in corso (si può preparare un altro piano
@@ -2967,10 +3056,36 @@ class MainWindow(QMainWindow):
         else:
             self.ctl.resume()
 
+    def _g55_refused(self, how):
+        """0.19.2: nel lavoro la scheda ha rifiutato G55, o proprio su quella riga ha smesso di rispondere (un OMTech
+        K40 fa l'una o l'altra cosa). G55 sta nell'intestazione, prima di ogni incisione. Il lavoro è già fermato, il profilo viene segnato «senza G55» e lo si dice: al
+        prossimo Avvia il lavoro è fatto in G54. Non riparte da solo: riparte chi è davanti alla macchina."""
+        external = bool(getattr(self, "_job_is_external", False))
+        self._g55_stop = True  # il lavoro (già fermato dal controllo) non va offerto per la ripresa: contiene G55
+        if not getattr(self.profile, "no_g55", False):
+            self.profile.no_g55 = True
+            try:
+                self.profile.save()
+            except OSError:
+                pass
+        if external:
+            msg = tr("Lavoro fermato: questo file G-code usa il comando G55 e la scheda del laser non lo conosce. "
+                     "Con questa scheda il file non si può eseguire così com'è.")
+        else:
+            msg = tr("Lavoro fermato all'inizio, prima di incidere: la scheda del laser non conosce il comando G55, "
+                     "che serve per le coordinate assolute. L'ho annotato nel profilo della macchina: premi di nuovo "
+                     "Avvia e il lavoro parte senza quel comando.")
+        self.statusBar().showMessage(msg, 30000)
+        QMessageBox.information(self, tr("Lavoro fermato"), msg)
+
     def _job_finished(self, ok, msg):
         self.laser.update_running()
         plate, self._job_plate = self._job_plate, None
         self.plate_bar.refresh()
+        if getattr(self, "_g55_stop", False) and not ok:
+            self._g55_stop = False
+            self._interrupted = None
+            return
         if ok:
             self._interrupted = None
             self.statusBar().showMessage(msg, 8000)
@@ -3153,6 +3268,45 @@ class MainWindow(QMainWindow):
         dlg.apply_requested.connect(lambda m: self.apply_material(cs, m))
         dlg.test_requested.connect(lambda m: QTimer.singleShot(0, lambda: self.material_test(m)))
         dlg.exec()
+
+    # -- libreria materiali e potenza del laser (0.19.2)
+    def material_watts(self):
+        """Potenza ottica (W) da usare per adattare la libreria materiali, oppure None.
+        None = la macchina è il B1 40W della tabella, oppure la potenza non si sa (profilo con una forbice come
+        «20–40 W» e nessun valore scritto dall'utente): in quel caso i valori restano quelli della tabella."""
+        from ..grbl import optical_watts
+
+        p = self.profile
+        if str(getattr(p, "optical_power", "")) == MachineProfile().optical_power:
+            return None  # è la macchina della tabella
+        try:
+            saved = float(self.qs.value(self._watts_key(), 0) or 0)
+        except (TypeError, ValueError):
+            saved = 0.0
+        if saved > 0:
+            return saved
+        text = str(getattr(p, "optical_power", "") or "")
+        nums = re.findall(r"\d+(?:[.,]\d+)?", text.split("(")[0])
+        if len(nums) == 1:  # un valore solo: si sa qual è. Una forbice («5–20 W») no: lo dice l'utente
+            return optical_watts(text)
+        return None
+
+    def set_material_watts(self, watts):
+        self.qs.setValue(self._watts_key(), float(watts or 0))
+
+    def _watts_key(self):
+        return "material_watts/" + re.sub(r"[^\w.-]+", "_", str(self.profile.name))
+
+    def material_reference(self):
+        """La macchina attiva è quella della tabella dei materiali (Longer B1 40W)?"""
+        return str(getattr(self.profile, "optical_power", "")) == MachineProfile().optical_power
+
+    def material_ratio(self):
+        from ..grbl import optical_watts
+
+        w = self.material_watts()
+        ref = optical_watts(MachineProfile().optical_power)
+        return (w / ref) if w and ref else None
 
     def apply_material(self, cs, m):
         if cs is None:
@@ -3734,7 +3888,7 @@ GUIDA
 Maiusc+F1 (o il pulsante ? in alto a destra): passa il mouse su un comando per leggerne descrizione e opzioni · Esc esce
 
 LASER
-Ctrl+Invio avvia · Ctrl+Spazio pausa · Ctrl+Pausa stop · Ctrl+Maiusc+F contorno · Ctrl+Maiusc+K verifica · Alt+P anteprima
+Ctrl+Invio avvia · Ctrl+Spazio pausa · Ctrl+Pausa o Maiusc+Esc stop · Ctrl+Maiusc+F contorno · Ctrl+Maiusc+K verifica · Alt+P anteprima
 Laser → Riconosci la macchina: porte USB, driver e profilo adattato alla scheda collegata
 
 ANTEPRIMA
@@ -3785,7 +3939,7 @@ def main(app=None, splash=None):
 
         imaging.warmup()
     except Exception:  # noqa: BLE001
-        pass
+        _diag.ignored("motore delle immagini")
     from .banco import ChoiceDialog, needs_choice
 
     if needs_choice(migrate_qsettings()) and QGuiApplication.platformName() not in ("offscreen", "minimal"):

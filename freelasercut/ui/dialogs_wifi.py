@@ -136,6 +136,7 @@ class WifiWizard(QDialog):
         self.state = ""
         self.family, self.lgt, self.mode, self.ip = None, False, None, None
         self.switch = None  # il valore di «$wifi» sulle schede che ce l'hanno (0.19.1)
+        self._radio_sent = False  # 0.19.2: «$50=2» già mandato a una Longer in questa scrittura?
         self.nets, self.pc_ssid, self.pc_ip = [], None, None
         self.ssid_sent, self.net_sent, self.pwd_len = "", None, 0
         self.result = None  # "tcp://indirizzo:porta" salvato
@@ -791,9 +792,10 @@ class WifiWizard(QDialog):
         self._lost_at = None
         self._msg = None
         self._tried = False  # la scheda ha detto che sta provando a collegarsi («Connecting…»)?
+        self._radio_sent = False
         self._port_back = self.ctl.port
         self._page(tr("La scheda si sta collegando a «{0}»…", self.ssid_sent),
-                   tr("Di solito bastano dieci secondi."), [], busy=WAIT_S)
+                   tr("Di solito bastano dieci secondi."), [], busy=self.wait_s())
         self._tick.start()
         if self.cordless:  # dalla rete del laser non arrivano messaggi: riporto il PC a casa e poi cerco il laser
             g = self._gen
@@ -805,6 +807,35 @@ class WifiWizard(QDialog):
             if self.ctl.connected:
                 self.ctl.disconnect_port()
             bg.run(home, self)
+
+    def wait_s(self):
+        """Quanto aspetto i messaggi della scheda: le Longer provano a collegarsi per 40 secondi, quindi 50 invece di 30."""
+        return WAIT_S * (wifi_setup.LGT_WAIT_K if self.lgt and self.family == "esp" else 1.0)
+
+    def _can_radio(self):
+        return bool(self.lgt and self.family == "esp" and not self._radio_sent and self.ctl.connected
+                    and wifi_setup.commands("esp", "radio", True))
+
+    def _radio_on(self):
+        """0.19.2, Longer: nome e password sono nella scheda ma il Wi-Fi è rimasto spento («WiFi Off» al riavvio),
+        perché «[ESP110]STA» lì non accende niente. Lo accende «$50=2»: la scheda prova subito a collegarsi e lo dice
+        con i suoi messaggi; l'«ok» arriva solo alla fine (anche 40 secondi dopo). Una volta sola per scrittura."""
+        g = self._gen
+        self._radio_sent = True
+        self._note("radio")
+        self._t0 = time.time()  # l'attesa riparte da qui
+        self.bar.setValue(0)
+        self._tick.start()
+
+        def got(ok, _lines):
+            if g != self._gen or self.state != "wait":
+                return
+            if ok is False:  # la scheda non conosce «$50=2»: non so accendere il suo Wi-Fi
+                self._tick.stop()
+                return self._after_silence(None)
+            if ok:  # ha finito senza dire com'è andata (messaggi spenti): glielo chiedo
+                self._ask_ip_now(g)
+        self.talk.ask(wifi_setup.commands("esp", "radio", True)[0], got, self.wait_s())
 
     def _go_back_home_bg(self):
         try:
@@ -822,11 +853,22 @@ class WifiWizard(QDialog):
         if m[0] == "connected" and m[1]:
             self._tick.stop()
             self._connected(m[1])
+        elif m[0] == "connected":
+            # 0.19.2: «Wifi Connected» delle Longer: è entrata ma non dice l'indirizzo. Glielo chiedo fra un attimo
+            self._tried = True
+            g = self._gen
+            QTimer.singleShot(1000, lambda: g == self._gen and self.state == "wait" and self._ask_ip_now(g))
         elif m[0] == "connecting":
             self._tried = True
+        elif m[0] == "nowifi":
+            # 0.19.2: una Longer ripartita con il Wi-Fi spento: manca l'interruttore «$50=2»
+            if self._can_radio():
+                self._radio_sent = True  # subito, così un secondo «WiFi Off» non lo rimanda
+                g = self._gen
+                QTimer.singleShot(1500, lambda: g == self._gen and self.state == "wait" and self._radio_on())
         elif m[0] == "failed":
             self._tick.stop()
-            self._outcome_failed()
+            self._outcome_failed(off=wifi_setup.fails_to_off(line))
         elif m[0] == "own":
             self._tick.stop()
             # 0.19.1: rete propria ripartita subito, senza nessun tentativo: non è la password, è la scheda che non
@@ -881,12 +923,12 @@ class WifiWizard(QDialog):
                 if self.ctl.connect_port(self._port_back, self.main.profile.baud):
                     self._t0 = time.time() - WAIT_S / 4  # riaperta: il tempo dei messaggi riparte (quasi) da capo
             return
-        if el >= WAIT_S and not self.cordless:
+        if el >= self.wait_s() and not self.cordless:
             self._tick.stop()
             self._wait_timeout()
 
     def _wait_timeout(self):
-        """Nessun messaggio in 30 secondi: chiedo l'indirizzo alla scheda, se sa dirlo."""
+        """Nessun messaggio nel tempo di attesa: chiedo l'indirizzo alla scheda, se sa dirlo."""
         g = self._gen
         if self.family == "esp" and self.ctl.connected:
             return self.talk.ask("[ESP111]", lambda ok, lines: g == self._gen and self._after_silence(
@@ -901,9 +943,12 @@ class WifiWizard(QDialog):
             return self._outcome_failed()
         if ip and ip != "0.0.0.0":
             return self._connected(ip)
+        if self.state == "wait" and self._can_radio():
+            # 0.19.2: Longer muta e senza indirizzo: prima di arrendermi provo ad accendere il suo Wi-Fi
+            return self._radio_on()
         self._set("unknown")
         self._page(tr("Non so se si è collegata"),
-                   tr("La scheda non ha detto niente in 30 secondi. Provo a cercarla in rete."),
+                   tr("La scheda non ha detto niente in {0} secondi. Provo a cercarla in rete.", int(round(self.wait_s()))),
                    [self._close_btn(), ("retry", tr("Riprova"), self._page_net),
                     ("find", tr("Trova il laser in rete"), self._find)])
 
@@ -999,12 +1044,16 @@ class WifiWizard(QDialog):
                       self.ssid_sent),
                    [self._close_btn(), ("retry", tr("Riprova"), self._page_net)])
 
-    def _outcome_failed(self):
+    def _outcome_failed(self, off=False):
         self._set("failed")
         why = "".join(f"<br>• {cause_text(c)}" for c in getattr(self, "causes", ["wrong_password"]))
-        self._page(tr("Il laser non è entrato nella rete"),
-                   tr("La scheda non è riuscita a collegarsi a «{0}» ed è tornata alla sua rete propria (192.168.4.1). "
-                      "Le cause più probabili, in ordine:", self.ssid_sent) + why,
+        if off:  # 0.19.2: le Longer non tornano a una rete propria: lasciano il Wi-Fi spento
+            body = tr("La scheda ha provato a collegarsi a «{0}» ma non ci è riuscita, e ha lasciato il Wi-Fi spento. "
+                      "Le cause più probabili, in ordine:", self.ssid_sent)
+        else:
+            body = tr("La scheda non è riuscita a collegarsi a «{0}» ed è tornata alla sua rete propria (192.168.4.1). "
+                      "Le cause più probabili, in ordine:", self.ssid_sent)
+        self._page(tr("Il laser non è entrato nella rete"), body + why,
                    [self._close_btn(), ("retry", tr("Correggi e riprova"), self._page_net)])
 
     def _outcome_serial(self):

@@ -375,31 +375,41 @@ def _collect(doc, opts):
 
 def _polys_of(items, tol=geom.FLATTEN_TOL):
     polys = []
-    for leaf, tf in items:
+    for k, (leaf, tf) in enumerate(items):
         if isinstance(leaf, ImageShape):
             continue
+        if not k & 31:
+            _tick()
         polys.extend(geom.flatten(tf.map(leaf.local_path()), tol))
     return polys
 
 
 def _depths(polys):
-    """Profondità di annidamento di ogni contorno chiuso (0 = esterno)."""
+    """Profondità di annidamento di ogni contorno chiuso (0 = esterno).
+
+    0.19.2: stesso risultato di prima, ma con aree e ingombri calcolati una volta sola; tolto il limite dei 3000
+    contorni, oltre il quale la profondità era sempre 0 (fori trattati da contorni esterni: kerf dalla parte sbagliata)."""
     n = len(polys)
     depth = [0] * n
-    if n > 3000:
+    if n < 2:
         return depth
-    boxes = [p.bounds() if p.closed else None for p in polys]
+    closed = np.array([p.closed for p in polys], bool)
+    outer = np.nonzero(closed)[0]
+    if not len(outer):
+        return depth
+    areas = np.array([abs(p.area()) for p in polys], float)
+    box = np.array([p.bounds() for p in polys], float).reshape(n, 4)
+    oa, ob = areas[outer], box[outer]
     for i, inner in enumerate(polys):
-        bi = inner.bounds()
-        for j, outer in enumerate(polys):
-            if i == j or not outer.closed:
-                continue
-            bo = boxes[j]
-            if bi[0] < bo[0] or bi[1] < bo[1] or bi[2] > bo[2] or bi[3] > bo[3]:
-                continue
-            if abs(outer.area()) <= abs(inner.area()) and inner.closed:
-                continue
-            if geom.contains(outer, inner):
+        if not i & 63:
+            _tick()
+        x0, y0, x1, y1 = box[i]
+        m = (ob[:, 0] <= x0) & (ob[:, 1] <= y0) & (ob[:, 2] >= x1) & (ob[:, 3] >= y1)
+        if closed[i]:
+            m &= oa > areas[i]
+        for j in outer[m]:
+            j = int(j)
+            if j != i and geom.contains(polys[j], inner):
                 depth[i] += 1
     return depth
 
@@ -419,18 +429,45 @@ def _orient(polys):
 
 
 # ======================================================================= ottimizzazione
+# ---------------------------------------------------------------- segni di vita durante i calcoli lunghi
+# 0.19.2: chi prepara un lavoro (la finestra principale) può passare a generate() una funzione «tick» da chiamare
+# spesso: tiene viva la finestra, mostra l'avanzamento e, se l'utente annulla, solleva un'eccezione che interrompe
+# il calcolo. Senza tick (prove, comandi senza finestra) non cambia niente.
+_TICK = None
+
+
+def _tick():
+    if _TICK is not None:
+        _TICK()
+
+
 def order_polys(polys, start=(0.0, 0.0), inner_first=True, optimize=True):
-    """Ordina le polilinee riducendo i trasferimenti; i fori prima dei contorni che li contengono."""
+    """Ordina le polilinee riducendo i trasferimenti; i fori prima dei contorni che li contengono.
+
+    0.19.2: aree e ingombri si calcolano una volta sola e il test «sta dentro» (geom.contains) si fa solo dove
+    l'ingombro del contorno contiene quello dell'altro. Prima ogni tracciato veniva confrontato con tutti gli altri
+    ricalcolando ogni volta l'area (2000 tracciati: 8 milioni di aree, circa 6 s) e oltre i 3000 tracciati i fori
+    non venivano più messi prima dei contorni, senza avviso. L'ordine che esce è lo stesso di prima."""
     n = len(polys)
     if n == 0 or not optimize:
         return polys
     children = [[] for _ in range(n)]
-    if inner_first and n <= 3000:
-        for i, inner in enumerate(polys):
-            for j, outer in enumerate(polys):
-                if i != j and outer.closed and abs(outer.area()) > abs(inner.area()) and geom.contains(outer, inner):
-                    children[j].append(i)
-    remaining_children = [len(c) for c in children]
+    if inner_first:
+        areas = np.array([abs(p.area()) for p in polys], float)
+        box = np.array([p.bounds() for p in polys], float).reshape(n, 4)
+        outer = np.array([j for j, p in enumerate(polys) if p.closed and len(p.pts) >= 3], int)
+        if len(outer):
+            oa, ob = areas[outer], box[outer]
+            for i, inner in enumerate(polys):
+                if not i & 63:
+                    _tick()
+                x0, y0, x1, y1 = box[i]
+                near = outer[(oa > areas[i]) & (ob[:, 0] <= x0) & (ob[:, 1] <= y0) & (ob[:, 2] >= x1) & (ob[:, 3] >= y1)]
+                for j in near:
+                    j = int(j)
+                    if j != i and geom.contains(polys[j], inner):
+                        children[j].append(i)
+    remaining_children = np.array([len(c) for c in children], int)
     parents = [[] for _ in range(n)]
     for j, cs in enumerate(children):
         for i in cs:
@@ -442,8 +479,10 @@ def order_polys(polys, start=(0.0, 0.0), inner_first=True, optimize=True):
     ends = np.array([[p.pts[-1][0], p.pts[-1][1]] for p in polys])
     cur = np.array(start, float)
     out = []
-    for _ in range(n):
-        avail = (~done) & (np.array(remaining_children) == 0)
+    for step in range(n):
+        if not step & 63:
+            _tick()
+        avail = (~done) & (remaining_children == 0)
         if not avail.any():
             avail = ~done
         idx = np.nonzero(avail)[0]
@@ -587,7 +626,9 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None, first_forward=True
 
     dxu, dyu = cos_a, sin_a  # direzione di scansione nel piano
     forward = bool(first_forward)
-    for y, segs in lines:
+    for row_n, (y, segs) in enumerate(lines):
+        if not row_n & 15:
+            _tick()
         if not segs:
             continue
         if not forward:
@@ -627,7 +668,9 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None, first_forward=True
 
 
 def _emit_polys(w, polys, cs):
-    for p in polys:
+    for k, p in enumerate(polys):
+        if not k & 63:
+            _tick()
         w.rapid(*p.pts[0])
         w.track(*p.pts[0])
         for q in p.pts[1:]:
@@ -810,7 +853,18 @@ def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
 
 
 # ======================================================================= lavoro
-def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
+def generate(doc: Document, profile, opts: JobOptions = None, tick=None) -> GcodeJob:
+    """Prepara il lavoro. tick (facoltativo): funzione senza argomenti chiamata spesso durante il calcolo; può
+    sollevare un'eccezione per interromperlo (Annulla). Vedi ui/busy.py."""
+    global _TICK
+    before, _TICK = _TICK, tick  # una preparazione dentro l'altra (rara) non perde il tick di quella esterna
+    try:
+        return _generate(doc, profile, opts)
+    finally:
+        _TICK = before
+
+
+def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     t0 = time.time()
     opts = opts or JobOptions()
     job = GcodeJob()
@@ -895,6 +949,7 @@ def generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     cur = opts.current_pos if opts.start_from == "current" else (0.0, 0.0)
     air_on = False
     for cs in layers:
+        _tick()
         items = [(leaf, tf * pl_tf) for leaf, tf in by_layer[cs.index]]
         st = LayerStats(cs.index, cs.label(), cs.mode, items=len(items),
                         speed=min(cs.speed, profile.max_rate_x, profile.max_rate_y), power=cs.power_max)

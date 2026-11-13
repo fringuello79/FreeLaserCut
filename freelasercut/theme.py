@@ -213,7 +213,7 @@ QTabBar::tab:hover {{ color: {C['text']}; }}
 
 QTableWidget {{ background: {C['bg']}; border: 1px solid {C['border']}; border-radius: 8px; gridline-color: {C['border']}; }}
 QHeaderView::section {{ background: {C['panel2']}; color: {C['muted']}; border: none; border-bottom: 1px solid {C['border']}; padding: 6px; font-weight: 600; }}
-QTableWidget::item:selected {{ background: {C['accent_lo']}; }}
+QTableWidget::item:selected {{ background: {C['accent_lo']}; color: {C['text']}; }}
 
 QPlainTextEdit {{ background: #080D18; border: 1px solid {C['border']}; border-radius: 8px;
     font-family: 'Cascadia Mono', 'Consolas', monospace; font-size: 9.5pt; }}

@@ -1,5 +1,6 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""0.18.14: MakerHub nel menu Strumenti (funzione in prova) e il collegamento sito → FreeLaserCut.
+"""0.18.14: MakerHub nel menu Strumenti e il collegamento sito → FreeLaserCut (dalla 0.19.2 per tutti: prima era fra
+le funzioni in prova).
 
 MakerHub (maker-hub.it) è un servizio esterno. Strumenti → MakerHub apre nel browser il loro sito, dove stanno Dima
 Lab, Forma Lab, Hinge Lab e Split Lab; il pulsante «Manda a FreeLaserCut» di quegli strumenti apre una finestrella su
@@ -21,7 +22,8 @@ Casi provati:
 6 consegna: Host sbagliato, gettone assente, usato due volte, scaduto, origine della richiesta sbagliata, sito non
   ammesso, dati rovinati; la finestrella (gettone, niente script esterni, controlla chi le parla);
 7 ricevitore vero: ascolta solo su 127.0.0.1, risponde a richieste a pezzi, si spegne, porta occupata;
-8 finestra: nascosta senza codice; menu Strumenti → MakerHub con logo, quattro strumenti e «Ricevi qui i disegni»;
+8 finestra: visibile a tutti (dalla 0.19.2), anche senza il codice delle funzioni in prova; menu Strumenti con «Strumenti MakerHub» (logo) e «MakerHub: ricevi qui i disegni»
+  (dalla 0.19.2 un comando solo: i quattro strumenti si scelgono sul loro sito);
   clic = browser + ascolto + istruzioni; spunta tolta = niente ascolto; ripresa all'avvio; chiusura;
 9 disegni sul piano: uno solo, più fogli (piani di lavoro), piano già occupato, pezzi affiancati, mappa, scritte,
   troppo grande, illeggibile, programma occupato, annulla, laser mai toccato;
@@ -101,22 +103,22 @@ def zipped(files, compress=zipfile.ZIP_STORED):
 
 
 # ================================================================== 1. strumenti e indirizzi
-check("gli strumenti sono i quattro di MakerHub, con il loro nome",
-      [t.name for t in mh.TOOLS] == ["Dima Lab", "Forma Lab", "Hinge Lab", "Split Lab"]
-      and [t.key for t in mh.TOOLS] == ["dima", "forma", "hinge", "split"] and all(t.what for t in mh.TOOLS))
-check("ogni strumento apre il sito di MakerHub, in https, con il segno che arrivi da FreeLaserCut",
-      all(t.url == SITE and mh.safe_url(t.url) == SITE for t in mh.TOOLS), [t.url for t in mh.TOOLS])
+check("gli strumenti sono i quattro di MakerHub, con il loro nome (0.19.2: si scelgono sul loro sito, qui c'è un comando solo)",
+      mh.TOOL_NAMES == ("Dima Lab", "Forma Lab", "Hinge Lab", "Split Lab") and not hasattr(mh, "TOOLS")
+      and not hasattr(mh, "open_tool"))
+check("il comando apre il sito di MakerHub, in https, con il segno che arrivi da FreeLaserCut",
+      mh.SITE_URL == SITE and mh.safe_url(mh.SITE_URL) == SITE, mh.SITE_URL)
 check("si aprono solo indirizzi https di maker-hub.it: mai http, un altro sito, un sosia, utente@",
       mh.safe_url("https://maker-hub.it/") and not any(mh.safe_url(u) for u in (
           "http://app.maker-hub.it/", "https://example.com/", "https://maker-hub.it.example.com/",
           "https://finto-maker-hub.it/", "https://maker-hub.it@example.com/", "https://utente:x@maker-hub.it/",
           "javascript:alert(1)", "file:///C:/Windows/win.ini", "", None, "https://[::1")))
-real = mh.TOOLS
-mh.TOOLS = (mh.Tool("dima", "Dima Lab", "https://example.com/dima", "x"),)
-check("se l'indirizzo di uno strumento non fosse di MakerHub il browser non verrebbe aperto",
-      mh.open_tool("dima") is False and not opened, opened)
-mh.TOOLS = real
-check("uno strumento che non esiste non apre niente", mh.open_tool("scatola") is False and mh.tool("scatola") is None and not opened)
+real = mh.SITE_URL
+mh.SITE_URL = "https://example.com/strumenti"
+check("se l'indirizzo non fosse di MakerHub il browser non verrebbe aperto", mh.open_site() is False and not opened, opened)
+mh.SITE_URL = real
+check("con l'indirizzo vero il sito si apre, una volta", mh.open_site() is True and opened == [SITE], opened)
+del opened[:]
 code = src("freelasercut", "makerhub.py")
 check("makerhub.py non fa rete e non avvia fili: apre soltanto la pagina",
       not re.search(r"urllib\.request|urlopen|http\.client|socket|requests|threading|QNetwork|QTcpServer", code))
@@ -521,7 +523,8 @@ w = MainWindow()
 w.resize(1400, 900)
 ed = w.editor
 BX, BY = w.profile.bed_x, w.profile.bed_y
-names = ["makerhub_dima", "makerhub_forma", "makerhub_hinge", "makerhub_split", "makerhub_receive"]
+names = ["makerhub_site", "makerhub_receive"]
+OLD_NAMES = ["makerhub_dima", "makerhub_forma", "makerhub_hinge", "makerhub_split"]
 pal = getattr(getattr(w, "banco", None), "palette", None)
 
 
@@ -530,49 +533,51 @@ def searchable():
     return [a_ for a_, _p in pal.entries]
 
 
-check("senza codice: il menu MakerHub è nascosto, le sue voci pure, e non aprono né ascoltano niente",
-      not w.m_makerhub.menuAction().isVisible() and not any(w.acts[n].isVisible() for n in names)
-      and w.makerhub_open("dima") is False and w.makerhub_receive(True) is False and not opened
-      and (w.mh_link is None or not w.mh_link.running()) and "error" in talk([GET]))
+check("0.19.2, senza codice: le voci di MakerHub si vedono (non sono più fra le funzioni in prova), Rilievo 3D e "
+      "Stampa e taglia no; finché nessuno le usa non si apre e non si ascolta niente",
+      all(w.acts[n].isVisible() for n in names) and not w.acts["relief"].isVisible() and not w.acts["print_cut"].isVisible()
+      and not opened and (w.mh_link is None or not w.mh_link.running()) and "error" in talk([GET]))
 if pal is not None:
-    check("Banco: senza codice la ricerca dei comandi non trova nessuna voce di MakerHub", not [n for n in names if w.acts[n] in searchable()])
+    check("Banco: senza codice la ricerca dei comandi trova le voci di MakerHub", all(w.acts[n] in searchable() for n in names))
 tops = [a_.text().replace("&", "") for a_ in w.menuBar().actions()]
 check("in alto non c'è un menu MakerHub, e la vecchia voce «Scatola a incastri» non c'è più",
       "MakerHub" not in tops and "makerhub_box" not in w.acts and not hasattr(w, "makerhub_box"), tops)
-check("con il codice il menu compare, con tutte le sue voci", w.admin_dialog(code="prova") is True
-      and w.m_makerhub.menuAction().isVisible() and all(w.acts[n].isVisible() for n in names)
+check("con il codice compaiono anche le funzioni in prova; MakerHub resta dov'era", w.admin_dialog(code="prova") is True
+      and all(w.acts[n].isVisible() for n in names)
       and w.acts["relief"].isVisible() and w.acts["print_cut"].isVisible())
 tools = [m.menu() for m in w.menuBar().actions() if m.menu() is not None and w.acts["puzzle"] in m.menu().actions()]
 acts = tools[0].actions() if tools else []
-sub = w.m_makerhub.menuAction()
+sub = w.acts["makerhub_site"]
 check("sta nel menu Strumenti, dopo Stampa e taglia e prima delle voci per le foto",
       len(tools) == 1 and sub in acts and acts.index(sub) == acts.index(w.acts["print_cut"]) + 1
       and acts.index(sub) < acts.index(w.acts["photo"]), [a_.text() for a_ in acts][-12:])
-check("si chiama «MakerHub» e ha il loro logo arancione", sub.text() == "MakerHub" and not sub.icon().isNull()
+check("si chiama «Strumenti MakerHub» e ha il loro logo arancione", sub.text() == "Strumenti MakerHub" and not sub.icon().isNull()
       and sub.icon().pixmap(QSize(40, 40)).toImage().pixelColor(20, 4).red() > 200)
-inside = [a_ for a_ in w.m_makerhub.actions()]
-check("dentro: Dima Lab, Forma Lab, Hinge Lab, Split Lab con a che cosa servono, una riga, «Ricevi qui i disegni» con la spunta",
-      [a_.text().split(" – ")[0] for a_ in inside[:4]] == ["Dima Lab", "Forma Lab", "Hinge Lab", "Split Lab"]
-      and all(" – " in a_.text() for a_ in inside[:4]) and inside[4].isSeparator() and inside[5] is w.acts["makerhub_receive"]
-      and inside[5].isCheckable() and not inside[5].isChecked() and len(inside) == 6, [a_.text() for a_ in inside])
+rec = w.acts["makerhub_receive"]
+check("0.19.2: è un comando solo, senza sottomenu (le quattro voci di prima non esistono più); subito sotto «MakerHub: "
+      "ricevi qui i disegni» con la spunta",
+      sub.menu() is None and not hasattr(w, "m_makerhub") and not any(n in w.acts for n in OLD_NAMES)
+      and acts.index(rec) == acts.index(sub) + 1 and rec.text() == "MakerHub: ricevi qui i disegni" and rec.isCheckable()
+      and not rec.isChecked() and not any(a_.menu() is not None and "MakerHub" in a_.text() for a_ in acts),
+      [a_.text() for a_ in acts])
 if pal is not None:
-    check("Banco: con il codice la ricerca dei comandi trova le cinque voci", all(w.acts[n] in searchable() for n in names))
+    check("Banco: con il codice la ricerca dei comandi trova le due voci", all(w.acts[n] in searchable() for n in names))
 del opened[:], boxes[:]
 dialogs0 = len(w.findChildren(QDialog))
-w.acts["makerhub_hinge"].trigger()
+w.acts["makerhub_site"].trigger()
 msg = w.statusBar().currentMessage()
-check("un clic su uno strumento apre nel browser, una volta, il sito di MakerHub", opened == [SITE], opened)
+check("un clic sul comando apre nel browser, una volta, il sito di MakerHub", opened == [SITE], opened)
 check("…accende l'ascolto (la spunta compare) e lo ricorda", w.mh_link is not None and w.mh_link.running() and w.acts["makerhub_receive"].isChecked()
       and w.qs.value("makerhub/used") in (True, "true") and talk([GET]).get("data", b"").startswith(b"HTTP/1.1 200"))
-check("…e la barra in basso dice che cosa fare: scegliere Hinge Lab nel loro menu e premere «Manda a FreeLaserCut»",
-      "Hinge Lab" in msg and "menu a sinistra" in msg and "Manda a FreeLaserCut" in msg, msg)
+check("…e la barra in basso dice che cosa fare: scegliere lo strumento sul loro sito e premere «Manda a FreeLaserCut»",
+      "scegli lo strumento" in msg and "Manda a FreeLaserCut" in msg, msg)
 check("…senza finestre né domande, e senza fili in più", not boxes and len(w.findChildren(QDialog)) == dialogs0
       and not [t.name for t in threading.enumerate() if t.name not in threads0 and ("makerhub" in t.name.lower() or "http" in t.name.lower())])
 st, j = deliver([("a.svg", svg())], origin="https://example.com")
 check("un sito che non è MakerHub non riesce a mandare niente", st == 403 and not ed.doc.shapes and w.mh_last is None, (st, j))
 browser[0] = False
 del opened[:]
-ok = w.makerhub_open("dima")
+ok = w.makerhub_open()
 msg = w.statusBar().currentMessage()
 check("se il browser non si apre lo dice, con l'indirizzo da copiare", ok is False and opened == [SITE] and SITE in msg, msg)
 browser[0] = True
@@ -580,10 +585,11 @@ check("togliendo la spunta l'ascolto si spegne davvero, e resta spento",
       w.makerhub_receive(False) is False and not w.mh_link.running() and "error" in talk([GET])
       and not w.acts["makerhub_receive"].isChecked() and w.qs.value("makerhub/receive") in (False, "false"))
 del opened[:]
-w.acts["makerhub_split"].trigger()
+w.acts["makerhub_site"].trigger()
 msg = w.statusBar().currentMessage()
-check("con la spunta tolta, aprire uno strumento non riaccende l'ascolto: la barra dice di scaricare e usare File → Importa",
-      opened == [SITE] and not w.mh_link.running() and "Split Lab" in msg and "File → Importa" in msg and "Manda a" not in msg, msg)
+check("con la spunta tolta, aprire gli strumenti non riaccende l'ascolto: la barra dice di scaricare e usare File → Importa",
+      opened == [SITE] and not w.mh_link.running() and "scegli lo strumento" in msg and "File → Importa" in msg
+      and "Manda a" not in msg, msg)
 w.acts["makerhub_receive"].trigger()
 check("rimettendo la spunta l'ascolto riparte, e la barra spiega che si ascolta solo questo computer",
       w.mh_link.running() and w.acts["makerhub_receive"].isChecked() and w.qs.value("makerhub/receive") in (True, "true")
@@ -595,9 +601,9 @@ if sys.platform != "win32":  # Linux: la porta appena lasciata libera si può ri
 blocker.bind(("127.0.0.1", PORT))
 blocker.listen(1)
 del opened[:]
-ok = w.makerhub_open("forma")
+ok = w.makerhub_open()
 msg = w.statusBar().currentMessage()
-check("porta occupata da un altro programma: lo strumento si apre lo stesso, la spunta resta tolta",
+check("porta occupata da un altro programma: il sito si apre lo stesso, la spunta resta tolta",
       ok is True and opened == [SITE] and not w.mh_link.running() and not w.acts["makerhub_receive"].isChecked(), msg)
 w._makerhub_start()
 check("…e il programma dice che la porta è occupata e come fare (File → Importa)",
@@ -732,10 +738,23 @@ check("con le funzioni in prova sbloccate si accettano anche gli strumenti apert
 check("in tutto questo il laser e la macchina non sono stati toccati", not w.ctl.job_active and not w.ctl.connected and not boxes)
 fresh()
 arr = link.read_payload(payload([("a.svg", svg())]))
-check("nascondendo di nuovo le funzioni in prova: menu nascosto, ascolto spento, niente si apre né si riceve",
-      w.admin_dialog() is False and not w.m_makerhub.menuAction().isVisible() and not any(w.acts[n].isVisible() for n in names)
-      and not w.mh_link.running() and "error" in talk([GET]) and w.makerhub_open("dima") is False
-      and w._makerhub_arrived(arr)[0] is False and not ed.doc.shapes)
+check("0.19.2, nascondendo di nuovo le funzioni in prova: spariscono Rilievo 3D e Stampa e taglia; MakerHub resta "
+      "visibile e la ricezione resta accesa",
+      w.admin_dialog() is False and all(w.acts[n].isVisible() for n in names) and not w.acts["relief"].isVisible()
+      and not w.acts["print_cut"].isVisible() and w.mh_link.running()
+      and talk([GET]).get("data", b"").startswith(b"HTTP/1.1 200"))
+st, j = deliver([("da-disco.svg", svg())], origin="null")
+check("…senza il codice una pagina aperta dal disco non può mandare disegni (quello resta per chi prova gli strumenti)",
+      st == 403 and not ed.doc.shapes, (st, j))
+st, j = deliver([("a.svg", svg())])
+check("…mentre dal sito di MakerHub i disegni arrivano anche senza il codice", st == 200 and len(ed.doc.shapes) == 1
+      and w._makerhub_arrived(arr)[0] is True, (st, j))
+fresh()
+del opened[:]
+check("…e senza il codice il comando apre il sito", w.makerhub_open() is True and opened == [SITE], opened)
+w.makerhub_receive(False)
+check("…e la spunta della ricezione si toglie e si rimette", not w.mh_link.running() and w.makerhub_receive(True) is True
+      and w.mh_link.running() and w.qs.value("makerhub/receive") in (True, "true"))
 w.admin_dialog(code="prova")
 w._makerhub_start()
 ed.dirty = False
@@ -769,7 +788,7 @@ check("nel repository c'è solo il nostro script con le istruzioni: i programmi 
 for n in names:
     h = help_texts.lookup(n)
     check(f"scheda d'aiuto di {n}: c'è, dice che MakerHub è esterno e come arriva il disegno",
-          h is not None and "(in prova)" in h[0] and ("esterno" in h[1] or n == "makerhub_receive")
+          h is not None and "(in prova)" not in h[0] and "MakerHub" in h[0] and ("esterno" in h[1] or n == "makerhub_receive")
           and "Manda a FreeLaserCut" in h[1], h)
 check("la scheda d'aiuto della vecchia voce non c'è più", help_texts.lookup("makerhub_box") is None)
 keys = set()
@@ -782,11 +801,12 @@ for text in (code, code_link, src("freelasercut", "ui", "main_window.py"), src("
             continue
         if "MakerHub" in k or text in (code, code_link):  # i due file di MakerHub per intero; degli altri, i testi che lo nominano
             keys.add(k)
-keys |= {"Ricevi qui i disegni", "Non riesco a leggere il disegno arrivato ({0}).",
+keys |= {"Non riesco a leggere il disegno arrivato ({0}).",
          "FreeLaserCut è occupato: il disegno entrerà appena chiudi la finestra aperta nel programma.",
          "La mappa di montaggio non è da tagliare: resta sul sito.",
          "Le scritte non sono arrivate: sul sito vanno convertite in tracciati."}
-check("testi da tradurre trovati", len(keys) == 41 and all(t.what in keys for t in real), len(keys))
+check("testi da tradurre trovati", len(keys) == 31 and "Strumenti MakerHub" in keys and "MakerHub: ricevi qui i disegni" in keys,
+      len(keys))
 menu_names = {"en": "File → Import", "es": "Archivo → Importar", "fr": "Fichier → Importer", "pt": "Arquivo → Importar"}
 for lang in ("en", "es", "fr", "pt"):
     loc = json.load(open(os.path.join(ROOT, "freelasercut", "locale", f"{lang}.json"), encoding="utf-8"))

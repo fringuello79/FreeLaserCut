@@ -125,9 +125,17 @@ CMDS = {
     },
 }
 # Longer (firmware LGT): provato sul B1 di Ale il 12/11/2026: «[ESP110]» e «[ESP111]» rispondono, «[ESP110]STA» dà ok,
-# «[ESP100]» non esiste (error:3): nome e password stanno in $53 e $54. $50 lì non è 1 = rete: non si scrive mai.
+# «[ESP100]» non esiste (error:3): nome e password stanno in $53 e $54.
+# 0.19.2, letto sullo stesso B1 il 13/11/2026 (nessun documento del produttore: la fonte sono le risposte di quella
+# scheda): «[ESP110]STA» risponde ok ma NON accende il Wi-Fi. L'interruttore è «$50»: 0 = spento, 2 = rete di casa
+# (gli altri valori non sono noti: non si scrivono). «$50=2» fa partire il collegamento subito, senza riavvio:
+# «[MSG:Wifi Connecting...]», poi in 5 secondi «[MSG:Wifi Connected]» (l'indirizzo si chiede con «[ESP111]») oppure,
+# dopo 40 secondi, «[MSG:Wifi Connection failed]»; l'«ok» arriva solo a collegamento finito. Al riavvio con «$50=2» la
+# scheda riprova da sola; se fallisce scrive «[MSG:WiFi Off]» e rimette «$50=0». Con «$50=0» al riavvio scrive solo
+# «[MSG:WiFi Off]»: è lì che la procedura manda «$50=2» (comando "radio").
 LGT_ORDER = {"ssid": ("$53={0}", "[ESP100]{0}", "$Sta/SSID={0}"), "password": ("$54={0}", "[ESP101]{0}", "$Sta/Password={0}"),
-             "sta": ("[ESP110]STA",), "off": ("[ESP110]OFF",)}
+             "sta": ("[ESP110]STA",), "off": ("[ESP110]OFF",), "radio": ("$50=2",)}
+LGT_WAIT_K = 5.0 / 3.0  # le Longer provano a collegarsi per 40 secondi: l'attesa dei messaggi è 50 invece di 30
 
 
 # Schede con l'interruttore «$wifi» (0.19.1). Provato il 12/11/2026 sul Mecpow di un utente, scheda «THMG LS WIFI
@@ -153,7 +161,8 @@ def parse_switch(lines):
 
 
 def commands(family, what, lgt=False):
-    """I comandi da provare, in ordine, per fare `what` ("ssid", "password", "sta", "off", "restart")."""
+    """I comandi da provare, in ordine, per fare `what` ("ssid", "password", "sta", "off", "restart"; "radio" =
+    accendere l'interruttore del Wi-Fi, che esiste solo sulle Longer: per le altre schede non c'è niente da mandare)."""
     table = CMDS.get(family) or {}
     if lgt and family == "esp" and what in LGT_ORDER:
         return LGT_ORDER[what]
@@ -228,13 +237,18 @@ def board_state(mode, ip):
 
 def parse_message(line):
     """Un messaggio della scheda sul Wi-Fi → (tipo, valore) oppure None.
-    tipi: "connecting" (rete), "connected" (IP), "failed" (rete), "own" (IP della rete propria), "nowifi"."""
+    tipi: "connecting" (rete), "connected" (IP, vuoto se la scheda non lo dice), "failed" (rete), "own" (IP della rete
+    propria), "services" (porta dei comandi), "nowifi" (Wi-Fi spento)."""
     s = str(line).strip()
     if s.startswith("[MSG:"):
         s = s[5:].rstrip("]").strip()
     low = s.lower()
     if low.startswith("connecting"):
         return "connecting", s[10:].strip(" :")
+    if re.match(r"wi-?fi connecting", low):  # Longer (0.19.2): «Wifi Connecting...»
+        return "connecting", ""
+    if re.match(r"wi-?fi connected", low):  # Longer (0.19.2): «Wifi Connected», senza l'indirizzo
+        return "connected", find_ip(s) or ""
     if low.startswith("client started"):  # Grbl_ESP32: sta per provare a entrare nella rete
         return "connecting", ""
     if low.startswith("telnet started"):  # i servizi di rete sono partiti: dice anche la porta dei comandi
@@ -251,6 +265,15 @@ def parse_message(line):
     if low in ("no wifi", "wifi off", "no wifi."):
         return "nowifi", ""
     return None
+
+
+def fails_to_off(line):
+    """Il messaggio di collegamento fallito è quello delle Longer («Wifi Connection failed»)? Dopo quello la scheda
+    non torna a una rete propria: lascia il Wi-Fi spento (0.19.2)."""
+    s = str(line).strip()
+    if s.startswith("[MSG:"):
+        s = s[5:].rstrip("]").strip()
+    return bool(re.match(r"wi-?fi connection failed", s.lower()))
 
 
 # ============================================================================ controlli su rete e password

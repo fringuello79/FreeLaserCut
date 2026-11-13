@@ -251,7 +251,9 @@ class CameraPanel(QWidget):
                 camera_mod.NAMES.clear()
                 camera_mod.NAMES.update(names)
             except Exception:  # noqa: BLE001
-                pass
+                from . import diag as _diag
+
+                _diag.ignored("nomi delle telecamere")
             try:
                 cams = list_cameras(skip=skip)
             except Exception:  # noqa: BLE001
@@ -259,7 +261,9 @@ class CameraPanel(QWidget):
             try:
                 cams = list(cams) + self._auto_net(laser_port, open_net, known)
             except Exception:  # noqa: BLE001
-                pass
+                from . import diag as _diag
+
+                _diag.ignored("telecamere di rete")
             self._found.emit(cams)
 
         threading.Thread(target=work, daemon=True).start()

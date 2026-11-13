@@ -193,6 +193,77 @@ PARALLEL = 1  # quante suite insieme (0.18.16): 1 = una alla volta, come sempre;
 _queue = []  # suite in attesa quando girano insieme: (nome, etichetta, argomenti)
 
 
+# ---------------------------------------------------------------- indice delle prove per area (0.19.2)
+# Le suite hanno il nome della versione in cui sono nate (test_v07, test_v1817_wifi…): comodo per la storia, ma non
+# si vede quali parti del programma sono coperte. tests/INDICE.md le raggruppa per area, a partire dalle descrizioni
+# scritte qui sotto nelle chiamate run_suite(); si rigenera da solo a ogni lancio di questo file.
+AREAS = (
+    ("Wi-Fi, rete e telefono", ("wi-fi", "wifi", " rete", "telefono")),
+    ("Telecamera e guardia fiamme", ("telecamer", "camera", "autocam", "fiamm")),
+    ("Nesting e piani di lavoro", ("nesting", "piani di lavoro", "più pannelli")),
+    ("Materiali", ("material",)),
+    ("Foto e immagini", ("foto", "immagin", "mezzetinte", "retino", "schizzo", "ritratto", "effetti")),
+    ("Lavoro e G-code", ("g-code", "verifica", "flusso completo", "contorno", "anteprima", "rotativo", "scansione",
+                         "aria", "override", "tagli", "preparazione del lavoro")),
+    ("Macchina, connessione e profili", ("macchina", "scheda", "porta", "homing", "g55", "esp32", "modelli", "profil",
+                                         "assi", "cnc", "swift", "ray5", "mecpow", "controller", "lucciola",
+                                         "puntino", "testa", "area di lavoro", "risposte", "catalogo", "autofocus",
+                                         "sonda")),
+    ("Disegno e modifica", ("editor", "forme", "nodi", "forbici", "testo", "raggio", "distanz", "selezione", "aggancio",
+                            "gerber", "codici", "qr", "puzzle", "scultura", "rilievo", "stampa e taglia", "lbrn",
+                            "strumento")),
+    ("Interfaccia", ("interfaccia", "banco", "menu", "lingue", "aspetto", "guida", "barra", "linguette", "scorciatoie",
+                     "preferenze", "schermi", "segni del piano", "suggerimenti", "nomi sotto", "tema")),
+    ("Avvio, installazione, aggiornamenti e assistenza", ("avvio", "install", "aggiorn", "rapporto", "uscita", "chius",
+                                                          "processori", "makerhub", "pacchetti", "prove", "youtube",
+                                                          "ricevitore")),
+)
+
+
+def suite_list(path=None):
+    """[(file, descrizione, argomento)] letti dalle chiamate run_suite() di questo file, nell'ordine."""
+    import re
+
+    text = open(path or os.path.abspath(__file__), encoding="utf-8").read()
+    pat = re.compile(r'^\s*run_suite\("([^"]+)",\s*"((?:[^"\\]|\\.)*)"(?:,\s*"([^"]*)")?\)', re.M)
+    return [(m.group(1), m.group(2).replace('\\"', '"'), m.group(3) or "") for m in pat.finditer(text)]
+
+
+def index_text(suites=None):
+    suites = suite_list() if suites is None else suites
+    groups = {name: [] for name, _k in AREAS}
+    groups["Altro"] = []
+    for f, label, arg in suites:
+        low = (label + " " + f).lower()
+        area = next((name for name, keys in AREAS if any(k in low for k in keys)), "Altro")
+        groups[area].append((f, label, arg))
+    out = ["# Prove automatiche di FreeLaserCut, per area", "",
+           "Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.",
+           f"Suite: {len(suites)}. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.", ""]
+    for name, items in groups.items():
+        if not items:
+            continue
+        out += [f"## {name} ({len(items)})", ""]
+        out += [f"- `{f}`{' (Banco)' if arg == 'banco' else f' ({arg})' if arg else ''}: {label}" for f, label, arg in items]
+        out.append("")
+    return "\n".join(out)
+
+
+def write_index():
+    """Aggiorna tests/INDICE.md se è cambiato. -> True se l'ha riscritto. Non fa mai fallire le prove."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "INDICE.md")
+    try:
+        text = index_text()
+        old = open(path, encoding="utf-8").read() if os.path.exists(path) else None
+        if old != text:
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+            return True
+    except OSError:
+        pass
+    return False
+
+
 def parallel_from(argv, env):
     """Quante suite far girare insieme: «--insieme N» oppure la variabile FLC_PROVE_INSIEME; fra 1 e 16."""
     text = env.get("FLC_PROVE_INSIEME", "1")
@@ -271,6 +342,10 @@ def flush(runner=None):
 
 if __name__ == "__main__":
     PARALLEL = parallel_from(sys.argv, os.environ)
+    if "--indice" in sys.argv:  # solo l'indice per area, senza far girare le prove
+        print("tests/INDICE.md", "aggiornato" if write_index() else "già aggiornato")
+        sys.exit(0)
+    write_index()
     print("Parser");  test_parsers()
     print("Macchina (simulatore)");  test_machine()
     print("Macchina con report di stato a metà riga (come la scheda ESP32 del B1)");  test_machine(glitch=True)
@@ -402,6 +477,16 @@ if __name__ == "__main__":
     run_suite("test_v190_wifi_registro.py", "Wi-Fi guidato: il registro viene salvato a fine procedura")
     run_suite("test_v191_wifi.py", "Wi-Fi sul vero: telecamere lontane dalla porta del laser, scheda con «$wifi»")
     run_suite("test_v191_wifi.py", "Wi-Fi sul vero nell'interfaccia Banco", "banco")
+    run_suite("test_v192_wifi.py", "Wi-Fi delle Longer: interruttore «$50», messaggi e attesa della scheda vera")
+    run_suite("test_v192_wifi.py", "Wi-Fi delle Longer nell'interfaccia Banco", "banco")
+    run_suite("test_v192_g55.py", "Scheda che su G55 tace o risponde con un errore, in verifica e nel lavoro: lavoro fermato e rifatto senza")
+    run_suite("test_v192_g55.py", "Scheda senza G55 nell'interfaccia Banco", "banco")
+    run_suite("test_v192_strumenti.py", "Barra degli strumenti: pulsante Strumenti e comando unico per MakerHub")
+    run_suite("test_v192_strumenti.py", "Menu Strumenti e comando unico per MakerHub nell'interfaccia Banco", "banco")
+    run_suite("test_v192_acmer_p2.py", "Acmer P2 da 10, 20 e 33 W nel catalogo dei modelli: dati ufficiali, riconoscimento della scheda")
+    run_suite("test_v192_analisi.py", "Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime")
+    run_suite("test_v192_analisi.py", "Banco sugli schermi piccoli, avvio fermo al suo posto, barra della selezione, ricerca e Preferenze", "banco")
+    run_suite("test_v192_analisi.py", "Tema chiaro: testi leggibili sulle righe selezionate", "chiaro")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

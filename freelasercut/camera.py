@@ -1000,7 +1000,9 @@ class AutoCam(QObject):
             if self.ctl.connected:
                 self.ctl.send_line("M5 S0")
         except Exception:  # noqa: BLE001
-            pass
+            from . import diag as _diag
+
+            _diag.ignored("telecamera: laser spento")
 
     def _calibrate(self):
         bx, by = self.profile.bed_x, self.profile.bed_y

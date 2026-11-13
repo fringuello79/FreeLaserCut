@@ -361,7 +361,7 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
 # cosa farebbero). Laser, salvataggio, ricerca e cambio di piano funzionano sempre.
 OVERVIEW_KEYS = {"Esc", "0", "Home", "Ctrl+Shift+O", "Ctrl+PgUp", "Ctrl+PgDown", "Ctrl+Shift+N", "Ctrl+S", "Ctrl+Shift+S",
                  "Ctrl+O", "Ctrl+N", "Ctrl+Q", "F1", "Shift+F1", "Ctrl+F", "F3", "Ctrl+Shift+W", "Ctrl+Return",
-                 "Ctrl+Enter", "Ctrl+Space", "Ctrl+Pause", "Ctrl+Shift+F", "Ctrl+Shift+K", "Alt+P"}
+                 "Ctrl+Enter", "Ctrl+Space", "Ctrl+Pause", "Ctrl+Cancel", "Shift+Esc", "Ctrl+Shift+F", "Ctrl+Shift+K", "Alt+P"}
 
 
 class _SwallowClicks(QObject):

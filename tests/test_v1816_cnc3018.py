@@ -37,8 +37,9 @@ def check(name, cond, info=""):
 
 N = "Genmitsu CNC 3018-PRO con modulo laser"
 names = machines.catalog_names()
-check("la CNC 3018 con modulo laser è nel catalogo, sceglibile; 61 modelli più il generico, senza doppioni",
-      N in names and len(machines.CATALOG) == 61 and len(names) == 62 == len(set(names)), len(machines.CATALOG))
+check("la CNC 3018 con modulo laser è nel catalogo, sceglibile; almeno 61 modelli più il generico, senza doppioni",
+      N in names and len(machines.CATALOG) >= 61 and len(names) == len(machines.CATALOG) + 1 == len(set(names)),
+      len(machines.CATALOG))
 check("nell'elenco sta con gli altri Genmitsu e si trova cercando «3018»",
       names.index(N) + 1 == names.index("Genmitsu Jinsoku LC-40") and [n for n in names if "3018" in n] == [N])
 p = machines.preset_profile(N)

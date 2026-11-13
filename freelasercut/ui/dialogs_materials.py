@@ -67,6 +67,27 @@ class MaterialLibraryDialog(QDialog):
         top.addWidget(self.search, 1)
         top.addWidget(self.op)
         v.addLayout(top)
+        # 0.19.2: la tabella è del Longer B1 40W. Con un altro laser i valori si adattano alla sua potenza (stima)
+        self.watts_row = QWidget()
+        wr = QHBoxLayout(self.watts_row)
+        wr.setContentsMargins(0, 0, 0, 0)
+        wr.addWidget(QLabel(tr("Potenza ottica del tuo laser")))
+        self.e_watts = _dspin(0, 200, 0, 1, 1, " W")
+        self.e_watts.setSpecialValueText(tr("non indicata"))
+        self.e_watts.setToolTip(tr("La potenza ottica scritta dal produttore (per esempio 10 W). Serve ad adattare i "
+                                   "valori della tabella, che sono per un laser da 40 W. Si ricorda per questa macchina."))
+        wr.addWidget(self.e_watts)
+        self.watts_note = QLabel("")
+        self.watts_note.setObjectName("muted")
+        self.watts_note.setWordWrap(True)
+        wr.addWidget(self.watts_note, 1)
+        v.addWidget(self.watts_row)
+        win = self.parent()
+        reference = not hasattr(win, "material_watts") or win.material_reference()
+        self.watts_row.setVisible(not reference)
+        if not reference:
+            self.e_watts.setValue(win.material_watts() or 0)
+        self.e_watts.valueChanged.connect(self._watts_changed)
         split = QSplitter()
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([tr("Materiale"), tr("Potenza"), tr("Velocità"), "×"])
@@ -146,6 +167,7 @@ class MaterialLibraryDialog(QDialog):
                      "un test materiale su uno scarto ti dà i valori giusti per il tuo pezzo."))
         lab.setWordWrap(True)
         lab.setObjectName("muted")
+        self.source_note = lab
         bottom.addWidget(lab, 1)
         close = QPushButton(tr("Chiudi"))
         close.clicked.connect(self.accept)
@@ -158,8 +180,32 @@ class MaterialLibraryDialog(QDialog):
             self.b_apply.setText(tr("Applica a «{0}»", layer.label()))
         self.refresh()
 
+    # ---------------------------------------------------------------- potenza del laser (0.19.2)
+    def ratio(self):
+        """Rapporto fra la potenza del laser attivo e quella del B1 40W della tabella (None = valori della tabella)."""
+        win = self.parent()
+        return win.material_ratio() if hasattr(win, "material_ratio") else None
+
+    def _watts_changed(self, value):
+        win = self.parent()
+        if hasattr(win, "set_material_watts"):
+            win.set_material_watts(value)
+        self.refresh()
+
+    def _watts_text(self):
+        if not self.watts_row.isVisibleTo(self):
+            return
+        w = self.e_watts.value()
+        if self.ratio():
+            self.watts_note.setText(tr("Valori stimati per {0:g} W dalla tabella del Longer B1 40W (le voci ★ sono tue e "
+                                       "restano come sono). È una stima: fai un test materiale prima del pezzo buono.", w))
+        else:
+            self.watts_note.setText(tr("La tabella è per il Longer B1 40W: scrivi la potenza del tuo laser e i valori "
+                                       "vengono adattati."))
+
     # ---------------------------------------------------------------- elenco
     def refresh(self):
+        self._watts_text()
         q = self.search.text().strip().lower().split()
         op = self.op.currentData()
         cur = self._current()
@@ -167,7 +213,7 @@ class MaterialLibraryDialog(QDialog):
         user_keys = {m.key() for m in mats.load_user()}
         groups = {}
         mono = style.mono_font(9)
-        for m in mats.library():
+        for m in mats.library(self.ratio()):
             hay = f"{m.name} {m.operation} {m.thickness:g} {m.note}".lower()
             if op and m.operation != op or any(t not in hay for t in q):
                 continue
@@ -211,7 +257,9 @@ class MaterialLibraryDialog(QDialog):
         user = m.key() in {u.key() for u in mats.load_user()}
         self.b_del.setEnabled(user)
         self.title.setText(f"{m.name} — {m.label()}")
-        self.src.setText(tr("Voce tua") if user else tr("Tabella {0}", m.source))
+        self.src.setText(tr("Voce tua") if user else
+                         tr("Stima per {0:g} W dalla tabella {1}", self.e_watts.value(), m.source) if self.ratio() else
+                         tr("Tabella {0}", m.source))
         self.e_name.setText(m.name)
         self.e_op.setCurrentText(m.operation)
         self.e_th.setValue(m.thickness)

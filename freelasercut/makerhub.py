@@ -1,8 +1,10 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """MakerHub (maker-hub.it), un servizio esterno, di altri: i loro strumenti per il laser, dal menu Strumenti
-(fra le funzioni in prova).
+(fino alla 0.19.1 fra le funzioni in prova, dalla 0.19.2 per tutti).
 
-Strumenti → MakerHub apre nel browser uno dei loro quattro programmi: Dima Lab, Forma Lab, Hinge Lab, Split Lab.
+«Strumenti MakerHub» (menu Strumenti e barra di sinistra) apre nel browser il loro sito, dove si sceglie uno dei
+quattro programmi: Dima Lab, Forma Lab, Hinge Lab, Split Lab. Fino alla 0.19.1 c'erano quattro voci, una per
+programma, che portavano tutte alla stessa pagina.
 Dalla 0.18.14 quei programmi hanno il pulsante «Manda a FreeLaserCut»: il disegno arriva sul piano di lavoro senza
 scaricarlo e importarlo a mano (vedi makerhub_link.py, che è la parte che lo riceve).
 
@@ -15,27 +17,14 @@ Nome e logo sono di MakerHub, usati con il loro permesso.
 """
 import os
 import urllib.parse
-from collections import namedtuple
-
-from .i18n import tr
 
 DOMAIN = "maker-hub.it"
 SITE_URL = "https://app.maker-hub.it/?da=freelasercut"  # «da=»: loro contano chi arriva da qui
 
-Tool = namedtuple("Tool", "key name url what")
-# I quattro programmi di MakerHub per il laser. «what» è la riga del menu, dopo il nome.
-# Sul loro sito (un'unica pagina, con l'accesso) ogni strumento si sceglie dal menu a sinistra: l'indirizzo è lo
-# stesso per tutti. Se MakerHub darà un indirizzo diretto per ciascuno, va messo qui.
-TOOLS = (
-    Tool("dima", "Dima Lab", SITE_URL, tr("dime per posizionare gli oggetti")),
-    Tool("forma", "Forma Lab", SITE_URL, tr("scatole, espositori, organizer")),
-    Tool("hinge", "Hinge Lab", SITE_URL, tr("fasce flessibili attorno a una sagoma")),
-    Tool("split", "Split Lab", SITE_URL, tr("progetti più grandi del piano, a incastro")),
-)
-
-
-def tool(key):
-    return next((t for t in TOOLS if t.key == key), None)
+# I quattro programmi di MakerHub per il laser. Sul loro sito (un'unica pagina, con l'accesso) lo strumento si sceglie
+# dopo, dal loro menu: per questo dalla 0.19.2 FreeLaserCut ha un solo comando «Strumenti MakerHub» che apre il sito,
+# invece di quattro voci che portavano tutte alla stessa pagina.
+TOOL_NAMES = ("Dima Lab", "Forma Lab", "Hinge Lab", "Split Lab")
 
 LOGO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "makerhub.png")
 ICON_SIZE = 20  # come le icone degli altri strumenti (ui/style.icon)
@@ -95,11 +84,10 @@ def icon(size=ICON_SIZE):
     return ic
 
 
-def open_tool(key):
-    """Apre nel browser dell'utente uno strumento di MakerHub. -> True se il sistema l'ha aperto."""
+def open_site():
+    """Apre nel browser dell'utente il sito degli strumenti di MakerHub. -> True se il sistema l'ha aperto."""
     from PySide6.QtCore import QUrl
     from PySide6.QtGui import QDesktopServices
 
-    t = tool(key)
-    url = safe_url(t.url) if t else None
+    url = safe_url(SITE_URL)
     return bool(url) and bool(QDesktopServices.openUrl(QUrl(url)))

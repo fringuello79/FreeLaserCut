@@ -29,6 +29,10 @@ from .i18n import tr
 
 REPO = "fringuello79/FreeLaserCut"
 API_LATEST = f"https://api.github.com/repos/{REPO}/releases/latest"
+# 0.19.2: canale «anteprima». Le versioni pubblicate su GitHub come pre-release (tag vX.Y.Z-pre) non sono «latest»:
+# chi non ha chiesto le anteprime continua a ricevere solo le versioni stabili, come prima; chi le ha chieste
+# riceve la versione con il numero più alto fra le ultime pubblicate, stabili o in anteprima.
+API_RECENT = f"https://api.github.com/repos/{REPO}/releases?per_page=20"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 SITE = "https://fringuello79.github.io/FreeLaserCut/"
 DOWNLOAD_PREFIX = f"https://github.com/{REPO}/releases/download/"
@@ -108,6 +112,7 @@ class Release:
         self.setup_size = setup_size
         self.sums_url = sums_url
         self.appimage_url, self.appimage_name, self.appimage_size = appimage or (None, None, 0)
+        self.prerelease = False  # True per una versione in anteprima (vedi parse_release)
 
     def asset(self, kind="setup"):
         """(indirizzo, nome, dimensione) del file per Windows («setup») o per Linux («appimage»)."""
@@ -129,9 +134,10 @@ def _asset(rel, kind):
     return rel.setup_url, rel.setup_name, rel.setup_size or 0
 
 
-def parse_release(data):
-    """Dalla risposta di api.github.com/…/releases/latest. None se non è una versione utilizzabile."""
-    if not isinstance(data, dict) or data.get("draft") or data.get("prerelease"):
+def parse_release(data, allow_pre=False):
+    """Dalla risposta di api.github.com/…/releases/latest. None se non è una versione utilizzabile.
+    Le bozze mai; le versioni in anteprima (pre-release) solo con allow_pre."""
+    if not isinstance(data, dict) or data.get("draft") or (data.get("prerelease") and not allow_pre):
         return None
     tag = str(data.get("tag_name") or "")
     ver = ".".join(str(x) for x in parse_version(tag))
@@ -154,8 +160,24 @@ def parse_release(data):
     page = str(data.get("html_url") or RELEASES_PAGE)
     if not page.startswith(f"https://github.com/{REPO}/"):
         page = RELEASES_PAGE
-    return Release(ver, tag, str(data.get("name") or tag), str(data.get("body") or ""), page,
-                   setup[0] if setup else None, setup[1] if setup else None, setup[2] if setup else 0, sums, appimage)
+    rel = Release(ver, tag, str(data.get("name") or tag), str(data.get("body") or ""), page,
+                  setup[0] if setup else None, setup[1] if setup else None, setup[2] if setup else 0, sums, appimage)
+    rel.prerelease = bool(data.get("prerelease"))
+    return rel
+
+
+def newest(items, allow_pre=True):
+    """Dall'elenco di api.github.com/…/releases: la versione utilizzabile con il numero più alto (None se non c'è).
+    A parità di numero vince quella stabile."""
+    best = None
+    for data in items if isinstance(items, list) else []:
+        rel = parse_release(data, allow_pre)
+        if rel is None:
+            continue
+        key = (parse_version(rel.version), not rel.prerelease)
+        if best is None or key > best[0]:
+            best = (key, rel)
+    return best[1] if best else None
 
 
 def _request(url, timeout, accept="application/octet-stream"):
@@ -203,17 +225,18 @@ def _net_error(exc):
     return UpdateError(tr("Non riesco a collegarmi a GitHub ({0}). Controlla la connessione a internet.", reason))
 
 
-def fetch_latest(timeout=10.0, url=None):
-    """Ultima Release pubblicata (o None se non ce n'è una utilizzabile). Errori di rete → UpdateError."""
-    url = url or API_LATEST
+def fetch_latest(timeout=10.0, url=None, preview=False):
+    """Ultima Release pubblicata (o None se non ce n'è una utilizzabile). Errori di rete → UpdateError.
+    preview=True: conta anche le versioni in anteprima (si legge l'elenco delle ultime, non «latest»)."""
+    url = url or (API_RECENT if preview else API_LATEST)
     try:
         with _request(url, timeout, "application/vnd.github+json") as r:
-            data = json.loads(r.read(2_000_000).decode("utf-8"))
+            data = json.loads(r.read(4_000_000 if preview else 2_000_000).decode("utf-8"))
     except urllib.error.URLError as exc:
         raise _net_error(exc) from exc
     except (OSError, ValueError) as exc:
         raise UpdateError(tr("Risposta di GitHub non valida ({0}).", exc)) from exc
-    return parse_release(data)
+    return newest(data) if preview else parse_release(data)
 
 
 def expected_sha(sums_text, name):
@@ -377,12 +400,12 @@ def relaunch_appimage(target, popen=None):
 
 
 # ------------------------------------------------------------------ in sottofondo (per l'interfaccia)
-def check_async(callback, timeout=10.0):
+def check_async(callback, timeout=10.0, preview=False):
     """Controlla in un thread; callback(release|None, errore|None) viene chiamata dal thread:
     l'interfaccia la riporta nel thread principale con un segnale Qt."""
     def run():
         try:
-            rel = fetch_latest(timeout)
+            rel = fetch_latest(timeout, preview=preview) if preview else fetch_latest(timeout)
         except UpdateError as exc:
             callback(None, str(exc))
             return

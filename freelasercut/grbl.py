@@ -169,6 +169,9 @@ class GrblController(QObject):
     job_finished = Signal(bool, str)  # completato?, messaggio
     homed_changed = Signal(bool, object)  # homing fatto?, spazio macchina negativo? (None = non ancora noto)
     job_error = Signal(int, str, int, str)  # indice riga, riga, codice, spiegazione (il lavoro è già in pausa)
+    # 0.19.2: nel lavoro la scheda ha rifiutato la riga G55 ("error") oppure proprio lì ha smesso di rispondere
+    # ("silent"): non ha il secondo sistema di coordinate. Il controllo ferma da solo il lavoro (arresto sicuro)
+    g55_refused = Signal(str)
     check_finished = Signal(object)  # [(indice, riga, codice, spiegazione)] — verifica $C conclusa; None = interrotta
     check_progress = Signal(int, int)
     autofocus_done = Signal(bool, str, object)  # riuscito?, messaggio, Z del tocco (coordinate macchina) o None
@@ -204,6 +207,7 @@ class GrblController(QObject):
         self.job_lines = []  # righe del lavoro in corso (per la ripresa)
         self.job_acked = 0  # righe confermate dalla scheda
         self.pause_on_error = True
+        self._g55_told = False  # 0.19.2: il rifiuto di G55 in questo lavoro è già stato segnalato
         self._check = None  # verifica in corso: {"total", "done", "errors"}
         self.board_settings = {}  # ultimo $$ letto dalla scheda {numero: "valore"}
         self.board_info = []  # ultimo $I
@@ -349,7 +353,9 @@ class GrblController(QObject):
             ser.write(b"M5\n")
             ser.close()
         except Exception:  # noqa: BLE001
-            pass
+            from . import diag as _diag
+
+            _diag.ignored("chiusura della porta: M5")
         self._clear_queues()
         self._end_check(None)
         if self._af is not None:
@@ -515,6 +521,7 @@ class GrblController(QObject):
         self.job_lines = clean
         self.job_acked = 0
         self.lost_replies = 0
+        self._g55_told = False
         self.last_reply = time.time()  # 0.18.4: il silenzio si conta da qui (risposte perse alla fine del lavoro)
         with self._lock:
             for i, line in enumerate(clean):
@@ -733,6 +740,7 @@ class GrblController(QObject):
 
     # ----------------------------------------------------------------- lettura
     CHECK_STALL_S = 6.0  # in modalità di prova le risposte arrivano subito: 6 s senza risposte = ferma
+    G55_SILENT_S = 4.0  # nel lavoro: G55 è la prima riga senza risposta e la scheda tace da tanto = non ha G55
 
     def _poll_loop(self):
         # 0.18.17: ogni filo resta legato al collegamento per cui è nato. Prima, scollegando e ricollegando in meno
@@ -743,6 +751,22 @@ class GrblController(QObject):
             self._write_raw(b"?")
             time.sleep(POLL_INTERVAL)
             self._watch_check()
+            self._watch_g55()
+
+    def _watch_g55(self):
+        """0.19.2 (rapporto FLC-20261112-2308-104A, OMTech K40): nel lavoro, dopo le prime conferme, la scheda non
+        risponde più, nemmeno con un errore, e la prima riga senza risposta è G55. Senza questo controllo il lavoro
+        restava fermo per sempre «senza nessun errore»."""
+        with self._lock:
+            head = self._inflight[0] if self._inflight else None
+            hit = (self._job_active and not self._g55_told and head is not None and head.tag == "job"
+                   and _is_g55(head.line) and time.time() - self.last_reply > self.G55_SILENT_S)
+            if hit:
+                self._g55_told = True
+        if hit:
+            self.no_g55 = True
+            self.g55_refused.emit("silent")  # prima dell'arresto: chi ascolta lo sa prima che arrivi «lavoro interrotto»
+            self.stop_job()
 
     def _watch_check(self):
         lost = []
@@ -750,7 +774,10 @@ class GrblController(QObject):
             chk = self._check
             waiting = len(self._inflight)
             quiet = time.time() - self.last_reply
-            if (chk is not None and waiting and not self._pending and not chk["exiting"]
+            # 0.19.2: la prima riga senza risposta è G55? Allora il silenzio è il rifiuto di G55 (un OMTech K40 in
+            # verifica non risponde nemmeno con l'errore: quello arriva solo dopo, all'uscita), non risposte perse
+            head_g55 = bool(waiting) and self._inflight[0].tag == "check" and _is_g55(self._inflight[0].line)
+            if (chk is not None and waiting and not self._pending and not chk["exiting"] and not head_g55
                     and waiting <= LOST_OK_MAX and quiet > LOST_OK_CHECK_S
                     and all(c.tag == "check" for c in self._inflight)):
                 # 0.18.4: tutte le righe sono partite e ne mancano solo poche: la scheda ha perso le loro risposte
@@ -759,6 +786,8 @@ class GrblController(QObject):
             stalled = (not lost and chk is not None and waiting and quiet > self.CHECK_STALL_S)
             if stalled:
                 self._check = None  # sotto il lucchetto: il filo di lettura non la chiude due volte
+                if head_g55:
+                    self.no_g55 = True
         if lost:
             self.lost_replies = len(lost)
             chk["done"] += len(lost)
@@ -904,6 +933,15 @@ class GrblController(QObject):
                         # 0.18.15: qualsiasi errore sulla riga G55, non solo error:20 (un OMTech K40 risponde
                         # error:2 e poi smette di rispondere): la scheda non ha G55, il lavoro si rifà in G54
                         self.no_g55 = True
+                elif head is not None and head.tag == "job" and self._job_active and _is_g55(head.line):
+                    # 0.19.2: G55 rifiutato nel lavoro (senza verifica): non è una riga da «continuare comunque»,
+                    # perché senza G55 le coordinate seguenti varrebbero in un altro sistema. Il lavoro si ferma
+                    # subito e del tutto (pausa e reset: le righe già nella scheda non devono partire); chi ascolta
+                    # segna la scheda come «senza G55»
+                    self.no_g55 = True
+                    self._g55_told = True
+                    self.g55_refused.emit("error")  # prima dell'arresto, vedi _watch_g55
+                    self.stop_job()
                 elif head is not None and head.tag == "job" and self._job_active and self.pause_on_error:
                     # sicurezza: alla prima riga rifiutata il lavoro si ferma subito in pausa
                     self.feed_hold()
@@ -1126,6 +1164,10 @@ def _clean_lines(lines):
         if line:
             out.append(line)
     return out
+
+
+def _is_g55(line):
+    return str(line).strip().upper().replace(" ", "") == "G55"
 
 
 def _code(line):

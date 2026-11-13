@@ -161,7 +161,8 @@ class LaserPanel(QWidget):
             w.setToolTip(tr("Spunta se, premendo le frecce di movimento, la testa va dalla parte opposta sull'asse {0} "
                             "(origine della macchina dall'altra parte o motore montato al contrario). Cambiano jog, "
                             "posizione della testa e coordinate del lavoro; il disegno resta come lo vedi.", ax))
-            v.addWidget(w)
+        # 0.19.2: sono regolazioni della macchina, da fare una volta: non stanno più in mezzo alle opzioni del
+        # lavoro ma in fondo al pannello, in una sezione loro (e in Impostazioni → Preferenze → Macchina)
         self._start_changed()
 
         v.addWidget(section(tr("Durante il lavoro")))
@@ -232,6 +233,9 @@ class LaserPanel(QWidget):
         self.summary.setWordWrap(True)
         self.summary.setTextFormat(Qt.RichText)
         v.addWidget(self.summary)
+        v.addWidget(section(tr("Orientamento della macchina")))
+        v.addWidget(self.inv_x)
+        v.addWidget(self.inv_y)
         v.addStretch(1)
         self.s_max = 1000.0
         self._t0 = 0.0

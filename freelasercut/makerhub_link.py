@@ -1,5 +1,5 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""Collegamento MakerHub → FreeLaserCut (0.18.14, fra le funzioni in prova): il disegno fatto sul loro sito arriva
+"""Collegamento MakerHub → FreeLaserCut (0.18.14; dalla 0.19.2 per tutti, non più in prova): il disegno fatto sul loro sito arriva
 sul piano di lavoro senza scaricarlo e importarlo a mano.
 
 Come funziona. Gli strumenti di MakerHub (Dima Lab, Forma Lab, Hinge Lab, Split Lab) hanno il pulsante «Manda a

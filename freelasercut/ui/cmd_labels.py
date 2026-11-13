@@ -88,6 +88,7 @@ SHORT = {
     "connect": ("Connetti", "Connect", "Conectar", "Connecter", "Conectar"),
     "fire_guard": ("Fiamme", "Flames", "Llamas", "Flammes", "Chamas"),
     "phone": ("Telefono", "Phone", "Teléfono", "Téléphone", "Celular"),
+    "makerhub_site": ("MakerHub", "MakerHub", "MakerHub", "MakerHub", "MakerHub"),  # 0.19.2: nella barra di sinistra
 }
 
 

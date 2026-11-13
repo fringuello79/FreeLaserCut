@@ -16,7 +16,7 @@ import time
 import unicodedata
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QFont, QGuiApplication, QIcon, QKeySequence, QPainter, QPen
+from PySide6.QtGui import QAction, QColor, QFont, QGuiApplication, QIcon, QKeySequence, QPainter, QPen, QRegion
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMenu, QPushButton, QScrollArea, QSlider, QSpinBox, QStyledItemDelegate,
@@ -75,6 +75,8 @@ QPushButton#bcStop {{ background: #E5484D; color: #FFFFFF; border: none; border-
     font-weight: 800; min-height: 60px; min-width: 200px; }}
 QPushButton#bcStep {{ background: #172034; border: 1px solid #2A3550; border-radius: 12px; font-size: 14pt;
     min-width: 44px; min-height: 44px; max-width: 44px; }}
+QToolButton#bcFold {{ background: transparent; border: none; border-radius: 6px; padding: 0; }}
+QToolButton#bcFold:hover {{ background: #1E2638; }}
 QFrame#bcLayerHead {{ background: transparent; border: none; }}
 QFrame#bcLayerHead:focus {{ border: 1px dotted #4FB4FF; border-radius: 6px; }}
 QListWidget#bcPalList {{ background: transparent; border: none; outline: none; }}
@@ -83,6 +85,17 @@ QListWidget#bcPalList::item:selected {{ background: #22304D; }}
 QLineEdit#bcPalEdit, QLineEdit#bcPalEdit:focus, QLineEdit#bcPalEdit:hover {{ background: transparent; color: #E8EDF7;
     border: none; border-bottom: 1px solid #263048; font-size: 13pt; padding: 8px 6px; selection-background-color: #2E7CF6; }}
 QFrame#bcPalette {{ background: #121826; border: 1px solid #2E3A56; border-radius: 16px; }}
+""")
+
+# 0.19.2: la ricerca dei comandi c'è anche nell'interfaccia classica, che non carica il foglio di stile del Banco
+PALETTE_QSS = css("""
+QFrame#bcPalette { background: #121826; border: 1px solid #2E3A56; border-radius: 16px; }
+QFrame#bcPalette QLabel#bcMuted { color: #94A0B8; }
+QListWidget#bcPalList { background: transparent; border: none; outline: none; }
+QListWidget#bcPalList::item { border-radius: 8px; padding: 0; }
+QListWidget#bcPalList::item:selected { background: #22304D; }
+QLineEdit#bcPalEdit, QLineEdit#bcPalEdit:focus, QLineEdit#bcPalEdit:hover { background: transparent; color: #E8EDF7;
+    border: none; border-bottom: 1px solid #263048; font-size: 13pt; padding: 8px 6px; selection-background-color: #2E7CF6; }
 """)
 
 
@@ -438,7 +451,7 @@ class CommandPalette(QFrame):
         for a in self.win.menuBar().actions():
             if a.menu() is not None:
                 walk(a.menu(), [_clean(a.text())])
-        extra = getattr(self.win.banco, "extra_actions", []) if self.win.banco else []
+        extra = getattr(self.win.banco, "extra_actions", []) if getattr(self.win, "banco", None) else []
         for a, path in extra:
             if id(a) not in seen:
                 seen.add(id(a))
@@ -470,6 +483,10 @@ class CommandPalette(QFrame):
                 score -= 2 if any(t.startswith(words[0]) for t in name.split()) else 0
                 score -= 1 if words[0] in name else 0
             rows.append((score, a, path))
+        if not words:  # niente scritto: in cima i comandi usati per ultimi (0.19.2), poi tutti gli altri come prima
+            recent = self.recent()
+            rank = {key: i for i, key in enumerate(recent)}
+            rows = [(rank.get(self.key_of(a), len(recent)) - len(recent), a, path) for _s, a, path in rows]
         rows.sort(key=lambda r: r[0])
         self.list.clear()
         for _score, a, path in rows[:80]:
@@ -487,8 +504,30 @@ class CommandPalette(QFrame):
         a = it.data(Qt.UserRole) if it is not None else None
         if a is None or not a.isEnabled():
             return
+        self.remember(a)
         self.hide()
         QTimer.singleShot(0, a.trigger)
+
+    # -- comandi usati per ultimi (0.19.2): si ricordano per nome interno, quindi valgono in ogni lingua
+    RECENT_MAX = 6
+
+    def key_of(self, a):
+        for k, v in getattr(self.win, "acts", {}).items():
+            if v is a:
+                return "a:" + k
+        for k, v in getattr(self.win, "tool_actions", {}).items():
+            if v is a:
+                return "t:" + k
+        return "x:" + _norm(a.text())
+
+    def recent(self):
+        v = self.win.qs.value("palette_recent", [])
+        v = [v] if isinstance(v, str) else list(v or [])
+        return [str(x) for x in v][: self.RECENT_MAX]
+
+    def remember(self, a):
+        key = self.key_of(a)
+        self.win.qs.setValue("palette_recent", ([key] + [k for k in self.recent() if k != key])[: self.RECENT_MAX])
 
     def eventFilter(self, obj, e):
         if obj is self.edit and e.type() == QEvent.KeyPress:
@@ -858,9 +897,24 @@ class JobFlow(QFrame):
         super().__init__()
         self.win = win
         self.setObjectName("bcCard")
-        v = QVBoxLayout(self)
-        v.setContentsMargins(14, 12, 14, 14)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(14, 12, 14, 14)
+        outer.setSpacing(10)
+        # 0.19.2: i quattro passi stanno in un'area che scorre quando lo schermo è basso; le due spunte di
+        # sicurezza e il pulsante di avvio restano fuori, in fondo, sempre visibili e sempre nello stesso punto
+        self.steps_host = QWidget()
+        self.steps_host.setObjectName("bcSteps")
+        v = QVBoxLayout(self.steps_host)
+        v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(10)
+        self.scroll = QScrollArea()
+        self.scroll.setObjectName("bcStepsScroll")
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setStyleSheet("QScrollArea#bcStepsScroll, QWidget#bcSteps { background: transparent; border: none; }")
+        self.scroll.setWidget(self.steps_host)
+        outer.addWidget(self.scroll, 1)
         v.addWidget(_label(tr("DAL DISEGNO AL PEZZO"), "bcSection"))
         self.steps = []
         for n in range(4):
@@ -898,6 +952,11 @@ class JobFlow(QFrame):
                 r4.addWidget(_chip(tr("Origine"), lambda: win.banco.officina_show("laser"),
                                    tr("Da dove parte il lavoro: piano, posizione attuale, origine utente")))
                 v.addLayout(r4)
+        v.addWidget(_chip(tr("Guardia fiamme…"), win.fire_guard_dialog,
+                          tr("La camera sorveglia il lavoro e lo ferma se vede una fiamma (spenta di partenza)")))
+        v.addWidget(_chip(tr("Controllo dal telefono…"), win.phone_dialog,
+                          tr("Pausa, stop, avanzamento e camera dal telefono sulla rete di casa")))
+        v.addStretch(1)
         safety = QFrame()
         safety.setStyleSheet(css("QFrame { background: #0D1320; border-radius: 12px; }"))
         sl = QVBoxLayout(safety)
@@ -907,20 +966,18 @@ class JobFlow(QFrame):
         for c in (self.c_glasses, self.c_air):
             c.toggled.connect(self.refresh)
             sl.addWidget(c)
-        sl.addWidget(_chip(tr("Guardia fiamme…"), win.fire_guard_dialog,
-                           tr("La camera sorveglia il lavoro e lo ferma se vede una fiamma (spenta di partenza)")))
-        sl.addWidget(_chip(tr("Controllo dal telefono…"), win.phone_dialog,
-                           tr("Pausa, stop, avanzamento e camera dal telefono sulla rete di casa")))
-        v.addWidget(safety)
+        self.safety = safety
+        outer.addWidget(safety)
         self.b_start = HoldButton(tr("Tieni premuto per incidere"))
         self.b_start.setObjectName("bcStart")
         self.b_start.setCursor(Qt.PointingHandCursor)
         self.b_start.held.connect(self._start)
         self.b_start.clicked.connect(self._click_start)
-        v.addWidget(self.b_start)
+        outer.addWidget(self.b_start)
         self.note = _label("", "bcMuted", True)
         self.note.setAlignment(Qt.AlignCenter)
-        v.addWidget(self.note)
+        self.note.setMinimumHeight(self.note.fontMetrics().lineSpacing() * 2 + 2)  # due righe sempre: l'avvio non si sposta
+        outer.addWidget(self.note)
         win.editor.changed.connect(self.refresh)
         win.ctl.connection_changed.connect(lambda *_: self.refresh())
         win.ctl.job_finished.connect(lambda *_: self.refresh())
@@ -932,6 +989,33 @@ class JobFlow(QFrame):
     def _click_start(self):
         if not self.win.ctl.connected:
             self.win.toggle_connection()
+
+    # -- altezze per la disposizione (0.19.2)
+    def pinned_height(self):
+        """Margini + spunte di sicurezza + pulsante di avvio + nota: la parte che non scorre mai."""
+        lay = self.layout()
+        m = lay.contentsMargins()
+        start_h = max(self.b_start.sizeHint().height(), self.b_start.minimumSizeHint().height(), 52)
+        note_h = max(self.note.minimumHeight(), self.note.sizeHint().height())
+        return m.top() + m.bottom() + self.safety.sizeHint().height() + start_h + note_h + 3 * lay.spacing()
+
+    def steps_height(self, width):
+        """Altezza che serve ai quattro passi per stare tutti in vista, alla larghezza data."""
+        m = self.layout().contentsMargins()
+        inner = max(120, width - m.left() - m.right())
+        lay = self.steps_host.layout()
+        return lay.heightForWidth(inner) if lay.hasHeightForWidth() else self.steps_host.sizeHint().height()
+
+    def natural_height(self, width):
+        return self.pinned_height() + self.steps_height(width)
+
+    def steps_needed(self):
+        """Altezza che serve ai passi alla larghezza che hanno adesso nell'area che scorre."""
+        lay = self.steps_host.layout()
+        w = self.scroll.viewport().width()
+        return lay.heightForWidth(w) if lay.hasHeightForWidth() and w > 0 else self.steps_host.sizeHint().height()
+
+    MIN_STEPS = 96  # sotto questa altezza i passi non si leggono più: piuttosto si stringono le proprietà
 
     def _start(self):
         if self.win.ctl.connected and self.c_glasses.isChecked() and self.c_air.isChecked():
@@ -996,6 +1080,15 @@ class JobFlow(QFrame):
 
 # ============================================================ barra contestuale accanto alla selezione
 class ContextBar(QFrame):
+    """Misure e comandi della selezione, accanto alla selezione.
+
+    0.19.2: non è mai più larga dello spazio fra gli strati e la colonna destra (prima, sugli schermi piccoli,
+    copriva gli uni e l'altra); la riga dei comandi si può richiudere con la freccetta, e sugli schermi bassi parte
+    richiusa: resta una riga sola e il piano si vede meglio. Tutti i comandi restano nel menu radiale (tasto destro)
+    e nella ricerca (Ctrl+F)."""
+
+    FOLD_BELOW = 700  # altezza del piano (px) sotto la quale la riga dei comandi parte richiusa
+
     def __init__(self, win):
         super().__init__(win.canvas)
         self.win = win
@@ -1009,9 +1102,30 @@ class ContextBar(QFrame):
         # 0.18.2: etichette X, Y, L, A, R chiare: sul pannello scuro il grigio del tema chiaro quasi non si leggeva
         win.numeric.setStyleSheet("QToolBar { background: transparent; border: none; } "
                                   "QLabel#numlabel { color: #C3CEE3; }")
+        for act in win.numeric.actions():  # il tipo di forma è già scritto nella scheda Proprietà: qui toglie posto
+            if win.numeric.widgetForAction(act) is getattr(win.numeric, "info", None):
+                act.setVisible(False)
+        self.b_fold = QToolButton()
+        self.b_fold.setObjectName("bcFold")
+        self.b_fold.setCursor(Qt.PointingHandCursor)
+        self.b_fold.setAutoRaise(True)
+        self.b_fold.setFixedSize(22, 22)
+        self.b_fold.setIconSize(QSize(14, 14))
+        self.b_fold.clicked.connect(self.toggle_fold)
+        ext = win.numeric.findChild(QToolButton, "qt_toolbar_ext_button")
+        if ext is not None:  # «»» delle misure che non entrano: l'icona di Qt è scura, sul pannello scuro non si vede
+            ext.setIcon(style.icon("chevron_right", "#C3CEE3", 14))
+            ext.setToolTip(tr("Le altre misure della selezione"))
         win.numeric.show()
-        v.addWidget(win.numeric)
-        row = QHBoxLayout()
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(4)
+        top.addWidget(win.numeric, 1)
+        top.addWidget(self.b_fold, 0, Qt.AlignVCenter)
+        v.addLayout(top)
+        self.row2 = QWidget()
+        row = QHBoxLayout(self.row2)
+        row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(4)
         for k in ("duplicate", "group", "ungroup", "weld"):
             row.addWidget(_act_button(a[k], "bcTool", 18))
@@ -1022,19 +1136,56 @@ class ContextBar(QFrame):
                                                    a["same_w"], a["same_h"], None, a["distance"]]))
         row.addWidget(_menu_button(tr("Combina"), [a["union"], a["difference"], a["intersection"], a["xor"]]))
         row.addWidget(_menu_button(tr("Serie"), [a["grid_array"], a["circ_array"], a["along_path"]]))
-        row.addWidget(_act_button(a["nest"], "bcTool", 18))
-        row.addWidget(_act_button(a["offset"], "bcTool", 18))
-        row.addWidget(_act_button(a["to_path"], "bcTool", 18))
-        row.addWidget(_menu_button(tr("Altro"), [a["flip_h"], a["flip_v"], a["rot_cw"], a["rot_ccw"], None, a["front"], a["back"],
-                                                 None, a["break"], a["join"], a["close_paths"], a["reverse"], a["duplicates"],
-                                                 None, a["lock"], a["unlock"], None, a["fit_sel"]]))
+        self.wide_only = [_act_button(a[k], "bcTool", 18) for k in ("nest", "offset", "to_path")]
+        for b in self.wide_only:
+            row.addWidget(b)
+        self._more_base = [a["flip_h"], a["flip_v"], a["rot_cw"], a["rot_ccw"], None, a["front"], a["back"],
+                           None, a["break"], a["join"], a["close_paths"], a["reverse"], a["duplicates"],
+                           None, a["lock"], a["unlock"], None, a["fit_sel"]]
+        self._more_narrow = [a["nest"], a["offset"], a["to_path"], None]
+        self.b_more = _menu_button(tr("Altro"), self._more_base)
+        row.addWidget(self.b_more)
         row.addStretch(1)
         row.addWidget(_act_button(a["delete"], "bcTool", 18))
-        v.addLayout(row)
+        v.addWidget(self.row2)
+        self.narrow = False
+        self._fold_choice = win.qs.value("banco_ctx_fold", "auto")  # auto | open | closed
+        self._apply_fold()
         self.hide()
+
+    # -- riga dei comandi richiudibile
+    def folded(self):
+        if self._fold_choice in ("open", "closed"):
+            return self._fold_choice == "closed"
+        return self.win.canvas.height() < self.FOLD_BELOW
+
+    def toggle_fold(self):
+        self._fold_choice = "open" if self.folded() else "closed"
+        self.win.qs.setValue("banco_ctx_fold", self._fold_choice)
+        self._apply_fold()
+        self.place(self.win.canvas, *getattr(self, "_last_insets", (300, 300)))
+
+    def _apply_fold(self):
+        closed = self.folded()
+        self.row2.setVisible(not closed)
+        self.b_fold.setIcon(style.icon("chevron_down" if closed else "chevron_up", tc("#C3CEE3"), 14))
+        self.b_fold.setToolTip(tr("Mostra i comandi sulla selezione") if closed else
+                               tr("Nascondi i comandi: resta una riga sola e il piano si vede meglio"))
+
+    def _set_narrow(self, narrow):
+        if narrow == self.narrow:
+            return
+        self.narrow = narrow
+        for b in self.wide_only:
+            b.setVisible(not narrow)
+        m = self.b_more.menu()
+        m.clear()
+        for act in (self._more_narrow if narrow else []) + self._more_base:
+            m.addSeparator() if act is None else m.addAction(act)
 
     def place(self, canvas, rail_w, right_w):
         ed = self.win.editor
+        self._last_insets = (rail_w, right_w)
         if not ed.selection or self.win.banco.dragging or self.win.banco.locked():
             self.hide()
             return
@@ -1046,20 +1197,25 @@ class ContextBar(QFrame):
         right = max(p.x() for p in pts) + off.x()
         top = min(p.y() for p in pts) + off.y()
         bottom = max(p.y() for p in pts) + off.y()
+        lo = RULER + 10 + rail_w + 12  # a destra degli strati
+        band = cv.width() - right_w - 14 - 12 - lo  # fino alla colonna destra
+        self._apply_fold()
+        self._set_narrow(False)
         self.adjustSize()
-        w, h = self.sizeHint().width(), self.sizeHint().height()
-        self.resize(w, h)
+        if self.sizeHint().width() > band:  # non ci sta: i tre comandi in più passano nel menu «Altro»
+            self._set_narrow(True)
+            self.adjustSize()
+        # mai più larga dello spazio libero: la riga delle misure, se serve, mostra il resto dietro «»»
+        w = min(self.sizeHint().width(), max(band, 320))
+        self.resize(w, self.sizeHint().height())
+        h = self.height()
         x = int((left + right) / 2 - w / 2)
         y = int(bottom + 16)
         if y + h > cv.height() - 96:
             y = int(top - h - 16)
         y = max(8, min(y, cv.height() - h - 96))
-        lo = RULER + 10 + rail_w + 12  # a destra degli strati
-        hi = cv.width() - right_w - 14 - 12 - w  # a sinistra della colonna destra
-        if hi >= lo:
-            x = max(lo, min(x, hi))
-        else:  # schermo stretto: meglio sopra lo spazio degli strati che sopra il percorso del lavoro
-            x = max(RULER + 8, hi)
+        hi = lo + band - w
+        x = max(lo, min(x, hi)) if hi >= lo else max(RULER + 8, hi)
         self.move(x, y)
         self.show()
         self.raise_()
@@ -1314,6 +1470,8 @@ class Officina(QFrame):
 
 # ============================================================ l'interfaccia Banco
 class Banco(QObject):
+    PROPS_MIN = 110  # altezza minima utile della scheda Proprietà
+
     def __init__(self, win):
         super().__init__(win)
         self.win = win
@@ -1386,7 +1544,8 @@ class Banco(QObject):
         rv = QVBoxLayout(self.right)
         rv.setContentsMargins(0, 0, 0, 0)
         rv.setSpacing(10)
-        rv.addWidget(self.props_card, 1)
+        rv.addWidget(self.props_card, 0)
+        rv.addStretch(1)  # il vuoto sta in mezzo: il percorso del lavoro resta appoggiato in basso
         self.flow = JobFlow(win)
         rv.addWidget(self.flow, 0)
         self._build_island()
@@ -1590,32 +1749,75 @@ class Banco(QObject):
             self.officina.raise_()
         props_on = self._props_visible()
         self.props_card.setVisible(props_on)
-        full_h = H - top_pad - 96
-        lay = self.flow.layout()
-        flow_h = lay.heightForWidth(right_w) if lay is not None and lay.hasHeightForWidth() else self.flow.sizeHint().height()
-        flow_h = min(flow_h, full_h)
-        self.flow.setFixedHeight(flow_h)  # il percorso del lavoro non si schiaccia mai
-        right_h = flow_h
+        full_h = max(120, H - top_pad - 96)
+        # 0.19.2: la colonna destra è ancorata IN BASSO e il percorso del lavoro ha un'altezza che non dipende dalla
+        # selezione: il pulsante di avvio resta sempre nello stesso punto. Le proprietà compaiono sopra, nello spazio
+        # che c'è; se lo schermo è basso sono i quattro passi a scorrere, mai l'avvio a uscire dallo schermo.
+        natural = self.flow.natural_height(right_w)
+        floor_h = self.flow.pinned_height() + self.flow.MIN_STEPS
+        props_h = 0
         if props_on:  # le proprietà prendono solo lo spazio che serve (al massimo quello che resta)
             host = self.win.props.widget()
             hl = host.layout() if host is not None else None
             inner = (hl.heightForWidth(right_w - 16) if hl is not None and hl.hasHeightForWidth()
                      else host.sizeHint().height() if host is not None else 200)
-            need = 8 + self.props_title.sizeHint().height() + 4 + inner + 8
-            props_h = max(90, min(need + 4, full_h - flow_h - 10))
+            want = 8 + self.props_title.sizeHint().height() + 4 + inner + 8 + 4
+            room_full = full_h - 10 - natural  # spazio sopra il percorso quando sta tutto in vista
+            room_max = full_h - 10 - floor_h  # spazio sopra il percorso ridotto al minimo (i passi scorrono)
+            # quello che avanza sopra il percorso intero; se è poco, almeno PROPS_MIN (e allora scorrono i passi)
+            props_h = min(want, max(self.PROPS_MIN, room_full), room_max)
+            if props_h < 60:  # finestra davvero minuscola: meglio niente proprietà che un pulsante di avvio tagliato
+                props_h = 0
+                self.props_card.setVisible(False)
+        flow_h = max(min(natural, full_h - (props_h + 10 if props_h else 0)), min(floor_h, full_h))
+        self.flow.setFixedHeight(flow_h)
+        if props_h:
             self.props_card.setFixedHeight(props_h)
-            right_h = props_h + 10 + flow_h
-        self.right.setGeometry(W - right_w - 14, top_pad, right_w, right_h)
+        col_x, col_y = W - right_w - 14, top_pad
+        self.right.setGeometry(col_x, col_y, right_w, full_h)
+        self.right.layout().activate()
+        # le altezze sopra sono previste; qui si misura: se ai passi manca qualche pixel e c'è posto, il percorso
+        # si allunga, così la barra di scorrimento compare solo quando lo schermo è davvero basso
+        sc = self.flow.scroll
+        sc.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.flow.layout().activate()
+        cap = full_h - (props_h + 10 if props_h else 0)
+        missing = self.flow.steps_needed() - sc.viewport().height()
+        if missing > 0 and flow_h < cap:
+            flow_h = min(flow_h + missing, cap)
+            self.flow.setFixedHeight(flow_h)
+            self.right.layout().activate()
+            self.flow.layout().activate()
+            missing = self.flow.steps_needed() - sc.viewport().height()
+        sc.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if missing > 0 else Qt.ScrollBarAlwaysOff)
+        # la colonna occupa tutta l'altezza ma «esiste» solo dove ci sono le schede: nel vuoto sopra il percorso
+        # il piano resta cliccabile
+        region = QRegion(self.flow.geometry())
+        if props_h:
+            region = region.united(QRegion(self.props_card.geometry()))
+        self.right.setMask(region)
         locked = self.locked()
         self.right.setVisible(not drawer and not locked)
-        self.island.adjustSize()
-        self.island.move((W - self.island.width()) // 2, H - self.island.height() - 16)
+        # isole in basso: strumenti al centro, vista a destra; su una finestra stretta non devono sovrapporsi
         self.view_box.adjustSize()
-        self.view_box.move(W - self.view_box.width() - 14, H - self.view_box.height() - 16)
+        vb_x = W - self.view_box.width() - 14
+        self.tool_label.setVisible(True)
+        self.island.adjustSize()
+        ix = (W - self.island.width()) // 2
+        if ix + self.island.width() > vb_x - 10:  # non c'è posto per tutti e due: via la scritta dello strumento
+            self.tool_label.setVisible(False)
+            self.island.adjustSize()
+            ix = min((W - self.island.width()) // 2, vb_x - 10 - self.island.width())
+        view_fits = ix >= 8
+        if not view_fits:  # più stretta ancora: resta l'isola degli strumenti (lo zoom si fa con rotella e Ctrl+0)
+            ix = max(8, (W - self.island.width()) // 2)
+        self.island.move(ix, H - self.island.height() - 16)
+        self.view_box.move(vb_x, H - self.view_box.height() - 16)
         self.hint.adjustSize()
         self.hint.move((W - self.hint.width()) // 2, self.island.y() - self.hint.height() - 6)
+        self.island.setVisible(not locked)
+        self.view_box.setVisible(not locked and view_fits)
         for w in (self.island, self.view_box):
-            w.setVisible(not locked)
             w.raise_()
         self.hint.setVisible(not self.cockpit_on and W > 900)
         self.rail.setVisible(not locked)

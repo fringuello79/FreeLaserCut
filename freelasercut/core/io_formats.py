@@ -179,7 +179,9 @@ def import_dxf(path, doc):
                             tc = ent.dxf.true_color
                             color = ((tc >> 16) & 255, (tc >> 8) & 255, tc & 255)
                     except Exception:  # noqa: BLE001
-                        pass
+                        from .. import diag as _diag
+
+                        _diag.ignored("DXF: colore")
                     shapes.append(PathShape(qp, layer=nearest_layer(color) if color else 0))
         except Exception:  # noqa: BLE001
             continue
@@ -202,7 +204,9 @@ def _upright_8bit(img):
         img = ImageOps.exif_transpose(img) or img
         img.info.update({k: v for k, v in info.items() if k not in img.info})
     except Exception:  # noqa: BLE001  EXIF rovinato: la lascio com'è
-        pass
+        from .. import diag as _diag
+
+        _diag.ignored("immagine: EXIF")
     if img.mode in ("I;16", "I;16B", "I;16L", "I;16N", "I", "F"):
         import numpy as np
 

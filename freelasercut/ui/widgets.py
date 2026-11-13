@@ -201,6 +201,47 @@ class Swatch(QToolButton):
             p.drawEllipse(QPointF(r.right() - 4, r.top() + 4), 2, 2)
 
 
+class SqueezeRow(QFrame):
+    """Riga orizzontale che, quando lo spazio non basta, nasconde i pezzi facoltativi invece di uscire dal pannello
+    (0.19.2: la riga di connessione del pannello Laser era più larga del pannello e veniva tagliata a destra,
+    insieme a tutto quello che c'era sotto)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._optional = []
+
+    def set_optional(self, widgets):
+        """I pezzi che possono sparire, dal primo che si toglie all'ultimo."""
+        self._optional = list(widgets)
+
+    def _fixed_width(self):
+        lay = self.layout()
+        if lay is None:
+            return 0
+        m = lay.contentsMargins()
+        ws = [lay.itemAt(i).widget() for i in range(lay.count())]
+        fixed = [w for w in ws if w is not None and w not in self._optional]
+        return m.left() + m.right() + sum(w.minimumSizeHint().width() if w.minimumWidth() == 0 else w.minimumWidth()
+                                           for w in fixed) + lay.spacing() * max(0, len(fixed) - 1)
+
+    def minimumSizeHint(self):
+        h = super().minimumSizeHint().height()
+        return QSize(self._fixed_width(), h)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        lay = self.layout()
+        if lay is None:
+            return
+        need = self._fixed_width()
+        for w in reversed(self._optional):  # l'ultimo dell'elenco è quello che resta più a lungo
+            add = w.sizeHint().width() + lay.spacing()
+            show = need + add <= self.width()
+            w.setVisible(show)
+            if show:
+                need += add
+
+
 def shrinkable(root, cap=74):
     """Campi numerici e menu a tendina possono stringersi: il pannello si adatta alla larghezza dello schermo."""
     from PySide6.QtWidgets import QAbstractSpinBox, QComboBox

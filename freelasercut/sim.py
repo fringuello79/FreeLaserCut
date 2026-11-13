@@ -49,7 +49,10 @@ class SimSerial:
         self.check_mode = False
         # varianti di firmware per le prove: scheda senza G55, risposte perse in verifica, $I diverso
         self.no_g55 = False
-        self.g55_stalls = False  # in verifica: error:2 su G55 e poi silenzio (OMTech K40)
+        self.g55_stalls = False  # in verifica: error:2 su G55 e poi silenzio (OMTech K40); "mute" (0.19.2): solo
+        #                          silenzio, e l'error:2 arriva al «$C» di uscita, come nel rapporto del 12/11/2026
+        self.g55_job = None  # 0.19.2, nel lavoro: "error" = error:2 su G55; "mute" = da G55 in poi nessuna risposta
+        self._g55_job_mute = False
         self._g55_mute = False
         self.drop_check_after = None  # in verifica, dopo N righe le risposte smettono di arrivare
         self._check_lines = 0
@@ -332,6 +335,7 @@ class SimSerial:
         self._critical = False
         self.check_mode = False
         self._g55_mute = False
+        self._g55_job_mute = False
         self._cpos = None
         self.absolute = True  # come GRBL: dopo il reset il parser torna in G90
         self.state = "Alarm" if alarm else "Idle"
@@ -450,10 +454,16 @@ class SimSerial:
         "thmg" Mecpow (0.19.1): accetta «[ESP100]», «[ESP101]», «[ESP110]STA» ma al riavvio decide «$wifi» (0 = rete
         propria, 1 = rete di casa); in rete non scrive «Connected with…» ma «TELNET Started 8080»; con crash=True
         la prima accensione in rete va in errore e riparte da sola, come è successo sulla scheda vera.
+        "lgt" con switch50=True (0.19.2): il Longer B1 come si è comportato davvero il 13/11/2026. «[ESP110]STA»
+        risponde ok ma non accende niente; l'interruttore è «$50» (s50: "0" spento, "2" rete di casa). «$50=2» fa
+        partire subito il collegamento («Wifi Connecting...» → «Wifi Connected» oppure, dopo fail_s secondi, «Wifi
+        Connection failed») e risponde ok solo alla fine; al riavvio con «$50=2» riprova da sola e, se fallisce, scrive
+        «WiFi Off» e rimette «$50=0». Senza switch50 "lgt" resta la scheda finta di prima (messaggi delle MKS).
         nets: {rete: password} che esistono «in casa»; join_ip: l'indirizzo che la scheda riceve."""
         w = dict(kind=kind, mode="OFF", ip="0.0.0.0", ssid="", password="", ap="MKS_DLC",
                  nets={"CasaMia": "passwordgiusta"}, join_ip="192.168.1.77", messages=True, restart=True, drop=False,
-                 reject=(), boots=0, delay=0.25, log=[], switch=0, crash=False, telnet=8080)
+                 reject=(), boots=0, delay=0.25, log=[], switch=0, crash=False, telnet=8080, switch50=False, s50="0",
+                 fail_s=1.5)
         if kind == "thmg":
             w.update(mode="AP", ip="192.168.4.1", ap="MECPOW_SIM")
         w.update(kw)
@@ -466,14 +476,19 @@ class SimSerial:
             for n in (50, 51, 52, 53, 54):
                 self.settings.pop(n, None)
         else:
-            self.settings.update({50: "0" if w["mode"] == "OFF" else "2", 51: w["ap"], 52: "12345678", 53: w["ssid"],
-                                  54: w["password"]})
+            s50 = w["s50"] if w["switch50"] else ("0" if w["mode"] == "OFF" else "2")
+            self.settings.update({50: s50, 51: w["ap"], 52: "12345678", 53: w["ssid"], 54: w["password"]})
         if boot:
             threading.Thread(target=self._wifi_connect, daemon=True).start()
         return w
 
     def _wifi_status_line(self):
         w = self.wifi
+        if w["switch50"]:  # il B1 vero: «No Wifi» a Wi-Fi spento, altrimenti lo stato del collegamento
+            if w["s50"] != "2":
+                return "[MSG:No Wifi]\r\n"
+            st = "Connected" if w["ip"] != "0.0.0.0" else "Not connected"
+            return f"[MSG:Mode=STA:SSID={w['ssid']}:Status={st}:IP={w['ip']}:MAC=00-00-00-00-00-00]\r\n"
         if w["kind"] == "fluidnc" and w["mode"] == "STA":
             st = "Connected" if w["ip"] not in ("0.0.0.0", "192.168.4.1") else "Not connected"
             return f"[MSG: Mode=STA:SSID={w['ssid']}:Status={st}:IP={w['ip']}:MAC=00-00-00-00-00-00]\r\n"
@@ -492,6 +507,8 @@ class SimSerial:
         time.sleep(w["delay"])
         if w["kind"] == "thmg":
             return self._wifi_connect_thmg(w, say)
+        if w["switch50"]:
+            return self._wifi_boot_50(w, say)
         if w["mode"] == "STA":
             say(f"[MSG:Connecting {w['ssid']}]")
             time.sleep(w["delay"])
@@ -507,6 +524,34 @@ class SimSerial:
             say(f"[MSG:Local access point {w['ap']} started, 192.168.4.1]")
         else:
             w["ip"] = "0.0.0.0"
+
+    def _wifi_join_50(self, w, say):
+        """Longer vero: un tentativo di entrare nella rete salvata. -> True se è entrata."""
+        say("[MSG:Wifi Connecting...]")
+        if w["ssid"] in w["nets"] and w["nets"][w["ssid"]] == w["password"]:
+            time.sleep(w["delay"] * 2)  # sul vero 5 secondi
+            w["ip"] = w["join_ip"]
+            say("[MSG:Wifi Connected]")
+            return True
+        time.sleep(w["fail_s"])  # sul vero 40 secondi
+        w["ip"] = "0.0.0.0"
+        say("[MSG:Wifi Connection failed]")
+        return False
+
+    def _wifi_services_50(self, w, say):
+        say("[MSG:Start mDNS with hostname:http://mks_grbl.local/]")
+        say("[MSG:HTTP Started]")
+        say(f"[MSG:TELNET Started {w['telnet']}]")
+
+    def _wifi_boot_50(self, w, say):
+        """Longer vero, all'accensione: con «$50=2» riprova da sola; se fallisce spegne il Wi-Fi e rimette «$50=0»."""
+        w["ip"] = "0.0.0.0"
+        if w["s50"] == "2":
+            if self._wifi_join_50(w, say):
+                return self._wifi_services_50(w, say)
+            w["s50"] = "0"
+            self.settings[50] = "0"
+        say("[MSG:WiFi Off]")
 
     def _wifi_connect_thmg(self, w, say):
         """Mecpow: all'accensione conta solo «$wifi». 0 = rete propria subito, senza provare; 1 = rete di casa, senza
@@ -585,11 +630,13 @@ class SimSerial:
                 return rej()
             if num == "110":
                 if not arg:
-                    self._emit(f"$ESP110={w['mode']}\r\n")
+                    mode = ("STA" if w["s50"] == "2" else "NONE") if w["switch50"] else w["mode"]
+                    self._emit(f"$ESP110={mode}\r\n")
                     return ok()
                 if arg.upper() not in ("STA", "AP", "OFF", "BT"):
                     return rej(2)
-                w["mode"] = arg.upper()
+                if not w["switch50"]:  # sul B1 vero risponde ok ma non cambia niente: decide «$50»
+                    w["mode"] = arg.upper()
                 return ok()
             if num == "111":
                 self._emit(w["ip"] + "\r\n")
@@ -619,6 +666,16 @@ class SimSerial:
                 w["password"] = v
             elif n == 50 and kind == "numeric":
                 w["mode"] = {"0": "OFF", "1": "STA", "2": "AP"}.get(v.strip(), w["mode"])
+            elif n == 50 and w["switch50"]:
+                w["s50"] = v.strip()
+                say = (lambda t: self._emit(t + "\r\n")) if w["messages"] else (lambda t: None)
+                if w["s50"] == "2":  # parte subito, e l'ok arriva solo a collegamento finito
+                    joined = self._wifi_join_50(w, say)
+                    self._ok()
+                    if joined:
+                        self._wifi_services_50(w, say)
+                    return True
+                w["ip"] = "0.0.0.0"
             return ok()
         m = re.match(r"^\$(Sta/SSID|Sta/Password|Radio/Mode|WiFi/Mode)(?:=(.*))?$", s, re.I)
         if m:
@@ -648,6 +705,17 @@ class SimSerial:
         if self.wifi is not None and self._wifi_line(line):
             return
         up = line.upper().replace(" ", "")
+        if self._g55_job_mute:
+            return  # 0.19.2: dopo G55, nel lavoro, la scheda non risponde più a niente fino al reset
+        if not self.check_mode and self.g55_job and up == "G55":
+            # 0.19.2 (rapporto FLC-20261112-2308-104A): la stessa scheda, nel lavoro, a G55 risponde error:2 oppure
+            # non risponde affatto
+            if self.g55_job == "mute":
+                self._g55_job_mute = True
+                return
+            return self._emit("error:2\r\n")
+        if self.check_mode and up == "$C" and self.g55_stalls == "mute" and self._g55_mute:
+            return self._emit("error:2\r\n")  # l'errore di G55 arriva solo adesso; si esce dalla verifica con il reset
         if self.check_mode and up != "$C" and self.g55_stalls:
             # 0.18.15: come la scheda di un OMTech K40 (rapporto FLC-20261111-2131-0A9C): in verifica risponde
             # error:2 alla riga G55 e da lì non risponde più a niente, finché non si esce dalla verifica
@@ -655,7 +723,7 @@ class SimSerial:
                 return
             if up == "G55":
                 self._g55_mute = True
-                return self._emit("error:2\r\n")
+                return None if self.g55_stalls == "mute" else self._emit("error:2\r\n")
         if self.check_mode and up != "$C" and self.drop_check_after is not None:
             self._check_lines += 1
             if self._check_lines > self.drop_check_after:

@@ -30,6 +30,40 @@ KEEP_FILES = 10
 STALL_SECONDS = 20.0
 
 
+IGNORED_LOG = "flc_ignorati.log"
+_ignored_seen = set()
+
+
+def ignored(where):
+    """Da chiamare dentro un `except Exception:` che lascia proseguire il programma (0.19.2).
+
+    Prima quei punti facevano solo `pass`: se l'errore era un difetto vero (il salvataggio automatico che non
+    riesce, lo Stop della guardia fiamme che non parte) non ne restava traccia e il rapporto per l'assistenza non
+    lo diceva. Ora resta una riga in flc_ignorati.log, nella cartella dei dati: una sola per punto e per tipo di
+    errore a ogni avvio (un errore che si ripete a ogni fotogramma non riempie il disco). Il file entra nel
+    rapporto; è separato da flc.log apposta, così «l'ultimo errore del programma» del rapporto resta quello vero.
+    Non solleva mai errori e non mostra niente."""
+    try:
+        et, ev, tb = sys.exc_info()
+        if et is None:
+            return
+        while tb is not None and tb.tb_next is not None:
+            tb = tb.tb_next
+        spot = f"{os.path.basename(tb.tb_frame.f_code.co_filename)}:{tb.tb_lineno}" if tb is not None else "?"
+        key = (where, et.__name__, spot)
+        if key in _ignored_seen or len(_ignored_seen) >= 200:
+            return
+        _ignored_seen.add(key)
+        fp = os.path.join(config_dir(), IGNORED_LOG)
+        if os.path.exists(fp) and os.path.getsize(fp) > 300_000:  # non cresce all'infinito: riparte da capo
+            os.remove(fp)
+        with open(fp, "a", encoding="utf-8") as fh:
+            fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  FreeLaserCut {__version__}  [{where}]  "
+                     f"{et.__name__}: {sanitize(str(ev))[:300]}  ({spot})\n")
+    except Exception:  # noqa: BLE001 — il registro degli errori ignorati non deve mai crearne uno
+        pass
+
+
 def diag_dir():
     p = os.path.join(config_dir(), "diagnostica")
     os.makedirs(p, exist_ok=True)
@@ -489,7 +523,7 @@ def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=Non
                     mask_settings(comm.settings).items(), key=lambda kv: (len(str(kv[0])), str(kv[0]))))
                 z.writestr("impostazioni-grbl.txt", sanitize(txt + "\n"))
                 names.append("impostazioni-grbl.txt")
-        for fn in ("flc.log", "flc_crash.log"):
+        for fn in ("flc.log", "flc_crash.log", IGNORED_LOG):
             fp = os.path.join(cfg, fn)
             if os.path.exists(fp):
                 with open(fp, encoding="utf-8", errors="replace") as fh:

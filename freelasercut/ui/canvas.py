@@ -787,6 +787,10 @@ class Canvas(QGraphicsView):
         from PySide6.QtCore import QEvent
 
         if e.type() == QEvent.Type.ShortcutOverride and self.tool.wants_key(e):
+            # 0.19.2: Maiusc+Esc è lo Stop del lavoro: gli strumenti tengono per sé Esc (annulla il disegno in corso),
+            # non Maiusc+Esc, altrimenti con il piano attivo lo Stop da tastiera non partirebbe mai
+            if e.key() == Qt.Key_Escape and e.modifiers() == Qt.ShiftModifier:
+                return super().event(e)
             e.accept()
             return True
         return super().event(e)
