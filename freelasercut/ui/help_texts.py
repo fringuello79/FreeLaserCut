@@ -162,6 +162,18 @@ HELP = {
     "zoom_out": (tr("Riduci"), tr("Rimpicciolisce la tela."), None),
     "fit": (tr("Adatta al piano"), tr("Mostra tutto il piano di lavoro."), None),
     "fit_sel": (tr("Adatta alla selezione"), tr("Ingrandisce sulla selezione."), None),
+    "head_cam": (tr("Camera della testa"), tr("Una telecamera fissata alla testa del laser che guarda il piano da "
+                 "vicino. Dopo la calibrazione (un puntino inciso, seguito dalla camera) un clic sul video porta lì il "
+                 "mirino; si porta il laser sul centro della camera o la camera sul laser, si mette l'origine sotto il "
+                 "mirino, si prendono due angoli della tavola per appoggiarci il disegno e si fa la foto del piano a "
+                 "mosaico."),
+                 [(tr("Calibrazione"), tr("vale per lo spessore del materiale con cui è fatta")),
+                  (tr("Tavola"), tr("angoli A e B sullo stesso lato"))]),
+    "head_laser_here": (tr("Porta il laser qui"), tr("La testa va con il laser nel punto del clic (a laser spento)."),
+                        None),
+    "head_camera_here": (tr("Porta la camera della testa qui"), tr("La testa si sposta perché il mirino della camera "
+                         "della testa guardi il punto del clic. Se il punto è vicino al bordo la testa si ferma prima."),
+                         None),
     "plate_new": (tr("Nuovo piano di lavoro"), tr("Aggiunge un piano al progetto: un altro lavoro con la stessa macchina "
                   "e gli stessi livelli. Mentre il laser incide un piano puoi preparare il successivo, con gli oggetti "
                   "degli altri piani visibili in grigio. Si passa da un piano all'altro con le linguette in alto a sinistra "

@@ -359,6 +359,15 @@ class MainWindow(QMainWindow):
                               tr("Copie automatiche dei parametri della scheda ($$): confronto e ripristino in un clic")),
             "fire_guard": A(tr("Guardia fiamme…"), self.fire_guard_dialog, None, "fire",
                             tr("Durante il lavoro guarda la camera: se vede una fiamma ferma tutto e spegne il laser")),
+            # 0.20.0: camera della testa
+            "head_cam": A(tr("Camera della testa…"), lambda *_: self.head_camera_window(), None, None,
+                          tr("Video della telecamera fissata alla testa, con mirino e righello: porta il laser o la "
+                             "camera dove vuoi, prendi gli angoli della tavola, fai la foto del piano a mosaico")),
+            "head_laser_here": A(tr("Porta il laser qui"), lambda *_: self.head_here("laser"), None, None,
+                                 tr("La testa va con il laser nel punto del piano dove hai fatto clic")),
+            "head_camera_here": A(tr("Porta la camera della testa qui"), lambda *_: self.head_here("camera"), None,
+                                  None, tr("La testa si sposta perché il mirino della camera della testa guardi il "
+                                           "punto dove hai fatto clic")),
             "rotary": A(tr("Rotativo (bicchieri, cilindri)…"), self.rotary_dialog, None, "rotary",
                         tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
@@ -588,7 +597,7 @@ class MainWindow(QMainWindow):
         # fanno una volta; «Salva G-code» ed «Esegui un file G-code» restano solo nel menu File (erano in due menu)
         self.m_laser = menu(tr("&Laser"), [
             "connect", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-            "materials", "material_test", "learned", "-", "fire_guard", "phone", "rotary",
+            "materials", "material_test", "learned", "-", "fire_guard", "head_cam", "phone", "rotary",
             ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "scan_offset", "autofocus",
             "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
@@ -2131,6 +2140,9 @@ class MainWindow(QMainWindow):
         w = st.get("WPos", [0, 0, 0])
         bx, by = self.profile.to_bed(m[0], m[1])
         self.canvas.set_head(bx, by, state, st.get("power", 0))
+        cam = getattr(self, "camera", None)
+        if cam is not None and hasattr(cam, "head"):
+            cam.head.update_marker((bx, by))  # 0.20.0: il punto sotto il mirino della camera della testa
         ah = getattr(self, "_anchor_head", None)
         if ah is not None and state == "Idle" and abs(ah[0] - bx) + abs(ah[1] - by) > 0.05 and \
                 not (self.ctl.job_active or self.ctl.checking) and self.job_preview is not None:
@@ -2232,8 +2244,14 @@ class MainWindow(QMainWindow):
             # 0.19.5: strumento Nodi: prima le voci dei nodi (la selezione delle forme resta quella dello strumento)
             return ["node_join", "node_connect", "-", "undo", "redo", "-", "fit_sel"]
         sel = ed.selection
+        # 0.20.0: con la camera della testa calibrata e la macchina connessa, laser o camera nel punto del clic
+        head_keys = []
+        hc_card = getattr(getattr(self, "camera", None), "head", None)
+        if hc_card is not None and hc_card.ready() and self.ctl.connected:
+            head_keys = ["-", "head_laser_here", "head_camera_here"]
         if not sel:
-            return ["paste", "paste_in_place", "-", "undo", "redo", "-", "select_all", "-", "import", "-", "fit"]
+            return ["paste", "paste_in_place", "-", "undo", "redo", "-", "select_all", "-", "import", "-",
+                    "fit"] + head_keys
         keys = ["cut", "copy", "paste", "duplicate", "delete", "-"]
         if len(sel) > 1:
             keys.append("group")
@@ -2247,7 +2265,7 @@ class MainWindow(QMainWindow):
         if any(s.locked for s in sel):
             keys.append("unlock")
         keys += ["-", "to_path", "offset", "-", "fit_sel"]
-        return keys
+        return keys + head_keys
 
     def _node_join(self, mode):
         """Voci «Unisci nodi» / «Collega nodi»: passano allo strumento Nodi (servono due estremi selezionati)."""
@@ -2778,6 +2796,36 @@ class MainWindow(QMainWindow):
             msg += " · " + tr("il punto era fuori dal piano: mi fermo al bordo")
         self.statusBar().showMessage(msg, 8000)
         return (x, y)
+
+    # ================================================================ 0.20.0: camera della testa
+    def head_camera_window(self):
+        """Laser → Camera della testa…: apre la vista della testa (o il pannello Camera se non ne è scelta una)."""
+        card_ = self.camera.head
+        if card_.src is None:
+            self._show_camera_panel()
+            self.statusBar().showMessage(tr("Scegli la camera della testa nel pannello Camera"), 8000)
+            return None
+        return card_.open_window()
+
+    def _show_camera_panel(self):
+        if self.banco is not None:
+            try:
+                self.banco.officina_show("camera")
+            except Exception:  # noqa: BLE001
+                pass
+            return
+        d = self.docks.get("camera") if hasattr(self, "docks") else None
+        if d is not None:
+            d.show()
+            d.raise_()
+
+    def head_here(self, what):
+        """Menu del tasto destro: laser o camera della testa nel punto del clic."""
+        p = getattr(self.canvas, "cursor_bed", None)
+        if p is None:
+            return None
+        card_ = self.camera.head
+        return card_.laser_to(p.x(), p.y()) if what == "laser" else card_.camera_to(p.x(), p.y())
 
     def goto_bed(self, x, y):
         if not self.ctl.connected:

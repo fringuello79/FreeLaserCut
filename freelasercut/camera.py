@@ -156,15 +156,19 @@ def _ordered_modes(index, first=None):
     return all_
 
 
-def open_capture(index, warm=2.5, first=None, only_first=False):
+def open_capture(index, warm=2.5, first=None, only_first=False, size=None):
     """Apre la telecamera nel primo modo che dà un'immagine non nera.
     Restituisce (cap, modo, fotogramma, nera) oppure (None, None, None, True) se non si apre in nessun modo.
-    Se tutti i modi danno nero, tiene quello con l'immagine più chiara (può essere davvero buio)."""
+    Se tutti i modi danno nero, tiene quello con l'immagine più chiara (può essere davvero buio).
+    size (0.20.0, camera della testa): risoluzione chiesta al posto di quella dei modi."""
     best = None  # (luminosità, cap, modo, fotogramma)
     tried = _ordered_modes(index, first)
     if only_first:
         tried = tried[:1]
+    want = size
     for name, api_name, size, fourcc in tried:
+        if want is not None and size is not None:
+            size = tuple(want)
         api = getattr(cv2, api_name, cv2.CAP_ANY)
         t0 = time.time()
         try:
@@ -216,12 +220,18 @@ def list_cameras(max_index=6, skip=()):
     """[(indice, etichetta, (w, h), miniatura_bgr)] delle camere che danno immagini.
     `skip`: indici già aperti da FreeLaserCut (non vanno riaperti)."""
     found = []
+    misses = 0
     for i in range(max_index):
         if i in skip:
+            misses = 0
             continue
+        if misses >= 2 and i >= len(NAMES):
+            break  # 0.20.0: due numeri vuoti di fila oltre le telecamere del sistema: non ce ne sono altre
         cap, mode, frame, black = open_capture(i, warm=1.5)
         if cap is None:
+            misses += 1
             continue
+        misses = 0
         cap.release()
         if frame is None:
             continue
@@ -310,6 +320,19 @@ def usb_camera_names():
     if names:
         cam_log("telecamere del sistema: " + "; ".join(f"{i}={n}" for i, n in names.items()))
     return names
+
+
+def device_count():
+    """0.20.0: quante telecamere vede il sistema adesso (per accorgersi di una telecamera collegata o tolta).
+    Windows: Media Foundation; altrove i dispositivi /dev/video*. None se non si sa."""
+    if sys.platform == "win32":
+        try:
+            return len(_mf_names())
+        except Exception:  # noqa: BLE001
+            return None
+    import glob
+
+    return len(glob.glob("/dev/video*"))
 
 
 def preferred_camera(indices):
@@ -642,11 +665,14 @@ class PhonePhoto:
 class CameraSource(_FrameSource):
     """Telecamera USB, letta nel primo modo che non dà un'immagine nera (vedi open_capture)."""
 
-    def __init__(self, index, width=1920, height=1080):
+    def __init__(self, index, width=1920, height=1080, size=None, prefer=None):
         self.index = index
         self.black = False
         probe = LAST_PROBE.get(index)
-        if probe and probe.get("mode"):  # la ricerca (in un thread a parte) ha già provato i modi: niente attese qui
+        if size is not None:  # 0.20.0, camera della testa: 1280 × 720, di preferenza MJPG (meno banda USB)
+            first = remembered_mode(index) if remembered_mode(index) in [m[0] for m in modes()] else prefer
+            self.cap, self.mode, frame, self.black = open_capture(index, warm=1.0, first=first, size=size)
+        elif probe and probe.get("mode"):  # la ricerca (in un thread a parte) ha già provato i modi: niente attese qui
             warm = 0.5 if probe.get("black") else 1.0  # già vista nera: inutile aspettare l'esposizione
             self.cap, self.mode, frame, self.black = open_capture(index, warm=warm, first=probe["mode"],
                                                                   only_first=True)

@@ -499,6 +499,8 @@ if __name__ == "__main__":
     run_suite("test_v195_movimento.py", "Puntino, Lucciola e joystick nell'interfaccia Banco", "banco")
     run_suite("test_v195_varie.py", "Nesting manuale che sporge dai pannelli, elenco delle scorciatoie, Sculpfun E1 dalla scheda e tabella Sculpfun, Riconosci → Applica che tiene angolo e assi")
     run_suite("test_v195_varie.py", "Nesting manuale e scorciatoie nell'interfaccia Banco", "banco")
+    run_suite("test_v200_camera_testa.py", "Camera della testa: calibrazione col puntino inciso, laser e camera dove vuoi, origine dalla camera, tavola da due angoli, foto del piano a mosaico, telecamere cercate di nuovo")
+    run_suite("test_v200_camera_testa.py", "Camera della testa nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

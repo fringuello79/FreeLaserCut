@@ -1,5 +1,22 @@
 # Novità di FreeLaserCut
 
+## 0.20.0 — in sviluppo
+La camera della testa: una telecamera fissata alla testa del laser che guarda il piano da vicino.
+
+**Camera della testa** (pannello *Camera*, riquadro nuovo, e *Laser → Camera della testa…*). Si sceglie la telecamera fissata alla testa; la camera del piano resta quella di prima e si usano insieme o da sole. La stessa telecamera non si può scegliere per tutte e due (nell'elenco dell'altra c'è, ma spenta). La camera della testa si legge a 1280 × 720, di preferenza in MJPG: con due camere sulla stessa USB serve meno banda.
+- **Calibrazione automatica, un pulsante.** Sotto la testa un pezzo di cartone o legno da scarto: FreeLaserCut guarda il materiale a laser spento, incide un puntino di circa 2 mm (potenza scelta, 20% di partenza), lo segue nell'immagine spostando la testa di pochi millimetri e lo porta da solo sotto il mirino. Impara così scala (mm per pixel), rotazione, specchio e distanza fra il laser e il centro della camera. Se il puntino non cade nell'inquadratura lo cerca da solo spostando la testa; se il materiale è senza trama e non lo trova, chiede di portarlo nel video con le frecce e di farci clic. La calibrazione vale per lo spessore del materiale con cui è fatta.
+- **Vista della testa:** video dal vivo con mirino, righello in mm e il disegno sovrapposto. Un clic sul video porta lì il mirino.
+- **Comandi:** *Laser sul centro camera*, *Camera sul punto del laser*, *Origine qui (centro camera)* (per riprendere un lavoro dallo stesso punto). Sul piano un quadratino verde acqua segna il punto sotto il mirino; nel menu del tasto destro (Classica) *Porta il laser qui* e *Porta la camera della testa qui*. Vicino al bordo la testa si ferma e dice quanto manca. Durante un lavoro questi comandi non muovono la testa.
+- **Tavola da due angoli:** il mirino su un angolo della tavola (A) e su un altro angolo dello stesso lato (B). Con *Cerca l'angolo vicino al mirino* FreeLaserCut trova da solo il punto in cui si incontrano i due bordi (anche sul nido d'ape); se non lo trova usa il mirino e lo dice. La tavola si vede sul piano e *Appoggia la selezione sulla tavola* ruota il disegno come la tavola e lo mette nell'angolo A più il margine scelto, con un solo Annulla.
+- **Foto del piano a mosaico:** la testa passa sopra la zona scelta (tutto il piano, attorno alla selezione o la tavola) a laser spento, la camera fa una foto in ogni punto e le foto, unite in scala 1:1, vanno sotto il piano come la foto della camera del piano.
+
+**Telecamere:**
+- una telecamera collegata (o tolta) mentre FreeLaserCut è aperto viene trovata da sola, senza riavviare;
+- la scritta «Cerco le telecamere…» non resta più ferma: se la ricerca non risponde lo dice e ⟳ torna a funzionare;
+- la ricerca si ferma prima, dopo le telecamere che il sistema conosce: meno attesa all'avvio.
+
+Provato sul simulatore con una camera della testa simulata (dritta, ruotata, capovolta e specchiata): scostamento ritrovato entro 0,1 mm. **Non ancora provato con la camera vera sul Longer B1.**
+
 ## 0.19.5 — 14/11/2026
 Nodi, movimento della testa con il joystick, Stampa e taglia per tutti.
 

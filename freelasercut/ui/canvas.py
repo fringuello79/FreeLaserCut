@@ -228,6 +228,33 @@ class HeadItem(QGraphicsItem):
             p.drawText(r, Qt.AlignHCenter | Qt.AlignTop, self.label)
 
 
+CAM_CENTER = "#2ED3B7"  # 0.20.0: punto sotto il mirino della camera della testa
+BOARD = "#F5B83D"  # 0.20.0: tavola presa da due angoli
+
+
+class CamCenterItem(QGraphicsItem):
+    """0.20.0: il punto del piano sotto il mirino della camera della testa (quadratino verde acqua con il mirino)."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+        self.setZValue(995)
+
+    def boundingRect(self):
+        return QRectF(-14, -14, 28, 28)
+
+    def paint(self, p, option, widget=None):
+        p.setRenderHint(QPainter.Antialiasing)
+        col = QColor(CAM_CENTER)
+        p.setPen(QPen(QColor(0, 0, 0, 140), 3))
+        p.setBrush(Qt.NoBrush)
+        p.drawRect(QRectF(-6, -6, 12, 12))
+        p.setPen(QPen(col, 1.6))
+        p.drawRect(QRectF(-6, -6, 12, 12))
+        for a, b in (((-12, 0), (-6, 0)), ((6, 0), (12, 0)), ((0, -12), (0, -6)), ((0, 6), (0, 12))):
+            p.drawLine(QPointF(*a), QPointF(*b))
+
+
 ANCHOR = "#FF3DB4"  # punto di partenza del lavoro: colore diverso dalla testa (che si muove con il laser)
 
 
@@ -378,6 +405,17 @@ class Canvas(QGraphicsView):
         self._anchor = AnchorItem()
         self.scene().addItem(self._anchor)
         self._anchor.setVisible(False)
+        # 0.20.0: camera della testa (punto sotto il mirino) e tavola presa da due angoli
+        self._cam_center = CamCenterItem()
+        self.scene().addItem(self._cam_center)
+        self._cam_center.setVisible(False)
+        self._board_item = QGraphicsPathItem()
+        bpen = QPen(QColor(BOARD), 1.6, Qt.DashLine)
+        bpen.setCosmetic(True)
+        self._board_item.setPen(bpen)
+        self._board_item.setZValue(980)
+        self.scene().addItem(self._board_item)
+        self._board_item.setVisible(False)
         # scritte e spiegazioni dei segni: la finestra decide (nomi sotto i comandi, modalità esperto, lavoro in corso)
         self.marker_labels = False
         self.hints_allowed = lambda: True
@@ -1225,6 +1263,48 @@ class Canvas(QGraphicsView):
             return None
         p = self._head.pos()
         return QPointF(p.x(), -p.y())
+
+    # ---------------------------------------------------------------- 0.20.0: camera della testa
+    def set_cam_center(self, x, y):
+        """Punto del piano sotto il mirino della camera della testa (None = nascosto)."""
+        if x is None or y is None:
+            if self._cam_center.isVisible():
+                self._cam_center.setVisible(False)
+            return
+        self._cam_center.setPos(QPointF(x, -y))
+        self._cam_center.setVisible(True)
+
+    def cam_center(self):
+        if not self._cam_center.isVisible():
+            return None
+        q = self._cam_center.pos()
+        return QPointF(q.x(), -q.y())
+
+    def set_board(self, a, b):
+        """Tavola presa da due angoli: i segni in A e B e i due lati che partono da A (lungo AB e perpendicolare)."""
+        path = QPainterPath()
+        if a is None and b is None:
+            self._board_item.setVisible(False)
+            self._board_item.setPath(path)
+            return
+        for c in (a, b):
+            if c is not None:
+                path.addEllipse(QPointF(c[0], -c[1]), 2.0, 2.0)
+        if a is not None and b is not None:
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            d = math.hypot(dx, dy)
+            if d >= 1.0:
+                ux, uy = dx / d, dy / d
+                L = d + 40.0
+                path.moveTo(a[0], -a[1])
+                path.lineTo(a[0] + ux * L, -(a[1] + uy * L))
+                path.moveTo(a[0], -a[1])
+                path.lineTo(a[0] - uy * L, -(a[1] + ux * L))
+        self._board_item.setPath(path)
+        self._board_item.setVisible(True)
+
+    def board_shown(self):
+        return self._board_item.isVisible()
 
     def clear_trail(self):
         self._trail_path = QPainterPath()

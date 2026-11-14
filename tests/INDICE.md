@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 149. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 151. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -18,13 +18,15 @@ Suite: 149. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_wifi.py`: Wi-Fi delle Longer: interruttore «$50», messaggi e attesa della scheda vera
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
 
-## Telecamera e guardia fiamme (5)
+## Telecamera e guardia fiamme (7)
 
 - `test_v107.py`: Telecamera: la scelta si ricorda, «Nessuna» non accende la webcam
 - `test_v111.py`: Fiamma con il cuore bianco, nomi sotto i comandi
 - `test_v175.py`: Calibrazione della camera con i punti messi a mano sui dischi incisi
 - `test_v175.py` (Banco): Punti a mano della camera nell'interfaccia Banco
 - `test_v181_camera.py` (Banco): Telecamere del Falcon A1 nell'interfaccia Banco
+- `test_v200_camera_testa.py`: Camera della testa: calibrazione col puntino inciso, laser e camera dove vuoi, origine dalla camera, tavola da due angoli, foto del piano a mosaico, telecamere cercate di nuovo
+- `test_v200_camera_testa.py` (Banco): Camera della testa nell'interfaccia Banco
 
 ## Nesting e piani di lavoro (15)
 

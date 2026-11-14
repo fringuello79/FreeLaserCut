@@ -22,6 +22,8 @@ from .theme import C, css
 from freelasercut.i18n import tr  # noqa: E402
 
 PPM = 2.0  # risoluzione della foto raddrizzata: 2 pixel per mm
+SEARCH_TIMEOUT = 45.0  # 0.20.0: oltre, la ricerca delle telecamere si considera bloccata
+DEVICES_EVERY = 4.0  # 0.20.0: ogni quanti secondi si guarda se è stata collegata o tolta una telecamera
 
 
 def to_qimage(bgr):
@@ -97,6 +99,12 @@ class CameraPanel(QWidget):
         self.b_again.hide()
         cl.addWidget(self.b_again)
         lay.addWidget(cc_)
+
+        # --- 0.20.0: camera della testa (riquadro suo, vedi head_camera_ui)
+        from .head_camera_ui import HeadCameraCard
+
+        self.head = HeadCameraCard(self)
+        lay.addWidget(self.head)
 
         # --- foto sul piano
         fc, fl = card(tr("Foto sul piano"))
@@ -240,6 +248,9 @@ class CameraPanel(QWidget):
                 self._close_src()  # immagine nera: con ⟳ la riapro e provo di nuovo tutti i modi di lettura
             else:
                 skip.add(self.src.index)
+        if self.head.index() is not None:
+            skip.add(self.head.index())  # 0.20.0: la camera della testa è aperta: non si riapre per cercarla
+        self._search_t0 = time.time()
         laser_port = getattr(self.ctl, "port", None)
         open_net = self.src.index if self.src is not None and is_net(self.src.index) else None
         known = self.net_list()  # QSettings si legge qui, nel thread della finestra
@@ -347,14 +358,19 @@ class CameraPanel(QWidget):
         cams = usb + [c for c in cams if not isinstance(c[0], int)]
         if current == SIM_CAMERA and self.ctl.sim is None:
             current = None
+        head_idx = self.head.index()
         self.combo.blockSignals(True)
         self.combo.clear()
         self.combo.addItem(tr("Nessuna telecamera"), None)
         for idx, label, size, thumb, *_ in cams:
+            if idx == head_idx:
+                continue  # 0.20.0: aperta come camera della testa (la stessa telecamera non si apre due volte)
             if thumb is None:
                 self.combo.addItem(label, idx)
             else:
                 self.combo.addItem(QIcon(QPixmap.fromImage(to_qimage(thumb))), label, idx)
+        if head_idx is not None:
+            self.combo.addItem(tr("Camera {0}", head_idx), head_idx)
         self.combo.addItem(tr("📱 Foto del piano dal telefono"), PHONE_CAMERA)
         if self.ctl.sim is not None:
             self.combo.addItem(tr("Camera simulata (per provare AutoCam)"), SIM_CAMERA)
@@ -379,18 +395,49 @@ class CameraPanel(QWidget):
                 want = real[0]  # una sola camera e nessuna scelta fatta: la scelgo io
             elif self.ctl.sim is not None and not real:
                 want = SIM_CAMERA
+        if want is not None and want == head_idx:
+            want = None
         i = self.combo.findData(want) if want is not None else -1
         self.combo.setCurrentIndex(max(i, 0))
         if i <= 0:
             self.on_select(self.combo.currentIndex())
+        self.head.set_cameras(cams, self.bed_index())
+        self.mark_head_camera()
         n = len(cams)
         if not n and self.ctl.sim is None:
             self.state.setText(tr("Nessuna telecamera trovata. Collegala alla USB e premi ⟳."))
+
+    def mark_head_camera(self):
+        """0.20.0: nell'elenco del piano la camera aperta come camera della testa c'è, ma non si può scegliere."""
+        idx = self.head.index()
+        for i in range(self.combo.count()):
+            item = self.combo.model().item(i)
+            data = self.combo.itemData(i)
+            if item is None or not isinstance(data, int) or data < 0:
+                continue
+            mine = data == idx
+            item.setEnabled(not mine)
+            text = self.combo.itemText(i)
+            tag = "  ·  " + tr("camera della testa")
+            if mine and not text.endswith(tag):
+                self.combo.setItemText(i, text + tag)
+            elif not mine and text.endswith(tag):
+                self.combo.setItemText(i, text[:-len(tag)])
+
+    def bed_index(self):
+        """0.20.0: indice della telecamera USB aperta come camera del piano, o None."""
+        idx = getattr(self.src, "index", None) if self.src is not None else None
+        return idx if isinstance(idx, int) and idx >= 0 else None
 
     def on_select(self, _i):
         idx = self.combo.currentData()
         if self.src is not None and getattr(self.src, "index", None) == idx and idx != SIM_CAMERA:
             return
+        if idx is not None and idx == self.head.index():  # 0.20.0: è la camera della testa
+            self.combo.blockSignals(True)
+            self.combo.setCurrentIndex(0)
+            self.combo.blockSignals(False)
+            idx = None
         self._close_src()
         self.phone_top = self.phone_corners = None
         if idx is None:
@@ -619,6 +666,14 @@ class CameraPanel(QWidget):
             self.state.setStyleSheet(f"color:{C['warn']};")
 
     def tick(self):
+        if self._searching and time.time() - getattr(self, "_search_t0", time.time()) > SEARCH_TIMEOUT:
+            # 0.20.0: la ricerca non ha risposto (una telecamera che non si apre e non dice niente): la scritta
+            # «Cerco le telecamere…» non resta per sempre e ⟳ torna a funzionare
+            self._searching = False
+            self.combo.setEnabled(True)
+            self.state.setText(tr("La ricerca delle telecamere non ha risposto: premi ⟳ per riprovare."))
+            self.state.setStyleSheet(f"color:{C['warn']};")
+        self._watch_devices()
         if self.src is None or not self.isVisible() and not self.chk_live.isChecked():
             return
         self._hint()
@@ -636,6 +691,35 @@ class CameraPanel(QWidget):
             self._show_preview(frame)
         if self.chk_live.isChecked() and self.can_show():
             self._show_on_bed(frame)
+
+    def _watch_devices(self):
+        """0.20.0: una telecamera collegata (o tolta) mentre FreeLaserCut è aperto: si rifà la ricerca da sola. Il
+        conto delle telecamere del sistema si fa in un thread, ogni DEVICES_EVERY secondi, e mai durante un lavoro, una
+        calibrazione o una ricerca."""
+        now = time.time()
+        if now - getattr(self, "_dev_t", 0.0) < DEVICES_EVERY or getattr(self, "_dev_busy", False):
+            return
+        self._dev_t = now
+        n_new = getattr(self, "_dev_n", None)
+        if getattr(self, "_dev_seen", None) is not None and n_new is not None and n_new != self._dev_seen:
+            busy = self._searching or self.autocam is not None or self.ctl.job_active \
+                or self.head.cal is not None or self.head.job is not None
+            if not busy:
+                self._dev_seen = n_new
+                camera_mod.cam_log(f"telecamere del sistema cambiate: ora {n_new}")
+                self.search(manual=True)
+        elif n_new is not None:
+            self._dev_seen = n_new
+        self._dev_busy = True
+
+        def work():
+            try:
+                self._dev_n = camera_mod.device_count()
+            except Exception:  # noqa: BLE001
+                self._dev_n = None
+            self._dev_busy = False
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _show_preview(self, frame):
         view = frame.copy()
@@ -664,6 +748,16 @@ class CameraPanel(QWidget):
         frame = self.src.get(after=time.time(), timeout=2)
         if frame is not None:
             self._show_on_bed(frame)
+
+    def show_mosaic(self, img, ppm=PPM):
+        """0.20.0: la foto del piano fatta a mosaico con la camera della testa va sotto il piano (resta finché non si
+        riaccende la foto dal vivo della camera del piano)."""
+        if self.chk_live.isChecked():
+            self.chk_live.blockSignals(True)
+            self.chk_live.setChecked(False)
+            self.chk_live.blockSignals(False)
+        self.mosaic = img
+        self.win.bed.set_camera_image(to_qimage(img), ppm, self.opacity.value() / 100)
 
     def on_live(self, on):
         if not on:
@@ -869,4 +963,5 @@ class CameraPanel(QWidget):
         if self.autocam is not None:
             self.autocam.cancel()
         self.timer.stop()
+        self.head.shutdown()
         self._close_src()
