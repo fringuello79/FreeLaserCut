@@ -464,10 +464,10 @@ class NodeTool(Tool):
         return self.items[k].subs[si].nodes[ni]
 
     # ---- passo di modifica (un solo Annulla per azione)
-    def _ensure_path(self, ks=None):
+    def _ensure_path(self, ks=None, label=None):
         """Prima modifica: le forme toccate diventano tracciati (in automatico, annullabile)."""
         if not self._txn:
-            self.ed.begin(tr("Modifica nodi"))
+            self.ed.begin(label or tr("Modifica nodi"))
             self._txn = True
         for k in (range(len(self.items)) if ks is None else sorted(set(ks))):
             it = self.items[k]
@@ -798,6 +798,56 @@ class NodeTool(Tool):
         self.cv.status.emit(tr("Nodi uniti") if mode == "merge" else tr("Nodi collegati"))
         return True
 
+    # ---- Allinea e Distribuisci sui nodi selezionati (0.19.6)
+    def arrange_nodes(self, kind, axis=None):
+        """kind: left | right | top | bottom | hcenter | vcenter | center (riferimento: ingombro dei nodi scelti, Y in
+        su come per le forme) oppure "distribute" con axis "h"/"v" (distanze uguali fra il primo e l'ultimo nodo
+        lungo l'asse, che restano fermi). Le maniglie seguono il nodo. -> True se ha fatto qualcosa."""
+        if self._stale():  # forme cambiate da fuori (Annulla, altre finestre): si ricaricano tenendo la scelta
+            self._load(keep=True)
+        refs = list(dict.fromkeys(r for r in self.sel if self._valid(r)))
+        need = 3 if kind == "distribute" else 2
+        if len(refs) < need:
+            self.cv.status.emit(tr("Seleziona almeno tre nodi da distribuire") if need == 3 else
+                                tr("Seleziona almeno due nodi da allineare"))
+            return False
+        pts = [self._node(r).pt() for r in refs]
+        xs, ys = [q[0] for q in pts], [q[1] for q in pts]
+        x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+        target = {}
+        if kind == "distribute":
+            i = 0 if axis == "h" else 1
+            order = sorted(range(len(refs)), key=lambda k: (pts[k][i], pts[k][1 - i]))
+            a, b = pts[order[0]][i], pts[order[-1]][i]
+            step = (b - a) / (len(order) - 1)
+            for n, k in enumerate(order[1:-1], start=1):
+                q = list(pts[k])
+                q[i] = a + step * n
+                target[k] = tuple(q)
+        else:
+            for k, (x, y) in enumerate(pts):
+                nx = {"left": x0, "right": x1, "hcenter": (x0 + x1) / 2, "center": (x0 + x1) / 2}.get(kind, x)
+                ny = {"bottom": y0, "top": y1, "vcenter": (y0 + y1) / 2, "center": (y0 + y1) / 2}.get(kind, y)
+                target[k] = (nx, ny)
+        moves = [(refs[k], q[0] - pts[k][0], q[1] - pts[k][1]) for k, q in target.items()]
+        moves = [m for m in moves if abs(m[1]) > 1e-12 or abs(m[2]) > 1e-12]
+        if not moves:
+            return False
+        keep = [(self.items[k].shape.id, si, ni) for k, si, ni in self.sel]
+        label = tr("Distribuisci nodi") if kind == "distribute" else tr("Allinea nodi")
+
+        def do():
+            for r, dx, dy in moves:
+                self._node(r).move(dx, dy)
+        self._ensure_path([r[0] for r, _, _ in moves], label)
+        do()
+        self._push([r[0] for r, _, _ in moves])
+        self._finish()
+        by_id = {it.shape.id: k for k, it in enumerate(self.items)}  # la scelta dei nodi resta
+        self.sel = [(by_id[i], si, ni) for i, si, ni in keep if i in by_id and self._valid((by_id[i], si, ni))]
+        self.cv.viewport().update()
+        return True
+
     def ask_radius(self):
         """Raggio del raccordo (si ricorda l'ultimo usato). None = annullato."""
         from PySide6.QtWidgets import QInputDialog
@@ -1007,6 +1057,110 @@ class PenTool(Tool):
             p.setBrush(QColor("#FFFFFF" if i else C["success"]))
             p.setPen(_pen(C["accent_lo"], 1))
             p.drawRect(QRectF(v.x() - 3.5, v.y() - 3.5, 7, 7))
+
+
+class FreehandTool(Tool):
+    """Mano libera (0.19.6): premi e trascina; al rilascio il tratto diventa un tracciato levigato (core/simplify),
+    sul livello corrente, con un solo passo di Annulla. Finire vicino al punto di partenza chiude la forma.
+    Il primo punto si aggancia come negli altri strumenti (Alt no); i punti del tratto seguono il mouse."""
+    name = "freehand"
+    label = tr("Mano libera")
+    SMOOTH_PX = 2.5  # levigatura: scarto ammesso, in pixel dello schermo (convertiti in mm con lo zoom)
+    CLOSE_PX = 8  # finire così vicino al punto di partenza chiude la forma
+    MIN_PX = 4  # un tratto più corto è un clic: non disegna niente
+    STEP_PX = 1.0  # distanza minima fra due punti raccolti
+    ANGLE = 60.0  # spigoli vivi sopra questo cambio di direzione
+
+    def __init__(self, cv):
+        super().__init__(cv)
+        self.pts = []
+        self.active = False
+
+    def deactivate(self):
+        self.cancel()
+
+    def cancel(self):
+        self.pts = []
+        self.active = False
+
+    def press(self, e, p):
+        if e.button() == Qt.RightButton:
+            if self.active:  # tasto destro durante il tratto: annullato
+                self.cancel()
+                self.cv.viewport().update()
+            return
+        if e.button() != Qt.LeftButton:
+            return
+        q = self._snap(e, p)
+        self.pts = [(q.x(), q.y())]
+        self.active = True
+
+    def move(self, e, p):
+        if not self.active:
+            self._hover_snap(e, p)
+            self.cv.status.emit(tr("Mano libera: premi e trascina per disegnare · finisci sul punto di partenza per "
+                                   "chiudere · Esc annulla il tratto"))
+            return
+        last = self.pts[-1]
+        if math.hypot(p.x() - last[0], p.y() - last[1]) >= self.cv.px(self.STEP_PX):
+            self.pts.append((p.x(), p.y()))
+
+    def release(self, e, p):
+        if not self.active or e.button() != Qt.LeftButton:
+            return
+        last = self.pts[-1]
+        if math.hypot(p.x() - last[0], p.y() - last[1]) > 1e-9:
+            self.pts.append((p.x(), p.y()))
+        pts = self.pts
+        self.cancel()
+        shape = self.build(pts)
+        self.cv.viewport().update()
+        if shape is None:
+            return
+        self.ed.add([shape], tr("Disegno a mano libera"))
+        self.cv.tool_done()
+
+    def build(self, pts):
+        """Punti del tratto (mm del piano) -> PathShape levigato, o None se il tratto è troppo corto."""
+        from ..core import simplify
+
+        if len(pts) < 2:
+            return None
+        length = sum(math.dist(a, b) for a, b in zip(pts, pts[1:]))
+        if length < self.cv.px(self.MIN_PX):
+            return None
+        close = self.cv.px(self.CLOSE_PX)
+        closed = len(pts) > 3 and math.dist(pts[0], pts[-1]) <= close and length > 3 * close
+        if closed:
+            while len(pts) > 3 and math.dist(pts[0], pts[-1]) < self.cv.px(self.STEP_PX):
+                pts = pts[:-1]  # gli ultimi punti sopra la partenza: la chiusura li sostituisce
+        sp = nodes.SubPath([nodes.Node(x, y) for x, y in pts], closed)
+        new, _ = simplify.simplify_subpath(sp, simplify.clamp_tol(self.cv.px(self.SMOOTH_PX)), self.ANGLE)
+        return PathShape(nodes.to_path([new or sp]), layer=self.ed.current_layer)
+
+    def wants_key(self, e):
+        return e.key() == Qt.Key_Escape
+
+    def key(self, e):
+        if e.key() == Qt.Key_Escape:
+            if self.active:
+                self.cancel()
+                self.cv.viewport().update()
+            else:
+                self.cv.set_tool("select")
+            return True
+        return False
+
+    def draw(self, p, tf):
+        if not self.active or len(self.pts) < 2:
+            return
+        path = QPainterPath()
+        path.moveTo(*self.pts[0])
+        for q in self.pts[1:]:
+            path.lineTo(*q)
+        p.setPen(_pen(C["accent_hi"], 1.4))
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(tf.map(path))
 
 
 # ======================================================================= forme
@@ -1432,5 +1586,5 @@ class PositionTool(Tool):
 
 
 def make_tools(cv):
-    return {t.name: t(cv) for t in (SelectTool, NodeTool, TrimTool, PenTool, RectTool, EllipseTool, PolygonTool, StarTool,
+    return {t.name: t(cv) for t in (SelectTool, NodeTool, TrimTool, PenTool, FreehandTool, RectTool, EllipseTool, PolygonTool, StarTool,
                                      SpecialTool, TextTool, MeasureTool, PositionTool)}

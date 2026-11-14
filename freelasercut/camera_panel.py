@@ -49,6 +49,7 @@ class CameraPanel(QWidget):
         self.phone_top = None  # 0.19.0: la foto dal telefono già raddrizzata sull'area di lavoro
         self.phone_corners = None
         self._plate_dlg = None
+        self.reserved = set()  # 0.19.6: numeri delle camere aperte dalla camera della testa: qui non si toccano
         if os.path.exists(camera_file()):
             try:
                 self.model, self.saved = CameraModel.load(camera_file())
@@ -168,6 +169,11 @@ class CameraPanel(QWidget):
         self.preview.setStyleSheet(css(f"background:#080D18; border:1px solid {C['border']}; border-radius:8px;"))
         kl.addWidget(self.preview)
         lay.addWidget(kc)
+        # 0.19.6: la camera della testa, indipendente da questa
+        from .ui.headcam_panel import HeadCamPanel
+
+        self.head = HeadCamPanel(self)
+        lay.addWidget(self.head)
         lay.addStretch(1)
 
         self._found.connect(self.on_found)
@@ -230,10 +236,12 @@ class CameraPanel(QWidget):
             self._close_src()
             self.update_state()
             self.state.setText(tr("Telecamera spenta (scelta tua). Per usarne una premi ⟳ e sceglila."))
+            if self.head.wanted_index() is not None or self.ctl.sim is not None:
+                self.head.search()  # 0.19.6: la camera della testa si cerca lo stesso
             return
         self._searching = True
         self.state.setText(tr("Cerco le telecamere…"))
-        skip = set()
+        skip = set(self.reserved)  # 0.19.6: la camera della testa aperta non si riapre da qui
         if self.src is not None and isinstance(self.src.index, int) and self.src.index != SIM_CAMERA:
             if manual and getattr(self.src, "black", False):
                 camera_mod.LAST_PROBE.pop(self.src.index, None)
@@ -345,6 +353,12 @@ class CameraPanel(QWidget):
                 cams = cams + [(self.src.index, tr("Rete  ·  {0}", self.src.index), None, None)]
         usb = sorted([c for c in cams if isinstance(c[0], int)], key=lambda c: c[0])
         cams = usb + [c for c in cams if not isinstance(c[0], int)]
+        all_cams = list(cams)
+        # 0.19.6: la camera scelta per la testa (per nome) non compare qui, salvo che sia già la camera del piano
+        head_idx = self.head.wanted_index()
+        plate_now = self.src.index if self.src is not None else None
+        hide = set(self.reserved) | ({head_idx} if head_idx is not None and head_idx != plate_now else set())
+        cams = [c for c in cams if c[0] not in hide]
         if current == SIM_CAMERA and self.ctl.sim is None:
             current = None
         self.combo.blockSignals(True)
@@ -386,6 +400,7 @@ class CameraPanel(QWidget):
         n = len(cams)
         if not n and self.ctl.sim is None:
             self.state.setText(tr("Nessuna telecamera trovata. Collegala alla USB e premi ⟳."))
+        self.head.set_cameras(all_cams, self.combo.currentData())
 
     def on_select(self, _i):
         idx = self.combo.currentData()
@@ -866,6 +881,7 @@ class CameraPanel(QWidget):
         self.update_state()
 
     def shutdown(self):
+        self.head.shutdown()
         if self.autocam is not None:
             self.autocam.cancel()
         self.timer.stop()

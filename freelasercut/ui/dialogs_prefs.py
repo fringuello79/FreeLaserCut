@@ -93,6 +93,7 @@ class PreferencesDialog(QDialog):
             self._mirror("job", getattr(lp, name, None))
         for name in ("a_frame_laser", "a_frame_repeat"):
             self._check("job", getattr(lp, name, None))
+        self._check("job", a.get("gcode_crlf"))
 
         self._section("ui", tr("Interfaccia"))
         self._radios("ui", tr("Interfaccia"), list(getattr(w, "ui_actions", {}).values()))
@@ -108,11 +109,37 @@ class PreferencesDialog(QDialog):
         for k in ("light_bed", "grid", "snap_obj", "snap_grid", "dither_prev"):
             self._check("ui", a.get(k))
         self._button("ui", a.get("admin_code"))
+        self._arrow_step("ui")
 
         self._section("updates", tr("Aggiornamenti"))
         for k in ("update_auto", "update_preview"):
             self._check("updates", a.get(k))
         self._button("updates", a.get("updates"))
+
+    def _arrow_step(self, key):
+        """0.19.6: passo delle freccette nei campi della barra numerica (X, Y, L, A, R, rotazione)."""
+        from PySide6.QtWidgets import QDoubleSpinBox, QHBoxLayout, QLabel, QWidget
+
+        qs = getattr(self.win, "qs", None)
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        text = tr("Passo delle freccette nei campi X, Y, L, A, R e rotazione")
+        h.addWidget(QLabel(text), 1)
+        box = QDoubleSpinBox()
+        box.setRange(0.01, 10.0)
+        box.setDecimals(2)
+        box.setSingleStep(0.1)
+        try:
+            box.setValue(float(qs.value("num_arrow_step", 0.1)) if qs is not None else 0.1)
+        except (TypeError, ValueError):
+            box.setValue(0.1)
+        if qs is not None:
+            box.valueChanged.connect(lambda v: (qs.setValue("num_arrow_step", v), qs.sync()))
+        h.addWidget(box)
+        self.arrow_step_box = box
+        self._add(key, row, text, tr("Un clic su una freccetta cambia il valore di tanto (mm o gradi); con Maiusc "
+                                     "dieci volte tanto. Tastiera e rotella restano come prima."))
 
     # ------------------------------------------------------------------ mattoni
     def _section(self, key, title):

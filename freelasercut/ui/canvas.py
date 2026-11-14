@@ -231,6 +231,27 @@ class HeadItem(QGraphicsItem):
 ANCHOR = "#FF3DB4"  # punto di partenza del lavoro: colore diverso dalla testa (che si muove con il laser)
 
 
+class CamCrossItem(QGraphicsItem):
+    """0.19.6: dove guarda il mirino della camera della testa (quadratino rosso con la croce)."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+        self.setZValue(999)
+
+    def boundingRect(self):
+        return QRectF(-14, -14, 28, 28)
+
+    def paint(self, p, option, widget=None):
+        p.setRenderHint(QPainter.Antialiasing)
+        color = QColor("#FF3B30")
+        p.setPen(QPen(color, 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawRect(QRectF(-6, -6, 12, 12))
+        for a, b in (((-12, 0), (-3, 0)), ((3, 0), (12, 0)), ((0, -12), (0, -3)), ((0, 3), (0, 12))):
+            p.drawLine(QPointF(*a), QPointF(*b))
+
+
 class AnchorItem(QGraphicsItem):
     """Punto di partenza del lavoro: il punto scelto con i 9 pallini, nel posto in cui finirà sul piano.
     Rombo magenta con la scritta, per non confonderlo con la testa del laser (cerchio con il mirino)."""
@@ -327,7 +348,7 @@ class Canvas(QGraphicsView):
     edit_text = Signal(object)
     tool_changed = Signal(str)
     tool_lock_changed = Signal(str)  # 0.19.0: nome dello strumento bloccato, "" quando si sblocca
-    LOCKABLE = ("line", "rect", "ellipse", "polygon", "star", "special")  # gli strumenti che disegnano forme e linee
+    LOCKABLE = ("line", "freehand", "rect", "ellipse", "polygon", "star", "special")  # gli strumenti che disegnano forme e linee
     status = Signal(str)
     zoom_changed = Signal(float)
     context_requested = Signal(object, object)  # tasto destro senza trascinare: punto nella vista, punto sullo schermo
@@ -375,6 +396,9 @@ class Canvas(QGraphicsView):
         self._head = HeadItem()
         self.scene().addItem(self._head)
         self._head.setVisible(False)
+        self._cam_cross = CamCrossItem()  # 0.19.6: mirino della camera della testa
+        self.scene().addItem(self._cam_cross)
+        self._cam_cross.setVisible(False)
         self._anchor = AnchorItem()
         self.scene().addItem(self._anchor)
         self._anchor.setVisible(False)
@@ -552,6 +576,20 @@ class Canvas(QGraphicsView):
         h, v = self.horizontalScrollBar(), self.verticalScrollBar()
         h.setValue(int(h.value() - dx))
         v.setValue(int(v.value() - dy))
+
+    def view_state(self):
+        """0.19.6: zoom e posizione della vista (per ricordarli piano per piano)."""
+        return (QTransform(self.transform()), self.horizontalScrollBar().value(), self.verticalScrollBar().value(),
+                self._user_zoomed)
+
+    def set_view_state(self, st):
+        tf, h, v, user = st
+        self.setTransform(tf)
+        self.horizontalScrollBar().setValue(h)
+        self.verticalScrollBar().setValue(v)
+        self._user_zoomed = user
+        self.zoom_changed.emit(self.scale_px())
+        self.viewport().update()
 
     def fit_bed(self):
         self._user_zoomed = False
@@ -1146,6 +1184,20 @@ class Canvas(QGraphicsView):
         else:
             self._last_burn = None
         self._head.setPos(new)
+
+    def set_cam_cross(self, x, y):
+        """0.19.6: il punto del piano sotto il mirino della camera della testa (None = nascosto)."""
+        if x is None:
+            self._cam_cross.setVisible(False)
+            return
+        self._cam_cross.setPos(QPointF(x, -y))
+        self._cam_cross.setVisible(True)
+
+    def cam_cross_pos(self):
+        if not self._cam_cross.isVisible():
+            return None
+        p = self._cam_cross.pos()
+        return QPointF(p.x(), -p.y())
 
     def set_anchor_marker(self, x, y, label=""):
         """Mostra il punto di partenza del lavoro (None = nascosto)."""

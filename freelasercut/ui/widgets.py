@@ -5,8 +5,8 @@ import math
 import operator
 import re
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QSizePolicy, QToolButton, QVBoxLayout, QWidget
 
 from ..theme import C
@@ -127,6 +127,106 @@ class NumField(QLineEdit):
         self._value = self._clamp(self._value + k)
         self._show()
         self.committed.emit(self._value)
+
+    # ---------------------------------------------------------------- 0.19.6: freccette dentro il campo
+    ARROW_W = 9  # larghezza della zona delle freccette (px), dentro il bordo destro
+    ARROW_STEP = 0.1  # passo di partenza di un clic; Maiusc = ×10 (la tastiera e la rotella non cambiano)
+
+    def enable_arrows(self, step_fn=None):
+        """Due triangolini discreti dentro il bordo destro: clic = ±passo, tenendo premuto ripete, Maiusc = ×10.
+        step_fn() dà il passo (dalle Preferenze); il testo non finisce sotto le freccette."""
+        self._arrows = True
+        self._arrow_step_fn = step_fn
+        self._hover = 0
+        self._rep_dir = 0
+        self._rep = QTimer(self)
+        self._rep.timeout.connect(self._repeat)
+        self.setTextMargins(0, 0, self.ARROW_W + 1, 0)
+        self.setMouseTracking(True)
+
+    def arrow_step(self):
+        fn = getattr(self, "_arrow_step_fn", None)
+        try:
+            v = float(fn()) if fn is not None else self.ARROW_STEP
+        except (TypeError, ValueError):
+            v = self.ARROW_STEP
+        return v if 0 < v <= 1000 else self.ARROW_STEP
+
+    def _arrow_at(self, pos):
+        """+1 sulla freccetta su, −1 su quella giù, 0 fuori."""
+        if not getattr(self, "_arrows", False) or pos.x() < self.width() - self.ARROW_W - 2:
+            return 0
+        return 1 if pos.y() < self.height() / 2 else -1
+
+    def nudge(self, direction, big=False):
+        """Un clic su una freccetta (direction +1/−1): il valore cambia del passo (×10 con Maiusc) e si applica."""
+        if self.hasFocus():
+            self._commit()  # un numero scritto e non ancora confermato vale come punto di partenza
+        k = self.arrow_step() * (10 if big else 1)
+        self._value = self._clamp(round(self._value + direction * k, 9))
+        self._show()
+        self.committed.emit(self._value)
+
+    def _repeat(self):
+        if self._rep_dir:
+            self._rep.setInterval(70)
+            self.nudge(self._rep_dir, self._rep_big)
+
+    def mousePressEvent(self, e):
+        d = self._arrow_at(e.position()) if e.button() == Qt.LeftButton else 0
+        if d:
+            self._rep_dir, self._rep_big = d, bool(e.modifiers() & Qt.ShiftModifier)
+            self.nudge(d, self._rep_big)
+            self._rep.start(400)
+            e.accept()
+            return
+        super().mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        if getattr(self, "_rep_dir", 0):
+            self._rep_dir = 0
+            self._rep.stop()
+            e.accept()
+            return
+        super().mouseReleaseEvent(e)
+
+    def mouseMoveEvent(self, e):
+        if getattr(self, "_arrows", False):
+            h = self._arrow_at(e.position())
+            if h != self._hover:
+                self._hover = h
+                self.setCursor(Qt.ArrowCursor if h else Qt.IBeamCursor)
+                self.update()
+        super().mouseMoveEvent(e)
+
+    def leaveEvent(self, e):
+        if getattr(self, "_arrows", False) and self._hover:
+            self._hover = 0
+            self.update()
+        super().leaveEvent(e)
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        if not getattr(self, "_arrows", False):
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        cx = self.width() - 2 - self.ARROW_W / 2.0
+        h = self.height()
+        for d, cy in ((1, h * 0.30), (-1, h * 0.70)):
+            col = QColor(C["accent_hi"] if self._hover == d else C["muted"])
+            path = QPainterPath()
+            if d > 0:
+                path.moveTo(cx - 3, cy + 1.5)
+                path.lineTo(cx + 3, cy + 1.5)
+                path.lineTo(cx, cy - 1.5)
+            else:
+                path.moveTo(cx - 3, cy - 1.5)
+                path.lineTo(cx + 3, cy - 1.5)
+                path.lineTo(cx, cy + 1.5)
+            path.closeSubpath()
+            p.fillPath(path, col)
+        p.end()
 
 
 class AnchorPicker(QWidget):

@@ -499,6 +499,12 @@ if __name__ == "__main__":
     run_suite("test_v195_movimento.py", "Puntino, Lucciola e joystick nell'interfaccia Banco", "banco")
     run_suite("test_v195_varie.py", "Nesting manuale che sporge dai pannelli, elenco delle scorciatoie, Sculpfun E1 dalla scheda e tabella Sculpfun, Riconosci → Applica che tiene angolo e assi")
     run_suite("test_v195_varie.py", "Nesting manuale e scorciatoie nell'interfaccia Banco", "banco")
+    run_suite("test_v196_tracciati.py", "Tracciati puliti: Semplifica tracciati con lo scarto misurato, disegno a mano libera, Allinea e Distribuisci sui nodi")
+    run_suite("test_v196_tracciati.py", "Semplifica tracciati, mano libera e nodi nell'interfaccia Banco", "banco")
+    run_suite("test_v196_camera.py", "Telecamera sulla testa: calibrazione automatica col segno inciso, mirino, porta laser e mirino, tavola da 2 angoli")
+    run_suite("test_v196_camera.py", "Telecamera sulla testa nell'interfaccia Banco", "banco")
+    run_suite("test_v196_varie.py", "DXF con valori vuoti, freccette nei campi della barra, vista di ogni piano, G-code CRLF")
+    run_suite("test_v196_varie.py", "Freccette nei campi, vista dei piani e CRLF nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

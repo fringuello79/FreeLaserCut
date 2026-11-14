@@ -123,6 +123,11 @@ class MachineProfile:
     af_feed: float = 200.0  # velocità di ricerca (mm/min)
     af_slow: float = 40.0  # secondo tocco, lento e preciso (mm/min)
     af_toward_minus: bool = True  # verso il materiale = Z− (normale); False per le macchine al contrario
+    # 0.19.6: telecamera sulla testa (core/headcam.py): nome del dispositivo (il numero può cambiare ricollegandola),
+    # numero di riserva, calibrazione {A, offset, size, resid, when} in coordinate macchina. Vuoti = nessuna.
+    head_cam_name: str = ""
+    head_cam_index: int = -1
+    head_cam_cal: dict = field(default_factory=dict)
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):
