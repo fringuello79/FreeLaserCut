@@ -492,7 +492,7 @@ check("durante un lavoro i comandi della camera della testa non muovono la testa
       (r_, hc.head_on_bed(w.ctl, w.profile), hb, msg_))
 keys = w.context_menu_keys(w.canvas.to_view(QPointF(250, 150)))
 check("menu del tasto destro (Classica): «Porta il laser qui» e «Porta la camera della testa qui»",
-      "head_laser_here" in keys and "head_camera_here" in keys, keys)
+      "laser_here" in keys and "head_camera_here" in keys and "head_laser_here" not in keys, keys)
 w.canvas.cursor_bed = QPointF(250, 150)
 w.head_here("camera")
 check("…«Porta la camera della testa qui» dal menu", at(mdl.head_for_camera((250, 150))))
@@ -593,7 +593,7 @@ w.ctl.disconnect_port()
 spin(0.5)
 keys = w.context_menu_keys(w.canvas.to_view(QPointF(250, 150)))
 check("macchina scollegata: nel menu del tasto destro niente voci della camera della testa",
-      "head_laser_here" not in keys and "head_camera_here" not in keys, keys)
+      "laser_here" not in keys and "head_camera_here" not in keys, keys)
 
 # ================================================================== 9. traduzioni
 import ast  # noqa: E402

@@ -140,8 +140,8 @@ items = bar_items()
 names = [next((k for k, v in w.tool_actions.items() if v is act), None) or
          ("makerhub_site" if act is a["makerhub_site"] else "btn_tools" if wd is btn else "?") for act, wd in items]
 check("M3 barra di sinistra, dall'alto: gli attrezzi di prima, poi Misura, Posiziona laser, Strumenti, MakerHub",
-      names == ["select", "nodes", "trim", "line", "rect", "ellipse", "polygon", "star", "special", "text", "measure",
-                "position", "btn_tools", "makerhub_site"], names)
+      names == ["select", "nodes", "trim", "line", "freehand", "rect", "ellipse", "polygon", "star", "special", "text",
+                "measure", "position", "btn_tools", "makerhub_site"], names)  # 0.19.6: Mano libera dopo Linee e curve
 if UI == "classica":
     geo = {n: wd.geometry() for n, (act, wd) in zip(names, items)}
     step = geo["position"].top() - geo["measure"].top()

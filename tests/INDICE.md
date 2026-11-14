@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 151. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 155. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -71,7 +71,7 @@ Suite: 151. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v176.py`: Pennelli precisi dello Schizzo del soggetto, velo rosso; il simulatore non tocca il profilo
 - `test_v190_mezzetinte.py`: Mezzetinte: dimensione del punto e misure collegate
 
-## Lavoro e G-code (18)
+## Lavoro e G-code (19)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -91,6 +91,7 @@ Suite: 151. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v185_aria.py`: Comando dell'air assist a scelta: M8, M7 o nessuno
 - `test_v185_aria.py` (Banco): Comando dell'air assist nell'interfaccia Banco
 - `test_v192_g55.py`: Scheda che su G55 tace o risponde con un errore, in verifica e nel lavoro: lavoro fermato e rifatto senza
+- `test_v196_varie.py`: DXF con valori vuoti, freccette nei campi della barra, vista di ogni piano, G-code CRLF
 
 ## Macchina, connessione e profili (37)
 
@@ -132,7 +133,7 @@ Suite: 151. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_movimento.py`: Scheda Movimento: Puntino e Lucciola al centro delle frecce, joystick virtuale sul simulatore
 - `test_v195_movimento.py` (Banco): Puntino, Lucciola e joystick nell'interfaccia Banco
 
-## Disegno e modifica (17)
+## Disegno e modifica (19)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -151,8 +152,10 @@ Suite: 151. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_analisi.py` (Banco): Banco sugli schermi piccoli, avvio fermo al suo posto, barra della selezione, ricerca e Preferenze
 - `test_v195_nodi.py`: Strumento Nodi: più nodi selezionati insieme, nodi di più forme, unione di due nodi (J fonde, Maiusc+J collega)
 - `test_v195_nodi.py` (Banco): Strumento Nodi con più nodi e unione nell'interfaccia Banco
+- `test_v196_tracciati.py`: Tracciati puliti: Semplifica tracciati con lo scarto misurato, disegno a mano libera, Allinea e Distribuisci sui nodi
+- `test_v196_tracciati.py` (Banco): Semplifica tracciati, mano libera e nodi nell'interfaccia Banco
 
-## Interfaccia (17)
+## Interfaccia (18)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -171,6 +174,7 @@ Suite: 151. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_analisi.py` (chiaro): Tema chiaro: testi leggibili sulle righe selezionate
 - `test_v193_avvio.py`: Avvio robusto: Windows troppo vecchio detto chiaro, icona giusta sulla barra di Windows
 - `test_v193_cerca.py` (Banco): Ricerca comandi nell'interfaccia Banco: resta la finestrella
+- `test_v196_varie.py` (Banco): Freccette nei campi, vista dei piani e CRLF nell'interfaccia Banco
 
 ## Avvio, installazione, aggiornamenti e assistenza (9)
 

@@ -602,6 +602,40 @@ class Editor(QObject):
         self.select([s for s in self.selection if s not in dup])
         self.message.emit(f"Eliminati {len(dup)} duplicati")
 
+    # ================================================================ semplifica tracciati (0.19.6)
+    def apply_simplified(self, changes):
+        """[(foglia, percorso locale)] dal piano di core/simplify -> nel documento. Senza cronologia: va dentro un
+        passo (run, oppure begin/commit della finestra con l'anteprima). I gruppi ricalcolano il loro disegno."""
+        for leaf, path in changes:
+            leaf.set_path(path)
+
+        def walk(s):
+            if isinstance(s, GroupShape):
+                for c in s.children:
+                    walk(c)
+                s.invalidate()
+        for s in self.doc.shapes:
+            walk(s)
+
+    def simplify(self, tol, angle, lines_only=False):
+        """Semplifica i tracciati selezionati in un passo (senza finestra). -> Stats, o None se non c'è un tracciato."""
+        from ..core import simplify
+
+        items, skipped = simplify.targets(self.editable())
+        if not items:
+            self.message.emit(tr("Seleziona dei tracciati da semplificare (rettangoli e testi: prima Converti in "
+                                 "tracciato)"))
+            return None
+        changes, st = simplify.plan(items, tol, angle, lines_only)
+        st.skipped = skipped
+        if not changes:
+            self.message.emit(tr("Niente da semplificare entro {0:g} mm", simplify.clamp_tol(tol)))
+            return st
+        self.run(tr("Semplifica tracciati"), self.apply_simplified, changes)
+        self.message.emit(tr("Semplificati {0} tracciati: nodi da {1} a {2}", st.shapes, st.nodes_before,
+                             st.nodes_after))
+        return st
+
     def trim_shape(self, shape, subs):
         """Forbici (0.17.16): la forma diventa il tracciato rimasto (stesso id e livello), o sparisce se non resta niente.
         0.17.17: il resto si aggancia alle forme dello stesso livello che tocca con gli estremi (core/trim.connect): una

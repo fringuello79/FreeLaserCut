@@ -354,7 +354,7 @@ class Canvas(QGraphicsView):
     edit_text = Signal(object)
     tool_changed = Signal(str)
     tool_lock_changed = Signal(str)  # 0.19.0: nome dello strumento bloccato, "" quando si sblocca
-    LOCKABLE = ("line", "rect", "ellipse", "polygon", "star", "special")  # gli strumenti che disegnano forme e linee
+    LOCKABLE = ("line", "freehand", "rect", "ellipse", "polygon", "star", "special")  # gli strumenti che disegnano forme e linee
     status = Signal(str)
     zoom_changed = Signal(float)
     context_requested = Signal(object, object)  # tasto destro senza trascinare: punto nella vista, punto sullo schermo
@@ -590,6 +590,20 @@ class Canvas(QGraphicsView):
         h, v = self.horizontalScrollBar(), self.verticalScrollBar()
         h.setValue(int(h.value() - dx))
         v.setValue(int(v.value() - dy))
+
+    def view_state(self):
+        """0.19.6: zoom e posizione della vista (per ricordarli piano per piano)."""
+        return (QTransform(self.transform()), self.horizontalScrollBar().value(), self.verticalScrollBar().value(),
+                self._user_zoomed)
+
+    def set_view_state(self, st):
+        tf, h, v, user = st
+        self.setTransform(tf)
+        self.horizontalScrollBar().setValue(h)
+        self.verticalScrollBar().setValue(v)
+        self._user_zoomed = user
+        self.zoom_changed.emit(self.scale_px())
+        self.viewport().update()
 
     def fit_bed(self):
         self._user_zoomed = False

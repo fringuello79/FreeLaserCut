@@ -18,6 +18,7 @@ def sections():
     return [
         (tr("Strumenti"), [
             ("V", tr("Selezione"), None), ("N", tr("Modifica nodi"), None), ("L", tr("Linee e curve"), None),
+            ("H", tr("Mano libera"), None),
             ("R", tr("Rettangolo"), None), ("E", tr("Ellisse"), None), ("P", tr("Poligono"), None),
             ("S", tr("Stella"), None), ("F", tr("Galleria forme"), None), ("T", tr("Testo"), None),
             ("M", tr("Misura"), None), ("Q", tr("Posiziona laser"), None),
@@ -62,6 +63,7 @@ def sections():
             ("J", tr("Unisce due estremi selezionati in un punto solo, a metà strada"), None),
             (sh + "+J", tr("Collega due estremi selezionati con un tratto dritto"), None),
             ("Esc", tr("Toglie la selezione dei nodi (di nuovo: torna a Selezione)"), None),
+            (tr("Disponi → Allinea / Distribuisci"), tr("Con dei nodi scelti, agiscono sui nodi"), None),
             (tr("Trascina un segmento dritto"), tr("Lo curva"), None),
             (tr("Rilascia un estremo su un altro"), tr("Li unisce"), None),
         ]),
@@ -69,7 +71,8 @@ def sections():
             ("Ctrl+Z", tr("Annulla"), "undo"), ("Ctrl+Y", tr("Ripeti"), "redo"),
             ("Ctrl+D", tr("Duplica"), "duplicate"), ("Ctrl+G", tr("Raggruppa"), "group"),
             ("Ctrl+U", tr("Separa"), "ungroup"), ("Ctrl+W", tr("Salda"), "weld"),
-            ("Alt+O", tr("Offset"), "offset"), ("Alt+A", tr("Serie a griglia"), "grid_array"),
+            ("Alt+O", tr("Offset"), "offset"), ("Ctrl+Alt+S", tr("Semplifica tracciati"), "simplify"),
+            ("Alt+A", tr("Serie a griglia"), "grid_array"),
             ("Alt+B", tr("Scomponi"), "break"), ("Alt+J", tr("Unisci estremi"), "join"),
             (". ,", tr("Ruota di 90°"), None), ("Alt+T", tr("Vettorizza l'immagine selezionata"), "trace"),
         ]),

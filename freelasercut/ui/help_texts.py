@@ -27,6 +27,10 @@ DITHER_HELP = [
     (tr("Mezzetinte (retino)"), tr("punti che crescono con lo scuro, effetto giornale")),
 ]
 
+_NODES = tr("Con lo strumento Nodi e dei nodi scelti vale per i nodi (servono almeno due).")
+_NODES_D = tr("Con lo strumento Nodi e almeno tre nodi scelti: distanze uguali fra il primo e l'ultimo, che restano "
+              "fermi.")
+
 HELP = {
     # ------------------------------------------------------------------ file
     "new": (tr("Nuovo progetto"), tr("Chiude il progetto aperto (chiede se salvarlo) e ne apre uno vuoto."), None),
@@ -84,6 +88,20 @@ HELP = {
     "break": (tr("Scomponi"), tr("Divide un tracciato nelle sue parti separate."), None),
     "reverse": (tr("Inverti direzione di taglio"), tr("Il laser percorrerà la forma nel verso opposto."), None),
     "duplicates": (tr("Elimina duplicati"), tr("Cancella le forme identiche sovrapposte, che il laser brucerebbe due volte."), None),
+    "laser_here": (tr("Porta il laser qui"), tr("Tasto destro sul piano, con la macchina connessa: la testa va nel punto "
+                   "dove hai fatto clic, a laser spento."), None),
+    "gcode_crlf": (tr("G-code con il fine riga di Windows"), tr("Il file salvato con «Salva G-code» usa il fine riga di "
+                   "Windows (CR LF) invece di quello di sempre. Serve solo con le schede e i programmi che lo chiedono."),
+                   None),
+    "simplify": (tr("Semplifica tracciati"), tr("Ricostruisce i tracciati scelti con meno nodi: curve lisce e tratti "
+                 "dritti che non si scostano dall'originale più della tolleranza. Utile dopo Vettorizza e sui DXF con "
+                 "migliaia di segmenti. Linee aperte e chiuse restano tali, gli estremi e il punto di partenza non si "
+                 "spostano, un tracciato che non migliora resta com'era. Anche dentro i gruppi; rettangoli e testi "
+                 "restano come sono (prima Converti in tracciato). L'anteprima mostra nodi e tratti di G-code prima e "
+                 "dopo; un solo Annulla."),
+                 [(tr("Tolleranza"), tr("quanto il risultato può scostarsi dall'originale, da 0,01 a 5 mm")),
+                  (tr("Spigoli vivi sopra"), tr("dove la direzione cambia più di questo angolo resta un angolo")),
+                  (tr("Solo tratti dritti"), tr("niente curve: il file per la macchina diventa più corto"))]),
     "offset": (tr("Offset forme"), tr("Crea un contorno parallelo a distanza fissa."),
                [(tr("Fuori / Dentro / Entrambi"), tr("da che lato nasce il nuovo contorno")),
                 ("Angoli vivi, tondi o smussati", tr("come vengono raccordati gli spigoli"))]),
@@ -101,17 +119,24 @@ HELP = {
     "flip_v": (tr("Rifletti verticalmente"), tr("Specchia la selezione sopra-sotto."), None),
     "rot_cw": ("Ruota 90° orario", tr("Ruota la selezione di 90° in senso orario."), None),
     "rot_ccw": ("Ruota 90° antiorario", tr("Ruota la selezione di 90° in senso antiorario."), None),
-    "align_left": (tr("Allinea a sinistra"), tr("Allinea i bordi sinistri all'ultima forma selezionata (o a quella bloccata)."), None),
-    "align_right": (tr("Allinea a destra"), tr("Allinea i bordi destri all'ultima forma selezionata."), None),
-    "align_top": (tr("Allinea in alto"), tr("Allinea i bordi superiori all'ultima forma selezionata."), None),
-    "align_bottom": (tr("Allinea in basso"), tr("Allinea i bordi inferiori all'ultima forma selezionata."), None),
-    "align_hcenter": (tr("Centra in orizzontale"), tr("Allinea i centri sulla stessa verticale."), None),
-    "align_vcenter": (tr("Centra in verticale"), tr("Allinea i centri sulla stessa orizzontale."), None),
-    "align_center": (tr("Centra i centri"), tr("Sovrappone i centri delle forme selezionate."), None),
-    "dist_h": (tr("Distribuisci in orizzontale"), tr("Spazi uguali fra le forme, da sinistra a destra."), None),
-    "dist_v": (tr("Distribuisci in verticale"), tr("Spazi uguali fra le forme, dal basso in alto."), None),
-    "dist_hc": (tr("Distribuisci centri orizzontali"), tr("Centri a distanza uguale in orizzontale."), None),
-    "dist_vc": (tr("Distribuisci centri verticali"), tr("Centri a distanza uguale in verticale."), None),
+    "align_left": (tr("Allinea a sinistra"), tr("Porta i bordi sinistri sul bordo più a sinistra della selezione (o su "
+                   "quello della forma bloccata).") + " " + _NODES, None),
+    "align_right": (tr("Allinea a destra"), tr("Porta i bordi destri sul bordo più a destra della selezione.") + " " +
+                    _NODES, None),
+    "align_top": (tr("Allinea in alto"), tr("Porta i bordi superiori sul bordo più alto della selezione.") + " " + _NODES,
+                  None),
+    "align_bottom": (tr("Allinea in basso"), tr("Porta i bordi inferiori sul bordo più basso della selezione.") + " " +
+                     _NODES, None),
+    "align_hcenter": (tr("Centra in orizzontale"), tr("Allinea i centri sulla stessa verticale.") + " " + _NODES, None),
+    "align_vcenter": (tr("Centra in verticale"), tr("Allinea i centri sulla stessa orizzontale.") + " " + _NODES, None),
+    "align_center": (tr("Centra i centri"), tr("Sovrappone i centri delle forme selezionate.") + " " + _NODES, None),
+    "dist_h": (tr("Distribuisci in orizzontale"), tr("Spazi uguali fra le forme, da sinistra a destra.") + " " + _NODES_D,
+               None),
+    "dist_v": (tr("Distribuisci in verticale"), tr("Spazi uguali fra le forme, dal basso in alto.") + " " + _NODES_D,
+               None),
+    "dist_hc": (tr("Distribuisci centri orizzontali"), tr("Centri a distanza uguale in orizzontale.") + " " + _NODES_D,
+                None),
+    "dist_vc": (tr("Distribuisci centri verticali"), tr("Centri a distanza uguale in verticale.") + " " + _NODES_D, None),
     "same_w": (tr("Stessa larghezza"), tr("Dà a tutte la larghezza dell'ultima forma selezionata."), None),
     "same_h": (tr("Stessa altezza"), tr("Dà a tutte l'altezza dell'ultima forma selezionata."), None),
     "distance": (tr("Distanza esatta"), tr(
@@ -370,7 +395,8 @@ HELP = {
                     ("L", tr("raddrizza")), ("M", tr("nodo nel punto medio")), ("A", tr("arrotonda lo spigolo (raccordo)")),
                     ("J", tr("unisce due estremi selezionati in un punto solo, a metà strada")),
                     (tr("Maiusc+J"), tr("collega due estremi selezionati con un tratto dritto")),
-                    (tr("Ctrl+clic su un'altra forma"), tr("la aggiunge: si possono collegare due tracciati"))]),
+                    (tr("Ctrl+clic su un'altra forma"), tr("la aggiunge: si possono collegare due tracciati")),
+                    (tr("Disponi → Allinea / Distribuisci"), tr("con dei nodi scelti, agiscono sui nodi"))]),
     "node_join": (tr("Unisci nodi"), tr("Con lo strumento Nodi e due estremi di linee aperte selezionati: li fonde in un "
                   "punto solo a metà strada (tasto J). Se sono i due estremi della stessa linea, la chiude; se sono di due "
                   "forme, diventano una forma sola sul livello del primo nodo selezionato."), None),
@@ -383,6 +409,10 @@ HELP = {
                   [(tr("Maiusc"), tr("si ferma anche agli angoli")), (tr("Gruppi"), tr("prima Disponi → Separa"))]),
     "tool:line": (tr("Linee e curve (L)"), tr("Ogni clic aggiunge un nodo; clic e trascina crea una curva. Clic sul primo "
                   "nodo per chiudere, tasto destro o Esc per finire."), None),
+    "tool:freehand": (tr("Mano libera (H)"), tr("Premi e trascina: il tratto segue il mouse (o la penna) e al rilascio "
+                      "diventa un tracciato levigato sul livello corrente. Finisci sul punto di partenza per chiudere la "
+                      "forma. Esc o tasto destro durante il tratto lo annullano. Doppio clic sull'icona: lo strumento "
+                      "resta attivo per più tratti."), None),
     "tool:rect": (tr("Rettangolo (R)"), tr("Trascina per disegnare. Maiusc = quadrato, Ctrl = dal centro. Raggio degli angoli "
                   "nelle Proprietà."), None),
     "tool:ellipse": (tr("Ellisse e cerchio (E)"), tr("Maiusc = cerchio, Ctrl = dal centro."), None),

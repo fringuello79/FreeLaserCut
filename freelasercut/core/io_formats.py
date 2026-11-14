@@ -138,12 +138,91 @@ def _svgpath_to_qpath(p, k):
 _DXF_UNITS = {0: 1.0, 1: 25.4, 2: 304.8, 4: 1.0, 5: 10.0, 6: 1000.0, 8: 0.0000254, 9: 0.0254, 10: 914.4}
 
 
-def import_dxf(path, doc):
+# 0.19.6: DXF scritti male da alcuni programmi, con valori numerici vuoti (es. «62» = colore senza numero: visto in
+# un file vero, «Invalid tag (code=62, value="")»). ezdxf li rifiuta, anche nel suo modo «recupera». Prima di leggere
+# si sistemano i valori numerici vuoti (clean_dxf_bytes); un DXF sano non viene toccato.
+LAST_NOTE = ""  # avviso dell'ultima importazione (lo mostra la finestra), vuoto se non c'è niente da dire
+
+
+def _dxf_numeric_code(c):
+    return (10 <= c <= 59 or 60 <= c <= 99 or 110 <= c <= 149 or 160 <= c <= 179 or 210 <= c <= 239
+            or 270 <= c <= 289 or 370 <= c <= 389 or 400 <= c <= 409 or 420 <= c <= 429 or 440 <= c <= 459
+            or 460 <= c <= 469 or 1010 <= c <= 1071)
+
+
+def clean_dxf_bytes(data, zero_everywhere=False):
+    """Valori numerici vuoti. Nell'intestazione (HEADER) ogni variabile deve avere il suo valore: lì il vuoto diventa
+    0; altrove la coppia si toglie (l'attributo prende il valore di partenza), oppure diventa 0 anche lì con
+    zero_everywhere. -> (byte puliti, quanti valori vuoti)."""
+    lines = data.splitlines(keepends=True)
+    out, fixed, i = [], 0, 0
+    in_header, after_section = False, False
+    while i + 1 < len(lines):
+        code, val = lines[i].strip(), lines[i + 1].strip()
+        if code == b"2" and after_section:
+            in_header = val == b"HEADER"
+        after_section = code == b"0" and val == b"SECTION"
+        if code == b"0" and val == b"ENDSEC":
+            in_header = False
+        if code.lstrip(b"-").isdigit() and _dxf_numeric_code(int(code)) and val == b"":
+            fixed += 1
+            if in_header or zero_everywhere:
+                eol = lines[i + 1][len(lines[i + 1].rstrip(b"\r\n")):] or b"\n"
+                out += [lines[i], b"0" + eol]
+            i += 2
+            continue
+        out += [lines[i], lines[i + 1]]
+        i += 2
+    out += lines[i:]
+    return b"".join(out), fixed
+
+
+def read_dxf(path):
+    """ezdxf.readfile; se il file ha valori vuoti li sistema (clean_dxf_bytes) e riprova, poi con gli zeri dappertutto,
+    poi il modo «recupera» di ezdxf. -> (disegno, valori vuoti sistemati)."""
+    import tempfile
+
     import ezdxf
+    from ezdxf import recover
+
+    try:
+        return ezdxf.readfile(path), 0
+    except ezdxf.DXFStructureError as first:
+        with open(path, "rb") as fh:
+            raw = fh.read()
+        for zero in (False, True):
+            data, fixed = clean_dxf_bytes(raw, zero_everywhere=zero)
+            if not fixed:
+                break
+            fd, tmp = tempfile.mkstemp(suffix=".dxf")
+            try:
+                with os.fdopen(fd, "wb") as fh:
+                    fh.write(data)
+                try:
+                    return ezdxf.readfile(tmp), fixed
+                except Exception:  # noqa: BLE001
+                    try:
+                        return recover.readfile(tmp)[0], fixed
+                    except Exception:  # noqa: BLE001
+                        pass
+            finally:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+        try:
+            return recover.readfile(path)[0], 0
+        except Exception:  # noqa: BLE001
+            raise first from None
+
+
+def import_dxf(path, doc):
+    global LAST_NOTE
     from ezdxf import path as dxfpath
     from ezdxf.path import Command
 
-    dwg = ezdxf.readfile(path)
+    dwg, removed = read_dxf(path)
+    LAST_NOTE = tr("Il file DXF era scritto male ({0} valori vuoti): sistemato e importato", removed) if removed else ""
     k = _DXF_UNITS.get(dwg.header.get("$INSUNITS", 4), 1.0) or 1.0
     shapes = []
     msp = dwg.modelspace()

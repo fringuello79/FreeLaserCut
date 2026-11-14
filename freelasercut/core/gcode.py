@@ -1125,3 +1125,12 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     orient_job_preview(job, profile, placed_map)
     job.seconds = job.preview.seconds
     return job
+
+
+def write_file(path, lines, crlf=False):
+    """0.19.6: scrive il G-code; fine riga "\n" (di sempre) o "\r\n" (Windows, a richiesta). Prima tutto il testo,
+    poi il file."""
+    nl = "\r\n" if crlf else "\n"
+    data = (nl.join(lines) + nl).encode("utf-8")
+    with open(path, "wb") as fh:
+        fh.write(data)

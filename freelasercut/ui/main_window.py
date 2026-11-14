@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from .. import __version__, diag as _diag, gcode_preview
 from ..core import gcode, geom, io_formats, materials, ops, resume, variables
-from ..core.document import Document, ImageShape
+from ..core.document import Document, ImageShape, PathShape
 from ..grbl import SIM_PORT, GrblController, list_serial_ports
 from ..grbl_codes import STATE_COLORS
 from ..profile import MachineProfile, config_dir, migrate_qsettings
@@ -255,6 +255,11 @@ class MainWindow(QMainWindow):
             "reverse": A(tr("Inverti direzione di taglio"), e.reverse),
             "duplicates": A(tr("Elimina duplicati"), e.delete_duplicates, "Alt+D", "duplicates"),
             "offset": A(tr("Offset forme…"), self.offset_dialog, "Alt+O", "offset"),
+            "laser_here": A(tr("Porta il laser qui"), self._laser_here, None, "position",
+                            tr("La testa va nel punto del piano dove hai fatto clic con il tasto destro")),
+            "simplify": A(tr("Semplifica tracciati…"), self.simplify_dialog, "Ctrl+Alt+S", "simplify",
+                          tr("Meno nodi, curve lisce e tratti dritti entro una tolleranza in mm: per vettorizzazioni "
+                             "e DXF pesanti")),
             "lock": A(tr("Blocca"), lambda: e.lock(True), "Ctrl+L", "lock"),
             "unlock": A(tr("Sblocca"), lambda: e.lock(False), "Ctrl+Shift+L", "unlock"),
             "group": A(tr("Raggruppa"), e.group, "Ctrl+G", "group"),
@@ -268,17 +273,17 @@ class MainWindow(QMainWindow):
             "flip_v": A(tr("Rifletti verticalmente"), lambda: e.flip(False), "Ctrl+Alt+V", "flip_v"),
             "rot_cw": A(tr("Ruota di 90° in senso orario"), lambda: e.rotate(-90), ".", "rot_cw"),
             "rot_ccw": A(tr("Ruota di 90° in senso antiorario"), lambda: e.rotate(90), ",", "rot_ccw"),
-            "align_left": A(tr("Allinea a sinistra"), lambda: e.align("left"), "Alt+Left", "align_left"),
-            "align_right": A(tr("Allinea a destra"), lambda: e.align("right"), "Alt+Right", "align_right"),
-            "align_top": A(tr("Allinea in alto"), lambda: e.align("top"), "Alt+Up", "align_top"),
-            "align_bottom": A(tr("Allinea in basso"), lambda: e.align("bottom"), "Alt+Down", "align_bottom"),
-            "align_hcenter": A(tr("Centra in orizzontale"), lambda: e.align("hcenter"), None, "align_hcenter"),
-            "align_vcenter": A(tr("Centra in verticale"), lambda: e.align("vcenter"), None, "align_vcenter"),
-            "align_center": A(tr("Centra i centri"), lambda: e.align("center"), "Alt+C"),
-            "dist_h": A(tr("Distribuisci spazi orizzontali"), lambda: e.distribute("h", "gap"), None, "dist_h"),
-            "dist_v": A(tr("Distribuisci spazi verticali"), lambda: e.distribute("v", "gap"), None, "dist_v"),
-            "dist_hc": A(tr("Distribuisci centri orizzontali"), lambda: e.distribute("h", "center")),
-            "dist_vc": A(tr("Distribuisci centri verticali"), lambda: e.distribute("v", "center")),
+            "align_left": A(tr("Allinea a sinistra"), lambda: self._arrange("left"), "Alt+Left", "align_left"),
+            "align_right": A(tr("Allinea a destra"), lambda: self._arrange("right"), "Alt+Right", "align_right"),
+            "align_top": A(tr("Allinea in alto"), lambda: self._arrange("top"), "Alt+Up", "align_top"),
+            "align_bottom": A(tr("Allinea in basso"), lambda: self._arrange("bottom"), "Alt+Down", "align_bottom"),
+            "align_hcenter": A(tr("Centra in orizzontale"), lambda: self._arrange("hcenter"), None, "align_hcenter"),
+            "align_vcenter": A(tr("Centra in verticale"), lambda: self._arrange("vcenter"), None, "align_vcenter"),
+            "align_center": A(tr("Centra i centri"), lambda: self._arrange("center"), "Alt+C"),
+            "dist_h": A(tr("Distribuisci spazi orizzontali"), lambda: self._arrange("distribute", "h", "gap"), None, "dist_h"),
+            "dist_v": A(tr("Distribuisci spazi verticali"), lambda: self._arrange("distribute", "v", "gap"), None, "dist_v"),
+            "dist_hc": A(tr("Distribuisci centri orizzontali"), lambda: self._arrange("distribute", "h", "center")),
+            "dist_vc": A(tr("Distribuisci centri verticali"), lambda: self._arrange("distribute", "v", "center")),
             "same_w": A(tr("Stessa larghezza dell'ultima selezionata"), lambda: e.same_size("w")),
             "same_h": A(tr("Stessa altezza dell'ultima selezionata"), lambda: e.same_size("h")),
             "distance": A(tr("Distanza esatta…"), self.distance_dialog, None, None,
@@ -420,6 +425,10 @@ class MainWindow(QMainWindow):
                                  "Si può rifare quando vuoi.")),
             "wifi_wizard": A(tr("Collegamento Wi-Fi del laser…"), self.wifi_wizard, None, None,
                              tr("Procedura guidata per mettere il laser nella rete di casa e usarlo senza cavo.")),
+            "gcode_crlf": A(tr("G-code salvato con il fine riga di Windows (CRLF)"),
+                            lambda on: self.qs.setValue("gcode_crlf", "true" if on else "false"), None, None,
+                            tr("Per le schede e i programmi che leggono il file del lavoro solo con il fine riga di "
+                               "Windows. Di solito non serve."), checkable=True),
             "update_auto": A(tr("Controlla gli aggiornamenti ogni giorno"), lambda on: self.updates.set_enabled(on), None, None,
                              tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede a GitHub qual è l'ultima "
                                 "versione. Non invia dati tuoi e non scarica niente senza chiedere."), checkable=True),
@@ -445,7 +454,9 @@ class MainWindow(QMainWindow):
         grp = QActionGroup(self)
         for name, label, icon, key in (("select", tr("Selezione"), "select", "V"), ("nodes", tr("Modifica nodi"), "nodes", "N"),
                                        ("trim", tr("Forbici: togli il tratto fra due incroci"), "trim", "X"),
-                                       ("line", tr("Linee e curve"), "line", "L"), ("rect", tr("Rettangolo"), "rect", "R"),
+                                       ("line", tr("Linee e curve"), "line", "L"),
+                                       ("freehand", tr("Mano libera"), "freehand", "H"),
+                                       ("rect", tr("Rettangolo"), "rect", "R"),
                                        ("ellipse", tr("Ellisse e cerchio"), "ellipse", "E"),
                                        ("polygon", tr("Poligono"), "polygon", "P"), ("star", tr("Stella"), "star", "S"),
                                        ("special", "Forme: frecce, cuore, scudo, medaglia, ingranaggio…", "shapes", "F"),
@@ -541,8 +552,8 @@ class MainWindow(QMainWindow):
         self._refresh_recent()
         m_edit = menu(tr("&Modifica"), ["undo", "redo", "-", "cut", "copy", "paste", "paste_in_place", "duplicate", "delete", "-",
                            "select_all", "invert_sel", (tr("Seleziona speciale"), ["sel_open", "sel_open_fill", "sel_contained"]),
-                           "-", "to_path", "trace", "close_paths", "join", "break", "reverse", "duplicates", "offset", "-",
-                           "lock", "unlock"])
+                           "-", "to_path", "trace", "close_paths", "join", "break", "reverse", "duplicates", "offset",
+                           "simplify", "-", "lock", "unlock"])
         m_edit.addSeparator()
         self.m_plates = m_edit.addMenu(tr("Piani di lavoro"))
         for k in ("plate_new", "plate_dup", "-", "plate_next", "plate_prev", "-"):
@@ -578,8 +589,8 @@ class MainWindow(QMainWindow):
                           (tr("Sposta sul piano"), [anchors_move]), (tr("Porta la testa sulla selezione"), [anchors_head]), "-",
                           "grid_array", "circ_array", "along_path", "-", "nest", "common_lines", "-", "front", "back"])
         m = mb.addMenu(tr("&Strumenti"))
-        for name in ("select", "nodes", "trim", "line", "rect", "ellipse", "polygon", "star", "special", "text", "measure",
-                     "position"):
+        for name in ("select", "nodes", "trim", "line", "freehand", "rect", "ellipse", "polygon", "star", "special", "text",
+                     "measure", "position"):
             m.addAction(self.tool_actions[name])
         m.addSeparator()
         for k in self.TOOLS_MENU[:self.TOOLS_MENU.index("-")]:
@@ -614,6 +625,7 @@ class MainWindow(QMainWindow):
         self.m_help = hm
         hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
         self.acts["update_auto"].setChecked(self.updates.enabled())
+        self.acts["gcode_crlf"].setChecked(self.qs.value("gcode_crlf", "false") in (True, "true"))
         self.acts["update_auto"].setVisible(self.updates.mode in ("installer", "appimage"))  # Store e git: da sé
         self.acts["update_preview"].setChecked(self.updates.preview())
         self.acts["update_preview"].setVisible(self.updates.mode in ("installer", "appimage"))
@@ -872,7 +884,8 @@ class MainWindow(QMainWindow):
         tools.setOrientation(Qt.Vertical)
         tools.setIconSize(QSize(20, 20))
         tools.setMovable(False)
-        for name in ("select", "nodes", "trim", "-", "line", "rect", "ellipse", "polygon", "star", "special", "text", "-",
+        for name in ("select", "nodes", "trim", "-", "line", "freehand", "rect", "ellipse", "polygon", "star", "special",
+                     "text", "-",
                      "measure", "position"):
             if name == "-":
                 tools.addSeparator()
@@ -1167,6 +1180,9 @@ class MainWindow(QMainWindow):
         c.status.connect(lambda t: self.statusBar().showMessage(t, 4000))
         c.tool_changed.connect(lambda n: self.tool_actions[n].setChecked(True))
         c.tool_changed.connect(self._tool_changed)
+        c.tool_changed.connect(lambda *_: self._update_sel_actions())  # 0.19.6: Allinea sui nodi
+        self._plate_views, self._view_uid = {}, self.editor.doc.plate.uid  # 0.19.6: vista di ogni piano
+        e.plates_changed.connect(self._plate_view_switch)
         c.edit_text.connect(self._edit_text)
         c.goto_requested.connect(self.goto_bed)
         c.context_requested.connect(self.open_context_menu)  # 0.18.6: solo nella classica (vedi open_context_menu)
@@ -1221,16 +1237,22 @@ class MainWindow(QMainWindow):
 
     def _update_sel_actions(self):
         n = len(self.editor.selection)
+        cv = getattr(self, "canvas", None)
+        # 0.19.6: con lo strumento Nodi Allinea e Distribuisci servono anche con una forma sola (agiscono sui nodi)
+        nodes_tool = cv is not None and cv.tool is not None and cv.tool is cv.tools.get("nodes")
         for k in ("cut", "copy", "duplicate", "delete", "to_path", "break", "reverse", "offset", "flip_h", "flip_v",
-                  "rot_cw", "rot_ccw", "grid_array", "circ_array", "front", "back", "lock", "unlock", "close_paths", "join"):
+                  "rot_cw", "rot_ccw", "grid_array", "circ_array", "front", "back", "lock", "unlock", "close_paths", "join",
+                  "simplify"):
             self.acts[k].setEnabled(n >= 1)
-        for k in ("group", "align_left", "align_right", "align_top", "align_bottom", "align_hcenter", "align_vcenter",
-                  "align_center", "same_w", "same_h", "along_path"):
+        for k in ("group", "same_w", "same_h", "along_path"):
             self.acts[k].setEnabled(n >= 2)
+        for k in ("align_left", "align_right", "align_top", "align_bottom", "align_hcenter", "align_vcenter",
+                  "align_center"):
+            self.acts[k].setEnabled(n >= (1 if nodes_tool else 2))
         for k in ("union", "difference", "intersection", "xor", "distance"):
             self.acts[k].setEnabled(n == 2)
         for k in ("dist_h", "dist_v", "dist_hc", "dist_vc"):
-            self.acts[k].setEnabled(n >= 3)
+            self.acts[k].setEnabled(n >= (1 if nodes_tool else 3))
         self.acts["weld"].setEnabled(n >= 1)
         self.acts["trace"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
         self.acts["photo"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
@@ -1512,11 +1534,14 @@ class MainWindow(QMainWindow):
                 self.run_gcode_file(p)
                 return
             try:
+                io_formats.LAST_NOTE = ""
                 shapes = io_formats.import_file(p, doc, max_size=(self.profile.bed_x * 0.8, self.profile.bed_y * 0.8),
                                                 photo_mm=io_formats.PHOTO_MM)
             except Exception as exc:  # noqa: BLE001
                 QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}", os.path.basename(p), exc))
                 continue
+            if io_formats.LAST_NOTE:  # 0.19.6: per esempio i valori vuoti di un DXF scritto male
+                self._import_note = io_formats.LAST_NOTE
             added += shapes
         if not added:
             return
@@ -1967,6 +1992,46 @@ class MainWindow(QMainWindow):
 
         return run_text_path(self)
 
+    def _plate_view_switch(self):
+        """0.19.6: cambiando piano, quello lasciato ricorda zoom e posizione e quello nuovo riprende i suoi (la prima
+        volta resta la vista di adesso)."""
+        uid = self.editor.doc.plate.uid
+        if uid == self._view_uid:
+            return
+        if self._view_uid is not None:
+            self._plate_views[self._view_uid] = self.canvas.view_state()
+        st = self._plate_views.get(uid)
+        if st is not None:
+            self.canvas.set_view_state(st)
+        self._view_uid = uid
+
+    def _laser_here(self, *_):
+        p = self.canvas.cursor_bed
+        if p is not None:
+            self.goto_bed(p.x(), p.y())
+
+    def _arrange(self, kind, axis=None, mode="gap"):
+        """Allinea e Distribuisci (0.19.6): con lo strumento Nodi e nodi scelti agiscono sui nodi, altrimenti sulle
+        forme come prima."""
+        nt = self.canvas.tools.get("nodes")
+        if nt is not None and self.canvas.tool is nt and nt.sel:
+            nt.arrange_nodes(kind, axis)
+            self.canvas.viewport().update()
+            return
+        if kind == "distribute":
+            self.editor.distribute(axis, mode)
+        else:
+            self.editor.align(kind)
+
+    def simplify_dialog(self, *_):
+        """Modifica → Semplifica tracciati (0.19.6). Ritorna la finestra (già chiusa) o None se non c'è niente da fare."""
+        from .dialogs_simplify import make_simplify_dialog
+
+        dlg = make_simplify_dialog(self)
+        if dlg is not None:
+            dlg.exec()
+        return dlg
+
     def close_paths_dialog(self):
         tol, ok = QInputDialog.getDouble(self, tr("Chiudi tracciati"), tr("Chiudi se gli estremi distano al massimo (mm):"), 0.5, 0.01, 50, 2)
         if ok:
@@ -2242,16 +2307,20 @@ class MainWindow(QMainWindow):
         nt = cv.tools.get("nodes")
         if cv.tool is nt and nt is not None and nt.items:
             # 0.19.5: strumento Nodi: prima le voci dei nodi (la selezione delle forme resta quella dello strumento)
-            return ["node_join", "node_connect", "-", "undo", "redo", "-", "fit_sel"]
+            keys = ["node_join", "node_connect", "-"]
+            if len(nt.sel) >= 2:  # 0.19.6: Allinea e Distribuisci sui nodi scelti
+                keys += ["align_left", "align_hcenter", "align_right", "align_top", "align_vcenter", "align_bottom",
+                         "-", "dist_h", "dist_v", "-"]
+            return keys + ["undo", "redo", "-", "fit_sel"]
         sel = ed.selection
-        # 0.20.0: con la camera della testa calibrata e la macchina connessa, laser o camera nel punto del clic
-        head_keys = []
-        hc_card = getattr(getattr(self, "camera", None), "head", None)
-        if hc_card is not None and hc_card.ready() and self.ctl.connected:
-            head_keys = ["-", "head_laser_here", "head_camera_here"]
+        head = []  # 0.19.6/0.20.0: laser (macchina connessa) e camera della testa (calibrata) nel punto del clic
+        if self.ctl.connected and not (self.ctl.job_active or self.ctl.checking):
+            head = ["-", "laser_here"]
+            hc_card = getattr(getattr(self, "camera", None), "head", None)
+            if hc_card is not None and hc_card.ready():
+                head.append("head_camera_here")
         if not sel:
-            return ["paste", "paste_in_place", "-", "undo", "redo", "-", "select_all", "-", "import", "-",
-                    "fit"] + head_keys
+            return ["paste", "paste_in_place", "-", "undo", "redo", "-", "select_all", "-", "import", "-", "fit"] + head
         keys = ["cut", "copy", "paste", "duplicate", "delete", "-"]
         if len(sel) > 1:
             keys.append("group")
@@ -2264,8 +2333,13 @@ class MainWindow(QMainWindow):
             keys.append("lock")
         if any(s.locked for s in sel):
             keys.append("unlock")
-        keys += ["-", "to_path", "offset", "-", "fit_sel"]
-        return keys + head_keys
+        keys += ["-", "to_path", "offset"]
+        if any(isinstance(leaf, PathShape) for s in sel for leaf, _ in s.leaves()):
+            keys.append("simplify")
+        keys += ["-", "fit_sel"]
+        if len(self.editor.doc.plates) > 1:  # 0.19.6: anche dal tasto destro
+            keys[-2:-2] = ["plate_move"]
+        return keys + head
 
     def _node_join(self, mode):
         """Voci «Unisci nodi» / «Collega nodi»: passano allo strumento Nodi (servono due estremi selezionati)."""
@@ -2281,7 +2355,13 @@ class MainWindow(QMainWindow):
             return None
         m = QMenu(self)
         for k in self.context_menu_keys(view_pt):
-            m.addSeparator() if k == "-" else m.addAction(self.acts[k])
+            if k == "-":
+                m.addSeparator()
+            elif k == "plate_move":  # 0.19.6: il sottomenu «Sposta la selezione su un altro piano»
+                self.plate_bar.move_menu(self.m_plate_move)
+                m.addMenu(self.m_plate_move)
+            else:
+                m.addAction(self.acts[k])
         self._ctx_menu = m  # resta vivo finché è aperto
         m.popup(global_pt)
         return m
@@ -3345,8 +3425,7 @@ class MainWindow(QMainWindow):
         if not path:
             return
         self.qs.setValue("gcode_dir", os.path.dirname(path))
-        with open(path, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write("\n".join(job.lines) + "\n")
+        gcode.write_file(path, job.lines, crlf=self.acts["gcode_crlf"].isChecked())  # 0.19.6: CRLF a scelta
         self.statusBar().showMessage(tr("G-code salvato: {0} ({1} righe, ~{2})", path, len(job.lines), _hms(job.seconds)), 6000)
 
     def run_gcode_file(self, path=None):

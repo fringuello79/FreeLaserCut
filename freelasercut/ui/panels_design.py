@@ -54,6 +54,16 @@ from .widgets import AnchorPicker, NumField, Swatch, halftone_note, halftone_siz
 
 
 # ======================================================================= barra numerica
+def arrow_step():
+    """0.19.6: passo di un clic sulle freccette dei campi X, Y, L, A, R e rotazione (Preferenze), di partenza 0,1."""
+    from ..settings_store import app_settings
+
+    try:
+        return float(app_settings().value("num_arrow_step", 0.1))
+    except (TypeError, ValueError):
+        return 0.1
+
+
 class NumericBar(QToolBar):
     """Posizione, misure e rotazione della selezione, più i comandi rapidi sulla selezione.
 
@@ -152,6 +162,7 @@ class NumericBar(QToolBar):
         f = NumField(0.0, decimals, step, suffix, width, minimum)
         f.setObjectName("numbar")
         f.setFixedHeight(self.FIELD_H)
+        f.enable_arrows(arrow_step)  # 0.19.6: freccette discrete dentro il campo (passo dalle Preferenze)
         if help_key:
             f.setProperty("help_key", help_key)
             lab.setProperty("help_key", help_key)
