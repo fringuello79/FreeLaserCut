@@ -72,7 +72,7 @@ SHORT = {
     "nodes": ("Nodi", "Nodes", "Nodos", "Nœuds", "Nós"),
     "trim": ("Forbici", "Trim", "Recortar", "Ajuster", "Aparar"),
     "line": ("Linea", "Line", "Línea", "Ligne", "Linha"),
-    "freehand": ("Mano lib.", "Freehand", "A mano", "Main lev.", "À mão"),
+    "freehand": ("Mano lib.", "Freehand", "A mano", "À main", "À mão"),
     "rect": ("Rettangolo", "Rectangle", "Rectáng.", "Rectangle", "Retâng."),
     "ellipse": ("Ellisse", "Ellipse", "Elipse", "Ellipse", "Elipse"),
     "polygon": ("Poligono", "Polygon", "Polígono", "Polygone", "Polígono"),
