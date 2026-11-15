@@ -108,15 +108,24 @@ def _system_line(font, text, size, letter_mm, legacy=False):
     probe.addText(QPointF(0, 0), f, "H")
     cap_ref = probe.boundingRect().height() or REF * 0.7
     k = size / cap_ref
+    plain_w = plain_right = None
+    if letter_mm and not legacy:
+        # 0.20.3: larghezza della riga = quella senza spaziatura + di quanto si sposta davvero il bordo destro delle
+        # lettere. Prima si prendeva la larghezza che dice Qt, che conta anche lo spazio dopo l'ultima lettera (il
+        # testo centrato o a destra si spostava di mezza o di una spaziatura); e Qt non lo conta allo stesso modo su
+        # tutti i sistemi (visto sui server Windows con una lettera sola), mentre il disegno delle lettere sì.
+        p0 = QPainterPath()
+        p0.addText(QPointF(0, 0), f, text)
+        plain_w, plain_right = QFontMetricsF(f).horizontalAdvance(text), p0.boundingRect().right()
     if letter_mm:
         f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, letter_mm / k)
     p = QPainterPath()
     p.addText(QPointF(0, 0), f, text)
-    width = QFontMetricsF(f).horizontalAdvance(text) * k
-    if letter_mm and text and not legacy:
-        # 0.20.3: lo spazio dopo l'ultima lettera non fa parte della riga (il testo centrato o a destra si spostava
-        # di mezza o di una spaziatura)
-        width -= letter_mm
+    if plain_w is not None:
+        grow = (p.boundingRect().right() - plain_right) if not (p.isEmpty() or p0.isEmpty()) else 0.0
+        width = (plain_w + grow) * k
+    else:
+        width = QFontMetricsF(f).horizontalAdvance(text) * k
     # Qt: Y verso il basso -> ribalto e scalo in mm
     t = QTransform.fromScale(k, -k)
     return t.map(p), width

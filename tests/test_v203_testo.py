@@ -60,14 +60,14 @@ _fams = T.system_families()
 # Un carattere di sistema, se c'è: sui server Windows senza schermo l'elenco può essere vuoto (visto su GitHub il
 # 15/11); allora le prove si fanno con i caratteri a linea singola, che ci sono sempre.
 SYS = next((f for f in ("DejaVu Sans", "Arial", "Liberation Sans", "Segoe UI") if f in _fams), _fams[0] if _fams else None)
-FONTS = list(T.SINGLE_LINE_FONTS) + ([SYS] if SYS else [])
+FONTS = list(T.SINGLE_LINE_FONTS) + ([SYS] if SYS else []) + (["Inter"] if "Inter" in _fams and SYS != "Inter" else [])
 ALT = SYS or "timesi"  # secondo carattere per le prove dell'elenco
 
 # ================================================================ A. spaziatura delle lettere (conti)
 jump, lin, anchor, one = [], [], [], []
 for fam in FONTS:
     for txt in ("Ciao mondo", "AV To", "Wi-Fi 12"):
-        n = len(txt) if fam == SYS else sum(1 for ch in txt if ch in T._hershey(fam)[0].all_glyphs)
+        n = len(txt) if not T.is_single_line(fam) else sum(1 for ch in txt if ch in T._hershey(fam)[0].all_glyphs)
         for align in ("left", "center", "right"):
             r0 = T.text_path(txt, fam, 10, align=align).boundingRect()
             re = T.text_path(txt, fam, 10, align=align, letter_spacing=1e-6).boundingRect()

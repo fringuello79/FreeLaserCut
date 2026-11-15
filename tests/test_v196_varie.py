@@ -213,7 +213,15 @@ pos = QPointF(f.width() - 4, 4)
 QApplication.sendEvent(f, QMouseEvent(QEvent.MouseMove, pos, f.mapToGlobal(pos), Qt.NoButton, Qt.NoButton, Qt.NoModifier))
 check("passando sopra la freccetta si accende (e il cursore diventa la freccia)", f._hover == 1
       and f.cursor().shape() == Qt.ArrowCursor)
-check("la barra numerica sta nella finestra (non va a capo)", nb.sizeHint().width() <= w.width(), nb.sizeHint().width())
+# 0.20.3: le caselle ora sono larghe quanto serve al numero (la prima cifra usciva tagliata): che la barra stia nella
+# finestra con il carattere vero del programma lo prova test_v203_misure; qui, senza lo stile del programma, che
+# nessuna casella sia più larga di quanto serve al suo numero più lungo (con qualsiasi carattere)
+from PySide6.QtGui import QFontMetricsF  # noqa: E402
+
+wide = [(k, f_.width(), f_.text_room()) for k, f_ in fields.items()
+        if f_.text_room() > max(QFontMetricsF(f_.font()).horizontalAdvance(s_.replace("8", d_))
+                                for s_ in f_._fit_samples for d_ in "0123456789") + 3 and f_.width() > f_._fit_base]
+check("le caselle non sono più larghe di quanto serve al loro numero più lungo", not wide, wide)
 
 # ---- piani: vista e menu
 ed.add_plate()
