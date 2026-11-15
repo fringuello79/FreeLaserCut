@@ -488,16 +488,20 @@ R.set_transform(QTransform().translate(150, 150))
 fresh(R, tool="freehand")
 cv.snap_objects = True
 corner = (150.0, 150.0)
-stroke([(corner[0] + 0.4, corner[1] + 0.3)] + [(150 + 0.4 + k, 150.3 + 10 * math.sin(k / 5)) for k in range(1, 40)])
+# partenza a 5 pixel dallo spigolo (l'aggancio prende entro 9 px): in pixel, così la prova non dipende dallo zoom
+dx, dy = cv.px(4), cv.px(3)
+start = (corner[0] + dx, corner[1] + dy)
+path_pts = [start] + [(start[0] + k, start[1] + 10 * math.sin(k / 5)) for k in range(1, 40)]
+stroke(path_pts)
 fs = ed.doc.shapes[-1]
 first = subs_of(fs.path())[0].nodes[0].pt()
 check("il primo punto si aggancia allo spigolo vicino (aggancio agli oggetti acceso)", math.dist(first, corner) < 0.05,
       first)
 cv.set_tool("freehand")
-stroke([(corner[0] + 0.4, corner[1] + 0.3)] + [(150 + 0.4 + k, 150.3 + 10 * math.sin(k / 5)) for k in range(1, 40)],
-       Qt.AltModifier)
+stroke(path_pts, Qt.AltModifier)
 first = subs_of(ed.doc.shapes[-1].path())[0].nodes[0].pt()
-check("…con Alt no", math.dist(first, corner) > 0.2, first)
+check("…con Alt no: resta dove è partito il mouse (a circa 5 pixel dallo spigolo)",
+      math.dist(first, corner) > cv.px(3.5) and math.dist(first, start) < cv.px(1.5), (first, cv.px(1)))
 cv.snap_objects = False
 fresh()
 w._pick_tool("freehand")
