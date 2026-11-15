@@ -152,5 +152,7 @@ w.editor.dirty = False
 w.qs.setValue("autosave_pending", False)
 code_ = 0 if all(results) else 1
 print(f"\n{sum(results)}/{len(results)} superati", flush=True)
-sys.stdout.flush()
-os._exit(code_)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _uscita import esci  # noqa: E402  (su Windows os._exit con i fili di Qt vivi dà «access violation»)
+
+esci(code_)
