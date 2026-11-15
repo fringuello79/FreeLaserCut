@@ -315,11 +315,29 @@ def env_text(win=None, code=""):
                      f" · buffer grande provato: {getattr(ctl, 'trusted_buffer', False)}")
         src = getattr(getattr(win, "camera", None), "src", None)
         if src is not None:
+            fps = getattr(src, "fps", None)
+            extra = f" · {fps():.0f} fotogrammi/s{' · a riposo' if getattr(src, 'idle', False) else ''}" \
+                if callable(fps) else ""  # 0.20.1
             lines.append(f"Telecamera: {getattr(src, 'index', '?')} · modo {getattr(src, 'mode', getattr(src, 'method', '-'))}"
-                         f" · {getattr(src, 'size', '?')} · nera: {getattr(src, 'black', '?')}")
+                         f" · {getattr(src, 'size', '?')} · nera: {getattr(src, 'black', '?')}{extra}")
+        hsrc = getattr(getattr(getattr(win, "camera", None), "head", None), "src", None)
+        if hsrc is not None and callable(getattr(hsrc, "fps", None)):  # 0.20.1
+            lines.append(f"Camera della testa: {getattr(hsrc, 'index', '?')} · {getattr(hsrc, 'size', '?')}"
+                         f" · {hsrc.fps():.0f} fotogrammi/s{' · a riposo' if getattr(hsrc, 'idle', False) else ''}")
         la = getattr(ctl, "_last_alarm", (0, 0.0))
         if la and la[0]:
             lines.append(f"Ultimo allarme: {la[0]} ({time.strftime('%H:%M:%S', time.localtime(la[1]))})")
+    try:  # 0.20.1: rallentamenti della finestra e processore usato (rapporto del 15/11: «va tutto a rilento»)
+        from .app import perf_text
+
+        pt = perf_text()
+        if pt:
+            lines.append(pt)
+        doc = getattr(getattr(win, "editor", None), "doc", None)
+        if doc is not None and hasattr(doc, "shapes"):
+            lines.append(f"Forme nel progetto: {len(doc.shapes)}")
+    except Exception:  # noqa: BLE001
+        pass
     return "\n".join(lines) + "\n"
 
 

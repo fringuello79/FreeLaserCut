@@ -1,6 +1,15 @@
 # Novità di FreeLaserCut
 
-## 0.20.0 — in sviluppo
+## 0.20.1 — in sviluppo
+Correzioni dai rapporti arrivati il 15/11.
+
+**Air assist sulle schede Makerbase MKS DLC32.** Su queste schede (montate anche su tanti laser fatti in casa) l'aria si accende con **M7**, non con M8: ora i profili nuovi delle DLC32, riconosciute dalla scheda o scelte dall'elenco dei modelli, partono con M7, e il riconoscimento della macchina lo ricorda fra le note. Se la tua pompa non parte, il comando si cambia in *Macchina → Air assist* (M8, M7 o nessuno) e si prova con il pulsante *Aria*. La tua scelta ora resta anche se rifai *Riconosci la macchina → Applica*: prima tornava sempre a M8. Le altre macchine non cambiano.
+
+**Meno lavoro per il computer con la telecamera aperta.** Una telecamera USB che nessuno sta guardando (pannello Camera chiuso, nessuna immagine sul piano, nessuna calibrazione o guardia fiamme in corso) dopo 3 secondi smette di essere letta di continuo e riparte da sola appena serve, con un'immagine presa in quel momento. Sui computer meno potenti, e con due telecamere (piano e testa), il programma resta più leggero.
+
+**Rapporti per l'assistenza più utili quando il programma è lento:** il rapporto dice quanto processore usa FreeLaserCut, quante volte la finestra si è fermata per più di 0,7 secondi (e la volta più lunga), quante forme ci sono nel progetto e quante immagini al secondo legge la telecamera. Il registro del programma segna dove si è fermata la finestra le prime 20 volte.
+
+## 0.20.0 — 15/11/2026
 La camera della testa, tracciati più puliti, disegno a mano libera e varie comodità.
 
 **Camera della testa** (*Impostazioni → Camera della testa…* per sceglierla e calibrarla, *Laser → Vista della testa…* per usarla). Si sceglie la telecamera fissata alla testa; la camera del piano resta quella di prima e si usano insieme o da sole. La stessa telecamera non si può scegliere per tutte e due (nell'elenco dell'altra c'è, ma spenta). La camera della testa si legge a 1280 × 720, di preferenza in MJPG: con due camere sulla stessa USB serve meno banda.

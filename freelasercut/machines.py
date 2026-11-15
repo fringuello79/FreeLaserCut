@@ -246,7 +246,8 @@ NOTES = {
     "Scheda Makerbase MKS DLC32": tr(
         "MKS DLC32: collega la macchina e premi «Leggi dalla macchina» per l'area di lavoro vera. Se premendo una "
         "freccia la testa va dalla parte opposta, spunta «Inverti l'asse X/Y» nel pannello Laser. Via Wi-Fi la porta "
-        "è di solito 8080. Se il firmware non accetta G55, FreeLaserCut se ne accorge alla prima verifica."),
+        "è di solito 8080. Se il firmware non accetta G55, FreeLaserCut se ne accorge alla prima verifica. L'aria "
+        "assistita parte con M7: se la tua pompa non parte, prova M8 in Macchina → Air assist."),
     "Sculpfun iCube Ultra 12W": tr("Gli iCube si collegano con il cavo USB (il Bluetooth serve solo per l'app)."),
 }
 for _n in ("Acmer P3 24W", "Acmer P3 48W", "Acmer P3 2W IR", "Acmer P3 2-in-1 (diodo + IR)"):
@@ -333,6 +334,10 @@ ACCEL.update({n: 1000.0 for n in E1})  # $120/$121 di fabbrica (tabella di diode
 FAMILIES = (E1,)
 # comando che accende l'aria assistita, dove il profilo ufficiale del produttore non usa il solito M8 (0.19.2)
 AIR_ON = {n: "M7" for n in _P2}
+# 0.20.1: le schede Makerbase MKS DLC32 accendono l'uscita dell'aria con M7 (rapporti del 15/11/2026 da una DLC32
+# V2.1 su un telaio fatto in casa; lo stesso comando del profilo ufficiale dell'Acmer P2, che monta la DLC32)
+AIR_ON["Scheda Makerbase MKS DLC32"] = "M7"
+AIR_BY_VENDOR = {"Makerbase": "M7"}
 GENERIC = tr("Altro laser GRBL (si legge dalla macchina)")
 
 
@@ -576,6 +581,10 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
                                            "controlla che sia quello giusto.", bx, by)))
         elif same:
             ident.candidates = same
+    if ident.vendor in AIR_BY_VENDOR:  # 0.20.1
+        ident.notes.append(("info", tr("Air assist: su queste schede l'aria si accende di solito con {0}. Se la pompa non "
+                                       "parte, controlla il comando in Macchina → Air assist e provalo con il "
+                                       "pulsante Aria.", AIR_BY_VENDOR[ident.vendor])))
     # affidabilità
     score = (2 if ident.vendor else 0) + (1 if ident.family else 0) + (1 if bx and by else 0) + (1 if ident.board else 0)
     ident.confidence = "alta" if score >= 4 else "media" if score >= 2 else "bassa"
@@ -611,6 +620,8 @@ def base_profile(ident):
     else:
         p = MachineProfile(name=ident.name(), model=ident.name(), optical_power="", spot_x_mm=0.10, spot_y_mm=0.10)
         p.vendor_fw = ident.vendor_fw
+        if ident.vendor in AIR_BY_VENDOR:  # 0.20.1: scheda riconosciuta, modello no (telaio fatto in casa)
+            p.air_on, p.air_off = AIR_BY_VENDOR[ident.vendor], "M9"
     p.baud = ident.baud
     return p
 

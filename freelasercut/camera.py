@@ -584,41 +584,95 @@ def discover_udp(seconds=4.0, port=12345):
 
 
 # ======================================================================= sorgenti
+# 0.20.1: una telecamera USB aperta che nessuno guarda (pannello chiuso, niente immagine sul piano, nessuna
+# calibrazione né guardia fiamme) non si legge più a 25–30 fotogrammi al secondo: dopo IDLE_AFTER secondi senza
+# richieste la lettura si ferma e riparte alla prima richiesta (rapporto del 15/11/2026: «va tutto a rilento», PC
+# con 4 processori e una telecamera USB sempre aperta). Al risveglio si buttano i fotogrammi rimasti in coda nel
+# driver (quelli che arrivano subito, senza aspettare la camera): il primo tenuto è stato ripreso dopo la richiesta.
+IDLE_AFTER = 3.0
+STALE_S = 0.3  # a riposo, un fotogramma più vecchio di così non è «l'ultimo»: chi chiede after=0 ne aspetta uno nuovo
+FLUSH_FAST = 0.012  # una lettura più veloce di così viene dalla coda del driver, non dalla camera
+FLUSH_MAX = 10
+
+
 class _FrameSource:
     """Base: un thread legge di continuo e tiene l'ultimo fotogramma con il suo orario."""
+
+    IDLE = False  # 0.20.1: vale solo per le telecamere USB (CameraSource)
 
     def __init__(self):
         self._lock = threading.Condition()
         self._frame = None
         self._t = 0.0
         self._running = True
+        self._wanted = time.time()  # ultima richiesta di un fotogramma
+        self.idle = False
+        self.n_read = 0  # fotogrammi letti (per il rapporto: quanti al secondo)
+        self.t_open = time.time()
         self.size = (0, 0)
         threading.Thread(target=self._loop, daemon=True).start()
 
     def _grab(self):  # pragma: no cover - implementato dalle sottoclassi
         raise NotImplementedError
 
+    def _flush(self):
+        """Al risveglio: legge e butta i fotogrammi già in coda; ritorna il primo arrivato davvero dalla camera."""
+        f = None
+        for _ in range(FLUSH_MAX):
+            t0 = time.time()
+            f = self._grab()
+            if f is None or time.time() - t0 >= FLUSH_FAST or not self._running:
+                break
+            f = None  # dalla coda: troppo vecchio
+        return f
+
     def _loop(self):
         while self._running:
-            f = self._grab()
+            if self.IDLE and time.time() - self._wanted > IDLE_AFTER:
+                with self._lock:
+                    self.idle = True
+                    while self._running and time.time() - self._wanted > IDLE_AFTER:
+                        self._lock.wait(1.0)
+                if not self._running:
+                    break
+                f = self._flush()
+                with self._lock:
+                    self.idle = False
+            else:
+                f = self._grab()
             if f is None:
                 time.sleep(0.05)
                 continue
             with self._lock:
                 self._frame = f
                 self._t = time.time()
+                self.n_read += 1
                 self.size = (f.shape[1], f.shape[0])
                 self._lock.notify_all()
 
     def get(self, after=0.0, timeout=4.0):
         end = time.time() + timeout
         with self._lock:
+            now = time.time()
+            woke = self.idle or (self.IDLE and now - self._wanted > IDLE_AFTER)
+            self._wanted = now
+            if woke:
+                self._lock.notify_all()  # sveglia la lettura
+            old = None
+            if after <= 0 and self.IDLE and self._frame is not None and now - self._t > STALE_S:
+                # a riposo l'«ultimo» fotogramma può essere vecchio di secondi: se c'è tempo ne aspetto uno nuovo,
+                # altrimenti rendo quello che c'è (come prima)
+                old, after = self._frame, now
             while self._running and (self._frame is None or self._t <= after):
                 left = end - time.time()
                 if left <= 0:
-                    return None
+                    return None if old is None else old.copy()
                 self._lock.wait(left)
             return None if self._frame is None else self._frame.copy()
+
+    def fps(self):
+        """Fotogrammi letti al secondo dall'apertura (per il rapporto)."""
+        return self.n_read / max(time.time() - self.t_open, 1e-6)
 
     def frames(self, n=3, after=0.0):
         out, t = [], after
@@ -664,6 +718,8 @@ class PhonePhoto:
 
 class CameraSource(_FrameSource):
     """Telecamera USB, letta nel primo modo che non dà un'immagine nera (vedi open_capture)."""
+
+    IDLE = True  # 0.20.1: a riposo quando nessuno chiede fotogrammi
 
     def __init__(self, index, width=1920, height=1080, size=None, prefer=None):
         self.index = index

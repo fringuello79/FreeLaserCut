@@ -90,6 +90,9 @@ class MachineProfile:
     optical_power: str = "44–48 W (4 diodi, 450–460 nm)"
     air_on: str = "M8"
     air_off: str = "M9"
+    # 0.20.1: il comando dell'aria l'ha scelto la persona (Macchina → Air assist): rifacendo il profilo dalla scheda
+    # («Riconosci la macchina → Applica») resta il suo, non quello di partenza del modello
+    air_chosen: bool = False
     raw_settings: dict = field(default_factory=dict)
     # scansione avanti e indietro: [[velocità mm/min, sfasamento mm fra righe di andata e ritorno], ...]
     scan_offsets: list = field(default_factory=list)
@@ -381,6 +384,11 @@ class MachineProfile:
             self.invert_y, self.tested_y = old.invert_y, True
         self.axes_tested = bool(self.tested_x and self.tested_y)
         self.recompute_untested_axes()
+        # 0.20.1: anche il comando dell'aria, se l'ha scelto la persona o se non è quello di partenza di prima (M8):
+        # prima della 0.20.1 rifare il profilo lo riportava sempre a M8 (rapporti del 15/11, MKS DLC32 che vuole M7)
+        if old.air_chosen or str(old.air_on or "").strip().upper() != "M8":
+            self.air_on, self.air_off = old.air_cmds()
+            self.air_chosen = True
 
     def recompute_untested_axes(self):
         """Dopo l'homing (coordinate negative o no ora note): il verso degli assi NON provati segue l'angolo scelto.

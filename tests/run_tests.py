@@ -514,6 +514,9 @@ if __name__ == "__main__":
     run_suite("test_v200_selezione.py", "Selezione più visibile nell'interfaccia Banco", "banco")
     run_suite("test_v200_nomi.py", "Nome del progetto dal file importato e file di provenienza delle forme")
     run_suite("test_v200_nomi.py", "Nome del progetto e file di provenienza nell'interfaccia Banco", "banco")
+    run_suite("test_v201_aria.py", "Air assist delle schede MKS DLC32 (M7) e scelta dell'aria che resta rifacendo il profilo")
+    run_suite("test_v201_aria.py", "Air assist delle MKS DLC32 nell'interfaccia Banco", "banco")
+    run_suite("test_v201_lentezza.py", "Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

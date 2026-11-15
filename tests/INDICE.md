@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 159. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 162. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -18,7 +18,7 @@ Suite: 159. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_wifi.py`: Wi-Fi delle Longer: interruttore «$50», messaggi e attesa della scheda vera
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
 
-## Telecamera e guardia fiamme (7)
+## Telecamera e guardia fiamme (8)
 
 - `test_v107.py`: Telecamera: la scelta si ricorda, «Nessuna» non accende la webcam
 - `test_v111.py`: Fiamma con il cuore bianco, nomi sotto i comandi
@@ -27,6 +27,7 @@ Suite: 159. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v181_camera.py` (Banco): Telecamere del Falcon A1 nell'interfaccia Banco
 - `test_v200_camera_testa.py`: Camera della testa: calibrazione col puntino inciso, laser e camera dove vuoi, origine dalla camera, tavola da due angoli, foto del piano a mosaico, telecamere cercate di nuovo
 - `test_v200_camera_testa.py` (Banco): Camera della testa nell'interfaccia Banco
+- `test_v201_lentezza.py`: Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto
 
 ## Nesting e piani di lavoro (15)
 
@@ -71,7 +72,7 @@ Suite: 159. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v176.py`: Pennelli precisi dello Schizzo del soggetto, velo rosso; il simulatore non tocca il profilo
 - `test_v190_mezzetinte.py`: Mezzetinte: dimensione del punto e misure collegate
 
-## Lavoro e G-code (19)
+## Lavoro e G-code (21)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -92,6 +93,8 @@ Suite: 159. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v185_aria.py` (Banco): Comando dell'air assist nell'interfaccia Banco
 - `test_v192_g55.py`: Scheda che su G55 tace o risponde con un errore, in verifica e nel lavoro: lavoro fermato e rifatto senza
 - `test_v196_varie.py`: DXF con valori vuoti, freccette nei campi della barra, vista di ogni piano, G-code CRLF
+- `test_v201_aria.py`: Air assist delle schede MKS DLC32 (M7) e scelta dell'aria che resta rifacendo il profilo
+- `test_v201_aria.py` (Banco): Air assist delle MKS DLC32 nell'interfaccia Banco
 
 ## Macchina, connessione e profili (38)
 

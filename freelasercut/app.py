@@ -288,6 +288,7 @@ class MachinePanel(QWidget):
         p = self.profile
         on = str(on or "").upper()
         p.air_on, p.air_off = on, ("" if not on else "M107" if on == "M106" else "M9")
+        p.air_chosen = True  # 0.20.1: rifacendo il profilo dalla scheda resta questo
         try:
             p.save()
         except OSError as exc:
@@ -474,9 +475,86 @@ def _install_crash_log():
         pass
 
 
-_HANG = {"beat": 0.0, "dumped": 0, "since": 0.0}
+_HANG = {"beat": 0.0, "dumped": 0, "since": 0.0, "t0": 0.0, "cpu0": 0.0, "slow_n": 0, "slow_max": 0.0,
+         "slow_sum": 0.0, "slow_logged": 0, "slow_late": 0.0, "slow_where": ""}
 HANG_S = 8.0  # la finestra non risponde da più di così: scrivo nel registro che cosa sta facendo il programma
 HANG_MAX = 6  # al massimo tante volte per avvio (il registro entra nel rapporto per l'assistenza)
+# 0.20.1: anche i rallentamenti più corti (rapporto del 15/11/2026: «va tutto a rilento», nessun blocco nel registro):
+# la finestra ferma più di SLOW_S secondi si conta, e le prime SLOW_MAX volte il registro dice dove era ferma
+BEAT_MS = 200  # il segno del tempo nella finestra (prima ogni secondo)
+SLOW_S = 0.7
+SLOW_MAX = 20
+
+
+def _main_where(depth=4):
+    """Dove è il filo della finestra adesso: le ultime righe di FreeLaserCut, dalla più interna («file:riga funzione»).
+    Solo nomi di file, nessun percorso."""
+    import threading
+
+    try:
+        frame = sys._current_frames().get(threading.main_thread().ident)
+    except Exception:  # noqa: BLE001
+        return ""
+    out = []
+    while frame is not None and len(out) < depth:
+        code = frame.f_code
+        if "freelasercut" in code.co_filename.replace("\\", "/"):
+            out.append(f"{os.path.basename(code.co_filename)}:{frame.f_lineno} {code.co_name}")
+        frame = frame.f_back
+    return " ← ".join(out)
+
+
+def _hang_step(late, now=None, fh=None):
+    """Un controllo della sorveglianza (separato per le prove): `late` = secondi dall'ultimo segno della finestra."""
+    now = time.time() if now is None else now
+    if late > HANG_S and not _HANG["since"] and _HANG["dumped"] < HANG_MAX:
+        import faulthandler
+
+        _HANG["since"] = _HANG["beat"]
+        _HANG["dumped"] += 1
+        if fh is not None:
+            fh.write(f"\n=== blocco {time.strftime('%H:%M:%S')}: la finestra non risponde da {late:.0f} s\n")
+            fh.flush()
+            faulthandler.dump_traceback(file=fh, all_threads=True)
+            fh.flush()
+    elif _HANG["since"] and _HANG["beat"] > _HANG["since"]:  # 0.20.1: ripresa = un segno nuovo della finestra
+        if fh is not None:
+            fh.write(f"=== ripresa {time.strftime('%H:%M:%S')}: era ferma da {now - _HANG['since']:.0f} s\n")
+            fh.flush()
+        _HANG["since"] = 0.0
+    # rallentamenti
+    slow = late - BEAT_MS / 1000.0  # il ritardo oltre il passo normale del segno
+    if slow > SLOW_S:
+        if not _HANG["slow_late"]:
+            _HANG["slow_where"] = _main_where()
+        _HANG["slow_late"] = max(_HANG["slow_late"], slow)
+    elif _HANG["slow_late"] and slow < SLOW_S / 2:
+        d = _HANG["slow_late"]
+        _HANG["slow_n"] += 1
+        _HANG["slow_sum"] += d
+        _HANG["slow_max"] = max(_HANG["slow_max"], d)
+        if fh is not None and _HANG["slow_logged"] < SLOW_MAX and d < HANG_S:
+            _HANG["slow_logged"] += 1
+            fh.write(f"=== rallentamento {time.strftime('%H:%M:%S')}: finestra ferma {d:.1f} s"
+                     f"{' · ' + _HANG['slow_where'] if _HANG['slow_where'] else ''}\n")
+            fh.flush()
+        _HANG["slow_late"], _HANG["slow_where"] = 0.0, ""
+
+
+def perf_text():
+    """0.20.1: una riga per il rapporto: rallentamenti della finestra e processore usato dall'avvio."""
+    if not _HANG["t0"]:
+        return ""
+    up = max(time.time() - _HANG["t0"], 1e-6)
+    cpu = (time.process_time() - _HANG["cpu0"]) / up * 100.0
+    import threading
+
+    line = (f"Prestazioni: acceso da {up / 60:.0f} min · processore usato da FreeLaserCut {cpu:.0f}% di un "
+            f"processore · finestra ferma oltre {SLOW_S:g} s: {_HANG['slow_n']} volte")
+    if _HANG["slow_n"]:
+        line += f" (la più lunga {_HANG['slow_max']:.1f} s, in tutto {_HANG['slow_sum']:.0f} s)"
+    line += f" · blocchi oltre {HANG_S:g} s: {_HANG['dumped']} · fili: {threading.active_count()}"
+    return line
 
 
 def start_hang_watch(app):
@@ -487,35 +565,22 @@ def start_hang_watch(app):
 
     if _FAULT_FH is None or _HANG.get("timer") is not None:
         return False
-    _HANG["beat"] = time.time()
+    _HANG["beat"] = _HANG["t0"] = time.time()
+    _HANG["cpu0"] = time.process_time()
     timer = QTimer(app)
-    timer.setInterval(1000)
+    timer.setInterval(BEAT_MS)
     timer.timeout.connect(lambda: _HANG.__setitem__("beat", time.time()))
     timer.start()
     _HANG["timer"] = timer
 
     def watch():
-        import faulthandler
-
         while True:
-            time.sleep(1.0)
+            time.sleep(BEAT_MS / 1000.0)
             fh = _FAULT_FH
             if fh is None or fh.closed:
                 return
-            late = time.time() - _HANG["beat"]
             try:
-                if late > HANG_S and not _HANG["since"] and _HANG["dumped"] < HANG_MAX:
-                    _HANG["since"] = _HANG["beat"]
-                    _HANG["dumped"] += 1
-                    fh.write(f"\n=== blocco {time.strftime('%H:%M:%S')}: la finestra non risponde da {late:.0f} s\n")
-                    fh.flush()
-                    faulthandler.dump_traceback(file=fh, all_threads=True)
-                    fh.flush()
-                elif late < 2.0 and _HANG["since"]:
-                    fh.write(f"=== ripresa {time.strftime('%H:%M:%S')}: era ferma da "
-                             f"{time.time() - _HANG['since']:.0f} s\n")
-                    fh.flush()
-                    _HANG["since"] = 0.0
+                _hang_step(time.time() - _HANG["beat"], fh=fh)
             except (OSError, ValueError, RuntimeError):
                 return
 
