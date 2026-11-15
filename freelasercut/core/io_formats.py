@@ -471,6 +471,9 @@ def export_svg(shapes, doc, path, bed=None):
                 img = doc.images.get(leaf.image_id)
                 if img is None:
                     continue
+                from . import photo_clip
+
+                img = photo_clip.clipped_image(img, leaf)  # 0.20.3: fuori dalla sagoma trasparente
                 buf = io.BytesIO()
                 img.save(buf, "PNG")
                 b64 = base64.b64encode(buf.getvalue()).decode()

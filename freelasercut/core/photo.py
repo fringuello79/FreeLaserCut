@@ -17,7 +17,10 @@ from PIL import Image
 
 from freelasercut.i18n import tr  # noqa: E402
 
-MASKS = ("none", "oval", "rounded")
+MASKS = ("none", "oval", "rounded", "circle", "heart", "star", "cloud", "hexagon")
+# 0.20.3 (Evoluzione2): forme disegnate con le stesse forme della galleria e del poligono/stella, così sono uguali a
+# quelle che si disegnano sul piano; stanno nel riquadro della foto con le loro proporzioni (un cuore non si schiaccia)
+FORM_MASKS = {"circle", "heart", "star", "cloud", "hexagon"}
 
 
 @dataclass
@@ -31,7 +34,7 @@ class PhotoSettings:
     auto_levels: bool = False
     local_contrast: float = 0.0  # 0..100 (CLAHE)
     sharpen: float = 0.0  # 0..100
-    mask: str = "none"  # none | oval | rounded
+    mask: str = "none"  # none | oval | rounded | circle | heart | star | cloud | hexagon (vedi MASKS)
     edge_fade: float = 0.0  # 0..100: % del lato corto sfumato verso il bianco
     # effetto artistico (photo_fx.EFFECTS): matita, carboncino, china, fumetto, linee, puntinismo…
     effect: str = "none"
@@ -150,11 +153,62 @@ def background_mask(rgb_or_gray, tolerance):
     return cv2.GaussianBlur(m, (0, 0), max(0.8, r))  # bordo morbido, niente scalini
 
 
+def form_path(mask, w, h):
+    """0.20.3: la forma `mask` (FORM_MASKS) più grande che sta nel riquadro w × h con le sue proporzioni, centrata.
+    QPainterPath con Y in giù (come i pixel), unità di w e h."""
+    from PySide6.QtGui import QTransform
+
+    from . import shapes_lib
+    from .document import PolygonShape
+
+    if mask == "heart":
+        aspect, make = shapes_lib.natural_aspect("heart"), lambda a, b: shapes_lib.make("heart", a, b, shapes_lib.default_param("heart"))
+    elif mask == "cloud":
+        aspect, make = shapes_lib.natural_aspect("cloud"), lambda a, b: shapes_lib.make("cloud", a, b, shapes_lib.default_param("cloud"))
+    elif mask in ("star", "hexagon"):  # come lo strumento Stella (5 punte, rientranza 0,5) e il Poligono a 6 lati
+        n, k = (5, 0.5) if mask == "star" else (6, 0.0)
+        make = lambda a, b: PolygonShape(1.0, 1.0, n, k).local_path()  # noqa: E731  sempre regolare (scala uguale)
+        r1 = make(1.0, 1.0).boundingRect()  # disegnati in un cerchio: le proporzioni sono quelle della sagoma
+        aspect = r1.width() / max(r1.height(), 1e-9)
+    else:  # cerchio
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QPainterPath
+
+        def make(a, b):
+            p = QPainterPath()
+            p.addEllipse(QRectF(0, 0, a, b))
+            return p
+        aspect = 1.0
+    bw, bh = (w, w / aspect) if w / max(h, 1e-9) <= aspect else (h * aspect, h)
+    p = make(bw, bh)
+    r = p.boundingRect()
+    k = min(bw / max(r.width(), 1e-9), bh / max(r.height(), 1e-9))
+    # Y in su (forme) → Y in giù (pixel), al centro del riquadro
+    t = (QTransform.fromTranslate(-r.center().x(), -r.center().y()) * QTransform.fromScale(k, -k)
+         * QTransform.fromTranslate(w / 2, h / 2))
+    return t.map(p)
+
+
+def _form_mask(h, w, mask):
+    from . import geom
+
+    path = form_path(mask, float(w), float(h))
+    m = np.zeros((h, w), np.uint8)
+    sub = 1 << 4
+    polys = [np.round((np.asarray(pl.pts, np.float64) - 0.5) * sub).astype(np.int32)
+             for pl in geom.flatten(path, max(0.2, min(h, w) / 2000.0)) if len(pl.pts) >= 3]
+    if polys:
+        cv2.fillPoly(m, polys, 255, cv2.LINE_AA, 4)
+    return m.astype(np.float32) / 255.0
+
+
 def shape_mask(h, w, mask, fade):
     """Forma e bordi sfumati: 1 = foto, 0 = bianco."""
     m = np.ones((h, w), np.float32)
     fade_px = fade / 100.0 * min(h, w) * 0.5
-    if mask == "oval":
+    if mask in FORM_MASKS:
+        m = _form_mask(h, w, mask)
+    elif mask == "oval":
         m = np.zeros((h, w), np.float32)
         cv2.ellipse(m, (w // 2, h // 2), (max(1, w // 2 - 1), max(1, h // 2 - 1)), 0, 0, 360, 1.0, -1, cv2.LINE_AA)
     elif mask == "rounded":

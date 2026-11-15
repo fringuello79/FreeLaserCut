@@ -62,14 +62,34 @@ def _hershey(key):
     return h, base, cap
 
 
-def _hershey_line(key, text, size):
-    """Una riga di testo Hershey -> (QPainterPath aperto, larghezza) con baseline a y=0."""
+def _hershey_segments(h, text, extra):
+    """Tratti di una riga con `extra` (unità del carattere) in più fra una lettera e l'altra. Ogni lettera avanza
+    della sua larghezza vera (quella che usa il carattere quando scrive la riga intera), più `extra`: con extra = 0
+    il risultato è lo stesso della riga scritta tutta insieme, quindi cambiando la spaziatura il testo non salta."""
+    if not extra:
+        yield from h.lines_for_text(text)
+        return
+    glyphs = h.all_glyphs
+    sx = float(h.render_options["scalex"])
+    x = 0.0
+    for ch in text:
+        g = glyphs.get(ch)
+        if g is None:  # lettera che il carattere non ha: saltata, come nella riga intera
+            continue
+        for (x1, y1), (x2, y2) in h.lines_for_text(ch):
+            yield (x1 + x, y1), (x2 + x, y2)
+        x += g.char_width * sx + extra
+
+
+def _hershey_line(key, text, size, letter_mm=0.0):
+    """Una riga di testo Hershey -> (QPainterPath aperto, larghezza) con baseline a y=0.
+    letter_mm (0.20.3): mm in più fra le lettere."""
     h, base, cap = _hershey(key)
     k = size / cap
     path = QPainterPath()
     last = None
     max_x = 0.0
-    for (x1, y1), (x2, y2) in h.lines_for_text(text):
+    for (x1, y1), (x2, y2) in _hershey_segments(h, text, letter_mm / k):
         a = (x1 * k, (y1 - base) * k)
         b = (x2 * k, (y2 - base) * k)
         if last is None or math.dist(last, a) > 1e-6:
@@ -81,7 +101,7 @@ def _hershey_line(key, text, size):
     return path, max_x
 
 
-def _system_line(font, text, size, letter_mm):
+def _system_line(font, text, size, letter_mm, legacy=False):
     f = QFont(font)
     f.setPointSizeF(REF)
     probe = QPainterPath()
@@ -93,17 +113,23 @@ def _system_line(font, text, size, letter_mm):
     p = QPainterPath()
     p.addText(QPointF(0, 0), f, text)
     width = QFontMetricsF(f).horizontalAdvance(text) * k
+    if letter_mm and text and not legacy:
+        # 0.20.3: lo spazio dopo l'ultima lettera non fa parte della riga (il testo centrato o a destra si spostava
+        # di mezza o di una spaziatura)
+        width -= letter_mm
     # Qt: Y verso il basso -> ribalto e scalo in mm
     t = QTransform.fromScale(k, -k)
     return t.map(p), width
 
 
 def text_path(text, family="Arial", size=10.0, bold=False, italic=False, align="left",
-              letter_spacing=0.0, line_spacing=1.0, upper=False):
+              letter_spacing=0.0, line_spacing=1.0, upper=False, legacy_spacing=False):
     """Testo multilinea -> QPainterPath in mm. Baseline della prima riga a y=0.
 
     align: left | center | right   ·   letter_spacing: mm extra fra le lettere
-    line_spacing: 1.0 = interlinea normale (1,5 × altezza maiuscole)."""
+    line_spacing: 1.0 = interlinea normale (1,5 × altezza maiuscole).
+    legacy_spacing: la spaziatura delle lettere com'era fino alla 0.20.2 (solo per i testi salvati allora con una
+    spaziatura diversa da zero, che così restano identici: vedi TextShape.spacing_legacy)."""
     if upper:
         text = text.upper()
     lines = text.split("\n") if text else [""]
@@ -119,13 +145,14 @@ def text_path(text, family="Arial", size=10.0, bold=False, italic=False, align="
         if not line.strip():
             continue
         if key is not None and HersheyFonts is not None:
-            p, w = _hershey_line(key, line, size)
-            if letter_spacing:
+            if letter_spacing and legacy_spacing:
                 p, w = _spaced_hershey(key, line, size, letter_spacing)
+            else:
+                p, w = _hershey_line(key, line, size, letter_spacing)
             if italic:
                 p = QTransform(1, 0, 0.2, 1, 0, 0).map(p)  # obliquo
         else:
-            p, w = _system_line(font, line, size, letter_spacing)
+            p, w = _system_line(font, line, size, letter_spacing, legacy_spacing)
         dx = {"left": 0.0, "center": -w / 2.0, "right": -w}.get(align, 0.0)
         p.translate(dx, -i * advance)
         out.addPath(p)
@@ -133,6 +160,8 @@ def text_path(text, family="Arial", size=10.0, bold=False, italic=False, align="
 
 
 def _spaced_hershey(key, line, size, spacing):
+    """Spaziatura fino alla 0.20.2 (resta solo per i testi salvati allora): ogni lettera avanzava della larghezza del
+    suo disegno più il 12% dell'altezza, così passando da 0 a un valore qualsiasi il testo saltava di qualche mm."""
     p = QPainterPath()
     x = 0.0
     for ch in line:

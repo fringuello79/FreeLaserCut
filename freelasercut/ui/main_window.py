@@ -317,6 +317,13 @@ class MainWindow(QMainWindow):
             "difference": A(tr("Differenza (la prima meno la seconda)"), lambda: e.boolean("difference"), None, "subtract"),
             "intersection": A(tr("Intersezione"), lambda: e.boolean("intersection"), None, "intersect"),
             "xor": A(tr("Esclusione"), lambda: e.boolean("xor"), None, "exclude"),
+            # 0.20.3 (Evoluzione2): la foto si vede e si incide solo dentro una forma del disegno
+            "photo_clip": A(tr("Ritaglia la foto con la forma"), e.clip_photo, None, None,
+                            tr("Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto "
+                               "si vede e si incide solo dentro la forma. La forma resta come contorno, non incisa; "
+                               "per tagliarla mettila su un livello che esce")),
+            "photo_unclip": A(tr("Togli il ritaglio"), e.unclip_photo, None, None,
+                              tr("La foto ritagliata con una forma torna intera; la forma torna sul suo livello")),
             "flip_h": A(tr("Rifletti orizzontalmente"), lambda: e.flip(True), "Ctrl+Shift+H", "flip_h"),
             "flip_v": A(tr("Rifletti verticalmente"), lambda: e.flip(False), "Ctrl+Alt+V", "flip_v"),
             "rot_cw": A(tr("Ruota di 90° in senso orario"), lambda: e.rotate(-90), ".", "rot_cw"),
@@ -634,6 +641,7 @@ class MainWindow(QMainWindow):
                 act.triggered.connect(lambda _=False, i=i: self.head_to_selection(i))
 
         menu(tr("&Disponi"), ["group", "ungroup", "-", "weld", (tr("Operazioni booleane"), ["union", "difference", "intersection", "xor"]),
+                          "photo_clip", "photo_unclip",
                           "-", "flip_h", "flip_v", "rot_cw", "rot_ccw", "-",
                           (tr("Allinea"), ["align_left", "align_hcenter", "align_right", "-", "align_top", "align_vcenter",
                                        "align_bottom", "-", "align_center"]),
@@ -1353,7 +1361,27 @@ class MainWindow(QMainWindow):
             self.acts[k].setEnabled(n >= (1 if nodes_tool else 3))
         self.acts["weld"].setEnabled(n >= 1)
         self.acts["trace"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
-        self.acts["photo"].setEnabled(n == 1 and isinstance(self.editor.selection[0], ImageShape))
+        self.acts["photo"].setEnabled(n == 1 and (isinstance(self.editor.selection[0], ImageShape)
+                                                  or self._clip_group_photo_ok(self.editor.selection)))
+        clip_ok, unclip_ok = self._clip_states(self.editor.selection)
+        self.acts["photo_clip"].setEnabled(clip_ok)
+        self.acts["photo_unclip"].setEnabled(unclip_ok)
+
+    @staticmethod
+    def _clip_group_photo_ok(sel):
+        from ..core.ops import is_clip_group
+
+        return len(sel) == 1 and is_clip_group(sel[0]) and sum(isinstance(c, ImageShape) for c in sel[0].children) == 1
+
+    @staticmethod
+    def _clip_states(sel):
+        """0.20.3: (si può ritagliare, si può togliere il ritaglio) con questa selezione."""
+        from ..core import ops
+
+        leaves = [leaf for s in sel for leaf, _ in s.leaves() if not leaf.hidden]
+        n_img = sum(isinstance(leaf, ImageShape) for leaf in leaves)
+        return (n_img == 1 and len(leaves) > 1,
+                bool(ops.clipped_photos(sel)) or any(ops.is_clip_group(s) for s in sel))
 
     def _plates_menu_state(self):
         n = len(self.editor.doc.plates)
@@ -1875,12 +1903,35 @@ class MainWindow(QMainWindow):
         nid = uuid.uuid4().hex[:12]
 
         def do():
+            from ..core import photo_clip
+
             doc.images[nid] = pix
+            old = QTransform(img.tf)
             img.image_id = nid
             img.set_transform(tf)
+            img.clip = photo_clip.map_local(img.clip, old, img.tf)  # 0.20.3: la sagoma resta dov'è sul piano
             img.invalidate()
 
         self.editor.run(tr("Raddrizza la foto"), do)
+
+    def _clip_group_photo(self, sel):
+        """0.20.3: un gruppo «foto ritagliata» selezionato da solo -> (gruppo, foto), con la trasformazione del gruppo
+        passata ai figli (sul piano non cambia nulla): così la foto si prepara come se fosse da sola. Altrimenti None."""
+        from ..core.ops import is_clip_group
+
+        if len(sel) != 1 or not is_clip_group(sel[0]):
+            return None
+        g = sel[0]
+        imgs = [c for c in g.children if isinstance(c, ImageShape)]
+        if len(imgs) != 1:
+            return None
+        if not g.tf.isIdentity():
+            def do():
+                for c in g.children:
+                    c.set_transform(c.tf * g.tf)
+                g.set_transform(QTransform())
+            self.editor.run(tr("Raddrizza la foto"), do)
+        return g, imgs[0]
 
     def photo_dialog(self):
         """«Prepara foto»: elaborazione della foto, oppure conversione in linee e riempimenti, oppure prova foto."""
@@ -1892,6 +1943,9 @@ class MainWindow(QMainWindow):
         from .dialogs_photo import PhotoDialog
 
         sel = self.editor.selection
+        grp = self._clip_group_photo(sel)  # 0.20.3: anche la foto ritagliata con una forma (dentro il suo gruppo)
+        if grp is not None:
+            sel = [grp[1]]
         if len(sel) != 1 or not isinstance(sel[0], ImageShape):
             self.statusBar().showMessage(tr("Seleziona una foto (immagine) da preparare"), 4000)
             return
@@ -1925,6 +1979,9 @@ class MainWindow(QMainWindow):
                 doc.images[new_id] = proc if new_id != src_id else original
 
                 def do():
+                    from ..core import photo_clip
+
+                    old_tf = QTransform(img.tf)
                     img.image_id = new_id
                     img.source_id = None if new_id == src_id else src_id
                     img.photo = None if st.is_identity() else st.to_dict()
@@ -1933,6 +1990,8 @@ class MainWindow(QMainWindow):
                     img.invalidate()
                     c2 = img.tf.map(QPointF(img.w / 2, img.h / 2))
                     img.set_transform(img.tf * QTransform.fromTranslate(center.x() - c2.x(), center.y() - c2.y()))
+                    # 0.20.3: misure nuove, la sagoma del ritaglio resta dov'è sul piano (con la sua forma)
+                    img.clip = photo_clip.map_local(img.clip, old_tf, img.tf)
                     c = doc.layer(img.layer)
                     c.mode = "image"
                     c.dither, c.dpi, c.negative = lay["dither"], lay["dpi"], lay["negative"]
@@ -1942,7 +2001,7 @@ class MainWindow(QMainWindow):
                     if "power_max" in lay:  # potenza consigliata per il materiale imparato
                         c.power_min, c.power_max = lay["power_min"], lay["power_max"]
                 self.editor.run(tr("Prepara foto"), do)
-                self.editor.select([img])
+                self.editor.select([grp[0] if grp is not None else img])
                 self.statusBar().showMessage(tr("Foto preparata: {0:.1f} × {1:.1f} mm, {2}", w_mm, h_mm,
                                                 DITHER_LABELS[lay["dither"]]), 6000)
             elif mode == "vector":
@@ -1979,7 +2038,7 @@ class MainWindow(QMainWindow):
                     ps = PathShape(path, li)
                     ps.set_transform(tf)
                     shapes.append(ps)
-                if p["keep"]:
+                if p["keep"] or grp is not None:  # 0.20.3: la foto ritagliata resta nel suo gruppo
                     self.editor.add(shapes, tr("Foto in linee e riempimenti"))
                 else:
                     self.editor.replace([img], shapes, tr("Foto in linee e riempimenti"))
@@ -2475,6 +2534,9 @@ class MainWindow(QMainWindow):
         if any(s.locked for s in sel):
             keys.append("unlock")
         keys += ["-", "to_path", "offset"]
+        clip_ok, unclip_ok = self._clip_states(sel)  # 0.20.3: foto ritagliata con una forma
+        keys += ["photo_clip"] if clip_ok else []
+        keys += ["photo_unclip"] if unclip_ok else []
         if any(isinstance(leaf, PathShape) for s in sel for leaf, _ in s.leaves()):
             keys.append("simplify")
         keys += ["-", "fit_sel"]

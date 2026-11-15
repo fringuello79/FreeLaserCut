@@ -229,6 +229,9 @@ class RemoteServer:
                     if pil is not None:
                         from PIL.ImageQt import ImageQt
 
+                        from .core import photo_clip
+
+                        pil = photo_clip.clipped_image(pil, leaf)  # 0.20.3: foto ritagliata con una forma
                         qi = QImage(ImageQt(pil.convert("RGBA")))
                         q.save()
                         q.setTransform(QTransform.fromScale(1, -1) * QTransform.fromTranslate(0, leaf.h) * tf

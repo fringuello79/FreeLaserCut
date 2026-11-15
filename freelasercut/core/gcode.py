@@ -855,6 +855,17 @@ def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
         return [], (1.0, 0.0), True
     grid = imaging.sample_to_grid(dark, inv, leaf.w, leaf.h, x0, y0, nx, ny, step)
     grid = imaging.adjust(grid, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
+    # 0.20.3: fuori dalla foto (e fuori dalla sagoma del ritaglio) il laser resta spento, anche in negativo o con
+    # luminosità e contrasto: prima, con una foto ruotata, si incidevano gli angoli del riquadro che la contiene
+    keep = imaging.grid_inside(inv, leaf.w, leaf.h, x0, y0, nx, ny, step)
+    clip = getattr(leaf, "clip", None)
+    inside_clip = None  # celle dentro la sagoma del ritaglio (None = foto non ritagliata)
+    if clip:
+        from . import photo_clip
+
+        inside_clip = photo_clip.grid_mask(clip, tf, x0, y0, nx, ny, step)
+        keep &= inside_clip
+    grid = np.where(keep, grid, 0.0).astype(np.float32)
     cell_px = max(cs.halftone_cell / step, 2.0)
     start = getattr(cs, "image_start", "top")
     scan_axis = 0 if start in ("left", "right") else 1
@@ -865,6 +876,10 @@ def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
                           getattr(cs, "halftone_size", 100.0))[::-1]  # dithering dall'alto
     if spread:
         vals = np.repeat(vals, int(compact), axis=scan_axis)[:ny, :nx]
+    if inside_clip is not None:
+        # i punti di un retino, l'errore diffuso e i punti lunghi possono accendersi appena oltre il bordo: fuori dalla
+        # sagoma mai (solo per le foto ritagliate: le altre restano identiche a prima)
+        vals = np.where(inside_clip, vals, 0.0).astype(vals.dtype)
     pmin, pmax = cs.power_min, cs.power_max
     if cs.dither == "grayscale":
         q = np.round(vals * (s_levels - 1)) / (s_levels - 1)
@@ -878,6 +893,8 @@ def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
     shrink = cs.dot_correction / 2.0 if cs.dither != "grayscale" else 0.0
     if compact > 1 and not spread:  # 0.17.2: toni di grigio, retino, soglia: punti vicini uniti in tratti
         power = _compact(power, int(compact), axis=scan_axis)
+        if inside_clip is not None:  # i tratti uniti non scavalcano la sagoma
+            power = np.where(inside_clip, power, 0.0)
     lines = []
     if start in ("left", "right"):
         # righe verticali: nel sistema ruotato di 90° la riga è a v = −x e i tratti corrono lungo y

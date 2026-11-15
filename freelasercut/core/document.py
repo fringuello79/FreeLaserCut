@@ -418,12 +418,27 @@ class TextShape(Shape):
         self.bold = kw.get("bold", False)
         self.italic = kw.get("italic", False)
         self.align = kw.get("align", "left")
-        self.letter_spacing = float(kw.get("letter_spacing", 0.0))
+        self._letter_spacing = float(kw.get("letter_spacing", 0.0))
+        # 0.20.3: la spaziatura delle lettere è stata corretta (niente salto uscendo da 0, allineamento giusto). I testi
+        # salvati prima con una spaziatura diversa da zero («lsv» 1 nel file, o assente) restano com'erano; quelli nuovi
+        # («lsv» 2) usano la spaziatura corretta. Riportando la spaziatura a 0 un testo vecchio diventa nuovo (a 0 le
+        # due sono uguali, quindi senza salti).
+        self.spacing_legacy = bool(self._letter_spacing) and int(kw.get("lsv", 2) or 2) < 2
         self.line_spacing = float(kw.get("line_spacing", 1.0))
         self.upper = kw.get("upper", False)
         self.weld = kw.get("weld", False)
         self.arc = float(kw.get("arc", 0.0))  # gradi d'arco: 0 = dritto, + a ponte, - a sorriso
         self.var_offset = int(kw.get("var_offset", 0))  # copia n° (testo variabile)
+
+    @property
+    def letter_spacing(self):
+        return self._letter_spacing
+
+    @letter_spacing.setter
+    def letter_spacing(self, v):
+        self._letter_spacing = float(v)
+        if not self._letter_spacing:
+            self.spacing_legacy = False
 
     @property
     def single_line(self):
@@ -438,7 +453,7 @@ class TextShape(Shape):
 
     def local_path(self):
         p = textmod.text_path(self.shown_text(), self.family, self.size, self.bold, self.italic, self.align,
-                              self.letter_spacing, self.line_spacing, self.upper)
+                              self.letter_spacing, self.line_spacing, self.upper, self.spacing_legacy)
         if self.weld and not self.single_line:
             polys = geom.union_all(geom.flatten(p, 0.02))
             p = geom.polys_to_path(polys)
@@ -447,10 +462,13 @@ class TextShape(Shape):
         return p
 
     def params(self):
-        return {"text": self.text, "family": self.family, "size": self.size, "bold": self.bold,
-                "italic": self.italic, "align": self.align, "letter_spacing": self.letter_spacing,
-                "line_spacing": self.line_spacing, "upper": self.upper, "weld": self.weld, "arc": self.arc,
-                "var_offset": self.var_offset}
+        d = {"text": self.text, "family": self.family, "size": self.size, "bold": self.bold,
+             "italic": self.italic, "align": self.align, "letter_spacing": self.letter_spacing,
+             "line_spacing": self.line_spacing, "upper": self.upper, "weld": self.weld, "arc": self.arc,
+             "var_offset": self.var_offset}
+        if self.letter_spacing:  # 0.20.3: solo con una spaziatura, i testi senza restano identici nel file
+            d["lsv"] = 1 if self.spacing_legacy else 2
+        return d
 
     def describe(self):
         return tr("Testo variabile") if self.variable else tr("Testo")
@@ -476,7 +494,7 @@ class TextPathShape(TextShape):
 
     def local_path(self):
         p = textmod.text_path(self.shown_text(), self.family, self.size, self.bold, self.italic, "left",
-                              self.letter_spacing, self.line_spacing, self.upper)
+                              self.letter_spacing, self.line_spacing, self.upper, self.spacing_legacy)
         if self.weld and not self.single_line:
             p = geom.polys_to_path(geom.union_all(geom.flatten(p, 0.02)))
         return textmod.follow_path(p, self.curve_path(), self.start, self.align, self.offset, self.reverse)
@@ -504,6 +522,8 @@ class ImageShape(Shape):
         self.gamma = 1.0
         self.source_id = None  # «Prepara foto»: immagine originale (image_id è quella preparata)
         self.photo = None  # «Prepara foto»: impostazioni usate (dict), per riaprire la finestra da dove eri
+        # 0.20.3: sagoma del ritaglio con una forma (core/photo_clip): pezzi di anelli in mm locali, None = nessuna
+        self.clip = None
 
     def image_ids(self):
         return [i for i in (self.image_id, self.source_id) if i]
@@ -523,6 +543,8 @@ class ImageShape(Shape):
             d["source_id"] = self.source_id
         if self.photo:
             d["photo"] = dict(self.photo)
+        if self.clip:  # 0.20.3: solo se c'è, i progetti senza restano identici
+            d["clip"] = [[[list(p) for p in ring] for ring in piece] for piece in self.clip]
         return d
 
     def describe(self):
@@ -704,6 +726,7 @@ def shape_from_dict(d, images=None):
         s = PathShape(PathShape.path_from_elements(p.get("elements", [])))
     elif kind in ("text", "textpath"):
         q = dict(p)
+        q.setdefault("lsv", 1)  # 0.20.3: file di prima (senza il campo) = spaziatura delle lettere di allora
         cls = TextPathShape if kind == "textpath" else TextShape
         s = cls(q.pop("text", ""), q.pop("family", "Arial"), q.pop("size", 10), **q)
     elif kind == "image":
@@ -713,6 +736,10 @@ def shape_from_dict(d, images=None):
         s.gamma = p.get("gamma", 1.0)
         s.source_id = p.get("source_id")
         s.photo = p.get("photo")
+        if "clip" in p:  # 0.20.3
+            from . import photo_clip
+
+            s.clip = photo_clip.sanitize(p.get("clip"))
     elif kind == "group":
         s = GroupShape([shape_from_dict(c, images) for c in p.get("children", [])])
     elif kind == "special":

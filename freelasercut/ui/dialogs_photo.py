@@ -65,6 +65,8 @@ class _View(QWidget):
         self.brush = 0.02  # raggio del pennello in frazioni della diagonale
         self.edges = False  # 0.17.6: i nuovi tratti seguono i bordi (comportamento «intelligente»)?
         self.auto_rect = False  # 0.17.6: nel riquadro il soggetto si cerca da solo?
+        self.detect = True  # 0.20.3: il soggetto si cerca da solo? (spento = parte vuoto, resta solo quello dipinto)
+        self.message = ""  # 0.20.3: avviso grande al centro dell'anteprima (per esempio il soggetto ancora vuoto)
         self.veil = None  # QImage RGBA: velo rosso sulle parti tolte dallo Schizzo del soggetto
         self._hdrag = None
         # 0.17.12: le pennellate finite si disegnano una volta in un'immagine e si riusano; a ogni movimento del
@@ -227,6 +229,18 @@ class _View(QWidget):
             p.setBrush(Qt.NoBrush)
             p.drawRect(r)
         self._paint_hints(p, t)
+        if self.message:  # 0.20.3: avviso al centro (al posto di un'anteprima vuota che non dice niente)
+            p.setFont(style.ui_font(10))
+            fm = p.fontMetrics()
+            box = QRectF(area.left() + 20, 0, max(40.0, area.width() - 40), 0)
+            r = fm.boundingRect(box.toRect(), int(Qt.AlignCenter | Qt.TextWordWrap), self.message)
+            r = QRectF(r).adjusted(-12, -8, 12, 8)
+            r.moveCenter(area.center())
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, 170))
+            p.drawRoundedRect(r, 6, 6)
+            p.setPen(QColor("white"))
+            p.drawText(r, int(Qt.AlignCenter | Qt.TextWordWrap), self.message)
         p.end()
 
     HINT_COLORS = (("keep", QColor(48, 200, 110, 120)), ("remove", QColor(235, 70, 70, 120)))
@@ -329,6 +343,8 @@ class _View(QWidget):
             h.setdefault("keep", [])
             h.setdefault("remove", [])
             h.setdefault("auto", self.auto_rect)
+            if not self.detect:
+                h["detect"] = False
             self.hints = h
             if self.hint_mode == "rect":
                 self._hdrag = f
@@ -606,7 +622,9 @@ class PhotoDialog(QDialog):
         self.bg_tol = _slider(0, 100, st.bg_tolerance)
         f.addRow(tr("Tolleranza"), self.bg_tol)
         self.mask = QComboBox()
-        for k, lab in (("none", tr("Rettangolo")), ("oval", tr("Ovale")), ("rounded", tr("Angoli arrotondati"))):
+        for k, lab in (("none", tr("Rettangolo")), ("oval", tr("Ovale")), ("rounded", tr("Angoli arrotondati")),
+                       ("circle", tr("Cerchio")), ("heart", tr("Cuore")), ("star", tr("Stella")), ("cloud", tr("Nuvola")),
+                       ("hexagon", tr("Esagono"))):  # 0.20.3
             self.mask.addItem(lab, k)
         self.mask.setCurrentIndex(max(0, self.mask.findData(st.mask)))
         f.addRow(tr("Forma"), self.mask)
@@ -794,6 +812,7 @@ class PhotoDialog(QDialog):
         self.v_orig.crop_changed.connect(self._set_crop)
         self.v_orig.hints = self.hints
         self.v_orig.auto_rect = self.subj_auto.isChecked()
+        self.v_orig.detect = self.subj_detect.isChecked()
         self.v_orig.hints_changed.connect(self._hints_changed)
         self.subj_brush.valueChanged.connect(lambda val: (setattr(self.v_orig, "brush", 0.003 * val), self.v_orig.update()))
         self.flip.toggled.connect(self._flip_hints)
@@ -898,6 +917,15 @@ class PhotoDialog(QDialog):
         box = QWidget()
         v = QVBoxLayout(box)
         v.setContentsMargins(0, 0, 0, 0)
+        # 0.20.3 (Evoluzione2): la ricerca automatica si può spegnere; il soggetto parte vuoto e resta solo quello che
+        # dipingi con Tieni (anche solo una parte di quello che la ricerca avrebbe trovato)
+        self.subj_detect = QCheckBox(tr("Trova il soggetto da solo"))
+        self.subj_detect.setToolTip(tr("Acceso: FreeLaserCut cerca da solo il soggetto e tu correggi con Tieni e Togli.\n"
+                                       "Spento: si parte da vuoto e resta solo quello che dipingi con Tieni (Togli "
+                                       "cancella). Comodo per tenere solo una parte, o quando la ricerca sbaglia."))
+        self.subj_detect.setChecked(subject.detect_on(self.hints))
+        self.subj_detect.toggled.connect(self._subject_detect)
+        v.addWidget(self.subj_detect)
         r2 = QHBoxLayout()
         self.subj_tools = {}
         for key, lab, tip in (("rect", tr("Riquadro"), tr("Trascina sulla foto a sinistra un riquadro intorno al "
@@ -939,6 +967,7 @@ class PhotoDialog(QDialog):
         self.subj_auto.setChecked(bool(self.hints) and bool(self.hints.get("rect"))
                                   and bool(self.hints.get("auto", True)))
         self.subj_auto.toggled.connect(self._subject_auto)
+        self.subj_auto.setEnabled(self.subj_detect.isChecked())  # 0.20.3: con la ricerca spenta il riquadro limita e basta
         r4.addWidget(self.subj_auto)
         r4.addStretch(1)
         v.addLayout(r4)
@@ -952,10 +981,25 @@ class PhotoDialog(QDialog):
         self._subject_state()
 
     def _subject_state(self):
+        self._subject_note()
+        # 0.20.3: la nota cambia lunghezza; dentro il modulo l'altezza non si riadattava e il testo usciva tagliato
+        n = self.subj_note
+        if n.width() > 60:
+            n.setMinimumHeight(0)
+            n.setMinimumHeight(n.heightForWidth(n.width()))
+
+    def _subject_note(self):
         from ..core import subject
 
         hints = subject.has_hints(self.hints)
-        self.subj_clear.setEnabled(hints)
+        self.subj_clear.setEnabled(subject.painted(self.hints))
+        if not subject.detect_on(self.hints):  # 0.20.3: ricerca spenta
+            self.subj_note.setText(tr("Ricerca automatica spenta: il soggetto parte vuoto. Dipingi con Tieni quello che "
+                                      "deve restare (anche solo una parte); Togli cancella; il Riquadro limita la zona.")
+                                   if not subject.painted(self.hints) or subject.last.get("empty") else
+                                   tr("Ricerca automatica spenta: resta solo quello che hai dipinto con Tieni (verde a "
+                                      "sinistra); Togli cancella. L'ultima pennellata vince."))
+            return
         if not hints and subject.last.get("auto_failed") and (self.effect.currentData() == "sketch"):
             self.subj_note.setText(tr("Lo sfondo non si è trovato da solo (la foto è tutta disegnata): trascina un "
                                       "Riquadro intorno al soggetto, poi se serve usa Togli e Tieni."))
@@ -985,6 +1029,28 @@ class PhotoDialog(QDialog):
         v = getattr(self, "v_orig", None)
         if v is not None:
             v.edges = bool(on)
+
+    def _subject_detect(self, on):
+        """0.20.3: casella «Trova il soggetto da solo». Spenta: negli aiuti "detect": False (si salva con la foto)."""
+        from ..core import subject
+
+        if on:
+            if isinstance(self.hints, dict):
+                self.hints.pop("detect", None)
+                if not subject.has_hints(self.hints):
+                    self.hints = None
+        else:
+            h = self.hints if isinstance(self.hints, dict) else {"rect": None, "keep": [], "remove": []}
+            h["detect"] = False
+            self.hints = h
+        v = getattr(self, "v_orig", None)
+        if v is not None:
+            v.detect = bool(on)
+            v.hints = self.hints
+            v.update()
+        self.subj_auto.setEnabled(bool(on))
+        self._subject_state()
+        self._later()
 
     def _subject_auto(self, on):
         v = getattr(self, "v_orig", None)
@@ -1027,9 +1093,11 @@ class PhotoDialog(QDialog):
         self._later()
 
     def clear_hints(self):
-        self.hints = None
+        # 0.20.3: si torna alla partenza della casella scelta (ricerca spenta = soggetto vuoto)
+        on = self.subj_detect.isChecked()
+        self.hints = None if on else {"rect": None, "keep": [], "remove": [], "detect": False}
         if getattr(self, "v_orig", None) is not None:
-            self.v_orig.hints = None
+            self.v_orig.hints = self.hints
             self.v_orig.update()
         self._subject_state()
         self._later()
@@ -1180,8 +1248,14 @@ class PhotoDialog(QDialog):
         except Exception as ex:  # noqa: BLE001
             self.info.setText(tr("Errore: {0}", ex))
             return
+        empty = False
         if st.effect == "sketch":
+            from ..core import subject
+
             self._subject_state()  # dice se lo sfondo non si è trovato da solo
+            empty = bool(subject.last.get("empty"))  # 0.20.3: ricerca spenta e niente dipinto con Tieni
+        self.v_res.message = tr("Dipingi con Tieni il soggetto sulla foto a sinistra: per ora non c'è niente da "
+                                "incidere") if empty else ""
         a = self.adjust()
         w_mm, h_mm = self.target_size(proc)
         dpi = float(self.dpi.value())

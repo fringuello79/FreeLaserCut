@@ -427,3 +427,45 @@ def distance_shift(fixed, moving, axis, mode, side, d, ef="min", em="min"):
     a, b = _edges(mode, side, ef, em)
     delta = _edge(fixed, axis, a) + side * float(d) - _edge(moving, axis, b)
     return (delta, 0.0) if axis == "x" else (0.0, delta)
+
+
+# ------------------------------------------------------------------ 0.20.3: foto ritagliata con una forma
+CLIP_ROLE = "clip"  # gruppo «foto ritagliata»: la foto e la sua sagoma
+CLIP_OUTLINE = "clip:"  # sagoma dentro il gruppo: «clip:<livello di prima>» (Togli il ritaglio lo rimette)
+
+
+def clip_selection(shapes):
+    """Foto e forme per «Ritaglia la foto con la forma». -> (foto, trasformazione completa della foto,
+    [(forma, trasformazione completa)], problema ("" se va bene))."""
+    from freelasercut.i18n import tr
+
+    leaves = [(leaf, tf) for s in shapes for leaf, tf in s.leaves() if not leaf.hidden]
+    imgs = [(leaf, tf) for leaf, tf in leaves if isinstance(leaf, ImageShape)]
+    others = [(leaf, tf) for leaf, tf in leaves if not isinstance(leaf, ImageShape)]
+    if len(imgs) != 1 or not others:
+        return None, None, [], tr("Ritaglia la foto con la forma: seleziona una foto sola e la forma chiusa che le sta "
+                                  "sopra (cuore, stella, testo…)")
+    if any(not leaf.closed() for leaf, _ in others):
+        return None, None, [], tr("Ritaglia la foto con la forma: la forma deve essere chiusa (Modifica → Chiudi "
+                                  "tracciati)")
+    return imgs[0][0], imgs[0][1], others, ""
+
+
+def is_clip_group(s):
+    return isinstance(s, GroupShape) and s.role == CLIP_ROLE
+
+
+def clipped_photos(shapes):
+    """Foto ritagliate fra le forme (anche dentro i gruppi)."""
+    return [leaf for s in shapes for leaf, _ in s.leaves() if isinstance(leaf, ImageShape) and leaf.clip]
+
+
+def outline_layer(leaf):
+    """Livello che la sagoma aveva prima del ritaglio (o None)."""
+    r = leaf.role or ""
+    if not r.startswith(CLIP_OUTLINE):
+        return None
+    try:
+        return int(r[len(CLIP_OUTLINE):])
+    except ValueError:
+        return None

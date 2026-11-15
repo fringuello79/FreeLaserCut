@@ -110,6 +110,14 @@ HELP = {
     # ------------------------------------------------------------------ disponi
     "group": (tr("Raggruppa"), tr("Unisce la selezione in un gruppo che si sposta come un oggetto solo."), None),
     "ungroup": (tr("Separa"), tr("Scioglie il gruppo selezionato (un livello di annidamento per volta)."), None),
+    "photo_clip": (tr("Ritaglia la foto con la forma"), tr("Seleziona una foto e una forma chiusa che le sta sopra (cuore, "
+                   "stella, testo, una forma disegnata a mano): la foto si vede e si incide solo dentro la forma, anche "
+                   "con il negativo. La forma resta come contorno sul livello che non si incide e va in un gruppo con la "
+                   "foto, così si spostano insieme. Hai modificato la forma? Seleziona il gruppo e ripeti il comando."),
+                   [(tr("Tagliare il contorno"), tr("metti la forma su un livello in modalità Linea che esce")),
+                    (tr("Togli il ritaglio"), tr("la foto torna intera e la forma torna sul suo livello"))]),
+    "photo_unclip": (tr("Togli il ritaglio"), tr("La foto ritagliata con una forma torna intera; il gruppo si separa e la "
+                     "forma torna sul livello che aveva prima del ritaglio."), None),
     "weld": (tr("Salda"), tr("Fonde forme sovrapposte in un unico contorno: niente linee interne bruciate due volte."), None),
     "union": (tr("Unione"), tr("Somma due forme chiuse in una."), None),
     "difference": (tr("Differenza"), tr("Toglie dalla prima forma selezionata la seconda."), None),

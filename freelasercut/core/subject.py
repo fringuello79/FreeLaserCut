@@ -16,6 +16,11 @@ Il comportamento «intelligente» di prima (si allarga ai pezzi attaccati con co
 dati con «Segui i bordi» (segui_bordi = 1). Il riquadro di partenza tiene tutto quello che sta dentro; con
 "auto" il soggetto si cerca da solo dentro il riquadro, come prima. Gli aiuti salvati prima della 0.17.6 (senza
 questi campi) si comportano come allora.
+
+0.20.3 (Evoluzione2: «su qualche foto non toglie nulla, su qualcuna troppo; se voglio tenere solo una parte di quello
+che ha rilevato non si può»): con "detect": False la ricerca automatica è spenta e il soggetto parte **vuoto**: resta
+solo quello dipinto con «Tieni» (preciso, o con «Segui i bordi» la parte attaccata, vicino al pennello), «Togli»
+cancella, il riquadro se c'è limita la zona. Senza il campo (aiuti di prima, o casella accesa) tutto come prima.
 """
 import json
 
@@ -29,8 +34,19 @@ WORK = 360  # lato massimo della foto per GrabCut (veloce; la maschera poi si in
 _CACHE = {}
 
 
-def has_hints(hints):
+def painted(hints):
+    """Ci sono aiuti disegnati (riquadro o pennellate)?"""
     return bool(hints) and bool(hints.get("rect") or hints.get("keep") or hints.get("remove"))
+
+
+def detect_on(hints):
+    """0.20.3: il soggetto si cerca da solo? Spento solo con "detect": False (gli aiuti di prima non hanno il campo)."""
+    return not (isinstance(hints, dict) and hints.get("detect", True) is False)
+
+
+def has_hints(hints):
+    """Aiuti da usare (e da salvare): disegnati, oppure la ricerca automatica spenta (soggetto che parte vuoto)."""
+    return painted(hints) or (isinstance(hints, dict) and not detect_on(hints))
 
 
 def _paint(lab, strokes, value, w, h):
@@ -126,8 +142,13 @@ def _clean(fg, keep_seeds=None):
     return keep | (1 - ff)
 
 
-# ultimo calcolo senza aiuti: il soggetto non si è trovato da solo (la finestra lo dice)
-last = {"auto_failed": False}
+# ultimo calcolo: senza aiuti il soggetto non si è trovato da solo; con la ricerca spenta il soggetto è vuoto (niente
+# dipinto con «Tieni»). La finestra lo dice.
+last = {"auto_failed": False, "empty": False}
+
+
+def _note_empty(hints, out):
+    last["empty"] = (not detect_on(hints)) and (out is None or not (np.asarray(out) > 0.5).any())
 
 
 def subject_mask(rgb, hints=None):
@@ -146,6 +167,7 @@ def subject_mask(rgb, hints=None):
     if key in _CACHE:  # l'anteprima si ricalcola a ogni cursore: la maschera resta la stessa
         if not has_hints(hints):
             last["auto_failed"] = _CACHE[key] is None
+        _note_empty(hints, _CACHE[key])
         return _CACHE[key]
     out = None
     try:
@@ -161,6 +183,7 @@ def subject_mask(rgb, hints=None):
     _CACHE[key] = out
     if not has_hints(hints):
         last["auto_failed"] = out is None
+    _note_empty(hints, out)
     return out
 
 
@@ -190,7 +213,8 @@ def _compute(small, hints):
     - «togli»: sparisce la parte sotto il pennello e quello che le sta attaccato con colori simili (il canestro
       intero, l'ombra), solo intorno a dove hai passato il pennello;
     - «tieni»: torna la parte sotto il pennello e quello che le sta attaccato con colori simili.
-    Mai «tutta la foto» perché un calcolo non è riuscito: si parte sempre da quello che c'era."""
+    Mai «tutta la foto» perché un calcolo non è riuscito: si parte sempre da quello che c'era.
+    0.20.3: con la ricerca spenta ("detect": False) si parte da niente: il riquadro limita soltanto."""
     sh, sw = small.shape[:2]
     if hints is None:
         out = _rect_only(small)  # riquadro centrale, tre prove a maggioranza
@@ -203,12 +227,16 @@ def _compute(small, hints):
         inside[:] = 0
         inside[b:d, a:c] = 1
         base = inside.copy()  # 0.17.6: di partenza dentro il riquadro resta tutto
-        if _rect_auto(hints):  # il soggetto si cerca da solo dentro il riquadro
+        if not detect_on(hints):
+            base = np.zeros((sh, sw), np.uint8)  # 0.20.3: ricerca spenta, il riquadro limita soltanto
+        elif _rect_auto(hints):  # il soggetto si cerca da solo dentro il riquadro
             lab = np.where(inside > 0, cv2.GC_PR_FGD, cv2.GC_BGD).astype(np.uint8)
             fg = _grabcut(small, lab)
             found = _clean(fg) if fg is not None else None
             if found is not None and (found & inside).sum() >= 0.12 * inside.sum():
                 base = found & inside  # altrimenti vale il riquadro così com'è
+    elif not detect_on(hints):
+        base = np.zeros((sh, sw), np.uint8)  # 0.20.3: ricerca spenta, si parte da niente
     else:
         base = _rect_only(small)
         if base is None:
@@ -271,8 +299,9 @@ def hints_to_crop(hints, crop):
             out += [(xs[i] - x0) / cw, (xs[i + 1] - y0) / ch]
         return out
     res = {"rect": None, "keep": [], "remove": []}
-    if "auto" in hints:
-        res["auto"] = hints["auto"]
+    for k in ("auto", "detect"):  # 0.20.3: anche la ricerca spenta
+        if k in hints:
+            res[k] = hints[k]
     r = hints.get("rect")
     if r:
         res["rect"] = [(r[0] - x0) / cw, (r[1] - y0) / ch, (r[2] - x0) / cw, (r[3] - y0) / ch]
@@ -301,8 +330,9 @@ def rotate_hints(hints, d):
             out += list(f(xs[i], xs[i + 1]))
         return out
     res = {"rect": None, "keep": [], "remove": []}
-    if "auto" in hints:
-        res["auto"] = hints["auto"]
+    for k in ("auto", "detect"):  # 0.20.3: anche la ricerca spenta
+        if k in hints:
+            res[k] = hints[k]
     r = hints.get("rect")
     if r:
         a, b = f(r[0], r[1])

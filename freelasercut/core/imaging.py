@@ -159,6 +159,19 @@ def sample_to_grid(dark, shape_tf_inv, shape_w, shape_h, x0, y0, nx, ny, step):
     return out
 
 
+def grid_inside(shape_tf_inv, shape_w, shape_h, x0, y0, nx, ny, step):
+    """0.20.3: celle della griglia del laser che cadono dentro il rettangolo della foto (come in sample_to_grid).
+    Serve dopo le regolazioni: negativo, luminosità e contrasto non devono accendere il laser fuori dalla foto
+    (con una foto ruotata gli angoli del riquadro che la contiene si incidevano)."""
+    jj, ii = np.meshgrid(np.arange(nx, dtype=np.float64), np.arange(ny, dtype=np.float64))
+    bx = x0 + jj * step
+    by = y0 + ii * step
+    t = shape_tf_inv
+    lx = t.m11() * bx + t.m21() * by + t.m31()
+    ly = t.m12() * bx + t.m22() * by + t.m32()
+    return (lx >= 0) & (lx <= shape_w) & (ly >= 0) & (ly <= shape_h)
+
+
 def warmup():
     """Compila in anticipo il dithering (prima volta: ~1 s), così il primo lavoro non attende."""
     dither(np.random.rand(8, 8).astype(np.float32), "floyd")

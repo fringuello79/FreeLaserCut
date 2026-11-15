@@ -1135,7 +1135,8 @@ class ContextBar(QFrame):
                                                    a["align_vcenter"], a["align_bottom"], None, a["align_center"], None,
                                                    a["dist_h"], a["dist_v"], a["dist_hc"], a["dist_vc"], None,
                                                    a["same_w"], a["same_h"], None, a["distance"]]))
-        row.addWidget(_menu_button(tr("Combina"), [a["union"], a["difference"], a["intersection"], a["xor"]]))
+        row.addWidget(_menu_button(tr("Combina"), [a["union"], a["difference"], a["intersection"], a["xor"], None,
+                                                   a["photo_clip"], a["photo_unclip"]]))  # 0.20.3
         row.addWidget(_menu_button(tr("Serie"), [a["grid_array"], a["circ_array"], a["along_path"]]))
         self.wide_only = [_act_button(a[k], "bcTool", 18) for k in ("nest", "offset", "to_path")]
         for b in self.wide_only:
@@ -1906,6 +1907,10 @@ class Banco(QObject):
                      (tr("Raggruppa"), a["group"]) if n > 1 else (tr("Separa"), a["ungroup"]),
                      (tr("Offset"), a["offset"]), (tr("Serie"), a["grid_array"]), (tr("In tracciato"), a["to_path"]),
                      (tr("Rifletti"), a["flip_h"]), (tr("Elimina"), a["delete"]), (tr("Inquadra"), a["fit_sel"])]
+            # 0.20.3: foto e forma chiusa → «Ritaglia»; foto ritagliata → «Foto intera» (al posto di In tracciato)
+            clip_ok, unclip_ok = win._clip_states(ed.selection)
+            if clip_ok or unclip_ok:
+                items[4] = (tr("Foto intera"), a["photo_unclip"]) if unclip_ok else (tr("Ritaglia"), a["photo_clip"])
         else:
             title = tr("Piano")
             items = [(tr("Incolla"), a["paste"]), (tr("Tutto"), a["select_all"]), (tr("Forme"), win.tool_actions["special"]),

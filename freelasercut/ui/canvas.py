@@ -17,7 +17,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
 
 from .. import gcode_preview
-from ..core import geom, imaging
+from ..core import geom, imaging, photo_clip
 from ..core.document import LAYER_COLORS, GroupShape, ImageShape, TextShape
 from ..theme import C
 from . import style
@@ -544,7 +544,8 @@ class Canvas(QGraphicsView):
                bool(cs and cs.negative), dith, cs.dither if dith else None, cs.dpi if dith else None,
                round(leaf.w, 2) if dith else None, round(leaf.h, 2) if dith else None,
                # 0.19.0: cambiando cella, angolo o dimensione del punto del retino l'anteprima va rifatta
-               (cs.halftone_cell, cs.halftone_angle, cs.halftone_size) if dith and cs.dither == "halftone" else None)
+               (cs.halftone_cell, cs.halftone_angle, cs.halftone_size) if dith and cs.dither == "halftone" else None,
+               photo_clip.key(leaf))  # 0.20.3: foto ritagliata con una forma
         q = self._img_cache.get(key)
         if q is not None:
             return q
@@ -565,7 +566,14 @@ class Canvas(QGraphicsView):
             lum = (1.0 - dark) * 255
         arr = np.ascontiguousarray(lum.astype(np.uint8))
         h, w = arr.shape
-        qi = QImage(arr.data, w, h, w, QImage.Format_Grayscale8).copy()
+        if getattr(leaf, "clip", None):  # 0.20.3: fuori dalla sagoma la foto non si vede (né si incide)
+            keep = photo_clip.pixel_mask(leaf.clip, leaf.w, leaf.h, w, h)
+            rgba = np.empty((h, w, 4), np.uint8)
+            rgba[..., 0] = rgba[..., 1] = rgba[..., 2] = arr
+            rgba[..., 3] = np.where(keep, 255, 0)
+            qi = QImage(rgba.data, w, h, 4 * w, QImage.Format_RGBA8888).copy()
+        else:
+            qi = QImage(arr.data, w, h, w, QImage.Format_Grayscale8).copy()
         if len(self._img_cache) > 24:
             self._img_cache.clear()
         self._img_cache[key] = qi

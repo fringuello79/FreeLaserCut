@@ -490,6 +490,86 @@ class Editor(QObject):
         self.commit()
         self.selection_changed.emit()
 
+    # ================================================================ 0.20.3: foto ritagliata con una forma
+    def clip_photo(self):
+        """«Ritaglia la foto con la forma»: la foto si vede e si incide solo dentro le forme chiuse selezionate. Le forme
+        restano come contorno sul livello strumenti (mai inciso: per tagliarle si cambia livello) e vanno in un gruppo
+        con la foto, così si spostano insieme. Su un gruppo già ritagliato: ritaglia di nuovo con la sagoma com'è ora
+        (dopo averla modificata). -> True se fatto."""
+        from ..core import photo_clip
+
+        sel = self.editable()
+        img, itf, outl, err = ops.clip_selection(sel)
+        if err:
+            self.message.emit(err)
+            return False
+        pieces = photo_clip.pieces_from(outl, itf)
+        if not pieces or photo_clip.coverage(pieces, img.w, img.h) <= 0.0:
+            self.message.emit(tr("Ritaglia la foto con la forma: la forma non copre la foto; mettila sopra la foto e "
+                                 "riprova"))
+            return False
+        again = len(sel) == 1 and ops.is_clip_group(sel[0])
+
+        def do():
+            img.clip = pieces
+            img.invalidate()
+            if again:
+                self.selection = [sel[0]]
+                return
+            for leaf, _ in outl:
+                if not leaf.role:
+                    leaf.role = ops.CLIP_OUTLINE + str(leaf.layer)
+                leaf.layer = TOOL_LAYER
+                leaf.invalidate()
+            ids = {s.id for s in sel}
+            order = [s for s in self.doc.shapes if s.id in ids]
+            first = [s for s in order if any(leaf is img for leaf, _ in s.leaves())]
+            kids = first + [s for s in order if s not in first]
+            idx = min(i for i, s in enumerate(self.doc.shapes) if s.id in ids)
+            self.doc.remove(order)
+            g = GroupShape(kids, layer=kids[0].layer)
+            g.role = ops.CLIP_ROLE
+            self.doc.shapes.insert(min(idx, len(self.doc.shapes)), g)
+            self.doc.layer(TOOL_LAYER)
+            self.selection = [g]
+        self.run(tr("Ritaglia la foto con la forma"), do)
+        self.selection_changed.emit()
+        return True
+
+    def unclip_photo(self):
+        """«Togli il ritaglio»: la foto torna intera; il gruppo del ritaglio si separa e la sagoma torna sul suo livello.
+        -> True se fatto."""
+        sel = self.editable()
+        photos = ops.clipped_photos(sel)
+        groups = [s for s in sel if ops.is_clip_group(s)]
+        if not photos and not groups:
+            self.message.emit(tr("Togli il ritaglio: seleziona una foto ritagliata con una forma"))
+            return False
+
+        def do():
+            for p in photos:
+                p.clip = None
+                p.invalidate()
+            out = [s for s in sel if s not in groups]
+            for g in groups:
+                idx = self.doc.shapes.index(g)
+                kids = ops.ungroup(g)
+                for k in kids:
+                    for leaf, _ in k.leaves():
+                        lay = ops.outline_layer(leaf)
+                        if lay is not None:
+                            leaf.layer, leaf.role = lay, ""
+                            leaf.invalidate()
+                            self.doc.layer(lay)
+                    if isinstance(k, GroupShape) and k.children:
+                        k.layer = k.children[0].layer
+                self.doc.shapes[idx:idx + 1] = kids
+                out += kids
+            self.selection = out
+        self.run(tr("Togli il ritaglio"), do)
+        self.selection_changed.emit()
+        return True
+
     def convert_to_path(self):
         sel = [s for s in self.editable() if not isinstance(s, (ImageShape, GroupShape, PathShape))]
         if not sel:

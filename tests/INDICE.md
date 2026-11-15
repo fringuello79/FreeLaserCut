@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 175. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 181. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -56,7 +56,7 @@ Suite: 175. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v160.py` (Banco): Materiali imparati nell'interfaccia Banco
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
 
-## Foto e immagini (15)
+## Foto e immagini (19)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -73,8 +73,12 @@ Suite: 175. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v172.py` (Banco): Area non credibile, foto fitte e override nell'interfaccia Banco
 - `test_v176.py`: Pennelli precisi dello Schizzo del soggetto, velo rosso; il simulatore non tocca il profilo
 - `test_v190_mezzetinte.py`: Mezzetinte: dimensione del punto e misure collegate
+- `test_v203_soggetto.py`: Schizzo del soggetto: ricerca automatica che si spegne, il soggetto parte vuoto e resta solo quello dipinto con Tieni
+- `test_v203_soggetto.py` (Banco): Schizzo del soggetto che parte da vuoto nell'interfaccia Banco
+- `test_v203_ritaglio.py`: Foto ritagliata a forma: cuore, stella, nuvola, cerchio ed esagono in Prepara foto, ritaglio con una forma del disegno, foto ruotata in negativo che non incide fuori
+- `test_v203_ritaglio.py` (Banco): Foto ritagliata a forma nell'interfaccia Banco
 
-## Lavoro e G-code (22)
+## Lavoro e G-code (24)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -97,6 +101,8 @@ Suite: 175. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v196_varie.py`: DXF con valori vuoti, freccette nei campi della barra, vista di ogni piano, G-code CRLF
 - `test_v201_aria.py`: Air assist delle schede MKS DLC32 (M7) e scelta dell'aria che resta rifacendo il profilo
 - `test_v201_aria.py` (Banco): Air assist delle MKS DLC32 nell'interfaccia Banco
+- `test_v203_testo.py`: Testo: anteprima del carattere sul testo vero scorrendo l'elenco, spaziatura delle lettere senza salti e delle righe
+- `test_v203_testo.py` (Banco): Testo: anteprima del carattere e spaziature nell'interfaccia Banco
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
 ## Macchina, connessione e profili (40)

@@ -1,5 +1,25 @@
 # Novità di FreeLaserCut
 
+## 0.20.3 — in preparazione
+Schizzo del soggetto che parte da vuoto, foto ritagliate a forma (anche con una forma del disegno), anteprima del carattere sul testo vero, spaziatura delle lettere corretta.
+
+**Testo: il carattere si prova prima di sceglierlo.** Con un testo selezionato apri l'elenco dei caratteri e passa con il mouse sui nomi (o scorri con le frecce): **il tuo testo, sul piano, si vede con il carattere su cui sei**. Cambia davvero solo quando fai clic su un nome, con un passo solo di Annulla; se chiudi l'elenco senza scegliere (Esc, clic fuori) il testo torna com'era.
+
+**Spaziatura delle lettere e delle righe.** Sono nel pannello del testo, sotto il carattere: *Spaziatura lettere* (orizzontale, in mm, anche negativa) e *Spaziatura righe* (verticale; prima si chiamava «Interlinea», come la distanza fra le righe del laser). Corretta quella delle lettere:
+- con i caratteri a linea singola, appena si usciva da 0 il testo **saltava** di qualche mm (su «Ciao mondo» alto 10 mm fino a 7 mm): ora ogni lettera avanza della sua larghezza vera più la spaziatura, e la riga si allunga esattamente di spaziatura × (lettere − 1);
+- i testi **centrati o allineati a destra** si spostavano di mezza o di una spaziatura: ora il centro, o il lato destro, resta fermo;
+- i testi salvati prima con una spaziatura diversa da zero **restano identici** a com'erano; prendono la spaziatura corretta se la riporti a 0 e la rimetti.
+
+**Schizzo del soggetto: si può partire da vuoto** (richiesta di Evoluzione2). In *Prepara foto*, casella nuova **«Trova il soggetto da solo»** (accesa di partenza: tutto come prima). Spenta, il soggetto parte vuoto e resta **solo quello che dipingi con Tieni**, anche solo una parte di quello che la ricerca avrebbe trovato; Togli cancella, il Riquadro limita la zona, «Segui i bordi» allarga la pennellata alla parte attaccata, vicino al pennello. «Togli gli aiuti» torna alla partenza della casella scelta. Con la casella spenta e niente dipinto l'anteprima lo dice («Dipingi con Tieni il soggetto…») invece di mostrare un foglio bianco. La scelta si salva con la foto.
+
+**Foto ritagliata a forma** (richiesta di Evoluzione2):
+- in *Prepara foto → Forma*, oltre a rettangolo, ovale e angoli arrotondati: **cerchio, cuore, stella, nuvola, esagono**. Sono le stesse forme che si disegnano sul piano, la più grande che sta nella foto, al centro, con le loro proporzioni (un cuore non si schiaccia in una foto larga); «Bordi sfumati» vale anche per loro;
+- **Ritaglia la foto con la forma** (menu *Disponi*, tasto destro, nel Banco in *Combina* e nel menu radiale): selezioni una foto e una forma chiusa che le sta sopra (una forma della galleria, un testo, un tracciato disegnato a mano) e la foto **si vede e si incide solo dentro la forma**, anche in negativo, con i retini e con la foto ruotata o specchiata. La forma resta come contorno sul livello che non si incide (per tagliarla basta metterla su un livello che esce) e va in un gruppo con la foto, così si spostano insieme. Hai modificato la forma? Seleziona il gruppo e ripeti il comando. **Togli il ritaglio** rimette tutto com'era: foto intera, gruppo separato, forma sul suo livello. *Prepara foto* funziona anche sul gruppo ritagliato e la sagoma resta al suo posto.
+
+**Corrette:**
+- una **foto ruotata** (non di 90°) incisa **in negativo**, o con la luminosità alzata o il contrasto abbassato, accendeva il laser anche negli angoli del riquadro che la contiene, fuori dalla foto. Ora fuori dalla foto il laser resta spento. Le foto dritte, e quelle ruotate senza negativo né regolazioni, danno lo stesso G-code di prima;
+- lo **Schizzo del soggetto** su una foto girata di 90° o 270° poteva uscire tutto scuro (un valore sbagliato nei conti dei toni).
+
 ## 0.20.2 — 15/11/2026
 Calibrazione completa della camera della testa, la camera della testa che aiuta quella del piano, pausa fra un livello e l'altro, linee piatte che non restano più fuori dalla selezione.
 

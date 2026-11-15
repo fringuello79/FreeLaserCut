@@ -317,7 +317,9 @@ def sketch(g, ppm, strength, detail, rgb=None, seed=3, hints=None):
     sel = sf[m > 0.5] if (m > 0.5).any() else sf.ravel()
     lo, hi = (float(v) for v in np.percentile(sel, (1, 99)))
     lin = np.clip((sf - lo) * 255.0 / max(hi - lo, 8.0), 0, 255) / 255.0  # toni del soggetto, non dello sfondo
-    lin = _blur(lin, _px(0.25, ppm, 0.6))
+    # 0.20.3: la sfocatura può superare 1 di un soffio (1,0000001): la potenza qui sotto dava NaN e lo schizzo usciva
+    # tutto rovinato (succedeva per esempio con la foto girata di 90°)
+    lin = np.clip(_blur(lin, _px(0.25, ppm, 0.6)), 0.0, 1.0)
     # quanta grafite: i chiari restano carta, le ombre vere si scuriscono (Intensità = più scuro)
     d = np.clip((1.0 - lin) ** (1.5 - 0.5 * strength) * (0.45 + 0.35 * strength), 0, 1)
     rng = np.random.default_rng(seed)
