@@ -41,6 +41,8 @@ if not CHILD:
         total += len(lines)
         if r.returncode != 0 or not lines or any(ln.startswith("NO") for ln in lines):
             ok_all = False
+            if lines and r.returncode != 0:
+                print(f"KO  [{tag}] uscita con codice {r.returncode}: {(r.stderr or '')[-600:]}", flush=True)
             if not lines:
                 print(f"KO  [{tag}] la prova non è partita: {r.stderr[-800:]}")
     good = total if ok_all else total - 1
