@@ -407,6 +407,9 @@ class MainWindow(QMainWindow):
             "head_cam": A(tr("Vista della testa…"), lambda *_: self.head_camera_window(), None, None,
                           tr("Video della telecamera fissata alla testa, con mirino e righello: porta il laser o la "
                              "camera dove vuoi, prendi gli angoli della tavola, fai la foto del piano a mosaico")),
+            "clear_mosaic": A(tr("Togli la foto a mosaico dal piano"), lambda *_: self.camera.head.clear_mosaic(), None,
+                              None, tr("Toglie da sotto il piano la foto fatta con la camera della testa (si può "
+                                       "rifare quando vuoi)")),
             "head_cam_setup": A(tr("Camera della testa…"), lambda *_: self.head_camera_setup(), None, None,
                                 tr("Scelta e calibrazione della telecamera fissata alla testa del laser")),
             "head_laser_here": A(tr("Porta il laser qui"), lambda *_: self.head_here("laser"), None, None,
@@ -653,7 +656,7 @@ class MainWindow(QMainWindow):
             ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "scan_offset", "autofocus",
             "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
-                                           "snap_grid", "snap_obj", "dither_prev"])
+                                           "snap_grid", "snap_obj", "dither_prev", "-", "clear_mosaic"])
         self.m_view.addSeparator()
         self.m_panels = self.m_view.addMenu(tr("Pannelli"))
         self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
@@ -1276,6 +1279,7 @@ class MainWindow(QMainWindow):
         ctl.job_error.connect(self._job_error)
         ctl.g55_refused.connect(self._g55_refused)
         ctl.job_finished.connect(self._job_finished)
+        ctl.user_pause.connect(self._user_pause)  # 0.20.2: pausa prima di un livello
         # offset G54 della scheda: serve ai test (materiale, scansione) sulle schede senza G55
         ctl.status_changed.connect(lambda _st: setattr(self.profile, "wcs_offset", self.ctl.wco))
         self._update_undo()
@@ -3452,7 +3456,46 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(msg, 30000)
         QMessageBox.information(self, tr("Lavoro fermato"), msg)
 
+    def _user_pause(self, msg):
+        """0.20.2: il lavoro è fermo a una pausa fra i livelli (laser e aria spenti). Finestra non bloccante: il resto
+        del programma resta usabile (frecce, Lucciola per controllare il pezzo)."""
+        from PySide6.QtWidgets import QMessageBox
+
+        box = getattr(self, "_pause_box", None)
+        if box is not None:
+            box.hide()  # (close() su una QMessageBox senza tasto Esc viene ignorato)
+            box.deleteLater()
+        box = QMessageBox(self)
+        box.setWindowTitle(tr("Lavoro in pausa"))
+        box.setIcon(QMessageBox.Information)
+        box.setText(msg)
+        box.setInformativeText(tr("La macchina è ferma, laser e aria spenti. Quando hai finito premi Riprendi: il "
+                                  "lavoro continua dal livello successivo."))
+        b_go = box.addButton(tr("Riprendi"), QMessageBox.AcceptRole)
+        b_stop = box.addButton(tr("Annulla il lavoro"), QMessageBox.DestructiveRole)
+        box.setModal(False)
+
+        def done(btn):
+            self._pause_box = None
+            if btn is b_go:
+                if not self.ctl.resume_user_pause():
+                    self.statusBar().showMessage(tr("Il lavoro non è più in pausa"), 6000)
+            elif btn is b_stop:
+                self.ctl.stop_job()
+
+        box.buttonClicked.connect(done)
+        self._pause_box = box
+        self.statusBar().showMessage(tr("In pausa: {0}", msg), 0)
+        box.show()
+        QApplication.beep()
+        return box
+
     def _job_finished(self, ok, msg):
+        box = getattr(self, "_pause_box", None)
+        if box is not None:  # lavoro finito o fermato durante la pausa: la finestra non serve più
+            self._pause_box = None
+            box.hide()
+            box.deleteLater()
         self.laser.update_running()
         plate, self._job_plate = self._job_plate, None
         self.plate_bar.refresh()

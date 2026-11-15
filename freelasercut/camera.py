@@ -737,6 +737,8 @@ class CameraSource(_FrameSource):
         if self.cap is None:
             raise RuntimeError(tr("camera {0} non disponibile", index))
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        # 0.20.2, camera della testa: la messa a fuoco automatica cambia la scala e la calibrazione salterebbe
+        self.autofocus = self._lock_focus() if size is not None else ""
         self._dark_since = time.time() - 2.0 if self.black else None  # aperta nera: resta «nera» da subito
         self._checked = 0.0
         super().__init__()
@@ -744,6 +746,27 @@ class CameraSource(_FrameSource):
             with self._lock:
                 self._frame, self._t = frame, time.time()
                 self.size = (frame.shape[1], frame.shape[0])
+
+    def _lock_focus(self):
+        """Spegne la messa a fuoco automatica, se la camera lo permette (prima che parta la lettura).
+        -> "off" spenta da FreeLaserCut, "on" c'è ma non si spegne, "" la camera non la dichiara."""
+        try:
+            before = float(self.cap.get(cv2.CAP_PROP_AUTOFOCUS))
+            done = bool(self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0))
+            after = float(self.cap.get(cv2.CAP_PROP_AUTOFOCUS))
+        except Exception:  # noqa: BLE001
+            from . import diag as _diag
+
+            _diag.ignored("telecamera: messa a fuoco automatica")
+            return ""
+        if done and after == 0:
+            state = "off" if before != 0 else ""
+        elif before > 0:
+            state = "on"
+        else:
+            state = ""
+        cam_log(f"camera {self.index}: messa a fuoco automatica prima {before:g}, dopo {after:g} → {state or '—'}")
+        return state
 
     def _grab(self):
         ok, f = self.cap.read()

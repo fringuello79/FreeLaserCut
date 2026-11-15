@@ -14,6 +14,7 @@ import uuid
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPainterPath, QTransform
 
+from . import geom
 from .document import LAYER_COLORS, GroupShape, ImageShape, PathShape
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -40,10 +41,7 @@ def nearest_layer(rgb):
 
 def _normalize(shapes):
     """Sposta le forme in modo che l'ingombro complessivo parta da (0,0)."""
-    r = QRectF()
-    for s in shapes:
-        b = s.bounds()
-        r = b if r.isNull() else r.united(b)
+    r = geom.rect_union(s.bounds() for s in shapes)  # 0.20.2: anche linee piatte e punti
     if r.isNull():
         return shapes
     t = QTransform.fromTranslate(-r.left(), -r.top())
@@ -453,10 +451,7 @@ def import_gerber(paths, doc, opts=None):
 def export_svg(shapes, doc, path, bed=None):
     from .geom import flatten
 
-    r = QRectF()
-    for s in shapes:
-        b = s.bounds()
-        r = b if r.isNull() else r.united(b)
+    r = geom.rect_union(s.bounds() for s in shapes)  # 0.20.2: anche linee piatte e punti
     if bed is not None:
         r = QRectF(0, 0, bed[0], bed[1])
     W, H = r.width(), r.height()

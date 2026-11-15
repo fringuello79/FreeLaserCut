@@ -16,6 +16,7 @@ import math
 from PySide6.QtCore import QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import QColor, QImage, QPageLayout, QPageSize, QPainter, QPainterPath, QPdfWriter, QPen, QTransform
 
+from . import geom
 from .document import GroupShape, ImageShape, PathShape
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -81,15 +82,14 @@ def mark_center(mark):
 
 def design_bounds(doc):
     """Ingombro di tutto quello che si vede sul piano, crocette e guide escluse."""
-    r = QRectF()
+    boxes = []
     for s in doc.shapes:
         if s.hidden or s.role in (ROLE_1, ROLE_2):
             continue
         if all(leaf.layer >= TOOL_LAYER for leaf, _ in s.leaves()):
             continue
-        b = s.bounds()
-        r = b if r.isNull() else r.united(b)
-    return r
+        boxes.append(s.bounds())
+    return geom.rect_union(boxes)  # 0.20.2: anche linee piatte e punti
 
 
 def mark_positions(bounds):
@@ -159,7 +159,7 @@ def fit(p1, p2, q1, q2, scale=True):
 
 def cut_bounds(doc, tf=None):
     """Ingombro di quello che verrà tagliato (livelli con l'uscita accesa), dopo tf se c'è."""
-    r = QRectF()
+    boxes = []
     for s in doc.shapes:
         if s.hidden:
             continue
@@ -167,9 +167,8 @@ def cut_bounds(doc, tf=None):
             cs = doc.layer(leaf.layer)
             if leaf.hidden or not cs.output or leaf.layer >= TOOL_LAYER:
                 continue
-            b = (ltf if tf is None else ltf * tf).map(leaf.local_path()).boundingRect()
-            r = b if r.isNull() else r.united(b)
-    return r
+            boxes.append((ltf if tf is None else ltf * tf).map(leaf.local_path()).boundingRect())
+    return geom.rect_union(boxes)  # 0.20.2: anche linee piatte e punti
 
 
 def outside_bed(rect, bed, eps=0.01):
@@ -193,10 +192,7 @@ def print_leaves(doc):
 
 
 def print_bounds(doc):
-    r = QRectF()
-    for leaf, tf in print_leaves(doc):
-        b = tf.map(leaf.local_path()).boundingRect()
-        r = b if r.isNull() else r.united(b)
+    r = geom.rect_union(tf.map(leaf.local_path()).boundingRect() for leaf, tf in print_leaves(doc))  # 0.20.2
     if not r.isNull():  # il tratto delle crocette
         r = r.adjusted(-LINE_MM, -LINE_MM, LINE_MM, LINE_MM)
     return r

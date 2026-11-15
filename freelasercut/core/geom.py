@@ -204,6 +204,47 @@ def contains(outer: Poly, inner: Poly):
     return hits >= max(1, int(len(probes) * 0.75))
 
 
+# ----------------------------------------------------------------- riquadri (0.20.2)
+# Il riquadro di una linea perfettamente orizzontale o verticale ha larghezza o altezza 0, quello di un punto tutte e
+# due. Per Qt sono rettangoli «vuoti»: QRectF.intersects e QRectF.contains rispondono sempre di no e QRectF.united
+# butta via i punti. Le linee piatte restavano fuori dalla selezione col rettangolo (15/11/2026, 40 linee su 818).
+# Qui i riquadri sono intervalli chiusi: una linea piatta dentro il rettangolo è dentro, un punto conta nell'ingombro.
+def _edges(r):
+    x0, x1 = sorted((r.left(), r.right()))
+    y0, y1 = sorted((r.top(), r.bottom()))
+    return x0, y0, x1, y1
+
+
+def rect_union(rects):
+    """Ingombro di tutti i riquadri, anche linee piatte e punti. Nessun riquadro → QRectF() (vuoto)."""
+    box = None
+    for r in rects:
+        if r is None:
+            continue
+        x0, y0, x1, y1 = _edges(r)
+        if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
+            continue
+        if box is None:
+            box = [x0, y0, x1, y1]
+        else:
+            box = [min(box[0], x0), min(box[1], y0), max(box[2], x1), max(box[3], y1)]
+    return QRectF() if box is None else QRectF(box[0], box[1], box[2] - box[0], box[3] - box[1])
+
+
+def rect_overlaps(a, b, eps=1e-9):
+    """I due riquadri si toccano o si sovrappongono (anche con larghezza o altezza 0)."""
+    ax0, ay0, ax1, ay1 = _edges(a)
+    bx0, by0, bx1, by1 = _edges(b)
+    return ax0 <= bx1 + eps and bx0 <= ax1 + eps and ay0 <= by1 + eps and by0 <= ay1 + eps
+
+
+def rect_inside(inner, outer, eps=1e-9):
+    """inner sta tutto dentro outer (bordi compresi; inner può essere una linea piatta o un punto)."""
+    ix0, iy0, ix1, iy1 = _edges(inner)
+    ox0, oy0, ox1, oy1 = _edges(outer)
+    return ox0 - eps <= ix0 and ix1 <= ox1 + eps and oy0 - eps <= iy0 and iy1 <= oy1 + eps
+
+
 # ----------------------------------------------------------------- utilità
 def path_bounds(path: QPainterPath):
     r = path.boundingRect()

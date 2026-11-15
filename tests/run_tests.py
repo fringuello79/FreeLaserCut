@@ -522,6 +522,12 @@ if __name__ == "__main__":
     run_suite("test_v201_nomi.py", "Nome del progetto che segue i file nell'interfaccia Banco", "banco")
     run_suite("test_v201_lentezza.py", "Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto")
     run_suite("test_v201_carverall_jl9.py", "Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro")
+    run_suite("test_v202_camera_testa.py", "Calibrazione completa della camera della testa (griglia incisa, lente, inclinazione, verifica onesta), mosaico preciso, camera del piano aiutata, vista raddrizzata e zoom, crocetta dal centro camera")
+    run_suite("test_v202_camera_testa.py", "Calibrazione completa e vista della testa nell'interfaccia Banco", "banco")
+    run_suite("test_v202_pausa.py", "Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa")
+    run_suite("test_v202_pausa.py", "Pausa prima di un livello nell'interfaccia Banco", "banco")
+    run_suite("test_v202_linee_piatte.py", "Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri")
+    run_suite("test_v202_linee_piatte.py", "Linee piatte nella selezione nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

@@ -40,31 +40,92 @@ def head_file():
 
 # ======================================================================= modello
 class HeadModel:
-    """Camera della testa calibrata. Tutte le coordinate del piano in mm (piano come si vede)."""
+    """Camera della testa calibrata. Tutte le coordinate del piano in mm (piano come si vede).
 
-    def __init__(self, M, offset, frame_size, rms_px=0.0, rms_mm=0.0, created="", camera_name="",
-                 camera_index=None, power_pct=None, k=0.0):
-        self.M = np.array(M, float).reshape(2, 2)
-        if not np.all(np.isfinite(self.M)) or abs(np.linalg.det(self.M)) < 1e-12:
-            raise ValueError("matrice della camera della testa non valida")
-        self.Minv = np.linalg.inv(self.M)
-        self.offset = np.array(offset, float).reshape(2)
-        if not np.all(np.isfinite(self.offset)):
-            raise ValueError("scostamento non valido")
+    0.20.2: modello generale, usato da tutti i comandi (un solo punto che converte pixel ↔ mm):
+
+        x = (p − c) / f                                 pixel → coordinate normalizzate (f = metà diagonale)
+        u = q + (x − q) · (1 + k1·r² + k2·r⁴),  r = |x − q|   lente (q = centro vero della lente)
+        X = (A·u + t) / (1 + g·u)                        piano (mm dal laser): scala, rotazione, specchio,
+                                                         inclinazione della camera (g, prospettiva)
+        P = L + X                                        L = punto del laser sul piano
+
+    e, solo per le camere che NON salgono e scendono con il laser, lo spessore del materiale (vedi thickness):
+        X' = N + (X − N) · (D − Δ) / D                   N = punto sotto la camera, D = altezza della camera
+                                                         sul cartone della calibrazione, Δ = spessore in più.
+
+    Le calibrazioni della 0.20.0 (M, scostamento O, lente k) sono un caso particolare: A = M·f, t = O, g = 0,
+    k1 = k, k2 = 0, q = 0. Si leggono e funzionano come prima."""
+
+    def __init__(self, M=None, offset=None, frame_size=(1280, 720), rms_px=0.0, rms_mm=0.0, created="",
+                 camera_name="", camera_index=None, power_pct=None, k=0.0, A=None, t=None, g=None, k2=0.0, q=None):
         self.frame_size = (int(frame_size[0]), int(frame_size[1]))
         if self.frame_size[0] <= 0 or self.frame_size[1] <= 0:
             raise ValueError("dimensione dell'immagine non valida")
+        f = self.f
+        legacy = A is None
+        if legacy:  # modello della 0.20.0
+            M = np.array(M, float).reshape(2, 2)
+            if not np.all(np.isfinite(M)) or abs(np.linalg.det(M)) < 1e-12:
+                raise ValueError("matrice della camera della testa non valida")
+            offset = np.array(offset, float).reshape(2)
+            A, t, g = M * f, offset, np.zeros(2)
+        self.A = np.array(A, float).reshape(2, 2)
+        self.t = np.array(t, float).reshape(2)
+        self.g = np.zeros(2) if g is None else np.array(g, float).reshape(2)
+        self.k1 = float(k or 0.0)
+        self.k2 = float(k2 or 0.0)
+        self.q = np.zeros(2) if q is None else np.array(q, float).reshape(2)
+        for v in (self.A, self.t, self.g, self.q, np.array([self.k1, self.k2])):
+            if not np.all(np.isfinite(v)):
+                raise ValueError("valori della camera della testa non validi")
+        if abs(np.linalg.det(self.A)) < 1e-12:
+            raise ValueError("matrice della camera della testa non valida")
+        if abs(self.k1) > 0.8 or abs(self.k2) > 0.8 or float(np.hypot(*self.q)) > 0.25 \
+                or float(np.hypot(*self.g)) > 0.5:
+            raise ValueError("coefficiente della lente non valido")
         self.rms_px = float(rms_px)
         self.rms_mm = float(rms_mm)
         self.created = created or time.strftime("%d/%m/%Y %H:%M")
         self.camera_name = str(camera_name or "")
         self.camera_index = camera_index
         self.power_pct = power_pct
-        # 0.20.0: lente (grandangolo M12): distorsione radiale, k per il raggio normalizzato a metà diagonale.
-        # k < 0 = «a barile» (i bordi dell'immagine si stringono). 0 = nessuna correzione (file vecchi).
-        self.k = float(k or 0.0)
-        if not math.isfinite(self.k) or abs(self.k) > 0.8:
-            raise ValueError("coefficiente della lente non valido")
+        # 0.20.2: come è stata fatta e quanto è buona
+        self.method = "dot" if legacy else "grid"
+        self.quality = {}  # p95_px, max_px, rms_px, max_mm, n_ctrl, n_fit, model
+        self.backlash = None  # (X, Y) mm: gioco della macchina misurato (solo informazione)
+        self.camera_mode = ""  # modo di lettura (dshow-mjpg, msmf…): un altro modo può tagliare l'immagine diversa
+        self.autofocus = ""  # "off" spenta da FreeLaserCut, "on" non spegnibile, "" non provato
+        self.occluded = []  # [(x0, y0, x1, y1)] pixel coperti da pezzi della macchina (ugello, tubo dell'aria)
+        # spessore: None = non si sa, True = la camera sale e scende con il laser (lo spessore non conta)
+        self.moves_with_head = None
+        self.height_mm = None  # D: altezza della camera sul cartone della calibrazione (camere fisse al carrello)
+        self.nadir = None  # N: punto del piano sotto la camera (mm dal laser)
+        self.cal_thickness = 0.0  # spessore del cartone della calibrazione (mm)
+        self.thickness = None  # spessore del materiale adesso (mm, None = come la calibrazione)
+        self._M = np.array(M, float).reshape(2, 2) if M is not None and self.method == "dot" else None
+        self._O = np.array(offset, float).reshape(2) if offset is not None and self.method == "dot" else None
+        self._refresh()
+
+    def _refresh(self):
+        """Valori derivati (centro del mirino, matrice locale): da rifare se cambia lo spessore."""
+        self.offset = self._O.copy() if self._O is not None and not self.delta() else \
+            self._rel([self.c])[0]
+        if self._M is not None and not self.delta():
+            self.M = self._M.copy()
+        else:
+            h = 0.5
+            c = self.c
+            dx = (self._rel([c + [h, 0]])[0] - self._rel([c - [h, 0]])[0]) / (2 * h)
+            dy = (self._rel([c + [0, h]])[0] - self._rel([c - [0, h]])[0]) / (2 * h)
+            self.M = np.array([dx, dy]).T
+        if not np.all(np.isfinite(self.M)) or abs(np.linalg.det(self.M)) < 1e-12:
+            raise ValueError("matrice della camera della testa non valida")
+        self.Minv = np.linalg.inv(self.M)
+
+    @property
+    def k(self):  # nome della 0.20.0
+        return self.k1
 
     @property
     def c(self):
@@ -74,24 +135,103 @@ class HeadModel:
     def f(self):
         return math.hypot(*self.frame_size) / 2.0
 
+    # ---- spessore del materiale
+    def delta(self):
+        """Spessore in più rispetto al cartone della calibrazione (mm), solo se conta (camera fissa al carrello)."""
+        if self.moves_with_head is not False or not self.height_mm or self.thickness is None:
+            return 0.0
+        return float(self.thickness) - float(self.cal_thickness or 0.0)
+
+    def set_thickness(self, mm):
+        """Spessore del materiale adesso (mm, None = come la calibrazione). Fuori limite: il limite (mai in silenzio
+        oltre l'altezza della camera)."""
+        if mm is not None:
+            mm = float(mm)
+            if not math.isfinite(mm):
+                mm = None
+            elif self.height_mm:
+                mm = min(max(mm, 0.0), float(self.cal_thickness or 0.0) + 0.8 * float(self.height_mm))
+        self.thickness = mm
+        self._refresh()
+        return mm
+
+    def _height_fix(self, X, inverse=False):
+        d = self.delta()
+        if not d:
+            return X
+        D = float(self.height_mm)
+        N = np.zeros(2) if self.nadir is None else np.asarray(self.nadir, float)
+        s = (D - d) / D
+        return N + (X - N) * (1.0 / s if inverse else s)
+
+    # ---- lente
+    def undistort_n(self, x):
+        """Coordinate normalizzate dell'immagine → «senza lente»."""
+        x = np.atleast_2d(np.asarray(x, float))
+        if not self.k1 and not self.k2:
+            return x
+        d = x - self.q
+        r2 = (d ** 2).sum(axis=1, keepdims=True)
+        return self.q + d * (1 + self.k1 * r2 + self.k2 * r2 * r2)
+
+    def distort_n(self, u, iters=60):
+        """Inversa di undistort_n. Punti che con questa lente non possono stare nell'immagine: NaN."""
+        u = np.atleast_2d(np.asarray(u, float))
+        if not self.k1 and not self.k2:
+            return u
+        x = u.copy()
+        with np.errstate(all="ignore"):
+            for _ in range(iters):
+                d = x - self.q
+                r2 = (d ** 2).sum(axis=1, keepdims=True)
+                den = 1 + self.k1 * r2 + self.k2 * r2 * r2
+                x = self.q + (u - self.q) / np.where(den > 0.2, den, np.nan)
+            bad = ~np.isfinite(x).all(axis=1) | (np.hypot(*(self.undistort_n(x) - u).T) > 0.5 / self.f)
+        x[bad] = np.nan
+        return x
+
     def undistort(self, pts):
         """Pixel dell'immagine → pixel «senza lente» (dove sarebbero con una lente perfetta)."""
-        return undistort_px(pts, self.c, self.f, self.k)
+        p = np.atleast_2d(np.asarray(pts, float))
+        return self.c + self.undistort_n((p - self.c) / self.f) * self.f
 
     def distort(self, pts):
         """Pixel «senza lente» → pixel dell'immagine."""
-        return distort_px(pts, self.c, self.f, self.k)
+        p = np.atleast_2d(np.asarray(pts, float))
+        return self.c + self.distort_n((p - self.c) / self.f) * self.f
 
     # ---- conti
+    def _rel(self, pts):
+        """Pixel → piano (mm) rispetto al laser."""
+        x = (np.atleast_2d(np.asarray(pts, float)) - self.c) / self.f
+        u = self.undistort_n(x)
+        w = 1.0 + u @ self.g
+        with np.errstate(all="ignore"):
+            X = (u @ self.A.T + self.t) / np.where(w > 0.05, w, np.nan)[:, None]
+        return self._height_fix(X)
+
+    def _unrel(self, X):
+        """Piano (mm rispetto al laser) → pixel; NaN per i punti che la camera non può vedere."""
+        X = self._height_fix(np.atleast_2d(np.asarray(X, float)), inverse=True)
+        if not self.g.any():
+            u = (X - self.t) @ np.linalg.inv(self.A).T
+        else:  # X·(1 + g·u) = A·u + t  →  (A − X·gᵀ)·u = X − t
+            Ms = self.A[None, :, :] - X[:, :, None] * self.g[None, None, :]
+            with np.errstate(all="ignore"):
+                ok = np.abs(np.linalg.det(Ms)) > 1e-12
+                u = np.full_like(X, np.nan)
+                if ok.any():
+                    u[ok] = np.linalg.solve(Ms[ok], (X - self.t)[ok][:, :, None])[:, :, 0]
+                u[1.0 + u @ self.g <= 0.05] = np.nan
+        return self.c + self.distort_n(u) * self.f
+
     def img_to_bed(self, head, pts):
         """Pixel → punti del piano (mm) con il laser in head."""
-        p = self.undistort(np.atleast_2d(np.asarray(pts, float)))
-        return np.asarray(head, float) + self.offset + (p - self.c) @ self.M.T
+        return np.asarray(head, float) + self._rel(pts)
 
     def bed_to_img(self, head, pts):
         """Punti del piano (mm) → pixel con il laser in head."""
-        P = np.atleast_2d(np.asarray(pts, float))
-        return self.distort(self.c + (P - np.asarray(head, float) - self.offset) @ self.Minv.T)
+        return self._unrel(np.atleast_2d(np.asarray(pts, float)) - np.asarray(head, float))
 
     def center(self, head):
         """Il punto del piano sotto il mirino con il laser in head."""
@@ -113,10 +253,30 @@ class HeadModel:
         """Rotazione dell'immagine sul piano: direzione del bordo «destro» dell'immagine (asse u), 0° = asse X."""
         return math.degrees(math.atan2(self.M[1, 0], self.M[0, 0]))
 
+    def tilt_deg(self):
+        """Inclinazione della camera stimata dalla prospettiva (0 = guarda dritta in basso)."""
+        if not self.g.any():
+            return 0.0
+        # g = variazione relativa della scala per unità normalizzata: con la camera inclinata di θ, g ≈ tan θ / φ,
+        # φ = distanza focale in unità normalizzate. Senza φ si dà solo la variazione di scala ai bordi.
+        return float(np.hypot(*self.g))
+
     def view_mm(self):
         """Larghezza e altezza (mm) della zona di piano inquadrata."""
         w, h = self.frame_size
-        return (float(np.hypot(*(self.M @ [w, 0]))), float(np.hypot(*(self.M @ [0, h]))))
+        if self.method == "dot" and not self.k1:
+            return (float(np.hypot(*(self.M @ [w, 0]))), float(np.hypot(*(self.M @ [0, h]))))
+        a = self._rel([(0, h / 2), (w, h / 2), (w / 2, 0), (w / 2, h)])
+        if not np.all(np.isfinite(a)):
+            return (float(np.hypot(*(self.M @ [w, 0]))), float(np.hypot(*(self.M @ [0, h]))))
+        return (float(np.hypot(*(a[1] - a[0]))), float(np.hypot(*(a[3] - a[2]))))
+
+    def is_occluded(self, pts):
+        p = np.atleast_2d(np.asarray(pts, float))
+        out = np.zeros(len(p), bool)
+        for x0, y0, x1, y1 in self.occluded:
+            out |= (p[:, 0] >= x0) & (p[:, 0] < x1) & (p[:, 1] >= y0) & (p[:, 1] < y1)
+        return out
 
     def describe(self):
         ox, oy = self.offset
@@ -124,22 +284,65 @@ class HeadModel:
                  self.mm_per_px(), self.angle_deg(), ox, oy)
         if self.mirrored():
             txt += " · " + tr("immagine specchiata")
-        if abs(self.k) >= 0.005:
-            txt += " · " + tr("lente corretta ({0:+.0f}% ai bordi)", self.k * 100)
+        if abs(self.k1) >= 0.005 or abs(self.k2) >= 0.005:
+            txt += " · " + tr("lente corretta ({0:+.0f}% ai bordi)", (self.k1 + self.k2) * 100)
+        if self.g.any() and self.tilt_deg() >= 0.002:
+            txt += " · " + tr("inclinazione corretta")
+        qd = self.quality or {}
+        if qd.get("max_mm") is not None:
+            txt += " · " + tr("errore massimo {0:.2f} mm", qd["max_mm"])
         return txt
 
     # ---- file
     def to_dict(self):
-        return {"version": 1, "M": self.M.tolist(), "offset": self.offset.tolist(), "frame_size": list(self.frame_size),
-                "rms_px": self.rms_px, "rms_mm": self.rms_mm, "created": self.created,
-                "camera_name": self.camera_name, "camera_index": self.camera_index, "power_pct": self.power_pct,
-                "k": self.k}
+        d = {"version": 2 if self.method == "grid" else 1,
+             # sempre anche i campi della 0.20.0: una versione vecchia legge il file (con la stima al centro)
+             "M": self.M.tolist(), "offset": self.offset.tolist(), "frame_size": list(self.frame_size),
+             "rms_px": self.rms_px, "rms_mm": self.rms_mm, "created": self.created,
+             "camera_name": self.camera_name, "camera_index": self.camera_index, "power_pct": self.power_pct,
+             "k": self.k1}
+        if self.method == "grid":
+            d.update({"A": self.A.tolist(), "t": self.t.tolist(), "g": self.g.tolist(), "k1": self.k1,
+                      "k2": self.k2, "q": self.q.tolist(), "quality": dict(self.quality),
+                      "backlash": None if self.backlash is None else list(self.backlash),
+                      "camera_mode": self.camera_mode, "autofocus": self.autofocus,
+                      "occluded": [list(map(float, r)) for r in self.occluded],
+                      "moves_with_head": self.moves_with_head, "height_mm": self.height_mm,
+                      "nadir": None if self.nadir is None else list(map(float, self.nadir)),
+                      "cal_thickness": self.cal_thickness})
+        return d
 
     @classmethod
     def from_dict(cls, d):
+        if int(d.get("version", 1)) >= 2 and "A" in d:
+            m = cls(None, None, d["frame_size"], d.get("rms_px", 0.0), d.get("rms_mm", 0.0), d.get("created", ""),
+                    d.get("camera_name", ""), d.get("camera_index"), d.get("power_pct"), d.get("k1", 0.0),
+                    A=d["A"], t=d["t"], g=d.get("g"), k2=d.get("k2", 0.0), q=d.get("q"))
+            m.method = "grid"
+            m.quality = dict(d.get("quality") or {})
+            bl = d.get("backlash")
+            m.backlash = None if bl is None else (float(bl[0]), float(bl[1]))
+            m.camera_mode = str(d.get("camera_mode") or "")
+            m.autofocus = str(d.get("autofocus") or "")
+            m.occluded = [tuple(float(v) for v in r[:4]) for r in (d.get("occluded") or []) if len(r) >= 4]
+            mw = d.get("moves_with_head")
+            m.moves_with_head = mw if mw in (True, False) else None
+            hm = d.get("height_mm")
+            m.height_mm = float(hm) if hm and math.isfinite(float(hm)) and float(hm) > 0 else None
+            nd = d.get("nadir")
+            m.nadir = None if nd is None else np.array(nd, float).reshape(2)
+            m.cal_thickness = float(d.get("cal_thickness") or 0.0)
+            m._refresh()
+            return m
         return cls(d["M"], d["offset"], d["frame_size"], d.get("rms_px", 0.0), d.get("rms_mm", 0.0),
                    d.get("created", ""), d.get("camera_name", ""), d.get("camera_index"), d.get("power_pct"),
                    d.get("k", 0.0))
+
+    def copy(self):
+        m = HeadModel.from_dict(self.to_dict())
+        m.thickness = self.thickness
+        m._refresh()
+        return m
 
     def save(self, path=None):
         path = path or head_file()
@@ -157,7 +360,7 @@ class HeadModel:
         try:
             with open(path, encoding="utf-8") as fh:
                 return cls.from_dict(json.load(fh))
-        except (OSError, ValueError, KeyError, TypeError, IndexError):
+        except (OSError, ValueError, KeyError, TypeError, IndexError, np.linalg.LinAlgError):
             return None
 
 
@@ -283,6 +486,26 @@ def gray(frame):
     if f.ndim == 3:
         f = cv2.cvtColor(f.astype(np.uint8) if f.dtype != np.uint8 else f, cv2.COLOR_BGR2GRAY)
     return f.astype(np.float32)
+
+
+def frame_ok(frame):
+    """Fotogramma rovinato (due camere sulla stessa porta USB: righe ripetute, metà nera)? -> (True, "") o (False,
+    perché). 0.20.2."""
+    if frame is None:
+        return False, tr("nessuna immagine")
+    g = gray(frame)
+    h = g.shape[0]
+    rows = np.abs(np.diff(g[:, ::4], axis=0)).mean(axis=1)
+    run = best = 0
+    for s in rows < 0.05:
+        run = run + 1 if s else 0
+        best = max(best, run)
+    if best > 0.12 * h:
+        return False, tr("righe ripetute")
+    top, bottom = float(g[: h // 2].mean()), float(g[h // 2:].mean())
+    if min(top, bottom) < 6 and max(top, bottom) > 40:
+        return False, tr("metà immagine nera")
+    return True, ""
 
 
 def find_new_mark(before_frames, after_frames, min_area=4):
@@ -518,45 +741,155 @@ def undistort_frame(frame, model):
 
 class Mosaic:
     """Foto del piano fatta di tante foto della camera della testa (ppm pixel per mm, come la foto della camera del
-    piano). Ogni foto si pesa di più al centro: le giunte non si vedono."""
+    piano).
 
-    def __init__(self, bed, ppm=2.0):
+    0.20.2 (mosaico preciso): ogni punto del piano viene dalla foto in cui è più vicino al centro dell'immagine (dove
+    la calibrazione è migliore), con una sfumatura stretta nelle giunte: niente più media fra due foto sfasate (linee
+    doppie). Ogni foto si incolla con il modello completo (lente e inclinazione). Dove c'è qualcosa da riconoscere la
+    foto si aggiusta di al massimo 1 mm sulle vicine, solo se la posizione migliore è una sola (nido d'ape e carta a
+    quadretti non ingannano); sul materiale liscio conta solo la calibrazione. Le zone coperte da pezzi della macchina
+    non si usano; dove nessuna foto arriva si vede un tratteggio, mai un nero che sembri materiale."""
+
+    BAND = 0.06  # larghezza della sfumatura nelle giunte (frazione di metà immagine)
+    ALIGN_MM = 1.0  # aggiustamento massimo delle giunte
+
+    def __init__(self, bed, ppm=4.0):
         self.bed = (float(bed[0]), float(bed[1]))
         self.ppm = float(ppm)
         self.W, self.H = int(round(self.bed[0] * ppm)), int(round(self.bed[1] * ppm))
-        self.acc = np.zeros((self.H, self.W, 3), np.float32)
-        self.wsum = np.zeros((self.H, self.W), np.float32)
+        self.img = np.zeros((self.H, self.W, 3), np.float32)
+        self.best = np.full((self.H, self.W), -np.inf, np.float32)
         self.count = 0
+        self.shifts = []  # aggiustamenti fatti (mm)
+        self.bad_seams = []  # giunte che non combaciano: (x, y) sul piano
 
-    def affine(self, model, head):
-        """Pixel della camera → pixel della foto del piano (2×3)."""
-        k = self.ppm
-        base = np.asarray(head, float) + model.offset - model.M @ model.c
-        A = np.array([[k * model.M[0, 0], k * model.M[0, 1], k * base[0]],
-                      [-k * model.M[1, 0], -k * model.M[1, 1], k * (self.bed[1] - base[1])]])
-        return A
+    # ---- conti
+    def to_px(self, X):
+        X = np.atleast_2d(np.asarray(X, float))
+        return np.stack([X[:, 0] * self.ppm, (self.bed[1] - X[:, 1]) * self.ppm], axis=1)
 
-    def add(self, frame, model, head, keep=0.8):
-        frame = undistort_frame(frame, model)
-        h, w = frame.shape[:2]
-        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-        wx = 1 - np.abs(xx - w / 2) / (w / 2 * keep)
-        wy = 1 - np.abs(yy - h / 2) / (h / 2 * keep)
-        weight = np.clip(np.minimum(wx, wy), 0, 1) ** 1.5
-        A = self.affine(model, head)
-        size = (self.W, self.H)
-        img = cv2.warpAffine(frame.astype(np.float32), A, size, flags=cv2.INTER_LINEAR, borderValue=(0, 0, 0))
-        wt = cv2.warpAffine(weight, A, size, flags=cv2.INTER_LINEAR, borderValue=0)
-        self.acc += img * wt[..., None]
-        self.wsum += wt
+    def window(self, model, head):
+        """Righe e colonne della foto del piano che la foto con il laser in head può coprire."""
+        w, h = model.frame_size
+        s = np.linspace(0, 1, 25)
+        border = np.concatenate([np.stack([s * w, np.zeros_like(s)], 1), np.stack([s * w, np.full_like(s, h)], 1),
+                                 np.stack([np.zeros_like(s), s * h], 1), np.stack([np.full_like(s, w), s * h], 1)])
+        B = model.img_to_bed(head, border)
+        B = B[np.isfinite(B).all(axis=1)]
+        if not len(B):
+            return None
+        q = self.to_px(B)
+        c0, c1 = int(max(0, math.floor(q[:, 0].min()) - 1)), int(min(self.W, math.ceil(q[:, 0].max()) + 1))
+        r0, r1 = int(max(0, math.floor(q[:, 1].min()) - 1)), int(min(self.H, math.ceil(q[:, 1].max()) + 1))
+        if c1 - c0 < 2 or r1 - r0 < 2:
+            return None
+        return r0, r1, c0, c1
+
+    def _warp(self, frame, model, head, win):
+        r0, r1, c0, c1 = win
+        yy, xx = np.mgrid[r0:r1, c0:c1].astype(np.float64)
+        X = np.stack([(xx.ravel() + 0.5) / self.ppm, self.bed[1] - (yy.ravel() + 0.5) / self.ppm], axis=1)
+        P = model.bed_to_img(head, X)
+        w, h = model.frame_size
+        ok = np.isfinite(P).all(axis=1)
+        ok &= (P[:, 0] >= 0) & (P[:, 0] <= w - 1) & (P[:, 1] >= 0) & (P[:, 1] <= h - 1)
+        if model.occluded:
+            ok &= ~model.is_occluded(np.where(np.isfinite(P), P, -1))
+        Pc = np.where(ok[:, None], P, -1.0)
+        mx = Pc[:, 0].reshape(r1 - r0, c1 - c0).astype(np.float32)
+        my = Pc[:, 1].reshape(r1 - r0, c1 - c0).astype(np.float32)
+        img = cv2.remap(np.asarray(frame).astype(np.float32), mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
+                        borderValue=(0, 0, 0))
+        du = np.abs(Pc[:, 0] - w / 2) / (w / 2)
+        dv = np.abs(Pc[:, 1] - h / 2) / (h / 2)
+        score = (1 - np.maximum(du, dv)).reshape(r1 - r0, c1 - c0).astype(np.float32)
+        score[~ok.reshape(r1 - r0, c1 - c0)] = -np.inf
+        return img, score
+
+    def _align(self, img, score, win):
+        """Piccolo spostamento (mm) della foto nuova che la fa combaciare con quelle già messe, oppure None."""
+        r0, r1, c0, c1 = win
+        have = np.isfinite(self.best[r0:r1, c0:c1]) & np.isfinite(score)
+        if have.sum() < 400:
+            return None, None
+        ys, xs = np.nonzero(have)
+        a0, a1, b0, b1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+        R = int(math.ceil(self.ALIGN_MM * self.ppm)) + 1
+        if a1 - a0 < 4 * R or b1 - b0 < 4 * R:
+            return None, None
+        old = cv2.cvtColor(self.img[r0:r1, c0:c1][a0:a1, b0:b1], cv2.COLOR_BGR2GRAY)
+        new = cv2.cvtColor(img[a0:a1, b0:b1], cv2.COLOR_BGR2GRAY)
+        m = have[a0:a1, b0:b1]
+        if float(old[m].std()) < 6 or float(new[m].std()) < 6:
+            return None, None  # materiale liscio: niente da riconoscere, vale la calibrazione
+        tpl = new[R:-R, R:-R]
+        if float(tpl.std()) < 6 or not m[R:-R, R:-R].all():
+            # la parte in comune non è un rettangolo pieno: uso il rettangolo pieno più grande al centro
+            return None, None
+        res = cv2.matchTemplate(old, tpl, cv2.TM_CCOEFF_NORMED)
+        _mn, best, _ml, (bx, by) = cv2.minMaxLoc(res)
+        quality = float(res[R, R])  # senza spostamento
+        mask = np.ones_like(res, bool)
+        mask[max(0, by - 1):by + 2, max(0, bx - 1):bx + 2] = False
+        second = float(res[mask].max()) if mask.any() else -1.0
+        if best < 0.6 or best - second < 0.05 or bx in (0, res.shape[1] - 1) or by in (0, res.shape[0] - 1):
+            return None, quality
+
+        def sub(a, b, c_):
+            d = a - 2 * b + c_
+            return 0.0 if abs(d) < 1e-9 else 0.5 * (a - c_) / d
+
+        dx = bx - R + sub(res[by, bx - 1], res[by, bx], res[by, bx + 1])
+        dy = by - R + sub(res[by - 1, bx], res[by, bx], res[by + 1, bx])
+        mm = np.array([dx / self.ppm, -dy / self.ppm])
+        if float(np.hypot(*mm)) > self.ALIGN_MM or float(np.hypot(*mm)) < 0.5 / self.ppm:
+            return None, quality
+        return mm, best
+
+    def add(self, frame, model, head, align=True):
+        head = np.asarray(head, float)
+        win = self.window(model, head)
+        if win is None:
+            return False
+        img, score = self._warp(frame, model, head, win)
+        if not np.isfinite(score).any():
+            return False
+        if align and self.count:
+            mm, q = self._align(img, score, win)
+            if mm is not None:  # il contenuto va spostato di mm: come se la testa fosse lì
+                self.shifts.append((float(mm[0]), float(mm[1])))
+                img, score = self._warp(frame, model, head + mm, win)
+            elif q is not None and q < 0.4:
+                r0, r1, c0, c1 = win
+                self.bad_seams.append(((c0 + c1) / 2 / self.ppm, self.bed[1] - (r0 + r1) / 2 / self.ppm))
+        r0, r1, c0, c1 = win
+        best = self.best[r0:r1, c0:c1]
+        cur = self.img[r0:r1, c0:c1]
+        b = self.BAND
+        take = score > best + b
+        mix = np.isfinite(score) & ~take & (score >= best - b)
+        cur[take] = img[take]
+        if mix.any():
+            tt = ((score[mix] - best[mix] + b) / (2 * b))[:, None]
+            cur[mix] = cur[mix] * (1 - tt) + img[mix] * tt
+        np.maximum(best, np.where(np.isfinite(score), score, -np.inf), out=best)
         self.count += 1
+        return True
+
+    def covered(self):
+        return np.isfinite(self.best)
 
     def image(self, back=(46, 40, 34)):
-        out = np.empty_like(self.acc)
-        out[:] = back
-        ok = self.wsum > 1e-3
-        out[ok] = self.acc[ok] / self.wsum[ok][:, None]
-        return np.clip(out, 0, 255).astype(np.uint8)
+        out = np.clip(self.img, 0, 255).astype(np.uint8)
+        miss = ~np.isfinite(self.best)
+        if miss.any():  # zona non fotografata: tratteggio, non un colore che sembri materiale
+            yy, xx = np.mgrid[0:self.H, 0:self.W]
+            stripe = ((xx + yy) // max(2, int(3 * self.ppm))) % 2 == 0
+            hatch = np.empty((self.H, self.W, 3), np.uint8)
+            hatch[:] = back
+            hatch[stripe] = (70, 62, 54)
+            out[miss] = hatch[miss]
+        return out
 
 
 # ======================================================================= camera simulata
@@ -567,21 +900,39 @@ class SimHeadCamera(_FrameSource):
     PPM = 8.0  # pixel per mm della trama del materiale
 
     def __init__(self, sim, offset=(0.0, 35.0), mm_per_px=0.08, angle=0.0, mirror=False, size=(640, 480), seed=3,
-                 board=None, profile=None, lag=0.0, k=0.0):
+                 board=None, profile=None, lag=0.0, k=0.0, model=None, light=1.0, gradient=0.0, occlude=None,
+                 spots=None, grain=0.0, moves=True, drift=None, corrupt_every=0, dot_r=0.3):
         self.index = "sim-testa"
         self.lag = float(lag)  # come le camere vere: fotogrammi che arrivano in ritardo (secondi)
         self._queue = []
         self.black = False
         self.mode = "sim"
+        self.autofocus = ""
         self.sim = sim
         self.profile = profile
         self.w, self.h = size
-        self.true = HeadModel(natural_matrix(mm_per_px, angle, mirror), offset, size, k=k)
-        if k:  # pixel dell'immagine → pixel «senza lente», una volta sola
+        # 0.20.2: una camera vera qualsiasi (head_grid.camera_model: inclinata, lente a due coefficienti, centro
+        # spostato, altezza); senza, la camera dritta della 0.20.0
+        self.true = model if model is not None else HeadModel(natural_matrix(mm_per_px, angle, mirror), offset, size,
+                                                              k=k)
+        self.light = float(light)  # 1 = normale; 0,15 = buio
+        self.gradient = float(gradient)  # luce non uniforme: da un lato all'altro dell'immagine ±gradient
+        self.occlude = occlude or []  # [(x0, y0, x1, y1, grigio)] pezzi della macchina fissi nell'immagine
+        self.moves = bool(moves)  # la camera sale e scende con il laser
+        self.material_z = 0.0  # cartone sollevato (mm): conta solo se la camera non sale con il laser
+        self.material_shift = np.zeros(2)  # cartone spostato sul piano (mm)
+        self.drift = drift  # (dopo quanti secondi, scala): messa a fuoco automatica che cambia l'inquadratura
+        self.corrupt_every = int(corrupt_every)  # un fotogramma rovinato ogni n
+        self.dot_r = float(dot_r)  # mm: raggio della bruciatura di ogni punto inciso
+        self._n_grab = 0
+        self._t0 = time.time()
+        self.slip = np.zeros(2)  # passi persi: la testa vera è spostata da dove dice la scheda (mm)
+        self._R = None
+        self._R_key = None
+        self._und = None
+        if model is None and k:  # pixel dell'immagine → pixel «senza lente», una volta sola
             yy, xx = np.mgrid[0:size[1], 0:size[0]].astype(np.float64)
             self._und = self.true.undistort(np.stack([xx.ravel(), yy.ravel()], axis=1))
-        else:
-            self._und = None
         self.rng = np.random.default_rng(seed)
         bx, by = float(sim.settings[130]), float(sim.settings[131])
         self.bed = (bx, by)
@@ -603,9 +954,33 @@ class SimHeadCamera(_FrameSource):
             cv2.fillPoly(base, [pts], 205)
             base = np.where(cv2.fillPoly(np.zeros_like(base), [pts], 1) > 0,
                             (185 + 30 * tex).astype(np.uint8), base)
+        if grain:  # venatura del legno: righe scure lunghe e sottili
+            yy = np.arange(th, dtype=np.float32)[:, None]
+            xx = np.arange(tw, dtype=np.float32)[None, :]
+            waves = np.sin(yy / (1.7 * self.PPM) + 0.8 * np.sin(xx / (31 * self.PPM))) ** 8
+            base = np.clip(base.astype(np.float32) - grain * 60 * waves, 0, 255).astype(np.uint8)
+        for (sx, sy, sr) in (spots or []):  # macchie sul materiale (non sono puntini: grandi o storte)
+            cv2.ellipse(base, (int(sx * self.PPM), int(th - sy * self.PPM)),
+                        (int(sr * self.PPM), int(sr * 0.45 * self.PPM)), 25, 0, 360, 70, -1, cv2.LINE_AA)
         self.material = cv2.cvtColor(base, cv2.COLOR_GRAY2BGR)
         self._marks_done = 0
         super().__init__()
+
+    def _rel_map(self):
+        """Per ogni pixel, il punto del piano (mm dal laser): una volta sola per ogni altezza del cartone."""
+        z = self.material_z if not self.moves else 0.0
+        key = round(float(z), 4)
+        if self._R is None or self._R_key != key:
+            m = self.true
+            if z:
+                m = m.copy()
+                m.moves_with_head = False
+                m.cal_thickness = 0.0
+                m.set_thickness(z)
+            yy, xx = np.mgrid[0:self.h, 0:self.w].astype(np.float64)
+            self._R = m._rel(np.stack([xx.ravel(), yy.ravel()], axis=1))
+            self._R_key = key
+        return self._R
 
     def head(self):
         if self.profile is not None:
@@ -626,16 +1001,27 @@ class SimHeadCamera(_FrameSource):
                 x, y = self.profile.to_bed(mx, my)
             else:
                 x, y = sim.to_bed(mx, my)
+            x, y = x - self.material_shift[0], y - self.material_shift[1]  # sul cartone, che può essere spostato
             cv2.circle(self.material, (int(round(x * self.PPM)), int(round(th - y * self.PPM))),
-                       int(0.3 * self.PPM), (40, 44, 50), -1, cv2.LINE_AA)
+                       max(1, int(round(self.dot_r * self.PPM))), (40, 44, 50), -1, cv2.LINE_AA)
             self._marks_done += 1
-        L = self.head()
+        L = self.head() + self.slip
         m = self.true
         k = self.PPM
         base = L + m.offset - m.M @ m.c
         A = np.array([[k * m.M[0, 0], k * m.M[0, 1], k * base[0]],
                       [-k * m.M[1, 0], -k * m.M[1, 1], k * (self.bed[1] - base[1])]])
-        if self._und is None:
+        general = m.method == "grid" or self.material_z or self.material_shift.any()
+        if general:
+            R = self._rel_map()
+            X = L + R - self.material_shift
+            sx = (X[:, 0] * k).reshape(self.h, self.w).astype(np.float32)
+            sy = (th - X[:, 1] * k).reshape(self.h, self.w).astype(np.float32)
+            sx[~np.isfinite(sx)] = -10
+            sy[~np.isfinite(sy)] = -10
+            img = cv2.remap(self.material, sx, sy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
+                            borderValue=(20, 20, 20))
+        elif self._und is None:
             img = cv2.warpAffine(self.material, A, (self.w, self.h), flags=cv2.WARP_INVERSE_MAP | cv2.INTER_LINEAR,
                                  borderMode=cv2.BORDER_CONSTANT, borderValue=(20, 20, 20))
         else:
@@ -649,8 +1035,22 @@ class SimHeadCamera(_FrameSource):
                 glow = np.zeros_like(img)
                 cv2.circle(glow, (int(u), int(v)), 10, (255, 190, 90), -1, cv2.LINE_AA)
                 img = cv2.add(img, cv2.GaussianBlur(glow, (0, 0), 3))
-        noise = self.rng.normal(0, 1.5, img.shape)
-        out = np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+        img = img.astype(np.float32)
+        if self.light != 1.0 or self.gradient:
+            gx = np.linspace(-1, 1, self.w, dtype=np.float32)[None, :, None]
+            img = img * self.light * (1 + self.gradient * gx)
+        for x0, y0, x1, y1, val in self.occlude:
+            img[int(y0):int(y1), int(x0):int(x1)] = val
+            img[int(y0):int(y1):6, int(x0):int(x1)] = val * 0.5  # con un disegno: non è uniforme
+        if self.drift is not None and time.time() - self._t0 > self.drift[0]:
+            s = float(self.drift[1])
+            Ad = cv2.getRotationMatrix2D((self.w / 2, self.h / 2), 0, s)
+            img = cv2.warpAffine(img, Ad, (self.w, self.h), borderMode=cv2.BORDER_REPLICATE)
+        noise = self.rng.normal(0, 1.5, img.shape) * (1.0 if self.light >= 0.5 else 4.0)
+        out = np.clip(img + noise, 0, 255).astype(np.uint8)
+        self._n_grab += 1
+        if self.corrupt_every and self._n_grab % self.corrupt_every == 0:
+            out[self.h // 3:] = out[self.h // 3]  # righe ripetute (USB senza banda)
         if self.lag <= 0:
             return out
         now = time.time()
@@ -699,6 +1099,9 @@ class HeadCalibration(AutoCam):
         self.mark_bed = None  # dove è stato inciso il puntino (mm)
         self._mark_r = 10.0  # raggio del puntino nell'immagine (pixel)
 
+    def _p(self, i, n, text):
+        self.progress.emit(i, n, text)
+
     def confirm(self, ok):
         """Risposta della persona a need_confirm."""
         self._confirmed = bool(ok)
@@ -739,10 +1142,17 @@ class HeadCalibration(AutoCam):
             if a.shape == b.shape and float(np.abs(a - b).mean()) < 2.5:
                 break
             prev = nxt
-        frames = self.cam.frames(n, after=time.time() + 0.05)
+        frames = []
+        for _try in range(3):  # 0.20.2: senza i fotogrammi rovinati (USB senza banda), che sembrerebbero «macchie»
+            got = self.cam.frames(n, after=time.time() + 0.05)
+            if not got:
+                break
+            frames += [f for f in got if frame_ok(f)[0]]
+            if len(frames) >= n:
+                break
         if len(frames) < max(1, n - 1):
             raise RuntimeError(tr("la camera della testa non sta inviando immagini"))
-        return frames
+        return frames[:n]
 
     def _burn_mark(self, L):
         """Puntino pieno Ø 1,6 mm nel punto L (coordinate di lavoro come AutoCam._burn_disc)."""
@@ -767,6 +1177,13 @@ class HeadCalibration(AutoCam):
             self.ctl.stream_job(job)
             while not done.wait(0.1):
                 self._check()
+        except BaseException:
+            if not done.is_set() and self.ctl.connected:  # 0.20.2: annullata a metà: il lavoro si ferma davvero
+                try:
+                    self.ctl.stop_job()
+                except Exception:  # noqa: BLE001
+                    pass
+            raise
         finally:
             try:
                 self.ctl.job_finished.disconnect(on_done)
@@ -852,11 +1269,16 @@ class HeadCalibration(AutoCam):
         return out[:cap] or [np.zeros(2)]
 
     def _calibrate(self):
+        return self._calibrate_dot()
+
+    def _calibrate_dot(self, quick=False):
+        """La calibrazione col puntino. quick=True (0.20.2, prima fase della calibrazione completa): si ferma dopo la
+        misura di scala e rotazione e rende {M, O, size, Lk, pk, frame} invece del modello."""
         self._check()
         size = tuple(self.cam.size) if self.cam.size and self.cam.size[0] else None
         L0 = self._head()
         self.mark_bed = tuple(L0)
-        self.progress.emit(0, 7, tr("Guardo il materiale (laser spento)…"))
+        self._p(0, 7, tr("Guardo il materiale (laser spento)…"))
         first = self._shot(3)
         size = size or (first[0].shape[1], first[0].shape[0])
         c = np.array([size[0] / 2.0, size[1] / 2.0])
@@ -870,18 +1292,18 @@ class HeadCalibration(AutoCam):
             # 0.20.0 (prova sul B1 del 15/11): la prima foto si faceva sempre con la testa in L0, anche quando la prima
             # posizione da guardare era un'altra (distanza indicativa): dopo il puntino la testa andava sul puntino,
             # non poteva confrontare le due foto e tornava indietro a cercarlo
-            self.progress.emit(0, 7, tr("Foto del materiale prima del puntino ({0} di {1})…", i + 1, len(cands)))
+            self._p(0, 7, tr("Foto del materiale prima del puntino ({0} di {1})…", i + 1, len(cands)))
             self.before_at.append(tuple(self._go_to(*(L0 - g))))
             befores.append(self._shot(3))
         self._go_to(*L0)
-        self.progress.emit(1, 7, tr("Incido il puntino al {0:.0f}%…", self.power_pct))
+        self._p(1, 7, tr("Incido il puntino al {0:.0f}%…", self.power_pct))
         self._burn_mark(L0)
         self._check()
         pk = None
         for i, g in enumerate(cands):
             self._check()
             if i:
-                self.progress.emit(2, 7, tr("Cerco il puntino ({0} di {1})…", i + 1, len(cands)))
+                self._p(2, 7, tr("Cerco il puntino ({0} di {1})…", i + 1, len(cands)))
             Lk = self._go_to(*(L0 - g))
             after = self._shot(3)
             pk = find_new_mark(befores[i], after)
@@ -893,7 +1315,7 @@ class HeadCalibration(AutoCam):
                     pk = None  # non era il puntino: lo indica la persona
                 break
         if pk is None:
-            self.progress.emit(2, 7, tr("Il puntino non è nell'inquadratura"))
+            self._p(2, 7, tr("Il puntino non è nell'inquadratura"))
             self._click = None
             self._go.clear()
             self._ok_user = False
@@ -912,7 +1334,7 @@ class HeadCalibration(AutoCam):
         half = int(max(24, 2.2 * self._mark_r))
         tpl = patch(frame_k, pk, half=half)
         # A) passi di 1 mm: una prima stima di scala e rotazione (il puntino non può uscire dall'inquadratura)
-        self.progress.emit(3, 7, tr("Seguo il puntino spostando la testa…"))
+        self._p(3, 7, tr("Seguo il puntino spostando la testa…"))
         pairs = []
         M = None
         for dx, dy in ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)):
@@ -931,7 +1353,7 @@ class HeadCalibration(AutoCam):
         if M is None:
             raise RuntimeError(tr("non riesco a seguire il puntino: il materiale deve stare fermo e ben illuminato"))
         # B) il puntino al centro dell'immagine: da lì i passi lunghi non lo fanno uscire
-        self.progress.emit(4, 7, tr("Porto il puntino al centro dell'immagine…"))
+        self._p(4, 7, tr("Porto il puntino al centro dell'immagine…"))
         for _ in range(2):
             target = Lk + M @ (pk - c)
             tx, ty = clamp_to_bed(self.profile, *target)
@@ -946,7 +1368,7 @@ class HeadCalibration(AutoCam):
             if np.hypot(*(pk - c)) < 20:
                 break
         # C) passi di 3 mm e poi più lunghi (precisione), sempre con il puntino previsto dentro l'immagine
-        self.progress.emit(5, 7, tr("Misuro scala e rotazione…"))
+        self._p(5, 7, tr("Misuro scala e rotazione…"))
         pairs = []
         Minv = np.linalg.inv(M)
         steps = [(3.0, 0.0), (0.0, 3.0), (-3.0, 0.0), (0.0, -3.0)]
@@ -971,10 +1393,13 @@ class HeadCalibration(AutoCam):
         M, rms_mm = solve_matrix([a for a, _b in pairs], [b for _a, b in pairs])
         if M is None or len(pairs) < 3:
             raise RuntimeError(tr("misure del puntino non coerenti"))
+        if quick:
+            O = np.asarray(self.mark_bed) - Lk - M @ (pk - c)
+            return {"M": M, "O": O, "size": tuple(size), "Lk": Lk, "pk": pk, "rms_mm": rms_mm}
         # D) il puntino verso i bordi dell'immagine, un anello alla volta: misura la lente (i grandangoli stringono i
         # bordi). Dopo ogni anello lente e matrice si ricalcolano, così l'anello dopo si prevede bene anche con una
         # lente molto storta
-        self.progress.emit(5, 7, tr("Misuro la lente verso i bordi dell'immagine…"))
+        self._p(5, 7, tr("Misuro la lente verso i bordi dell'immagine…"))
         f_ = math.hypot(*size) / 2.0
         k = 0.0
         far = []
@@ -1018,7 +1443,7 @@ class HeadCalibration(AutoCam):
         O = np.asarray(self.mark_bed) - Lk - M @ (pk_u - c)
         n_moves = kept
         # centro il puntino sotto il mirino e correggo lo scostamento
-        self.progress.emit(6, 7, tr("Porto il puntino sotto il mirino…"))
+        self._p(6, 7, tr("Porto il puntino sotto il mirino…"))
         model = HeadModel(M, O, size, k=k)
         err = None
         for _ in range(4):
@@ -1038,7 +1463,7 @@ class HeadCalibration(AutoCam):
             model = HeadModel(M, O, size, k=k)
             if err <= CENTER_TOL_PX:
                 break
-        self.progress.emit(7, 7, tr("Fatto"))
+        self._p(7, 7, tr("Fatto"))
         mm_px = model.mm_per_px()
         model.rms_mm = float(rms_mm or 0.0)
         model.rms_px = float(err if err is not None else (rms_mm or 0.0) / max(mm_px, 1e-9))
@@ -1112,7 +1537,7 @@ class HeadMosaicJob(AutoCam):
     """Foto del piano a mosaico con la camera della testa (thread). Laser sempre spento.
     finished(immagine BGR del piano | None, testo)."""
 
-    def __init__(self, ctl, cam, profile, model, zone, ppm=2.0, overlap=0.3):
+    def __init__(self, ctl, cam, profile, model, zone, ppm=4.0, overlap=0.3):
         super().__init__(ctl, cam, profile, grid_n=1, method="mosaic")
         self.model = model
         self.zone = zone
@@ -1134,7 +1559,11 @@ class HeadMosaicJob(AutoCam):
                 target = self.model.head_for_camera(P)
                 tx, ty = clamp_to_bed(self.profile, *target)
                 mx, my = self.profile.to_machine(tx, ty)
-                self.ctl.goto_machine(mx, my, 6000)
+                # 0.20.2: sempre dalla stessa parte (gioco delle cinghie), poi foto a macchina ferma
+                ax, ay = clamp_to_bed(self.profile, tx - 1.5, ty - 1.5)
+                amx, amy = self.profile.to_machine(ax, ay)
+                self.ctl.goto_machine(amx, amy, 6000)
+                self.ctl.goto_machine(mx, my, 3000)
                 self._wait_idle()
                 L = head_on_bed(self.ctl, self.profile)
                 frames = self.cam.frames(2, after=time.time() + 0.25)
@@ -1146,6 +1575,9 @@ class HeadMosaicJob(AutoCam):
             msg = tr("Foto del piano fatta con {0} foto della camera della testa", self.mosaic.count)
             if self.skipped:
                 msg += " · " + tr("{0} foto mancanti", self.skipped)
+            if self.mosaic.bad_seams:
+                msg += "\n" + tr("In {0} giunte le foto non combaciano: il materiale non è piatto o la calibrazione "
+                                 "va controllata («Controlla» nella vista della testa).", len(self.mosaic.bad_seams))
             self.finished.emit(self.mosaic.image(), msg)
         except CalibrationCancelled:
             self.finished.emit(None, tr("Foto del piano annullata"))

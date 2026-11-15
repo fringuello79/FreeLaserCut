@@ -774,16 +774,16 @@ class Canvas(QGraphicsView):
         return None
 
     def shapes_in_rect(self, r, crossing):
+        # 0.20.2: confronti fra riquadri come intervalli chiusi (geom.rect_*): QRectF.contains e intersects dicono
+        # sempre di no per le linee perfettamente orizzontali o verticali (riquadro senza area), che restavano fuori
         out = []
         for s in self.editor.doc.shapes:
             if s.hidden:
                 continue
             b = s.bounds()
-            if crossing:
-                if b.intersects(r) or r.contains(b):
-                    if r.contains(b) or s.path().intersects(r):
-                        out.append(s)
-            elif r.contains(b):
+            if geom.rect_inside(b, r):
+                out.append(s)
+            elif crossing and geom.rect_overlaps(b, r) and s.path().intersects(r):
                 out.append(s)
         return out
 

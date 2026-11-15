@@ -82,6 +82,10 @@ class CutSettings:
     halftone_size: float = 100.0  # % del diametro dei punti del retino (0.19.0): 100 = l'area segue lo scuro della foto
     image_start: str = "top"  # immagini: da dove parte (vedi IMAGE_STARTS)
     burn_curve: str = ""  # foto in scala di grigi: curva di un materiale imparato (core/burn_curve), "" = nessuna
+    # 0.20.2: pausa prima del livello (girare il pezzo, pulire, cambiare materiale, mettere a fuoco)
+    pause_before: bool = False
+    pause_msg: str = ""  # messaggio facoltativo («Gira il pezzo»)
+    pause_park: bool = False  # durante la pausa la testa va da parte (angolo dell'homing): piano libero
 
     @property
     def color(self):
@@ -101,10 +105,21 @@ class CutSettings:
             cs.image_start = "top"
         if not isinstance(cs.burn_curve, str):
             cs.burn_curve = ""
+        cs.pause_before = cs.pause_before is True
+        cs.pause_park = cs.pause_park is True
+        cs.pause_msg = clean_pause_msg(cs.pause_msg)
         from .halftone import clamp_size
 
         cs.halftone_size = clamp_size(cs.halftone_size)
         return cs
+
+
+def clean_pause_msg(text):
+    """Messaggio della pausa: una riga, senza i caratteri che il G-code usa per i commenti, al massimo 80 caratteri."""
+    if not isinstance(text, str):
+        return ""
+    t = " ".join(text.replace(";", ",").replace("(", "[").replace(")", "]").split())
+    return t[:80]
 
 
 def default_layer(index):
@@ -946,10 +961,7 @@ class Document:
 
     def bounds(self, shapes=None):
         shapes = self.shapes if shapes is None else shapes
-        r = QRectF()
-        for s in shapes:
-            r = r.united(s.bounds()) if not r.isNull() else s.bounds()
-        return r
+        return geom.rect_union(s.bounds() for s in shapes)  # 0.20.2: anche linee piatte e punti
 
     # ---- istantanee (annulla/ripeti)
     def snapshot(self):

@@ -178,6 +178,9 @@ class GrblController(QObject):
     # 0.18.17: risposta a un comando mandato con tag «ask:…» (etichetta, accettato?, righe arrivate prima dell'ok):
     # chi fa una domanda alla scheda riceve la SUA risposta, anche se intanto rispondono altri comandi
     reply_ready = Signal(str, bool, object)
+    # 0.20.2: pausa del lavoro chiesta dal G-code (M0, «pausa prima del livello»): la macchina è ferma, laser e aria
+    # spenti; si riparte con resume_user_pause(), si annulla con stop_job()
+    user_pause = Signal(str)  # messaggio per la persona
 
     def __init__(self):
         super().__init__()
@@ -208,6 +211,8 @@ class GrblController(QObject):
         self.job_acked = 0  # righe confermate dalla scheda
         self.pause_on_error = True
         self._g55_told = False  # 0.19.2: il rifiuto di G55 in questo lavoro è già stato segnalato
+        self.user_paused = False  # 0.20.2: lavoro fermo a una pausa M0, in attesa di Riprendi
+        self.user_pause_msg = ""
         self._check = None  # verifica in corso: {"total", "done", "errors"}
         self.board_settings = {}  # ultimo $$ letto dalla scheda {numero: "valore"}
         self.board_info = []  # ultimo $I
@@ -382,6 +387,7 @@ class GrblController(QObject):
         with self._lock:
             self._pending.clear()
             self._inflight.clear()
+            self.user_paused = False
 
     def send_line(self, line, tag=None):
         line = line.strip()
@@ -408,6 +414,8 @@ class GrblController(QObject):
             with self._lock:
                 used = sum(c.length for c in self._inflight)
                 while self._pending and used + self._pending[0].length <= self.rx_buffer:
+                    if self._pending[0].tag == "job_pause":
+                        break  # 0.20.2: pausa M0: non parte niente finché la macchina non è ferma e la persona riprende
                     cmd = self._pending.popleft()
                     self._inflight.append(cmd)
                     used += cmd.length
@@ -541,13 +549,49 @@ class GrblController(QObject):
         self.lost_replies = 0
         self._g55_told = False
         self.last_reply = time.time()  # 0.18.4: il silenzio si conta da qui (risposte perse alla fine del lavoro)
+        self.user_paused = False
+        msgs = _pause_messages(lines)
         with self._lock:
             for i, line in enumerate(clean):
-                c = _Cmd(line, "job")
-                c.data = i
+                if _is_pause(line):  # 0.20.2: M0/M1 li gestisce FreeLaserCut, uguale su tutte le schede
+                    c = _Cmd(line, "job_pause")
+                    c.data = (i, msgs.get(i) or tr("Il G-code chiede una pausa (M0): la macchina è ferma, laser "
+                                                   "spento. Riprendi quando sei pronto."))
+                else:
+                    c = _Cmd(line, "job")
+                    c.data = i
                 self._pending.append(c)
         self.job_progress.emit(0, self._job_total)
         self._pump()
+
+    def _maybe_user_pause(self):
+        """La pausa M0 è la prossima riga, tutte le righe prima sono confermate e la macchina è ferma: si ferma qui."""
+        with self._lock:
+            head = self._pending[0] if self._pending else None
+            go = (self._job_active and not self.user_paused and head is not None and head.tag == "job_pause"
+                  and not self._inflight and self.last_status.get("state") == "Idle")
+            if go:
+                self._pending.popleft()
+                self.user_paused = True
+                i, msg = head.data
+                self.user_pause_msg = msg
+        if not go:
+            return False
+        self.job_acked = int(i) + 1
+        self._job_done += 1
+        self.job_progress.emit(self._job_done, self._job_total)
+        self.user_pause.emit(msg)
+        return True
+
+    def resume_user_pause(self):
+        """Riprendi dopo una pausa M0: il lavoro continua dalla riga dopo."""
+        if not self.user_paused or not self._job_active:
+            return False
+        self.user_paused = False
+        self.user_pause_msg = ""
+        self._pump()
+        self._maybe_user_pause()  # due pause di fila
+        return True
 
     # ------------------------------------------------------- verifica ($C)
     def check_job(self, lines):
@@ -927,7 +971,8 @@ class GrblController(QObject):
                     self._job_active = False
                     self.job_finished.emit(True, f"Lavoro completato: {self._job_total} righe")
             elif self._job_active and st["state"] == "Idle":
-                self._watch_job_end()
+                if not self._maybe_user_pause():
+                    self._watch_job_end()
             elif self._job_active:
                 self._job_idle = 0
             self.status_changed.emit(st)
@@ -1172,6 +1217,31 @@ class GrblController(QObject):
             self.job_progress.emit(self._job_done, self._job_total)
             if self._job_done >= self._job_total:
                 self._job_idle = 0  # la fine arriva dal report di stato, quando la testa si è fermata
+
+
+_PAUSE_RE = re.compile(r"^M0*[01]$")
+
+
+def _is_pause(line):
+    """M0 / M00 / M1 / M01 da soli sulla riga (una riga con altro dentro non è una pausa da gestire)."""
+    return bool(_PAUSE_RE.match(str(line).strip().upper().replace(" ", "")))
+
+
+def _pause_messages(lines):
+    """{indice della riga pulita: messaggio} dal commento «; PAUSA FLC: …» che precede ogni M0."""
+    out, last, k = {}, "", 0
+    for raw in lines:
+        s = str(raw).strip()
+        if s.startswith("; PAUSA FLC:"):
+            last = s[len("; PAUSA FLC:"):].strip()
+        line = re.sub(r"\(.*?\)", "", s.split(";")[0]).strip()
+        if line:
+            if _is_pause(line) and last:
+                out[k] = last
+            if not line.upper().startswith("M"):
+                last = ""
+            k += 1
+    return out
 
 
 def _clean_lines(lines):

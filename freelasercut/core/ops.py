@@ -15,11 +15,8 @@ from .document import GroupShape, ImageShape, PathShape, Shape, TextShape
 
 
 def union_bounds(shapes):
-    r = QRectF()
-    for s in shapes:
-        b = s.bounds()
-        r = b if r.isNull() else r.united(b)
-    return r
+    # 0.20.2: anche le linee piatte e i punti (QRectF.united buttava via i riquadri senza area)
+    return geom.rect_union(s.bounds() for s in shapes)
 
 
 def about(tf, cx, cy):

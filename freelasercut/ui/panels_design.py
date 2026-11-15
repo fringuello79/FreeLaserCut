@@ -520,6 +520,27 @@ class CutSettingsDialog(QDialog):
         self.output = QCheckBox(tr("Incidi questo livello (uscita attiva)"))
         self.output.setChecked(cs.output)
         f.addRow("", self.output)
+        # 0.20.2: pausa prima del livello
+        self.pause = QCheckBox(tr("Fermati prima di questo livello"))
+        self.pause.setChecked(bool(getattr(cs, "pause_before", False)))
+        self.pause.setToolTip(tr("Finito il livello prima, la macchina si ferma con laser e aria spenti e aspetta che "
+                                 "tu prema Riprendi: per girare il pezzo, pulire, cambiare materiale o mettere a fuoco"))
+        f.addRow("", self.pause)
+        self.pause_msg = QLineEdit(getattr(cs, "pause_msg", "") or "")
+        self.pause_msg.setMaxLength(80)
+        self.pause_msg.setPlaceholderText(tr("Messaggio (facoltativo), per esempio «Gira il pezzo»"))
+        f.addRow(tr("Messaggio della pausa"), self.pause_msg)
+        self.pause_park = QCheckBox(tr("Durante la pausa porta la testa da parte"))
+        self.pause_park.setChecked(bool(getattr(cs, "pause_park", False)))
+        self.pause_park.setToolTip(tr("La testa va vicino all'angolo dell'homing, così il piano resta libero (solo "
+                                      "partendo dalle coordinate della macchina)"))
+        f.addRow("", self.pause_park)
+
+        def _pause_state(on):
+            self.pause_msg.setEnabled(on)
+            self.pause_park.setEnabled(on)
+        self.pause.toggled.connect(_pause_state)
+        _pause_state(self.pause.isChecked())
         v.addLayout(f)
         self.tabs = QTabWidget()
         v.addWidget(self.tabs)
@@ -693,7 +714,9 @@ class CutSettingsDialog(QDialog):
                     negative=self.negative.isChecked(), dot_correction=self.dotc.value(),
                     halftone_cell=self.hcell.value(), halftone_angle=self.hangle.value(),
                     halftone_size=self.hsize.value(),
-                    image_start=self.istart.currentData() or "top", burn_curve=self.curve.currentData() or "")
+                    image_start=self.istart.currentData() or "top", burn_curve=self.curve.currentData() or "",
+                    pause_before=self.pause.isChecked(), pause_msg=self.pause_msg.text().strip(),
+                    pause_park=self.pause_park.isChecked())
 
 
 # colonne della tabella livelli

@@ -91,18 +91,30 @@ class PrintCutDialog(QDialog):
         jr.addSpacing(12)
         jr.addWidget(self.l_pos, 1)
         l3.addLayout(jr)
-        self.b_take, self.l_take = [], []
+        self.b_take, self.l_take, self.b_cam = [], [], []
         for i, txt in enumerate((tr("La testa è sulla crocetta 1 (un cerchio)"),
                                  tr("La testa è sulla crocetta 2 (due cerchi)"))):
             b = QPushButton(txt)
             b.clicked.connect(lambda _=False, i=i: self.take(i + 1))
+            # 0.20.2 (Leone, 15/11): con la camera della testa calibrata la crocetta si prende dal mirino, senza dover
+            # prima portare il laser sul centro della camera
+            bc = QPushButton(tr("◎ Dal centro camera"))
+            bc.setToolTip(tr("Il centro della crocetta è il punto sotto il mirino della camera della testa (serve la "
+                             "camera calibrata)"))
+            bc.clicked.connect(lambda _=False, i=i: self.take_from_camera(i + 1))
             lab = QLabel("—")
             r = QHBoxLayout()
             r.addWidget(b, 1)
+            r.addWidget(bc)
             r.addWidget(lab)
             l3.addLayout(r)
             self.b_take.append(b)
+            self.b_cam.append(bc)
             self.l_take.append(lab)
+        self.l_cam = QLabel(tr("Con la camera della testa: porta il mirino sul centro della crocetta (Laser → Vista della "
+                               "testa…, un clic sul video) e premi «Dal centro camera»."))
+        self.l_cam.setWordWrap(True)
+        l3.addWidget(self.l_cam)
         self.scale = QCheckBox(tr("Correggi anche la scala della stampa"))
         self.scale.setChecked(True)
         self.scale.setToolTip(tr("Le stampanti sbagliano spesso le misure di qualche decimo di millimetro: con la "
@@ -170,6 +182,12 @@ class PrintCutDialog(QDialog):
         for b in self.b_take:
             b.setEnabled(have and why is None)
             b.setToolTip(why or "")
+        cam_why = self.camera_ready()
+        for b in self.b_cam:
+            b.setVisible(cam_why != "none")
+            b.setEnabled(have and why is None and cam_why is None)
+            b.setObjectName("primary" if cam_why is None else "")
+        self.l_cam.setVisible(cam_why is None)
         h = self.head()
         self.l_pos.setText(tr("Testa: X {0:.2f}  Y {1:.2f}", round(h[0], 2) + 0.0, round(h[1], 2) + 0.0) if h else (why or ""))
         for i in (0, 1):
@@ -284,6 +302,32 @@ class PrintCutDialog(QDialog):
         self.pad.joy.stop()
         if self.main.laser._glow_on:
             self.main.laser.glow_stop()
+
+    def head_card(self):
+        cam = getattr(self.main, "camera", None)
+        return getattr(cam, "head", None)
+
+    def camera_ready(self):
+        """None se si può prendere la crocetta dal centro della camera della testa, "none" se non c'è una camera della
+        testa, altrimenti il motivo."""
+        card_ = self.head_card()
+        if card_ is None or (card_.src is None and card_.model is None):
+            return "none"
+        if card_.src is None:
+            return tr("Camera della testa non aperta")
+        if not card_.ready():
+            return tr("Calibra prima la camera della testa")
+        return None
+
+    def take_from_camera(self, number):
+        """Crocetta presa dal punto sotto il mirino della camera della testa."""
+        why = self.machine_ready()
+        cam_why = self.camera_ready()
+        if why or cam_why:
+            return self.say(why or (cam_why if cam_why != "none" else tr("Nessuna camera della testa")), True)
+        card_ = self.head_card()
+        c = card_.model.center(self.head())
+        return self.take(number, pos=(float(c[0]), float(c[1])))
 
     def take(self, number, pos=None):
         """Prende la posizione della testa come centro della crocetta 1 o 2 (pos: solo per le prove)."""

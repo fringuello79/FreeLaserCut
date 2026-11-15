@@ -190,12 +190,17 @@ HELP = {
     "head_cam_setup": (tr("Camera della testa"), tr("Scelta e calibrazione della telecamera fissata alla testa del "
                        "laser. Dopo la calibrazione la vista della testa è in Laser → Vista della testa…"), None),
     "head_cam": (tr("Vista della testa"), tr("Una telecamera fissata alla testa del laser che guarda il piano da "
-                 "vicino. Dopo la calibrazione (un puntino inciso, seguito dalla camera) un clic sul video porta lì il "
-                 "mirino; si porta il laser sul centro della camera o la camera sul laser, si mette l'origine sotto il "
-                 "mirino, si prendono due angoli della tavola per appoggiarci il disegno e si fa la foto del piano a "
-                 "mosaico."),
-                 [(tr("Calibrazione"), tr("vale per lo spessore del materiale con cui è fatta")),
+                 "vicino. Dopo la calibrazione completa (una griglia di puntini incisa su un cartone di circa 15 × 10 "
+                 "cm, una volta per tutte) un clic sul video porta lì il mirino; si porta il laser sul centro della "
+                 "camera o la camera sul laser, si mette l'origine sotto il mirino, si prendono due angoli della tavola "
+                 "per appoggiarci il disegno e si fa la foto del piano a mosaico. La vista si raddrizza da sola e si "
+                 "ingrandisce con la rotella."),
+                 [(tr("Calibrazione"), tr("vale finché non sposti la camera o il supporto; «Controlla» la verifica in "
+                                          "10 secondi")),
+                  (tr("Spessore"), tr("conta solo se la camera non sale e scende con il laser")),
                   (tr("Tavola"), tr("angoli A e B sullo stesso lato"))]),
+    "clear_mosaic": (tr("Togli la foto a mosaico dal piano"), tr("Toglie da sotto il piano la foto fatta con la camera "
+                     "della testa. Si può rifare quando vuoi dalla vista della testa."), None),
     "head_laser_here": (tr("Porta il laser qui"), tr("La testa va con il laser nel punto del clic (a laser spento)."),
                         None),
     "head_camera_here": (tr("Porta la camera della testa qui"), tr("La testa si sposta perché il mirino della camera "

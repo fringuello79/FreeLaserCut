@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from . import camera as camera_mod
 from . import head_camera as hc
+from . import head_grid as hg
 from .camera import CameraSource
 from .i18n import tr
 from .theme import C, css
@@ -48,9 +49,13 @@ class HeadCameraCard(QWidget):
         self.src = None
         self.model = hc.HeadModel.load()
         self.model_ok = self.model is not None  # False se la risoluzione della camera aperta è diversa
+        self.model_why = ""  # perché il modello non vale con la camera aperta
         self.window = None
         self.cal = None
         self.job = None  # foto a mosaico in corso
+        self.check = None  # 0.20.2: «Controlla la calibrazione» in corso
+        if self.model is not None:
+            self.model.set_thickness(self.thickness() if self.model.moves_with_head is False else None)
         self.board = [None, None]  # angoli A e B della tavola (mm sul piano)
         self.last_msg = ""
         self.mark = None  # (u, v) del puntino durante la calibrazione
@@ -73,8 +78,9 @@ class HeadCameraCard(QWidget):
                                     "il centro della camera"))
         self.btn_view.clicked.connect(self.open_window)
         self.btn_cal = QPushButton(tr("Calibra…"))
-        self.btn_cal.setToolTip(tr("Incide un puntino, lo segue spostando la testa e lo porta sotto il mirino: "
-                                   "FreeLaserCut impara scala, rotazione e distanza fra laser e camera"))
+        self.btn_cal.setToolTip(tr("Calibrazione completa, una volta per tutte: incide una griglia di puntini su un "
+                                   "cartone di circa 15 × 10 cm e misura lente, inclinazione, scala e distanza fra "
+                                   "laser e camera"))
         self.btn_cal.clicked.connect(lambda: self.open_window(calibrate=True))
         row.addWidget(self.btn_view, 1)
         row.addWidget(self.btn_cal)
@@ -195,6 +201,14 @@ class HeadCameraCard(QWidget):
             f = self.src.get(after=0, timeout=2.0)
             size = (f.shape[1], f.shape[0]) if f is not None else size
         self.model_ok = self.model is not None and (not size[0] or tuple(self.model.frame_size) == size)
+        self.model_why = "" if self.model_ok or self.model is None else tr("La risoluzione della camera è cambiata: "
+                                                                            "ricalibra.")
+        # 0.20.2: stessa risoluzione ma modo di lettura diverso (su Windows può tagliare l'immagine in un altro modo)
+        mode = str(getattr(self.src, "mode", "") or "")
+        if self.model_ok and self.model.camera_mode and mode and mode != self.model.camera_mode:
+            self.model_ok = False
+            self.model_why = tr("La camera ora si legge in un altro modo ({0}, la calibrazione è stata fatta con {1}): "
+                                "l'immagine può essere tagliata diversamente. Ricalibra.", mode, self.model.camera_mode)
 
     def close_src(self):
         if self.cal is not None:
@@ -208,8 +222,11 @@ class HeadCameraCard(QWidget):
         """Calibrata e utilizzabile per i comandi che muovono la testa."""
         return self.model is not None and self.model_ok
 
+    def busy(self):
+        return self.cal is not None or self.job is not None or self.check is not None
+
     def update_state(self):
-        busy = self.cal is not None or self.job is not None
+        busy = self.busy()
         if self.src is None and self.model is None:
             txt, col = tr("Fissata alla testa, guarda il piano da vicino: sceglila qui sopra e calibrala."), ""
         elif self.src is None:
@@ -217,9 +234,15 @@ class HeadCameraCard(QWidget):
         elif self.model is None:
             txt, col = tr("Camera pronta, non ancora calibrata: premi «Calibra…»."), C["warn"]
         elif not self.model_ok:
-            txt, col = tr("La risoluzione della camera è cambiata: ricalibra."), C["warn"]
+            txt, col = self.model_why or tr("La risoluzione della camera è cambiata: ricalibra."), C["warn"]
+        elif self.model.method != "grid":
+            txt, col = tr("✓ Calibrata il {0} col puntino (0.20.0)  ·  {1}  ·  per la precisione completa rifai la "
+                          "calibrazione", self.model.created, self.model.describe()), C["success"]
         else:
             txt, col = tr("✓ Calibrata il {0}  ·  {1}", self.model.created, self.model.describe()), C["success"]
+        if self.src is not None and getattr(self.src, "autofocus", "") == "on":
+            txt += "\n" + tr("Attenzione: questa camera ha la messa a fuoco automatica e non si lascia spegnere: se "
+                             "l'immagine cambia scala da sola la calibrazione non tiene.")
         if self.last_msg and self.src is None:
             txt, col = self.last_msg, C["warn"]
         self.state.setText(txt)
@@ -253,7 +276,7 @@ class HeadCameraCard(QWidget):
             return tr("Connetti la macchina per muovere la testa")
         if self.ctl.job_active or self.ctl.checking:
             return tr("C'è un lavoro in corso")
-        if self.cal is not None or self.job is not None:
+        if self.busy():
             return tr("Attendi la fine della calibrazione o della foto")
         if need_model and not self.ready():
             return tr("Calibra prima la camera della testa")
@@ -389,9 +412,10 @@ class HeadCameraCard(QWidget):
         return A
 
     # ---------------------------------------------------------------- calibrazione
-    def calibrate(self, power=None, ask=True, guess=None):
-        """Calibrazione: prima la finestrella (dove è la camera, potenza), poi la testa nel punto in cui la camera
-        potrà vedere il puntino, poi il lavoro vero (HeadCalibration). ask=False: valori dati (prove, comandi)."""
+    def calibrate(self, power=None, ask=True, guess=None, moves=None, cal_thickness=None):
+        """0.20.2: calibrazione completa (griglia di puntini, head_grid.HeadGridCalibration). Prima la finestrella
+        (dove è la camera, se sale e scende con il laser, potenza del puntino di prova), poi la testa in un punto da
+        cui la camera potrà fotografare la griglia, poi il lavoro vero. ask=False: valori dati (prove, comandi)."""
         why = self._can_move(need_model=False)
         if why:
             return self._say(why) and None
@@ -408,21 +432,31 @@ class HeadCameraCard(QWidget):
                 power = float(qs.value("head_camera_power", hc.DEFAULT_POWER)) if qs is not None else hc.DEFAULT_POWER
             except (TypeError, ValueError):
                 power = hc.DEFAULT_POWER
+        if moves is None:
+            moves = self.moves_answer()
+        if cal_thickness is None:
+            try:
+                cal_thickness = float(qs.value("head_camera_card_mm", 3.0)) if qs is not None else 3.0
+            except (TypeError, ValueError):
+                cal_thickness = 3.0
         if ask:
             dlg = HeadCalDialog(self, power)
             if dlg.exec() != QDialog.Accepted:
                 return None
             power, guess = dlg.power.value(), dlg.pad.guess()
+            moves, cal_thickness = dlg.moves(), dlg.card_mm.value()
         if qs is not None:
             qs.setValue("head_camera_power", float(power))
+            qs.setValue("head_camera_moves", {True: "yes", False: "no", None: "unknown"}[moves])
+            qs.setValue("head_camera_card_mm", float(cal_thickness))
         p = self.win.profile
-        start, why = hc.calibration_start(self.head(), guess, (p.bed_x, p.bed_y))
+        start, why = hc.calibration_start(self.head(), guess, (p.bed_x, p.bed_y), margin=hc.START_MARGIN + 60)
         if start is None:
             return self._say(tr("Calibrazione impossibile: {0}", why), 12000) and None
         head = self.head()
         if math.hypot(start[0] - head[0], start[1] - head[1]) > 0.5:
-            # la camera da qui non arriverebbe a vedere il puntino: la testa va prima nel punto giusto
-            self._go(start, tr("Punto del puntino di calibrazione"))
+            # la camera da qui non arriverebbe a fotografare la griglia: la testa va prima nel punto giusto
+            self._go(start, tr("Centro del cartone della calibrazione"))
             end = time.time() + 60
             while time.time() < end:
                 QApplication.processEvents()
@@ -432,16 +466,20 @@ class HeadCameraCard(QWidget):
                     break
                 time.sleep(0.02)
             if ask and QMessageBox.question(
-                    self, tr("Calibra la camera della testa"),
-                    tr("Ho spostato la testa in X {0:.0f}  Y {1:.0f} mm: da qui, dopo il puntino, la camera riesce ad "
-                       "andarci sopra.\n\nSotto l'ugello c'è cartone o legno da scarto, a fuoco? Inizio?",
-                       start[0], start[1])) != QMessageBox.Yes:
+                    self, tr("Calibrazione completa"),
+                    tr("Ho spostato la testa in X {0:.0f}  Y {1:.0f} mm: da qui la camera riesce a fotografare tutta "
+                       "la griglia.\n\nMetti il cartone (circa 15 × 10 cm) centrato sotto l'ugello, a fuoco. "
+                       "Inizio?", start[0], start[1])) != QMessageBox.Yes:
                 return None
         name = camera_mod.NAMES.get(self.index(), "") if self.index() is not None else ""
-        self.cal = hc.HeadCalibration(self.ctl, self.src, self.win.profile, power, name, self.index(), guess=guess)
+        old = self.model if self.ready() else None
+        self.cal = hg.HeadGridCalibration(self.ctl, self.src, self.win.profile, power, name, self.index(), guess=guess,
+                                          moves=moves, old_model=old, cal_thickness=cal_thickness)
         self.cal.progress.connect(self._cal_progress)
         self.cal.need_confirm.connect(self._cal_confirm)
         self.cal.need_click.connect(self._cal_need_click)
+        self.cal.need_height.connect(self._cal_need_height)
+        self.cal.need_choice.connect(self._cal_need_choice)
         self.cal.mark_seen.connect(self._cal_mark)
         self.cal.finished.connect(self._cal_finished)
         self.mark = None
@@ -450,11 +488,115 @@ class HeadCameraCard(QWidget):
         self.cal.start()
         return self.cal
 
+    def moves_answer(self):
+        """Risposta salvata a «la camera sale e scende con il laser?»: True, False o None (non so)."""
+        qs = getattr(self.win, "qs", None)
+        v = str(qs.value("head_camera_moves", "yes") or "yes") if qs is not None else "yes"
+        return {"yes": True, "no": False}.get(v)
+
+    def _cal_need_height(self, text):
+        """Camera che forse non sale con il laser: la persona solleva il cartone e scrive di quanto."""
+        cal = self.cal
+        dlg = HeightDialog(self.window or self, text)
+        ok = dlg.exec() == QDialog.Accepted
+        if cal is None:
+            return
+        cal.height_answer(dlg.mm.value() if ok else None)
+
+    def _cal_need_choice(self, text):
+        cal = self.cal
+        ans = QMessageBox.question(self.window or self, tr("Calibrazione completa"), text,
+                                   QMessageBox.Yes | QMessageBox.No)
+        if cal is not None:
+            cal.choose(ans == QMessageBox.Yes)
+
+    # ---------------------------------------------------------------- 0.20.2: spessore, controllo, foto
+    def thickness(self):
+        qs = getattr(self.win, "qs", None)
+        try:
+            return float(qs.value("head_camera_thickness", 0.0)) if qs is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    def set_thickness(self, mm):
+        """Spessore del materiale (camere che non salgono con il laser): vale per tutti i comandi."""
+        qs = getattr(self.win, "qs", None)
+        if qs is not None:
+            qs.setValue("head_camera_thickness", float(mm))
+        if self.model is not None:
+            got = self.model.set_thickness(float(mm) if self.model.moves_with_head is False else None)
+            if got is not None and abs(got - float(mm)) > 1e-6:
+                self._say(tr("Spessore fuori misura per questa camera: uso {0:.1f} mm", got))
+        self.update_marker()
+        return mm
+
+    def check_calibration(self, dot=False, ask=True):
+        """«Controlla la calibrazione» (10 s, laser spento); dot=True: anche con un puntino inciso su uno scarto."""
+        why = self._can_move()
+        if why:
+            return self._say(why) and None
+        if dot and ask and QMessageBox.question(
+                self.window or self, tr("Controlla con un puntino"),
+                tr("Incido un puntino qui, dove è ora il laser, e lo guardo con la camera.\n\nSotto l'ugello c'è cartone o "
+                   "legno da scarto, a fuoco? Occhiali indossati?")) != QMessageBox.Yes:
+            return None
+        self.check = hg.HeadCheckJob(self.ctl, self.src, self.win.profile, self.model, dot=dot)
+        self.check.progress.connect(self._cal_progress)
+        self.check.finished.connect(self._check_finished)
+        self.update_state()
+        self.check.start()
+        return self.check
+
+    def _check_finished(self, res, msg):
+        self.check = None
+        self.last_check = res
+        self._say(msg, 15000)
+        if self.window is not None:
+            self.window.show_result(msg)
+        self.update_state()
+
+    def align_bed_photo(self):
+        """Parte 2: la foto della camera del piano allineata con la camera della testa (laser spento)."""
+        why = self._can_move() or self.panel.can_align()
+        if why:
+            return self._say(why) and None
+        park = (self.panel.saved or {}).get("park")
+        park = tuple(float(v) for v in park) if isinstance(park, (list, tuple)) and len(park) == 2 else None
+        self.align_job = hg.BedAlignJob(self.ctl, self.src, self.win.profile, self.model, self.panel.src,
+                                        self.panel.model, park)
+        self.job = self.align_job  # occupa la testa come la foto a mosaico
+        self.align_job.progress.connect(self._cal_progress)
+        self.align_job.finished.connect(self._align_finished)
+        self.update_state()
+        self.align_job.start()
+        return self.align_job
+
+    def _align_finished(self, corr, msg):
+        self.job = None
+        if corr is not None:
+            self.panel.set_align(corr)
+        self._say(msg, 15000)
+        if self.window is not None:
+            self.window.show_result(msg)
+        self.update_state()
+
+    def has_mosaic(self):
+        return getattr(self.panel, "mosaic", None) is not None
+
+    def clear_mosaic(self):
+        """Leone (15/11): la foto a mosaico si toglie dal piano quando non serve più."""
+        if hasattr(self.panel, "clear_mosaic"):
+            self.panel.clear_mosaic()
+        self._say(tr("Foto a mosaico tolta dal piano"))
+        self.update_state()
+
     def cancel(self):
         if self.cal is not None:
             self.cal.cancel()
         if self.job is not None:
             self.job.cancel()
+        if self.check is not None:
+            self.check.cancel()
 
     def _cal_progress(self, i, total, text):
         if self.window is not None:
@@ -494,7 +636,7 @@ class HeadCameraCard(QWidget):
             self.waiting_click = False
             self.cal.click(u, v)
             return "mark"
-        if self.cal is not None or self.job is not None:
+        if self.busy():
             return None
         self.camera_to_pixel(u, v)
         return "move"
@@ -503,8 +645,9 @@ class HeadCameraCard(QWidget):
         self.cal = None
         self.waiting_click = False
         if model is not None:
+            model.set_thickness(self.thickness() if model.moves_with_head is False else None)
             model.save()
-            self.model, self.model_ok = model, True
+            self.model, self.model_ok, self.model_why = model, True, ""
         self.last_msg = ""
         self._say(msg.split("\n")[0], 12000)
         if self.window is not None:
@@ -542,6 +685,7 @@ class HeadCameraCard(QWidget):
         if zone is None:
             return self._say(tr("Niente da fotografare: seleziona un disegno o prendi gli angoli della tavola")) and None
         self.job = hc.HeadMosaicJob(self.ctl, self.src, self.win.profile, self.model, zone)
+        self._mosaic_ppm = self.job.ppm
         self.job.progress.connect(self._cal_progress)
         self.job.finished.connect(self._mosaic_finished)
         self.update_state()
@@ -551,7 +695,7 @@ class HeadCameraCard(QWidget):
     def _mosaic_finished(self, img, msg):
         self.job = None
         if img is not None:
-            self.panel.show_mosaic(img, 2.0)
+            self.panel.show_mosaic(img, self._mosaic_ppm)
         self._say(msg, 12000)
         if self.window is not None:
             self.window.show_result(msg)
@@ -664,26 +808,62 @@ class WherePad(QWidget):
 
 
 class HeadCalDialog(QDialog):
-    """Prima della calibrazione: dove è la camera, potenza del puntino e dove verrà inciso (un punto che la camera
-    potrà raggiungere)."""
+    """Prima della calibrazione completa: dove è la camera, se sale e scende con il laser, potenza del puntino di prova
+    e dove si mette il cartone (un punto da cui la camera potrà fotografare tutta la griglia)."""
 
     def __init__(self, card_, power=hc.DEFAULT_POWER):
         super().__init__(card_.window or card_.win)
         from .app import muted
 
         self.card = card_
-        self.setWindowTitle(tr("Calibra la camera della testa"))
+        self.setWindowTitle(tr("Calibrazione completa della camera della testa"))
         lay = QVBoxLayout(self)
         qs = getattr(card_.win, "qs", None)
         self.pad = WherePad(qs)
         lay.addWidget(self.pad)
+        # 0.20.2 (revisione A1): la sola domanda nuova; il resto si misura
+        lay.addWidget(muted(tr("La camera sale e scende con il laser quando lo metti a fuoco?")))
+        mrow = QHBoxLayout()
+        self.moves_btns = {}
+        for key, txt, tip in (("yes", tr("Sì"), tr("È fissata al modulo del laser (come un supporto sulla testa): la "
+                                                    "distanza dal materiale resta sempre quella del fuoco")),
+                              ("no", tr("No"), tr("È fissata al carrello o al telaio: con materiali più alti li vede "
+                                                  "più da vicino. Alla fine ti chiedo di sollevare il cartone di uno "
+                                                  "spessore noto")),
+                              ("unknown", tr("Non so"), tr("Lo misuro io: alla fine ti chiedo di sollevare il cartone "
+                                                           "di uno spessore noto e di rimettere a fuoco"))):
+            b_ = QPushButton(txt)
+            b_.setCheckable(True)
+            b_.setToolTip(tip)
+            b_.clicked.connect(lambda _=False, k=key: self.set_moves(k))
+            mrow.addWidget(b_)
+            self.moves_btns[key] = b_
+        mrow.addStretch(1)
+        lay.addLayout(mrow)
+        self.card_row = QWidget()
+        crl = QHBoxLayout(self.card_row)
+        crl.setContentsMargins(0, 0, 0, 0)
+        crl.addWidget(muted(tr("Spessore del cartone della calibrazione")))
+        self.card_mm = QDoubleSpinBox()
+        self.card_mm.setRange(0.0, 30.0)
+        self.card_mm.setDecimals(1)
+        self.card_mm.setSuffix(" mm")
+        try:
+            self.card_mm.setValue(float(qs.value("head_camera_card_mm", 3.0)) if qs is not None else 3.0)
+        except (TypeError, ValueError):
+            self.card_mm.setValue(3.0)
+        crl.addWidget(self.card_mm)
+        crl.addStretch(1)
+        lay.addWidget(self.card_row)
         prow = QHBoxLayout()
-        prow.addWidget(muted(tr("Potenza del puntino")))
+        prow.addWidget(muted(tr("Potenza del puntino di prova")))
         self.power = QDoubleSpinBox()
         self.power.setRange(1.0, 100.0)
         self.power.setDecimals(0)
         self.power.setSuffix(" %")
         self.power.setValue(float(power))
+        self.power.setToolTip(tr("Se il puntino si vede poco ne incido un altro più forte (al massimo il triplo, mai "
+                                 "oltre l'80%); se si allarga troppo la griglia si incide più delicata"))
         prow.addWidget(self.power)
         prow.addStretch(1)
         lay.addLayout(prow)
@@ -692,10 +872,16 @@ class HeadCalDialog(QDialog):
         lay.addWidget(self.where)
         if card_.win.profile.rot():
             lay.addWidget(muted(tr("Il piano è mostrato ruotato: per le frecce guarda lo schermo, non la macchina.")))
-        lay.addWidget(muted(tr("FreeLaserCut fa qualche foto a laser spento, incide un puntino di circa 2 mm, poi lo "
-                               "segue spostando la testa di pochi millimetri e lo porta sotto il mirino. Quando lo "
-                               "trova ti chiede di confermarlo.\n•  occhiali protettivi per 450 nm indossati\n•  "
-                               "sotto l'ugello cartone o legno da scarto, a fuoco, che non si muova")))
+        note = tr("Serve una sola cosa: un cartone (o compensato sottile) chiaro e piatto di circa 15 × 10 cm, centrato "
+                  "sotto l'ugello e a fuoco. FreeLaserCut incide un puntino di prova, controlla la luce e che il cartone "
+                  "copra la zona, poi incide una griglia di puntini (1–2 minuti) e la fotografa in più punti "
+                  "dell'immagine. In tutto 3–5 minuti; alla fine dice quanto è precisa.\n•  occhiali protettivi per "
+                  "450 nm indossati, aspirazione accesa\n•  una luce sopra il piano (con il coperchio chiuso la "
+                  "camera vede poco)")
+        if getattr(card_.src, "autofocus", "") == "on":
+            note += "\n" + tr("•  questa camera ha la messa a fuoco automatica e non si lascia spegnere: la "
+                              "calibrazione controlla che l'immagine resti ferma")
+        lay.addWidget(muted(note))
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttons.button(QDialogButtonBox.Ok).setText(tr("Inizia"))
         self.buttons.button(QDialogButtonBox.Cancel).setText(tr("Annulla"))
@@ -703,11 +889,23 @@ class HeadCalDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         lay.addWidget(self.buttons)
         self.pad.changed.connect(self._update)
+        v = card_.moves_answer()
+        self.set_moves({True: "yes", False: "no", None: "unknown"}[v])
         self._update()
+
+    def set_moves(self, key):
+        self._moves = key if key in self.moves_btns else "yes"
+        for k, b_ in self.moves_btns.items():
+            b_.setChecked(k == self._moves)
+        self.card_row.setVisible(self._moves != "yes")
+
+    def moves(self):
+        return {"yes": True, "no": False}.get(self._moves)
 
     def start(self):
         p = self.card.win.profile
-        return hc.calibration_start(self.card.head(), self.pad.guess(), (p.bed_x, p.bed_y))
+        return hc.calibration_start(self.card.head(), self.pad.guess(), (p.bed_x, p.bed_y),
+                                    margin=hc.START_MARGIN + 60)
 
     def _update(self):
         start, why = self.start()
@@ -717,56 +915,213 @@ class HeadCalDialog(QDialog):
             self.where.setText(tr("Calibrazione impossibile: {0}", why))
             self.where.setStyleSheet(f"color:{C['danger']};")
         elif head is not None and math.hypot(start[0] - head[0], start[1] - head[1]) > 0.5:
-            self.where.setText(tr("Il puntino si incide in X {0:.0f}  Y {1:.0f} mm: da dove è ora la testa la camera non "
-                                  "riuscirebbe ad andarci sopra, quindi la testa ci va prima (poi controlli che sotto "
-                                  "ci sia il cartone).", start[0], start[1]))
+            self.where.setText(tr("Il cartone va in X {0:.0f}  Y {1:.0f} mm: da dove è ora la testa la camera non "
+                                  "riuscirebbe a fotografare tutta la griglia, quindi la testa ci va prima (poi metti lì "
+                                  "il cartone).", start[0], start[1]))
             self.where.setStyleSheet(f"color:{C['warn']};")
         else:
-            self.where.setText(tr("Il puntino si incide qui, dove è ora la testa (X {0:.0f}  Y {1:.0f} mm).", *start))
+            self.where.setText(tr("Il cartone va qui, centrato sotto l'ugello (X {0:.0f}  Y {1:.0f} mm).", *start))
             self.where.setStyleSheet("")
         self.buttons.button(QDialogButtonBox.Ok).setEnabled(ok)
 
 
+class HeightDialog(QDialog):
+    """Seconda altezza (camere che forse non salgono con il laser): di quanto è stato sollevato il cartone."""
+
+    def __init__(self, parent, text):
+        super().__init__(parent)
+        from .app import muted
+
+        self.setWindowTitle(tr("Calibrazione completa"))
+        lay = QVBoxLayout(self)
+        lay.addWidget(muted(text))
+        row = QHBoxLayout()
+        row.addWidget(muted(tr("Cartone sollevato di")))
+        self.mm = QDoubleSpinBox()
+        self.mm.setRange(1.5, 30.0)
+        self.mm.setDecimals(1)
+        self.mm.setSingleStep(0.5)
+        self.mm.setValue(4.0)
+        self.mm.setSuffix(" mm")
+        row.addWidget(self.mm)
+        row.addStretch(1)
+        lay.addLayout(row)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.button(QDialogButtonBox.Ok).setText(tr("Fatto, misura"))
+        bb.button(QDialogButtonBox.Cancel).setText(tr("Salta"))
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+
 # ======================================================================= vista dal vivo
+# 0.20.2 (richieste di Leone, 15/11): la vista si raddrizza da sola dopo la calibrazione (in alto = verso il fondo del
+# piano, a destra = X+, come sul piano e come le frecce), si può capovolgere o ruotare a mano e si ingrandisce con la
+# rotella. Tutti i conti (clic, disegno sovrapposto, mirino, puntino) passano da to_img / at, una sola trasformazione.
+DIHEDRAL = [np.array(m, float) for m in ([[1, 0], [0, 1]], [[0, -1], [1, 0]], [[-1, 0], [0, -1]], [[0, 1], [-1, 0]],
+                                         [[-1, 0], [0, 1]], [[1, 0], [0, -1]], [[0, 1], [1, 0]], [[0, -1], [-1, 0]])]
+
+
+def auto_orientation(M):
+    """La rotazione di 90° in 90° (con specchio se serve) che porta l'immagine come il piano visto dall'alto:
+    a destra X+, in alto Y+. M: mm sul piano per pixel dell'immagine (colonne = +u, +v). -> matrice 2×2 intera."""
+    best, score = DIHEDRAL[0], -1e9
+    for D in DIHEDRAL:
+        J = np.asarray(M, float) @ np.linalg.inv(D)
+        a = J[:, 0] / max(np.hypot(*J[:, 0]), 1e-12)
+        b = J[:, 1] / max(np.hypot(*J[:, 1]), 1e-12)
+        s = a[0] - b[1]
+        if s > score + 1e-9:
+            best, score = D, s
+    return best
+
+
 class HeadView(QWidget):
-    clicked = Signal(float, float)  # pixel dell'immagine
+    clicked = Signal(float, float)  # pixel dell'immagine (vera, non girata)
+
+    ZOOM_MAX = 12.0
 
     def __init__(self):
         super().__init__()
         self.setMinimumSize(480, 270)
         self.setCursor(Qt.CrossCursor)
+        self.setMouseTracking(False)
         self.frame = None
         self.img = None
         self.model = None
         self.head = None
         self.marks = []
         self.board = []
-        self.shapes = []  # [[(u, v), ...], ...] disegno sovrapposto, già in pixel
+        self.shapes = []  # [[(u, v), ...], ...] disegno sovrapposto, già in pixel dell'immagine vera
         self.ask = False
+        self.auto = True  # raddrizza da sola (serve la calibrazione)
+        self.manual = np.eye(2)  # capovolgi / ruota a mano, dopo quella automatica
+        self.zoom = 1.0
+        self.pan = QPointF(0, 0)
+        self._drag = None
+        self._press = None
 
+    # ---- orientamento
+    def orientation(self):
+        D = np.eye(2)
+        if self.auto and self.model is not None:
+            D = auto_orientation(self.model.M)
+        return self.manual @ D
+
+    def flip(self, which):
+        """"h" capovolge in orizzontale, "v" in verticale, "r" ruota di 90° in senso orario (sullo schermo)."""
+        F = {"h": np.array([[-1, 0], [0, 1]], float), "v": np.array([[1, 0], [0, -1]], float),
+             "r": np.array([[0, -1], [1, 0]], float)}[which]
+        self.manual = F @ self.manual
+        self.update()
+
+    def set_manual(self, text):
+        try:
+            v = [float(x) for x in str(text).split(",")]
+            M = np.array(v, float).reshape(2, 2)
+            if any(np.allclose(M, D) for D in DIHEDRAL):
+                self.manual = M
+        except (ValueError, TypeError):
+            pass
+
+    def manual_text(self):
+        return ",".join(f"{v:g}" for v in self.manual.ravel())
+
+    # ---- geometria della vista
     def set_frame(self, frame):
         self.frame = frame
         self.img = to_qimage(frame) if frame is not None else None
         self.update()
 
-    def _rect(self):
+    def _geom(self):
+        """(centro dell'immagine sullo schermo, pixel di schermo per pixel d'immagine, D) o None."""
         if self.img is None:
-            return QRectF()
+            return None
+        D = self.orientation()
         w, h = self.img.width(), self.img.height()
-        k = min(self.width() / w, self.height() / h)
-        return QRectF((self.width() - w * k) / 2, (self.height() - h * k) / 2, w * k, h * k)
+        dw, dh = abs(D[0, 0] * w + D[0, 1] * h), abs(D[1, 0] * w + D[1, 1] * h)
+        k = min(self.width() / max(dw, 1), self.height() / max(dh, 1)) * self.zoom
+        ctr = QPointF(self.width() / 2, self.height() / 2) + self.pan
+        return ctr, k, D
+
+    def _rect(self):
+        g = self._geom()
+        if g is None:
+            return QRectF()
+        ctr, k, D = g
+        w, h = self.img.width(), self.img.height()
+        dw, dh = abs(D[0, 0] * w + D[0, 1] * h) * k, abs(D[1, 0] * w + D[1, 1] * h) * k
+        return QRectF(ctr.x() - dw / 2, ctr.y() - dh / 2, dw, dh)
+
+    def at(self, u, v):
+        """Pixel dell'immagine → punto dello schermo."""
+        ctr, k, D = self._geom()
+        d = D @ np.array([u - self.img.width() / 2, v - self.img.height() / 2])
+        return QPointF(ctr.x() + d[0] * k, ctr.y() + d[1] * k)
 
     def to_img(self, pos):
-        r = self._rect()
-        if r.isEmpty() or not r.contains(pos):
+        """Punto dello schermo → pixel dell'immagine vera (None fuori dall'immagine)."""
+        g = self._geom()
+        if g is None:
             return None
-        k = r.width() / self.img.width()
-        return ((pos.x() - r.left()) / k, (pos.y() - r.top()) / k)
+        ctr, k, D = g
+        d = np.linalg.inv(D) @ np.array([(pos.x() - ctr.x()) / k, (pos.y() - ctr.y()) / k])
+        u, v = d[0] + self.img.width() / 2, d[1] + self.img.height() / 2
+        if not (0 <= u <= self.img.width() and 0 <= v <= self.img.height()):
+            return None
+        return (float(u), float(v))
+
+    def fit(self):
+        self.zoom = 1.0
+        self.pan = QPointF(0, 0)
+        self.update()
+
+    # ---- mouse
+    def wheelEvent(self, e):
+        if self.img is None:
+            return
+        steps = e.angleDelta().y() / 120.0
+        old = self.zoom
+        self.zoom = float(min(max(self.zoom * 1.18 ** steps, 1.0), self.ZOOM_MAX))
+        if self.zoom == 1.0:
+            self.pan = QPointF(0, 0)
+        else:  # il punto sotto il cursore resta fermo
+            pos = e.position()
+            ctr = QPointF(self.width() / 2, self.height() / 2) + self.pan
+            r = self.zoom / old
+            new_ctr = pos - (pos - ctr) * r
+            self.pan = new_ctr - QPointF(self.width() / 2, self.height() / 2)
+        self.update()
 
     def mousePressEvent(self, e):
-        p = self.to_img(e.position())
-        if p is not None and e.button() == Qt.LeftButton:
-            self.clicked.emit(float(p[0]), float(p[1]))
+        if e.button() in (Qt.MiddleButton, Qt.RightButton):
+            self._drag = (e.position(), QPointF(self.pan))
+            self.setCursor(Qt.ClosedHandCursor)
+            return
+        if e.button() == Qt.LeftButton:
+            self._press = e.position()
+
+    def mouseMoveEvent(self, e):
+        if self._drag is not None:
+            start, pan0 = self._drag
+            self.pan = pan0 + (e.position() - start)
+            self.update()
+
+    def mouseReleaseEvent(self, e):
+        if self._drag is not None and e.button() in (Qt.MiddleButton, Qt.RightButton):
+            self._drag = None
+            self.setCursor(Qt.CrossCursor)
+            return
+        if e.button() == Qt.LeftButton and self._press is not None:
+            moved = (e.position() - self._press).manhattanLength()
+            self._press = None
+            p = self.to_img(e.position())
+            if p is not None and moved <= 6:
+                self.clicked.emit(float(p[0]), float(p[1]))
+
+    def mouseDoubleClickEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self.fit()
 
     def paintEvent(self, _e):
         p = QPainter(self)
@@ -775,14 +1130,16 @@ class HeadView(QWidget):
             p.setPen(QColor(C["muted"]))
             p.drawText(self.rect(), Qt.AlignCenter, tr("Nessuna immagine dalla camera della testa"))
             return
-        r = self._rect()
+        ctr, k, D = self._geom()
         p.setRenderHint(QPainter.SmoothPixmapTransform)
-        p.drawImage(r, self.img)
+        p.save()
+        p.translate(ctr)
+        p.scale(k, k)
+        p.setTransform(QTransform(D[0, 0], D[1, 0], D[0, 1], D[1, 1], 0, 0) * p.transform())
+        p.drawImage(QPointF(-self.img.width() / 2, -self.img.height() / 2), self.img)
+        p.restore()
         p.setRenderHint(QPainter.Antialiasing)
-        k = r.width() / self.img.width()
-
-        def at(u, v):
-            return QPointF(r.left() + u * k, r.top() + v * k)
+        at = self.at
 
         # disegno sovrapposto
         if self.shapes:
@@ -802,8 +1159,9 @@ class HeadView(QWidget):
         for u, v in self.marks:
             p.setPen(QPen(QColor(60, 220, 60), 2))
             p.drawEllipse(at(u, v), 10, 10)
-        # mirino
-        cx, cy = r.center().x(), r.center().y()
+        # mirino: al centro dell'immagine vera
+        c0 = at(self.img.width() / 2, self.img.height() / 2)
+        cx, cy = c0.x(), c0.y()
         col = QColor(CAM_COLOR)
         p.setPen(QPen(QColor(0, 0, 0, 160), 3))
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
@@ -812,25 +1170,28 @@ class HeadView(QWidget):
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             p.drawLine(QPointF(cx + dx * 8, cy + dy * 8), QPointF(cx + dx * 40, cy + dy * 40))
         p.drawEllipse(QPointF(cx, cy), 3, 3)
-        # righello: 10 mm (o 5 / 1 mm se la vista è piccola)
+        # righello: 10 mm (o 5 / 2 / 1 mm se la vista è piccola), con lo zoom
         if self.model is not None:
             mmpx = self.model.mm_per_px()
-            for mm in (10.0, 5.0, 2.0, 1.0):
-                if mm / mmpx * k < r.width() * 0.3:
+            for mm in (10.0, 5.0, 2.0, 1.0, 0.5):
+                if mm / mmpx * k < self.width() * 0.3:
                     break
             L = mm / mmpx * k
-            x0, y0 = r.left() + 16, r.bottom() - 18
+            x0, y0 = 16, self.height() - 18
             p.setPen(QPen(QColor(0, 0, 0, 170), 5))
             p.drawLine(QPointF(x0, y0), QPointF(x0 + L, y0))
             p.setPen(QPen(QColor("#FFFFFF"), 2))
             p.drawLine(QPointF(x0, y0), QPointF(x0 + L, y0))
-            for t in (0.0, L):
-                p.drawLine(QPointF(x0 + t, y0 - 5), QPointF(x0 + t, y0 + 5))
+            for t_ in (0.0, L):
+                p.drawLine(QPointF(x0 + t_, y0 - 5), QPointF(x0 + t_, y0 + 5))
             p.drawText(QPointF(x0 + L + 8, y0 + 5), f"{mm:g} mm")
+        if self.zoom > 1.001:
+            p.setPen(QColor("#FFFFFF"))
+            p.drawText(QRectF(0, 6, self.width() - 10, 20), Qt.AlignRight,
+                       tr("zoom ×{0:.1f} · doppio clic: tutta l'immagine", self.zoom))
         if self.ask:
             p.setPen(QColor(C["warn"]))
-            p.drawText(QRectF(r.left(), r.top() + 6, r.width(), 22), Qt.AlignHCenter,
-                       tr("Fai clic sul puntino inciso"))
+            p.drawText(QRectF(0, 6, self.width(), 22), Qt.AlignHCenter, tr("Fai clic sul puntino inciso"))
 
 
 class HeadCameraWindow(QDialog):
@@ -845,7 +1206,37 @@ class HeadCameraWindow(QDialog):
         lay = QVBoxLayout(self)
         self.view = HeadView()
         self.view.clicked.connect(self._clicked)
+        qs = getattr(card_.win, "qs", None)
+        if qs is not None:
+            self.view.auto = str(qs.value("head_view_auto", "1")) != "0"
+            self.view.set_manual(qs.value("head_view_manual", ""))
         lay.addWidget(self.view, 1)
+        # 0.20.2: orientamento della vista (discreto, sotto il video)
+        vr = QHBoxLayout()
+        vr.setSpacing(4)
+        self.chk_upright = QCheckBox(tr("Raddrizza da sola"))
+        self.chk_upright.setChecked(self.view.auto)
+        self.chk_upright.setToolTip(tr("Dopo la calibrazione la vista si gira come il piano sullo schermo: in alto il "
+                                       "fondo della macchina, a destra X+. Così le frecce muovono la testa nel verso "
+                                       "che vedi."))
+        self.chk_upright.toggled.connect(self._set_upright)
+        vr.addWidget(self.chk_upright)
+        self.view_btns = {}
+        for key, txt, tip in (("h", "↔", tr("Capovolgi in orizzontale")), ("v", "↕", tr("Capovolgi in verticale")),
+                              ("r", "⟳", tr("Ruota di 90°"))):
+            b_ = QPushButton(txt)
+            b_.setFixedWidth(34)
+            b_.setToolTip(tip)
+            b_.clicked.connect(lambda _=False, k=key: self._flip(k))
+            vr.addWidget(b_)
+            self.view_btns[key] = b_
+        b_fit = QPushButton(tr("Adatta"))
+        b_fit.setToolTip(tr("Tutta l'immagine (anche con un doppio clic sul video). La rotella ingrandisce, il tasto "
+                            "centrale o destro trascinato sposta la vista."))
+        b_fit.clicked.connect(self.view.fit)
+        vr.addWidget(b_fit)
+        vr.addStretch(1)
+        lay.addLayout(vr)
         self.info = muted("")
         lay.addWidget(self.info)
 
@@ -876,16 +1267,45 @@ class HeadCameraWindow(QDialog):
         # calibrazione
         kc, kl = card(tr("Calibrazione"))
         row = QHBoxLayout()
-        self.b_cal = QPushButton(tr("◎  Calibra automaticamente"))
+        self.b_cal = QPushButton(tr("◎  Calibrazione completa…"))
         self.b_cal.setObjectName("primary")
+        self.b_cal.setToolTip(tr("Una volta per tutte: incide una griglia di puntini su un cartone di circa 15 × 10 cm "
+                                 "e misura lente, inclinazione, scala e distanza fra laser e camera"))
         self.b_cal.clicked.connect(self.start_calibration)
+        self.b_check = QPushButton(tr("Controlla"))
+        self.b_check.setToolTip(tr("In 10 secondi, a laser spento: la testa si sposta di misure note e l'immagine deve "
+                                   "spostarsi come previsto (camera urtata, supporto allentato?)"))
+        self.b_check.clicked.connect(lambda: card_.check_calibration())
+        self.b_check_dot = QPushButton(tr("Con un puntino"))
+        self.b_check_dot.setToolTip(tr("Controlla anche la distanza fra laser e camera: incide un puntino su uno scarto e "
+                                       "guarda se la camera lo vede dove se lo aspetta (circa 20 secondi)"))
+        self.b_check_dot.clicked.connect(lambda: card_.check_calibration(dot=True))
         self.b_stop = QPushButton(tr("Annulla"))
         self.b_stop.setObjectName("danger")
         self.b_stop.clicked.connect(card_.cancel)
         self.b_stop.hide()
         row.addWidget(self.b_cal, 1)
+        row.addWidget(self.b_check)
+        row.addWidget(self.b_check_dot)
         row.addWidget(self.b_stop)
         kl.addLayout(row)
+        # 0.20.2: spessore del materiale, solo per le camere che non salgono e scendono con il laser
+        self.th_row = QWidget()
+        thl = QHBoxLayout(self.th_row)
+        thl.setContentsMargins(0, 0, 0, 0)
+        thl.addWidget(muted(tr("Spessore del materiale")))
+        self.thick = QDoubleSpinBox()
+        self.thick.setRange(0.0, 80.0)
+        self.thick.setDecimals(1)
+        self.thick.setSingleStep(0.5)
+        self.thick.setSuffix(" mm")
+        self.thick.setToolTip(tr("La camera non sale e scende con il laser: con un materiale più alto vede il piano più "
+                                 "da vicino. Scrivi lo spessore e FreeLaserCut corregge le posizioni."))
+        self.thick.setValue(card_.thickness())
+        self.thick.valueChanged.connect(card_.set_thickness)
+        thl.addWidget(self.thick)
+        thl.addStretch(1)
+        kl.addWidget(self.th_row)
         self.bar = QProgressBar()
         self.bar.hide()
         kl.addWidget(self.bar)
@@ -942,7 +1362,17 @@ class HeadCameraWindow(QDialog):
                                     "le foto, unite, vanno sotto il piano in scala 1:1"))
         self.b_mosaic.clicked.connect(lambda: card_.take_mosaic(self.zone.currentData()))
         r4.addWidget(self.b_mosaic)
+        self.b_unmosaic = QPushButton(tr("Togli la foto dal piano"))
+        self.b_unmosaic.setToolTip(tr("Toglie da sotto il piano la foto a mosaico (si può rifare quando vuoi)"))
+        self.b_unmosaic.clicked.connect(card_.clear_mosaic)
+        r4.addWidget(self.b_unmosaic)
         pl.addLayout(r4)
+        self.b_align_bed = QPushButton(tr("Allinea la foto della camera del piano"))
+        self.b_align_bed.setToolTip(tr("Con il materiale sul piano: la camera della testa guarda alcuni punti e corregge "
+                                       "la foto della camera in alto (lente, spessore del materiale, coperchio "
+                                       "spostato). Circa 30 secondi, laser spento."))
+        self.b_align_bed.clicked.connect(card_.align_bed_photo)
+        pl.addWidget(self.b_align_bed)
         lay.addWidget(pc)
 
         self.timer = QTimer(self)
@@ -953,10 +1383,15 @@ class HeadCameraWindow(QDialog):
     # ---- stato
     def update_state(self):
         cd = self.card
-        busy = cd.cal is not None or cd.job is not None
+        busy = cd.busy()
         ok = cd.ready() and cd.ctl.connected and not busy
-        for b in (self.b_laser, self.b_cam, self.b_origin, self.b_a, self.b_b, self.b_mosaic):
+        for b in (self.b_laser, self.b_cam, self.b_origin, self.b_a, self.b_b, self.b_mosaic, self.b_check,
+                  self.b_check_dot):
             b.setEnabled(ok)
+        self.b_unmosaic.setEnabled(cd.has_mosaic())
+        self.b_align_bed.setVisible(cd.panel.can_align() is None)
+        self.b_align_bed.setEnabled(ok)
+        self.th_row.setVisible(cd.model is not None and cd.model.moves_with_head is False)
         self.b_align.setEnabled(cd.board_angle() is not None and not busy)
         self.b_clear.setEnabled(cd.board[0] is not None or cd.board[1] is not None)
         self.b_cal.setEnabled(cd.src is not None and cd.ctl.connected and not busy)
@@ -972,10 +1407,12 @@ class HeadCameraWindow(QDialog):
         if ang is not None:
             parts.append(tr("lato A→B a {0:.2f}°", ang))
         self.board_text.setText("  ·  ".join(parts) if parts else tr("Nessun angolo preso"))
-        if cd.model is None:
+        if cd.model is None and not self.cal_text.text():
             self.cal_text.setText(tr("Non ancora calibrata."))
-        elif not busy and not self.cal_text.text():
-            self.cal_text.setText(cd.model.describe())
+        elif cd.model is not None and not busy and not self.cal_text.text():
+            self.cal_text.setText(cd.model.describe() + ("" if cd.model.method == "grid" else "\n" + tr(
+                "Calibrata col puntino (versione 0.20.0): funziona, ma la calibrazione completa è più precisa ai bordi "
+                "dell'immagine e nella foto a mosaico.")))
 
     def progress(self, i, total, text):
         self.bar.show()
@@ -996,6 +1433,19 @@ class HeadCameraWindow(QDialog):
 
     def start_calibration(self):
         return self.card.calibrate()
+
+    def _set_upright(self, on):
+        self.view.auto = bool(on)
+        qs = getattr(self.card.win, "qs", None)
+        if qs is not None:
+            qs.setValue("head_view_auto", "1" if on else "0")
+        self.view.update()
+
+    def _flip(self, key):
+        self.view.flip(key)
+        qs = getattr(self.card.win, "qs", None)
+        if qs is not None:
+            qs.setValue("head_view_manual", self.view.manual_text())
 
     def _clicked(self, u, v):
         if self.card.click_on_video(u, v) == "mark":

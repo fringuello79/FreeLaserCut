@@ -49,6 +49,8 @@ class CameraPanel(QWidget):
         self._searching = False
         self._closed_note = ""  # 0.19.1: perché una telecamera di rete non è stata aperta (resta scritto nello stato)
         self.phone_top = None  # 0.19.0: la foto dal telefono già raddrizzata sull'area di lavoro
+        self.align = None  # 0.20.2: correzione della foto del piano misurata con la camera della testa
+        self.mosaic = None
         self.phone_corners = None
         self._plate_dlg = None
         if os.path.exists(camera_file()):
@@ -122,6 +124,15 @@ class CameraPanel(QWidget):
         orow.addWidget(self.btn_shot)
         fl.addLayout(orow)
         fl.addWidget(muted(tr("Con la foto attiva, fai doppio clic sul tuo pezzo: la testa va esattamente lì.")))
+        # 0.20.2: correzione con la camera della testa (si vede solo quando c'è): accesa e spenta per confrontare
+        self.chk_align = QCheckBox(tr("Correzione dalla camera della testa"))
+        self.chk_align.setToolTip(tr("La foto del piano corretta con i punti misurati dalla camera della testa (vale "
+                                     "per il materiale che c'era durante l'allineamento): spegnila per vedere prima e "
+                                     "dopo"))
+        self.chk_align.setChecked(True)
+        self.chk_align.hide()
+        self.chk_align.toggled.connect(lambda _on: self.snapshot())
+        fl.addWidget(self.chk_align)
         lay.addWidget(fc)
 
         # --- calibrazione
@@ -735,6 +746,10 @@ class CameraPanel(QWidget):
             top = plate_photo.fit_raw(frame, self.bed_size(), PPM)  # così com'è, intera, non allineata
         else:
             top = self.model.rectify(frame, PPM)
+            if self.align is not None and self.chk_align.isChecked():
+                from . import head_grid
+
+                top = head_grid.apply_bed_correction(top, self.align, self.bed_size()[1], PPM)
         if top is not None:
             self.win.bed.set_camera_image(to_qimage(top), PPM, self.opacity.value() / 100)
 
@@ -758,10 +773,34 @@ class CameraPanel(QWidget):
         self.mosaic = img
         self.win.bed.set_camera_image(to_qimage(img), ppm, self.opacity.value() / 100)
 
+    def set_align(self, corr):
+        """0.20.2: correzione della foto del piano dalla camera della testa (None = nessuna)."""
+        self.align = corr
+        self.chk_align.setVisible(corr is not None)
+        if corr is not None:
+            self.chk_align.setChecked(True)
+        if self.chk_live.isChecked():
+            self.snapshot()
+
+    def can_align(self):
+        """Si può allineare la foto del piano con la camera della testa? None oppure il motivo."""
+        if self.src is None or self.is_raw() or self.is_phone() or self.model is None:
+            return tr("Serve la camera del piano calibrata")
+        return None
+
+    def clear_mosaic(self):
+        """0.20.2 (Leone, 15/11): toglie dal piano la foto a mosaico; la foto dal vivo, se accesa, resta."""
+        had = getattr(self, "mosaic", None) is not None
+        self.mosaic = None
+        if had and not self.chk_live.isChecked():
+            self.win.bed.clear_camera()
+        return had
+
     def on_live(self, on):
         if not on:
             self.win.bed.clear_camera()
         else:
+            self.mosaic = None  # la foto dal vivo prende il suo posto
             self.snapshot()
 
     # ---------------------------------------------------------------- calibrazione
@@ -840,6 +879,7 @@ class CameraPanel(QWidget):
             extra["park"] = [float(v) for v in ac.park]
         model.save(camera_file(), extra)
         self.model, self.saved = CameraModel.load(camera_file())
+        self.set_align(None)  # 0.20.2: la correzione apparteneva alla calibrazione di prima
         self.chk_live.setChecked(True)
         msg = tr("Calibrazione con i punti a mano: {0} punti, precisione ±{1:.2f} mm (peggiore {2:.2f} mm)",
                  model.n_points or len(dlg.pairs()), model.rms_mm, model.max_mm)
@@ -933,6 +973,7 @@ class CameraPanel(QWidget):
                 extra["park"] = [float(v) for v in ac.park]
             model.save(camera_file(), extra)
             self.model, self.saved = CameraModel.load(camera_file())
+            self.set_align(None)  # 0.20.2: la correzione apparteneva alla calibrazione di prima
             self.cal_bar.setValue(self.cal_bar.maximum())
             self.chk_live.setChecked(True)
             box = QMessageBox(self)

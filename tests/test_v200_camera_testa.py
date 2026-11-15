@@ -583,7 +583,7 @@ pad.cm.setValue(4.0)
 check("…freccia ↑ e 4 cm = 40 mm verso l'alto del piano; il puntino starà in basso",
       pad.guess() == (0.0, 40.0) and "in basso rispetto alla camera" in pad.text.text())
 check("…la scelta si ricorda", w.qs.value("head_camera_where") == "u;4")
-check("…e la finestrella dice dove verrà inciso il puntino", "Il puntino si incide" in dlg.where.text()
+check("…e la finestrella dice dove va il cartone (0.20.2: calibrazione completa)", "Il cartone va" in dlg.where.text()
       and dlg.buttons.button(hcu.QDialogButtonBox.Ok).isEnabled(), dlg.where.text())
 pad.set_direction("")
 check("…● = non lo so: nessuna indicazione e distanza spenta", pad.guess() is None and not pad.cm.isEnabled()
@@ -614,8 +614,11 @@ hcu.HeadCalDialog.exec = pick_up_3cm
 saved_model = card.model
 started = card.calibrate()
 here = hc.head_on_bed(w.ctl, w.profile)
-check("camera 3 cm in alto e testa a 8 mm dal bordo davanti: la testa va prima a Y 60 (il puntino lì la camera lo "
-      "raggiunge), poi parte la calibrazione", started is not None and np.hypot(*(here - (200, 60))) < 0.05, here)
+# 0.20.2: con la calibrazione completa il margine comprende la griglia e le sue foto (START_MARGIN + 60)
+want_start = hc.calibration_start((200, 8), (0, 30), (w.profile.bed_x, w.profile.bed_y), margin=hc.START_MARGIN + 60)[0]
+check("camera 3 cm in alto e testa a 8 mm dal bordo davanti: la testa va prima in un punto da cui la camera arriva a "
+      "fotografare tutta la griglia, poi parte la calibrazione", started is not None and want_start[1] > 60
+      and np.hypot(*(here - want_start)) < 0.05, (here, want_start))
 card.cancel()
 until(lambda: card.cal is None, 60)
 check("…annullata subito: niente inciso e la calibrazione di prima resta", card.model is saved_model
@@ -747,19 +750,20 @@ if not BANCO:
     check("foto a mosaico: parte (laser spento)", job is not None)
     until(lambda: card.job is None, 120)
     img = getattr(panel, "mosaic", None)
-    ok_m = img is not None and img.shape[:2] == (int(w.profile.bed_y * 2), int(w.profile.bed_x * 2))
+    pp = job.mosaic.ppm  # 0.20.2: 4 pixel per mm (prima 2)
+    ok_m = img is not None and img.shape[:2] == (int(round(w.profile.bed_y * pp)), int(round(w.profile.bed_x * pp)))
     # confronto con il materiale vero della camera simulata, nella zona fotografata
     err = 99.0
     if ok_m:
         z = card.mosaic_zone("selection")
-        x0, y0, x1, y1 = [int(v * 2) for v in z]
-        H = int(w.profile.bed_y * 2)
+        x0, y0, x1, y1 = [int(v * pp) for v in z]
+        H = int(round(w.profile.bed_y * pp))
         mine = cv2.cvtColor(img[H - y1:H - y0, x0:x1], cv2.COLOR_BGR2GRAY).astype(np.float32)
-        truth = cv2.resize(cam.material, (int(w.profile.bed_x * 2), H), interpolation=cv2.INTER_AREA)
+        truth = cv2.resize(cam.material, (int(round(w.profile.bed_x * pp)), H), interpolation=cv2.INTER_AREA)
         truth = cv2.cvtColor(truth[H - y1:H - y0, x0:x1], cv2.COLOR_BGR2GRAY).astype(np.float32)
         res = cv2.matchTemplate(mine[10:-10, 10:-10], truth, cv2.TM_CCOEFF_NORMED)
         _a, sc, _b, loc_ = cv2.minMaxLoc(res)
-        err = math.hypot(loc_[0] - 10, loc_[1] - 10) / 2.0
+        err = math.hypot(loc_[0] - 10, loc_[1] - 10) / pp
     check("foto a mosaico sotto il piano: coincide con il materiale vero (spostamento sotto 0,5 mm)",
           ok_m and err < 0.5 and job.mosaic.count >= 1, (err, getattr(job, "skipped", None)))
     check("…e nessun puntino inciso durante la foto", w.ctl.sim.power == 0)

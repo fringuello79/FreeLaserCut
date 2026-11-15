@@ -245,6 +245,9 @@ def compact_spreads(dither):
     return dither not in ("grayscale", "halftone", "threshold")
 
 
+PAUSE_TAG = "; PAUSA FLC:"  # 0.20.2: commento davanti a M0, con il messaggio per la persona
+
+
 @dataclass
 class GcodeJob:
     lines: list = field(default_factory=list)
@@ -258,6 +261,7 @@ class GcodeJob:
     rotary_k: float = 1.0  # rotativo: Y macchina = riferimento + (Y piano - riferimento) × k
     rotary_ref: tuple = (0.0, 0.0)  # punto di riferimento sul piano (ancoraggio del disegno)
     preview: object = None  # gcode_preview.Preview delle righe generate (coordinate di uscita)
+    pauses: list = field(default_factory=list)  # 0.20.2: pause fra i livelli [{index, label, msg}]
     # 0.17.2: per ogni livello Immagine {index, label, speed, seg (mm), bytes, compact (punti uniti, 1 = no)}
     stream: list = field(default_factory=list)
 
@@ -916,11 +920,8 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         job.warnings.append(tr("Niente da incidere: nessuna forma su livelli con uscita attiva"))
         return job
     # ingombro del disegno (per l'ancoraggio)
-    drawn = QRectF()
-    for cs in layers:
-        for leaf, tf in by_layer[cs.index]:
-            r = tf.map(leaf.local_path()).boundingRect()
-            drawn = r if drawn.isNull() else drawn.united(r)
+    drawn = geom.rect_union(tf.map(leaf.local_path()).boundingRect()  # 0.20.2: anche linee piatte e punti
+                            for cs in layers for leaf, tf in by_layer[cs.index])
     anchor = geom.rect_anchor(drawn, opts.anchor)
     # posizionamento: piano -> uscita
     if opts.start_from == "absolute":
@@ -997,8 +998,37 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     current_cmd = opts.laser_cmd
     cur = opts.current_pos if opts.start_from == "current" else (0.0, 0.0)
     air_on = False
-    for cs in layers:
+    job.pauses = []
+    for n_layer, cs in enumerate(layers):
         _tick()
+        # 0.20.2: pausa prima del livello. Laser e aria spenti, testa da parte se chiesto, poi M0 (pausa del
+        # programma GRBL, per i file salvati e la scheda SD). Nell'invio diretto M0 non arriva alla scheda: si ferma
+        # FreeLaserCut (grbl.GrblController, «job_pause») e riparte quando la persona preme Riprendi.
+        if getattr(cs, "pause_before", False):
+            if n_layer == 0:
+                job.warnings.append(tr("{0}: la pausa prima del primo livello non serve (il lavoro non è ancora "
+                                       "partito): ignorata", cs.label()))
+            else:
+                from .document import clean_pause_msg
+
+                msg = clean_pause_msg(getattr(cs, "pause_msg", "")) or tr("Pausa prima del livello {0}", cs.label())
+                w.raw("M5 S0")
+                w.s = 0.0
+                if air_on and air_cmd_off:
+                    w.raw(air_cmd_off)
+                air_on = False
+                if getattr(cs, "pause_park", False) and opts.start_from == "absolute":
+                    # solo con le coordinate del piano: con «posizione attuale» o «origine utente» l'angolo dell'homing
+                    # non si sa dov'è rispetto al lavoro (si potrebbe andare oltre i finecorsa)
+                    home = profile.home_point(10.0) if hasattr(profile, "home_point") else (10.0, 10.0)
+                    w.rapid(home[0], home[1])
+                elif getattr(cs, "pause_park", False):
+                    job.warnings.append(tr("{0}: la testa va da parte durante la pausa solo partendo dalle coordinate "
+                                           "della macchina: qui resta dov'è", cs.label()))
+                w.raw(f"{PAUSE_TAG} {msg}")
+                w.raw("M0")
+                w.raw(f"{current_cmd} S0")
+                job.pauses.append({"index": cs.index, "label": cs.label(), "msg": msg})
         items = [(leaf, tf * pl_tf) for leaf, tf in by_layer[cs.index]]
         st = LayerStats(cs.index, cs.label(), cs.mode, items=len(items),
                         speed=min(cs.speed, profile.max_rate_x, profile.max_rate_y), power=cs.power_max)
@@ -1109,6 +1139,10 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         w.raw("G54")
     elif opts.start_from == "current":
         w.raw("G92.1")
+    if job.pauses:
+        job.warnings.append(tr("{0} pause fra i livelli: il tempo stimato non le conta. Nei file salvati la pausa è "
+                               "M0: si riprende con il pulsante di avvio della macchina (o ~); provala prima a vuoto, "
+                               "non tutte le schede la rispettano", len(job.pauses)))
     w.raw("; fine")
     job.lines = w.lines
     b, m = w.burn, w.motion

@@ -1,5 +1,41 @@
 # Novità di FreeLaserCut
 
+## 0.20.2 — 15/11/2026
+Calibrazione completa della camera della testa, la camera della testa che aiuta quella del piano, pausa fra un livello e l'altro, linee piatte che non restano più fuori dalla selezione.
+
+**Calibrazione completa della camera della testa, una volta per tutte** (*Vista della testa → Calibrazione completa…*). Prende il posto della calibrazione col puntino. Serve solo un cartone (o compensato sottile) chiaro e piatto di circa 15 × 10 cm, centrato sotto l'ugello. FreeLaserCut fa una sola domanda nuova, se la camera sale e scende con il laser quando lo metti a fuoco, poi:
+- incide un puntino di prova, lo trova e lo segue spostando la testa, come prima;
+- controlla la luce sul cartone (troppo buio, troppa luce, riflessi, immagine con molto rumore) e che il cartone copra la zona della griglia, **prima di inciderla**: se qualcosa non va lo dice e si spreca solo il puntino;
+- dal puntino capisce quanto si vede sul tuo materiale e sceglie potenza, misura dei puntini e passo della griglia per **la tua camera** (anche camere diverse dalla mia, strette o grandangolari); se il puntino si vede poco ne incide uno più forte, se si allarga troppo incide la griglia più delicata; una camera con meno di 4 pixel per mm viene detta troppo grossolana;
+- incide la griglia, righe sfalsate con tre puntini grandi in tre angoli (1–2 minuti, con il tempo che manca), arrivando su ogni puntino sempre dalla stessa parte;
+- la fotografa con la griglia in punti diversi dell'immagine, sempre a macchina ferma, con il laser spento e arrivando dalla stessa parte (il gioco delle cinghie non entra nella calibrazione: lo misura e lo dice a parte);
+- controlla che la camera tenga l'inquadratura (due foto a 10 secondi: la **messa a fuoco automatica** e l'inquadratura automatica delle webcam la rovinerebbero; FreeLaserCut prova anche a spegnerla) e, alla fine, che tornando al primo punto l'immagine sia la stessa (**passi persi** o camera mossa);
+- riconosce i puntini dalla loro posizione nello schema, non dall'aspetto (macchie, venature e bruciature storte non si confondono), dal centro verso i bordi; scarta i fotogrammi rovinati (due camere sulla stessa USB) e le zone dell'immagine coperte da pezzi della macchina (ugello, tubo dell'aria), che poi la foto a mosaico non usa;
+- calcola **lente con due coefficienti e il suo centro vero, inclinazione della camera**, scala, rotazione, specchio e distanza fra laser e camera, tenendo da parte un puntino su cinque solo per controllare il risultato; un modello più complicato si usa solo se sui punti di controllo va davvero meglio;
+- dice quanto è precisa, in mm e in pixel per la tua camera («errore massimo 0,03 mm»), oppure **perché è da rifare** (poca luce, puntini mancanti, cartone non piatto, camera che si è mossa). Una calibrazione da rifare non sostituisce quella di prima; se quella di prima è migliore sugli stessi punti di controllo resta quella, se sono quasi uguali scegli tu.
+
+Con la camera fissata al carrello o al telaio (risposta *No*), alla fine ti chiede di sollevare il cartone di uno spessore noto e di rimettere a fuoco: così misura l'altezza della camera e nella vista della testa compare lo **spessore del materiale**, che corregge tutte le posizioni. Con *Non so* lo capisce da sola. Le calibrazioni fatte con la 0.20.0 continuano a funzionare finché non rifai quella completa. Il file della calibrazione nuova contiene anche i dati che sa leggere una versione precedente.
+
+**Controlla la calibrazione** (10 secondi, laser spento): la testa si sposta di misure note e l'immagine deve spostarsi come previsto. Se la camera è stata urtata o il supporto si è allentato, lo dice. La calibrazione salvata vale anche solo con lo stesso modo di lettura della camera: se Windows la apre in un altro modo (che può tagliare l'immagine diversamente) chiede di ricalibrare.
+
+**Foto del piano a mosaico più precisa:** ogni punto viene dalla foto in cui è più vicino al centro dell'immagine, con una sfumatura stretta nelle giunte (niente più linee doppie), con la lente e l'inclinazione corrette. Dove c'è qualcosa da riconoscere le foto si aggiustano fra loro di al massimo 1 mm, solo se la posizione giusta è una sola (il nido d'ape e la carta a quadretti non ingannano). Se le giunte non combaciano lo dice. Le zone dove nessuna foto arriva si vedono a righe, mai nere come se fosse materiale. La foto è a 4 pixel per mm (prima 2).
+
+**La camera della testa aiuta quella del piano** (*Vista della testa → Allinea la foto della camera del piano*): con il materiale sul piano, la camera della testa guarda alcuni punti, li ritrova nella foto della camera in alto e la corregge. Così si sistemano insieme il piccolo errore della lente fra i punti della calibrazione, **lo spessore del materiale** (con la camera in alto un pezzo più alto si vede spostato) e la camera montata sul coperchio, che si sposta ogni volta che lo apri. Mai in silenzio: servono almeno 4 punti coerenti, il risultato dice di quanto sbagliava prima e di quanto dopo, e un materiale non piano non si corregge. Nel pannello Camera *Correzione dalla camera della testa* si spegne e si riaccende per vedere prima e dopo. La correzione vale per il materiale che c'era durante l'allineamento e si cancella quando rifai la calibrazione della camera del piano.
+
+**Vista della testa** (richieste di Leone):
+- **si raddrizza da sola** dopo la calibrazione: in alto il fondo della macchina, a destra X+, come il piano e come le frecce (con la camera montata capovolta prima «giù» andava in alto). Si può anche capovolgere in orizzontale o in verticale e ruotare di 90° a mano;
+- **zoom con la rotella** sul punto sotto il cursore, spostamento trascinando con il tasto centrale o destro, doppio clic per tornare a tutta l'immagine; il clic sul video e il disegno sovrapposto tengono conto di zoom e rotazione.
+
+**Stampa e taglia: crocetta dal centro camera.** Con la camera della testa calibrata, accanto a «La testa è sulla crocetta» c'è **«◎ Dal centro camera»**: porti il mirino sul centro della crocetta e la prendi da lì, senza dover prima portare il laser sul centro della camera.
+
+**Togli la foto a mosaico dal piano:** pulsante nella vista della testa e voce nel menu *Visualizza*. Si può rifare quando vuoi.
+
+**Pausa prima di un livello** (impostazioni del livello: *Fermati prima di questo livello*, con un messaggio facoltativo come «Gira il pezzo» e, se vuoi, la testa portata da parte). Finito il livello prima, la macchina si ferma con laser e aria spenti e compare una finestra con il messaggio, *Riprendi* e *Annulla il lavoro*; il resto del programma resta usabile. Nell'invio diretto la pausa la gestisce FreeLaserCut, uguale su tutte le schede; nei file G-code salvati (anche per la scheda SD) la pausa è `M0`, che si riprende con il pulsante di avvio della macchina: **provala prima a vuoto**, non tutte le schede la rispettano. Anche un G-code di un altro programma con `M0` si ferma e aspetta *Riprendi*. La stima del tempo non conta le pause e dice quante sono.
+
+**Linee piatte nella selezione.** Selezionando con il rettangolo, le linee perfettamente orizzontali o verticali (e i punti) restavano fuori: spostando il disegno alcune linee restavano ferme (su un progetto di 818 forme, 40 linee). Ora entrano come le altre, anche nell'ingombro del disegno (Stampa e taglia, esportazione SVG, posizione del lavoro).
+
+Provato sul simulatore con camere della testa inclinate, con lenti forti e centro spostato, capovolte e specchiate, con pezzi della macchina davanti, fotogrammi rovinati, venatura, macchie e luce non uniforme, camera fissa al carrello, messa a fuoco automatica, passi persi, buio, cartone troppo piccolo: la camera vera ritrovata entro 0,1 mm su tutta l'immagine (0,01 mm con una camera come la U20CAM). **Da provare sul Longer B1 vero.**
+
 ## 0.20.1 — 15/11/2026
 Correzioni dai rapporti arrivati il 15/11.
 

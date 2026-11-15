@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 173. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -18,7 +18,7 @@ Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_wifi.py`: Wi-Fi delle Longer: interruttore «$50», messaggi e attesa della scheda vera
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
 
-## Telecamera e guardia fiamme (8)
+## Telecamera e guardia fiamme (10)
 
 - `test_v107.py`: Telecamera: la scelta si ricorda, «Nessuna» non accende la webcam
 - `test_v111.py`: Fiamma con il cuore bianco, nomi sotto i comandi
@@ -28,6 +28,8 @@ Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v200_camera_testa.py`: Camera della testa: calibrazione col puntino inciso, laser e camera dove vuoi, origine dalla camera, tavola da due angoli, foto del piano a mosaico, telecamere cercate di nuovo
 - `test_v200_camera_testa.py` (Banco): Camera della testa nell'interfaccia Banco
 - `test_v201_lentezza.py`: Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto
+- `test_v202_camera_testa.py`: Calibrazione completa della camera della testa (griglia incisa, lente, inclinazione, verifica onesta), mosaico preciso, camera del piano aiutata, vista raddrizzata e zoom, crocetta dal centro camera
+- `test_v202_camera_testa.py` (Banco): Calibrazione completa e vista della testa nell'interfaccia Banco
 
 ## Nesting e piani di lavoro (15)
 
@@ -72,7 +74,7 @@ Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v176.py`: Pennelli precisi dello Schizzo del soggetto, velo rosso; il simulatore non tocca il profilo
 - `test_v190_mezzetinte.py`: Mezzetinte: dimensione del punto e misure collegate
 
-## Lavoro e G-code (21)
+## Lavoro e G-code (22)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -95,6 +97,7 @@ Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v196_varie.py`: DXF con valori vuoti, freccette nei campi della barra, vista di ogni piano, G-code CRLF
 - `test_v201_aria.py`: Air assist delle schede MKS DLC32 (M7) e scelta dell'aria che resta rifacendo il profilo
 - `test_v201_aria.py` (Banco): Air assist delle MKS DLC32 nell'interfaccia Banco
+- `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
 ## Macchina, connessione e profili (40)
 
@@ -139,7 +142,7 @@ Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
-## Disegno e modifica (21)
+## Disegno e modifica (23)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -162,8 +165,10 @@ Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v196_tracciati.py` (Banco): Semplifica tracciati, mano libera e nodi nell'interfaccia Banco
 - `test_v200_selezione.py`: Selezione più visibile: linea piena con alone del colore d'accento
 - `test_v200_selezione.py` (Banco): Selezione più visibile nell'interfaccia Banco
+- `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
+- `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (22)
+## Interfaccia (23)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -187,6 +192,7 @@ Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco
+- `test_v202_pausa.py` (Banco): Pausa prima di un livello nell'interfaccia Banco
 
 ## Avvio, installazione, aggiornamenti e assistenza (9)
 
