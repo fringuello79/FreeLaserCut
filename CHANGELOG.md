@@ -12,6 +12,8 @@ La camera della testa, tracciati più puliti, disegno a mano libera e varie como
 
 **Le forme selezionate si vedono meglio** (da un rapporto del 14/11: «il tratteggio si vede male»). Il contorno della selezione non è più una linea tratteggiata sottile: è una linea piena del colore d'accento con un alone chiaro attorno, che si nota anche sulle forme del livello blu (prima avevano lo stesso colore della selezione). Con più di 400 forme selezionate resta solo la linea piena, perché il piano non rallenti.
 
+**Nome dei file:** importando un file in un progetto nuovo (per esempio *Pippo.svg*) il progetto prende il suo nome: si vede nel titolo e viene proposto da *Salva*, *Esporta SVG* e *Salva G-code*, invece di «Senza titolo» e «disegno». Ogni forma importata ricorda **il file da cui viene**: selezionandola, nella barra in basso compare «File: Pippo.svg» (con forme di più file, il primo e quanti altri; l'elenco completo passando sopra con il mouse). Vale anche dopo aver salvato e riaperto il progetto, per i duplicati e dentro i gruppi.
+
 **Schermata d'avvio:** il numero di versione si legge meglio, in arancio.
 
 **Telecamere:**

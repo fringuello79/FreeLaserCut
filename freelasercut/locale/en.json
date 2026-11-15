@@ -3286,5 +3286,8 @@
  "Scelta e calibrazione della telecamera fissata alla testa del laser": "Choice and calibration of the camera mounted on the laser head",
  "Scegli la camera della testa in Impostazioni → Camera della testa…": "Choose the head camera in Settings → Head camera…",
  "Scelta e calibrazione della telecamera fissata alla testa del laser. Dopo la calibrazione la vista della testa è in Laser → Vista della testa…": "Choice and calibration of the camera mounted on the laser head. Once calibrated, the head view is in Laser → Head view…",
- "Vista della testa": "Head view"
+ "Vista della testa": "Head view",
+ "File: {0}": "File: {0}",
+ "File: {0} e altri {1}": "File: {0} and {1} more",
+ "Le forme selezionate vengono da:": "The selected shapes come from:"
 }

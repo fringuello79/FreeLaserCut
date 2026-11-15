@@ -3286,5 +3286,8 @@
  "Scelta e calibrazione della telecamera fissata alla testa del laser": "Elección y calibración de la cámara fijada al cabezal del láser",
  "Scegli la camera della testa in Impostazioni → Camera della testa…": "Elige la cámara del cabezal en Configuración → Cámara del cabezal…",
  "Scelta e calibrazione della telecamera fissata alla testa del laser. Dopo la calibrazione la vista della testa è in Laser → Vista della testa…": "Elección y calibración de la cámara fijada al cabezal del láser. Tras la calibración, la vista del cabezal está en Láser → Vista del cabezal…",
- "Vista della testa": "Vista del cabezal"
+ "Vista della testa": "Vista del cabezal",
+ "File: {0}": "Archivo: {0}",
+ "File: {0} e altri {1}": "Archivo: {0} y {1} más",
+ "Le forme selezionate vengono da:": "Las formas seleccionadas vienen de:"
 }

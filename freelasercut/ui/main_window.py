@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from .. import __version__, diag as _diag, gcode_preview
 from ..core import gcode, geom, io_formats, materials, ops, resume, variables
-from ..core.document import Document, ImageShape, PathShape
+from ..core.document import Document, ImageShape, PathShape, origins, set_origin
 from ..grbl import SIM_PORT, GrblController, list_serial_ports
 from ..grbl_codes import STATE_COLORS
 from ..profile import MachineProfile, config_dir, migrate_qsettings
@@ -1173,6 +1173,12 @@ class MainWindow(QMainWindow):
             b.setIconSize(QSize(14, 14))
             sl.addWidget(b)
         sb.addPermanentWidget(snaps)
+        # 0.20.0: da quale file vengono le forme selezionate (si vede solo con una selezione importata)
+        self.lbl_origin = QLabel("")
+        self.lbl_origin.setObjectName("muted")
+        self.lbl_origin.setMaximumWidth(260)
+        self.lbl_origin.hide()
+        sb.addPermanentWidget(self.lbl_origin)
         for w in (self.lbl_fs, self.lbl_head, self.lbl_cursor, self.lbl_zoom):
             sb.addPermanentWidget(w)
 
@@ -1238,7 +1244,24 @@ class MainWindow(QMainWindow):
         self.acts["undo"].setText(tr("Annulla {0}", e.undo_label()).strip())
         self.acts["redo"].setText(tr("Ripeti {0}", e.redo_label()).strip())
 
+    def _update_origin(self):
+        """0.20.0: nella barra in basso il file da cui vengono le forme selezionate (nessuno: niente scritta)."""
+        lab = getattr(self, "lbl_origin", None)
+        if lab is None:
+            return None
+        names = origins(self.editor.selection)
+        if not names:
+            lab.hide()
+            lab.setText("")
+            return None
+        text = tr("File: {0}", names[0]) if len(names) == 1 else tr("File: {0} e altri {1}", names[0], len(names) - 1)
+        lab.setText(lab.fontMetrics().elidedText(text, Qt.ElideMiddle, 250))
+        lab.setToolTip(tr("Le forme selezionate vengono da:") + "\n" + "\n".join(names))
+        lab.show()
+        return text
+
     def _update_sel_actions(self):
+        self._update_origin()
         n = len(self.editor.selection)
         cv = getattr(self, "canvas", None)
         # 0.19.6: con lo strumento Nodi Allinea e Distribuisci servono anche con una forma sola (agiscono sui nodi)
@@ -1391,8 +1414,17 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(tr("Salvato: {0}", d.path), 4000)
         return True
 
+    def project_stem(self):
+        """0.20.0: il nome del progetto per i file da salvare: quello del file aperto, o il nome dato dall'importazione;
+        None se è ancora «Senza titolo»."""
+        d = self.editor.doc
+        if d.path:
+            return os.path.splitext(os.path.basename(d.path))[0]
+        return d.name if d.name and d.name not in (tr("Senza titolo"), "Senza titolo") else None
+
     def file_save_as(self):
-        start = os.path.join(self.qs.value("last_dir", os.path.expanduser("~")), (self.editor.doc.name or "progetto") + ".flcut")
+        start = os.path.join(self.qs.value("last_dir", os.path.expanduser("~")),
+                             (self.project_stem() or self.editor.doc.name or "progetto") + ".flcut")
         path, _ = QFileDialog.getSaveFileName(self, tr("Salva progetto"), start, FILE_FILTER)
         if not path:
             return False
@@ -1503,7 +1535,9 @@ class MainWindow(QMainWindow):
 
     def import_files(self, paths, at=None, gerber_opts=None, turn=False):
         doc = self.editor.doc
+        was_empty = not doc.all_shapes() and not doc.path  # 0.20.0: il progetto prende il nome del primo file
         added = []
+        first_name = None
         self._import_note = ""
         self._gerber_bottom = None
         self.gerber_plates = None
@@ -1530,6 +1564,7 @@ class MainWindow(QMainWindow):
                 except Exception as exc:  # noqa: BLE001
                     QMessageBox.warning(self, tr("Importa"), tr("Non riesco a importare {0}:\n{1}", os.path.basename(p), exc))
                     continue
+                set_origin(shapes, os.path.basename(p))
                 doc.from_frame(shapes)  # 0.19.3: posizioni della macchina → piano come si vede
                 self.editor.add(shapes, tr("Importa progetto .lbrn2"))  # posizioni originali, come nel progetto
                 continue
@@ -1545,6 +1580,8 @@ class MainWindow(QMainWindow):
                 continue
             if io_formats.LAST_NOTE:  # 0.19.6: per esempio i valori vuoti di un DXF scritto male
                 self._import_note = io_formats.LAST_NOTE
+            set_origin(shapes, os.path.basename(p))  # 0.20.0: da quale file viene ogni forma
+            first_name = first_name or os.path.splitext(os.path.basename(p))[0]
             added += shapes
         if not added:
             return
@@ -1571,6 +1608,10 @@ class MainWindow(QMainWindow):
             for leaf, _ in s.leaves():
                 if isinstance(leaf, ImageShape):
                     doc.layer(leaf.layer).mode = "image"
+        if was_empty and first_name and doc.name in ("", tr("Senza titolo"), "Senza titolo", "Progetto"):
+            doc.name = first_name  # 0.20.0: «Pippo.svg» in un progetto nuovo → progetto «Pippo» (titolo, Salva, Esporta)
+            self._update_title()
+        self._update_origin()
         self.statusBar().showMessage(self._import_note or tr("Importati {0} oggetti", len(added)),
                                      10000 if self._import_note else 4000)
 
@@ -1578,8 +1619,9 @@ class MainWindow(QMainWindow):
         shapes = self.editor.selection or self.editor.doc.shapes
         if not shapes:
             return
-        path, _ = QFileDialog.getSaveFileName(self, tr("Esporta SVG"), os.path.join(self.qs.value("last_dir", os.path.expanduser("~")),
-                                                                            "disegno.svg"), tr("SVG (*.svg)"))
+        name = self.project_stem() or "disegno"  # 0.20.0: il nome del progetto, non sempre «disegno»
+        path, _ = QFileDialog.getSaveFileName(self, tr("Esporta SVG"), os.path.join(
+            self.qs.value("last_dir", os.path.expanduser("~")), name + ".svg"), tr("SVG (*.svg)"))
         if path:
             io_formats.export_svg(shapes, self.editor.doc, path)
             self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)

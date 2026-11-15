@@ -125,6 +125,7 @@ class Shape:
         self.locked = False
         self.hidden = False
         self.role = ""  # 0.18.5: compito speciale della forma («pc1» / «pc2» = crocette di Stampa e taglia)
+        self.origin = ""  # 0.20.0: nome del file da cui è stata importata (vuoto = disegnata qui)
         self._cache = None
 
     # geometria
@@ -176,6 +177,8 @@ class Shape:
              "locked": self.locked, "hidden": self.hidden, "p": self.params()}
         if self.role:  # solo se c'è: i progetti senza restano identici
             d["role"] = self.role
+        if self.origin:  # 0.20.0: file di provenienza, solo se c'è
+            d["origin"] = self.origin
         return d
 
     def _load_common(self, d):
@@ -186,6 +189,8 @@ class Shape:
         self.hidden = d.get("hidden", False)
         role = d.get("role", "")
         self.role = role if isinstance(role, str) else ""
+        origin = d.get("origin", "")
+        self.origin = origin if isinstance(origin, str) else ""
 
     def clone(self, new_id=True):
         c = shape_from_dict(self.to_dict(), getattr(self, "_doc_images", None))
@@ -648,6 +653,27 @@ class GroupShape(Shape):
 
 _KINDS = {c.kind: c for c in (RectShape, EllipseShape, PolygonShape, PathShape, TextShape, ImageShape, GroupShape,
                                SpecialShape, CodeShape, TextPathShape)}
+
+
+def set_origin(shapes, name):
+    """0.20.0: segna su ogni forma importata (e sulle forme dentro i gruppi) il nome del file da cui viene."""
+    for s in shapes:
+        s.origin = name
+        if isinstance(s, GroupShape):
+            set_origin(s.children, name)
+
+
+def origins(shapes):
+    """0.20.0: i file di provenienza delle forme (e delle forme nei gruppi), senza doppioni, nell'ordine."""
+    out = []
+    for s in shapes:
+        names = [s.origin] if s.origin else []
+        if isinstance(s, GroupShape):
+            names += origins(s.children)
+        for n in names:
+            if n and n not in out:
+                out.append(n)
+    return out
 
 
 def shape_from_dict(d, images=None):

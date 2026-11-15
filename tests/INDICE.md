@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 157. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 159. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -93,7 +93,7 @@ Suite: 157. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_g55.py`: Scheda che su G55 tace o risponde con un errore, in verifica e nel lavoro: lavoro fermato e rifatto senza
 - `test_v196_varie.py`: DXF con valori vuoti, freccette nei campi della barra, vista di ogni piano, G-code CRLF
 
-## Macchina, connessione e profili (37)
+## Macchina, connessione e profili (38)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -132,6 +132,7 @@ Suite: 157. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v194_sculpfun_e1.py`: Sculpfun E1 nel catalogo: 12 W, Pro 21 W e modulo infrarosso, riconoscimento dall'area di lavoro
 - `test_v195_movimento.py`: Scheda Movimento: Puntino e Lucciola al centro delle frecce, joystick virtuale sul simulatore
 - `test_v195_movimento.py` (Banco): Puntino, Lucciola e joystick nell'interfaccia Banco
+- `test_v200_nomi.py`: Nome del progetto dal file importato e file di provenienza delle forme
 
 ## Disegno e modifica (21)
 
@@ -157,7 +158,7 @@ Suite: 157. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v200_selezione.py`: Selezione più visibile: linea piena con alone del colore d'accento
 - `test_v200_selezione.py` (Banco): Selezione più visibile nell'interfaccia Banco
 
-## Interfaccia (18)
+## Interfaccia (19)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -177,6 +178,7 @@ Suite: 157. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v193_avvio.py`: Avvio robusto: Windows troppo vecchio detto chiaro, icona giusta sulla barra di Windows
 - `test_v193_cerca.py` (Banco): Ricerca comandi nell'interfaccia Banco: resta la finestrella
 - `test_v196_varie.py` (Banco): Freccette nei campi, vista dei piani e CRLF nell'interfaccia Banco
+- `test_v200_nomi.py` (Banco): Nome del progetto e file di provenienza nell'interfaccia Banco
 
 ## Avvio, installazione, aggiornamenti e assistenza (9)
 

@@ -512,6 +512,8 @@ if __name__ == "__main__":
     run_suite("test_v200_camera_testa.py", "Camera della testa nell'interfaccia Banco", "banco")
     run_suite("test_v200_selezione.py", "Selezione più visibile: linea piena con alone del colore d'accento")
     run_suite("test_v200_selezione.py", "Selezione più visibile nell'interfaccia Banco", "banco")
+    run_suite("test_v200_nomi.py", "Nome del progetto dal file importato e file di provenienza delle forme")
+    run_suite("test_v200_nomi.py", "Nome del progetto e file di provenienza nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()
