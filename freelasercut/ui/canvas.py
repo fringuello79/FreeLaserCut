@@ -26,6 +26,9 @@ from freelasercut.i18n import tr  # noqa: E402
 BURN = "#FF8A3D"
 RULER = 20  # px
 TOOL_LAYER_COLOR = "#8A9BBE"
+# aspetto della selezione (pixel dello schermo): alone trasparente + linea piena
+SEL_HALO_W, SEL_HALO_ALPHA, SEL_LINE_W = 7.0, 85, 2.0
+SEL_HALO_MAX = 400  # oltre questo numero di forme selezionate solo la linea piena (il piano resta veloce)
 
 
 def _default_family():
@@ -1019,14 +1022,22 @@ class Canvas(QGraphicsView):
         p.setRenderHint(QPainter.Antialiasing)
         tf = self.bed_to_view_tf()
         ed = self.editor
-        # contorno selezione (tratteggio animato fisso)
+        # contorno selezione (0.20.0, da un rapporto del 14/11: «il tratteggio si vede male»): alone largo e
+        # trasparente del colore d'accento sotto una linea piena, visibile anche sulle forme del livello blu
         if ed.selection:
-            p.setPen(cpen(C["accent_hi"], 1.2, Qt.DashLine))
             p.setBrush(Qt.NoBrush)
+            paths = []
             for s in ed.selection:
                 it = self.items_by_id.get(s.id)
                 path = it._path if it is not None and it.fb_shape is s and it._path is not None else s.path()
-                p.drawPath(tf.map(path))
+                paths.append(tf.map(path))
+            if len(paths) <= SEL_HALO_MAX:
+                p.setPen(cpen(C["accent"], SEL_HALO_W, Qt.SolidLine, SEL_HALO_ALPHA))
+                for vp in paths:
+                    p.drawPath(vp)
+            p.setPen(cpen(C["accent_hi"], SEL_LINE_W, Qt.SolidLine))
+            for vp in paths:
+                p.drawPath(vp)
         self.tool.draw(p, tf)
         if self.snap_hint is not None:
             pt, label = self.snap_hint
