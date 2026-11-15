@@ -92,7 +92,9 @@ spin(0.1)
 def whole(f, text):
     """Il testo si vede intero? Stessa larghezza d'inchiostro della casella di riferimento, e non parte dal bordo."""
     a, b = ink(f, text), ink(ref, text)
-    return b[1] > 10 and abs(a[1] - b[1]) <= 1 and a[0] >= 3
+    if b[1] <= 10:  # ambiente che non disegna il testo (server senza schermo): vale il conto con le misure del carattere
+        return room(f, text)
+    return abs(a[1] - b[1]) <= 1 and a[0] >= 3 and room(f, text)
 
 
 def room(f, text):

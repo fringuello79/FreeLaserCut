@@ -53,8 +53,15 @@ def same(a, b, tol=1e-6):
         for i in range(a.elementCount()))
 
 
-SYS = next((f for f in ("DejaVu Sans", "Arial", "Liberation Sans") if f in T.system_families()), T.system_families()[0])
-FONTS = list(T.SINGLE_LINE_FONTS) + [SYS]
+from freelasercut.ui import style  # noqa: E402
+
+style.load_fonts()  # come all'avvio: i caratteri che FreeLaserCut porta con sé
+_fams = T.system_families()
+# Un carattere di sistema, se c'è: sui server Windows senza schermo l'elenco può essere vuoto (visto su GitHub il
+# 15/11); allora le prove si fanno con i caratteri a linea singola, che ci sono sempre.
+SYS = next((f for f in ("DejaVu Sans", "Arial", "Liberation Sans", "Segoe UI") if f in _fams), _fams[0] if _fams else None)
+FONTS = list(T.SINGLE_LINE_FONTS) + ([SYS] if SYS else [])
+ALT = SYS or "timesi"  # secondo carattere per le prove dell'elenco
 
 # ================================================================ A. spaziatura delle lettere (conti)
 jump, lin, anchor, one = [], [], [], []
@@ -77,7 +84,8 @@ for fam in FONTS:
     for align in ("left", "center", "right"):
         if not same(T.text_path("H", fam, 10, align=align), T.text_path("H", fam, 10, align=align, letter_spacing=4.0)):
             one.append((fam, align))
-check("uscendo da 0 il testo non salta (15 caratteri a linea singola e uno di sistema)", not jump, jump[:3])
+check("uscendo da 0 il testo non salta (15 caratteri a linea singola" + (" e uno di sistema)" if SYS else ")"), not jump,
+      jump[:3])
 check("la riga si allunga esattamente di spaziatura × (lettere − 1), anche con valori negativi", not lin, lin[:3])
 check("il lato dell'allineamento resta fermo: sinistra, centro, destra", not anchor, anchor[:3])
 check("una lettera sola: la spaziatura non la sposta", not one, one[:3])
@@ -140,7 +148,7 @@ orig_path = QPainterPath(ts.path())
 live = []
 ed.live.connect(lambda: live.append(ts.family))
 i_script = fam.findData("scripts")
-i_sys = fam.findData(SYS)
+i_sys = fam.findData(ALT)
 check("nel pannello: carattere, spaziatura lettere (mm) e spaziatura righe (×)", fam is not None and i_script > 0 and i_sys > 0
       and props.letter_spin.suffix().strip() == "mm" and props.line_spin.suffix().strip() == "×")
 fam.highlighted.emit(i_script)
@@ -153,10 +161,10 @@ check("elenco aperto, mouse (o frecce) su un carattere: il testo vero sul piano 
       ts.family == "scripts" and live and not same(ts.path(), orig_path))
 fam.highlighted.emit(i_sys)
 spin()
-check("…e segue il mouse da un carattere all'altro", ts.family == SYS and live[-1] == SYS)
+check("…e segue il mouse da un carattere all'altro", ts.family == ALT and live[-1] == ALT)
 header = next(k for k in range(fam.count()) if not fam.itemData(k))
 fam.highlighted.emit(header)
-check("le intestazioni dell'elenco non sono caratteri: l'anteprima resta sull'ultimo", ts.family == SYS)
+check("le intestazioni dell'elenco non sono caratteri: l'anteprima resta sull'ultimo", ts.family == ALT)
 check("l'anteprima non entra nella cronologia (niente passi di Annulla)", len(ed.undo_stack) == n_undo)
 fam.hidePopup()
 spin()
