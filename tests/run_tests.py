@@ -516,6 +516,8 @@ if __name__ == "__main__":
     run_suite("test_v200_nomi.py", "Nome del progetto e file di provenienza nell'interfaccia Banco", "banco")
     run_suite("test_v201_aria.py", "Air assist delle schede MKS DLC32 (M7) e scelta dell'aria che resta rifacendo il profilo")
     run_suite("test_v201_aria.py", "Air assist delle MKS DLC32 nell'interfaccia Banco", "banco")
+    run_suite("test_v202_barra.py", "Barra in basso: «File: …» leggibile, posizione e velocità vuote senza spazio, laser collegato senza allargare")
+    run_suite("test_v202_barra.py", "Barra in basso leggibile nell'interfaccia Banco", "banco")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")
