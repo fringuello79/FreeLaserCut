@@ -3196,7 +3196,6 @@
  "Precisione: ±{0:.2f} mm sui {1} spostamenti": "Accuracy: ±{0:.2f} mm over {1} moves",
  "Prendi prima i due angoli della tavola (A e B, sullo stesso lato)": "First take the two board corners (A and B, on the same side)",
  "Prima serve l'homing. Faccio l'homing adesso?": "Homing is needed first. Home now?",
- "Scegli la camera della testa nel pannello Camera": "Choose the head camera in the Camera panel",
  "Seguo il puntino spostando la testa…": "Following the dot while moving the head…",
  "Seleziona prima il disegno da mettere sulla tavola": "First select the design to put on the board",
  "Tavola da due angoli": "Board from two corners",
@@ -3283,5 +3282,9 @@
  "Punto del puntino di calibrazione": "Calibration dot point",
  "la camera è troppo lontana dal laser per questo piano: in nessun punto il laser e la camera ci arrivano tutti e due": "the camera is too far from the laser for this bed: there is no point both the laser and the camera can reach",
  "Misuro la lente verso i bordi dell'immagine…": "Measuring the lens towards the edges of the image…",
- "lente corretta ({0:+.0f}% ai bordi)": "lens corrected ({0:+.0f}% at the edges)"
+ "lente corretta ({0:+.0f}% ai bordi)": "lens corrected ({0:+.0f}% at the edges)",
+ "Scelta e calibrazione della telecamera fissata alla testa del laser": "Choice and calibration of the camera mounted on the laser head",
+ "Scegli la camera della testa in Impostazioni → Camera della testa…": "Choose the head camera in Settings → Head camera…",
+ "Scelta e calibrazione della telecamera fissata alla testa del laser. Dopo la calibrazione la vista della testa è in Laser → Vista della testa…": "Choice and calibration of the camera mounted on the laser head. Once calibrated, the head view is in Laser → Head view…",
+ "Vista della testa": "Head view"
 }

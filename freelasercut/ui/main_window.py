@@ -365,9 +365,11 @@ class MainWindow(QMainWindow):
             "fire_guard": A(tr("Guardia fiamme…"), self.fire_guard_dialog, None, "fire",
                             tr("Durante il lavoro guarda la camera: se vede una fiamma ferma tutto e spegne il laser")),
             # 0.20.0: camera della testa
-            "head_cam": A(tr("Camera della testa…"), lambda *_: self.head_camera_window(), None, None,
+            "head_cam": A(tr("Vista della testa…"), lambda *_: self.head_camera_window(), None, None,
                           tr("Video della telecamera fissata alla testa, con mirino e righello: porta il laser o la "
                              "camera dove vuoi, prendi gli angoli della tavola, fai la foto del piano a mosaico")),
+            "head_cam_setup": A(tr("Camera della testa…"), lambda *_: self.head_camera_setup(), None, None,
+                                tr("Scelta e calibrazione della telecamera fissata alla testa del laser")),
             "head_laser_here": A(tr("Porta il laser qui"), lambda *_: self.head_here("laser"), None, None,
                                  tr("La testa va con il laser nel punto del piano dove hai fatto clic")),
             "head_camera_here": A(tr("Porta la camera della testa qui"), lambda *_: self.head_here("camera"), None,
@@ -665,6 +667,7 @@ class MainWindow(QMainWindow):
         m.addSeparator()
         m.addAction(self.acts["setup_wizard"])
         m.addAction(self.acts["wifi_wizard"])
+        m.addAction(self.acts["head_cam_setup"])  # 0.20.0: scelta e calibrazione della camera della testa
         m.addAction(self.acts["admin_code"])
         m.addSeparator()
         sub = m.addMenu(tr("Interfaccia"))
@@ -2879,25 +2882,36 @@ class MainWindow(QMainWindow):
 
     # ================================================================ 0.20.0: camera della testa
     def head_camera_window(self):
-        """Laser → Camera della testa…: apre la vista della testa (o il pannello Camera se non ne è scelta una)."""
+        """Laser → Vista della testa…: apre la vista della testa (o le impostazioni se non ne è scelta una)."""
         card_ = self.camera.head
         if card_.src is None:
-            self._show_camera_panel()
-            self.statusBar().showMessage(tr("Scegli la camera della testa nel pannello Camera"), 8000)
+            self.head_camera_setup()
+            self.statusBar().showMessage(tr("Scegli la camera della testa in Impostazioni → Camera della testa…"), 8000)
             return None
         return card_.open_window()
 
-    def _show_camera_panel(self):
-        if self.banco is not None:
-            try:
-                self.banco.officina_show("camera")
-            except Exception:  # noqa: BLE001
-                pass
-            return
-        d = self.docks.get("camera") if hasattr(self, "docks") else None
-        if d is not None:
-            d.show()
-            d.raise_()
+    def head_camera_setup(self):
+        """0.20.0: Impostazioni → Camera della testa…: scelta della telecamera, stato e calibrazione. Il riquadro è lo
+        stesso oggetto che tiene aperta la camera (camera_panel.head): la finestra lo ospita e resta viva."""
+        from PySide6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout
+
+        dlg = getattr(self, "_head_setup_dlg", None)
+        if dlg is None:
+            dlg = QDialog(self)
+            dlg.setWindowTitle(tr("Camera della testa"))
+            dlg.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
+            dlg.setMinimumWidth(460)
+            lay = QVBoxLayout(dlg)
+            lay.addWidget(self.camera.head)
+            self.camera.head.show()
+            bb = QDialogButtonBox(QDialogButtonBox.Close)
+            bb.rejected.connect(dlg.close)
+            lay.addWidget(bb)
+            self._head_setup_dlg = dlg
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+        return dlg
 
     def head_here(self, what):
         """Menu del tasto destro: laser o camera della testa nel punto del clic."""

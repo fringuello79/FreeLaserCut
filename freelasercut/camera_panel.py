@@ -103,8 +103,7 @@ class CameraPanel(QWidget):
         # --- 0.20.0: camera della testa (riquadro suo, vedi head_camera_ui)
         from .head_camera_ui import HeadCameraCard
 
-        self.head = HeadCameraCard(self)
-        lay.addWidget(self.head)
+        self.head = HeadCameraCard(self)  # 0.20.0: si mostra in Impostazioni → Camera della testa…
 
         # --- foto sul piano
         fc, fl = card(tr("Foto sul piano"))

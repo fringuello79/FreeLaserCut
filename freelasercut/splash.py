@@ -66,13 +66,38 @@ def _pixmap():
     beam.setColorAt(0.7, QColor("#8A6BFF"))
     beam.setColorAt(1.0, QColor(255, 122, 46, 0))
     p.fillRect(QRectF(60, 250, W - 120, 2), beam)
-    f = QFont("Segoe UI")
-    f.setPixelSize(12)
-    p.setFont(f)
-    p.setPen(QColor("#8C9CC4"))
-    p.drawText(QRectF(0, 262, W - 24, 22), Qt.AlignRight | Qt.AlignVCenter, tr("versione {0} · {1}", __version__, __author__))
+    _version_badge(p)
     p.end()
     return pm
+
+
+ORANGE = "#FF8A3D"  # 0.20.0: il numero di versione in risalto, con l'arancio della fine del raggio
+
+
+def _version_badge(p):
+    """In basso a destra: l'autore in grigio e il numero di versione in arancio, dentro una pastiglia sottile."""
+    num = QFont("Segoe UI")
+    num.setPixelSize(14)
+    num.setWeight(QFont.DemiBold)
+    num.setLetterSpacing(QFont.AbsoluteSpacing, 0.6)
+    p.setFont(num)
+    text = "v" + __version__
+    tw = p.fontMetrics().horizontalAdvance(text)
+    pill = QRectF(W - 24 - (tw + 22), 262, tw + 22, 22)
+    path = QPainterPath()
+    path.addRoundedRect(pill, 11, 11)
+    o = QColor(ORANGE)
+    p.fillPath(path, QColor(o.red(), o.green(), o.blue(), 28))
+    p.setPen(QPen(QColor(o.red(), o.green(), o.blue(), 120), 1.0))
+    p.drawPath(path)
+    p.setPen(o)
+    p.drawText(pill, Qt.AlignCenter, text)
+    small = QFont("Segoe UI")
+    small.setPixelSize(12)
+    p.setFont(small)
+    p.setPen(QColor("#8C9CC4"))
+    p.drawText(QRectF(0, 262, pill.left() - 10, 22), Qt.AlignRight | Qt.AlignVCenter, __author__)
+    return pill
 
 
 def show_splash():

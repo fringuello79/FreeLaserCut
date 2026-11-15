@@ -3196,7 +3196,6 @@
  "Precisione: ±{0:.2f} mm sui {1} spostamenti": "Précision : ±{0:.2f} mm sur {1} déplacements",
  "Prendi prima i due angoli della tavola (A e B, sullo stesso lato)": "Prends d'abord les deux coins de la planche (A et B, du même côté)",
  "Prima serve l'homing. Faccio l'homing adesso?": "Il faut d'abord le homing. Je le fais maintenant ?",
- "Scegli la camera della testa nel pannello Camera": "Choisis la caméra de la tête dans le panneau Caméra",
  "Seguo il puntino spostando la testa…": "Je suis le point en déplaçant la tête…",
  "Seleziona prima il disegno da mettere sulla tavola": "Sélectionne d'abord le dessin à poser sur la planche",
  "Tavola da due angoli": "Planche à partir de deux coins",
@@ -3283,5 +3282,9 @@
  "Punto del puntino di calibrazione": "Point du point d'étalonnage",
  "la camera è troppo lontana dal laser per questo piano: in nessun punto il laser e la camera ci arrivano tutti e due": "la caméra est trop loin du laser pour ce plateau : aucun point n'est atteignable à la fois par le laser et par la caméra",
  "Misuro la lente verso i bordi dell'immagine…": "Je mesure l'objectif vers les bords de l'image…",
- "lente corretta ({0:+.0f}% ai bordi)": "objectif corrigé ({0:+.0f} % aux bords)"
+ "lente corretta ({0:+.0f}% ai bordi)": "objectif corrigé ({0:+.0f} % aux bords)",
+ "Scelta e calibrazione della telecamera fissata alla testa del laser": "Choix et étalonnage de la caméra fixée à la tête du laser",
+ "Scegli la camera della testa in Impostazioni → Camera della testa…": "Choisis la caméra de la tête dans Paramètres → Caméra de la tête…",
+ "Scelta e calibrazione della telecamera fissata alla testa del laser. Dopo la calibrazione la vista della testa è in Laser → Vista della testa…": "Choix et étalonnage de la caméra fixée à la tête du laser. Après l'étalonnage, la vue de la tête est dans Laser → Vue de la tête…",
+ "Vista della testa": "Vue de la tête"
 }

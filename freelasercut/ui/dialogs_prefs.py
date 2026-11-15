@@ -82,8 +82,8 @@ class PreferencesDialog(QDialog):
         lp = getattr(w, "laser", None)
 
         self._section("machine", tr("Macchina"))
-        for k in ("setup_wizard", "wifi_wizard", "identify", "serial_speed", "scan_offset", "autofocus", "board_backup",
-                  "profile_export", "profile_import"):
+        for k in ("setup_wizard", "wifi_wizard", "head_cam_setup", "identify", "serial_speed", "scan_offset", "autofocus",
+                  "board_backup", "profile_export", "profile_import"):
             self._button("machine", a.get(k))
         for name in ("inv_x", "inv_y"):
             self._mirror("machine", getattr(lp, name, None))

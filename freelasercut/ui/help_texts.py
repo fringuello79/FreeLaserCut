@@ -187,7 +187,9 @@ HELP = {
     "zoom_out": (tr("Riduci"), tr("Rimpicciolisce la tela."), None),
     "fit": (tr("Adatta al piano"), tr("Mostra tutto il piano di lavoro."), None),
     "fit_sel": (tr("Adatta alla selezione"), tr("Ingrandisce sulla selezione."), None),
-    "head_cam": (tr("Camera della testa"), tr("Una telecamera fissata alla testa del laser che guarda il piano da "
+    "head_cam_setup": (tr("Camera della testa"), tr("Scelta e calibrazione della telecamera fissata alla testa del "
+                       "laser. Dopo la calibrazione la vista della testa è in Laser → Vista della testa…"), None),
+    "head_cam": (tr("Vista della testa"), tr("Una telecamera fissata alla testa del laser che guarda il piano da "
                  "vicino. Dopo la calibrazione (un puntino inciso, seguito dalla camera) un clic sul video porta lì il "
                  "mirino; si porta il laser sul centro della camera o la camera sul laser, si mette l'origine sotto il "
                  "mirino, si prendono due angoli della tavola per appoggiarci il disegno e si fa la foto del piano a "

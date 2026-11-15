@@ -452,10 +452,14 @@ spin(1.0)
 card = w.camera.head
 check("pannello Camera: riquadro «Camera della testa» con scelta, stato e pulsanti",
       card is not None and card.combo.count() >= 1 and not card.btn_view.isEnabled() and not card.btn_cal.isEnabled())
-check("menu Laser → Camera della testa… (e scheda dell'aiuto)", w.acts["head_cam"] in w.m_laser.actions())
+check("menu Laser → Vista della testa… e Impostazioni → Camera della testa…",
+      w.acts["head_cam"] in w.m_laser.actions() and w.acts["head_cam_setup"] in w.m_settings.actions())
+check("il riquadro della camera della testa non è più nel pannello Camera", w.camera.isAncestorOf(card) is False)
 w.head_camera_window()
-check("senza camera della testa scelta: il comando porta al pannello Camera e lo dice",
-      "pannello Camera" in w.statusBar().currentMessage())
+dlg_ = getattr(w, "_head_setup_dlg", None)
+check("senza camera della testa scelta: la vista apre Impostazioni → Camera della testa e lo dice",
+      dlg_ is not None and dlg_.isVisible() and dlg_.isAncestorOf(card) and "Impostazioni" in w.statusBar().currentMessage())
+dlg_.close()
 
 # 7. scelta delle telecamere (elenco finto: due telecamere USB)
 fake = [(0, "Camera 0  ·  1920×1080", (1920, 1080), np.zeros((90, 160, 3), np.uint8)),

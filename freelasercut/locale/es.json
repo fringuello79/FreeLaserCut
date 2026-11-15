@@ -3196,7 +3196,6 @@
  "Precisione: ±{0:.2f} mm sui {1} spostamenti": "Precisión: ±{0:.2f} mm en {1} desplazamientos",
  "Prendi prima i due angoli della tavola (A e B, sullo stesso lato)": "Toma primero las dos esquinas del tablero (A y B, del mismo lado)",
  "Prima serve l'homing. Faccio l'homing adesso?": "Primero hace falta el homing. ¿Hago el homing ahora?",
- "Scegli la camera della testa nel pannello Camera": "Elige la cámara del cabezal en el panel Cámara",
  "Seguo il puntino spostando la testa…": "Sigo el punto moviendo el cabezal…",
  "Seleziona prima il disegno da mettere sulla tavola": "Selecciona primero el diseño que quieres poner en el tablero",
  "Tavola da due angoli": "Tablero desde dos esquinas",
@@ -3283,5 +3282,9 @@
  "Punto del puntino di calibrazione": "Punto del punto de calibración",
  "la camera è troppo lontana dal laser per questo piano: in nessun punto il laser e la camera ci arrivano tutti e due": "la cámara está demasiado lejos del láser para esta mesa: no hay ningún punto al que lleguen el láser y la cámara",
  "Misuro la lente verso i bordi dell'immagine…": "Mido la lente hacia los bordes de la imagen…",
- "lente corretta ({0:+.0f}% ai bordi)": "lente corregida ({0:+.0f}% en los bordes)"
+ "lente corretta ({0:+.0f}% ai bordi)": "lente corregida ({0:+.0f}% en los bordes)",
+ "Scelta e calibrazione della telecamera fissata alla testa del laser": "Elección y calibración de la cámara fijada al cabezal del láser",
+ "Scegli la camera della testa in Impostazioni → Camera della testa…": "Elige la cámara del cabezal en Configuración → Cámara del cabezal…",
+ "Scelta e calibrazione della telecamera fissata alla testa del laser. Dopo la calibrazione la vista della testa è in Laser → Vista della testa…": "Elección y calibración de la cámara fijada al cabezal del láser. Tras la calibración, la vista del cabezal está en Láser → Vista del cabezal…",
+ "Vista della testa": "Vista del cabezal"
 }
