@@ -181,6 +181,7 @@ class GrblController(QObject):
     # 0.20.2: pausa del lavoro chiesta dal G-code (M0, «pausa prima del livello»): la macchina è ferma, laser e aria
     # spenti; si riparte con resume_user_pause(), si annulla con stop_job()
     user_pause = Signal(str)  # messaggio per la persona
+    user_resumed = Signal()  # la pausa è finita (Riprendi da qualsiasi parte)
 
     def __init__(self):
         super().__init__()
@@ -459,6 +460,9 @@ class GrblController(QObject):
         self.realtime(b"!")
 
     def resume(self):
+        if self.user_paused:  # 0.20.2: «Riprendi» della barra durante una pausa fra i livelli
+            self.resume_user_pause()
+            return
         self.realtime(b"~")
 
     def jog(self, dx=0.0, dy=0.0, feed=3000, tag=None):
@@ -589,6 +593,7 @@ class GrblController(QObject):
             return False
         self.user_paused = False
         self.user_pause_msg = ""
+        self.user_resumed.emit()
         self._pump()
         self._maybe_user_pause()  # due pause di fila
         return True

@@ -230,6 +230,18 @@ if not BANCO:
         c.unlock()
         spin(0.5)
 
+    # «Riprendi» della barra (feed hold / ripresa) durante la pausa: riprende la pausa
+    done.clear()
+    paused_msgs.clear()
+    resumed = []
+    c.user_resumed.connect(lambda: resumed.append(1))
+    c.stream_job(job.lines)
+    until(lambda: paused_msgs, 60)
+    c.resume()
+    until(lambda: "ok" in done, 90)
+    check("«Riprendi» della barra durante la pausa: il lavoro riparte e finisce (e la finestra lo sa)",
+          done.get("ok") is True and resumed)
+
     # due pause di fila
     done.clear()
     paused_msgs.clear()
@@ -289,6 +301,9 @@ except Exception as exc:  # noqa: BLE001
 spin(0.2)
 check("…lavoro finito o fermato: la finestra della pausa si chiude da sola", getattr(w, "_pause_box", None) is None
       and not box.isVisible())
+box = w._user_pause("tre")
+w._user_resumed()
+check("…ripreso da un'altra parte (barra, telefono): la finestra si chiude", w._pause_box is None and not box.isVisible())
 box = w._user_pause("uno")
 box2 = w._user_pause("due")
 check("…una seconda pausa sostituisce la finestra della prima", not box.isVisible() and box2.isVisible()

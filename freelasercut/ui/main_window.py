@@ -1280,6 +1280,7 @@ class MainWindow(QMainWindow):
         ctl.g55_refused.connect(self._g55_refused)
         ctl.job_finished.connect(self._job_finished)
         ctl.user_pause.connect(self._user_pause)  # 0.20.2: pausa prima di un livello
+        ctl.user_resumed.connect(self._user_resumed)
         # offset G54 della scheda: serve ai test (materiale, scansione) sulle schede senza G55
         ctl.status_changed.connect(lambda _st: setattr(self.profile, "wcs_offset", self.ctl.wco))
         self._update_undo()
@@ -3434,28 +3435,6 @@ class MainWindow(QMainWindow):
         else:
             self.ctl.resume()
 
-    def _g55_refused(self, how):
-        """0.19.2: nel lavoro la scheda ha rifiutato G55, o proprio su quella riga ha smesso di rispondere (un OMTech
-        K40 fa l'una o l'altra cosa). G55 sta nell'intestazione, prima di ogni incisione. Il lavoro è già fermato, il profilo viene segnato «senza G55» e lo si dice: al
-        prossimo Avvia il lavoro è fatto in G54. Non riparte da solo: riparte chi è davanti alla macchina."""
-        external = bool(getattr(self, "_job_is_external", False))
-        self._g55_stop = True  # il lavoro (già fermato dal controllo) non va offerto per la ripresa: contiene G55
-        if not getattr(self.profile, "no_g55", False):
-            self.profile.no_g55 = True
-            try:
-                self.profile.save()
-            except OSError:
-                pass
-        if external:
-            msg = tr("Lavoro fermato: questo file G-code usa il comando G55 e la scheda del laser non lo conosce. "
-                     "Con questa scheda il file non si può eseguire così com'è.")
-        else:
-            msg = tr("Lavoro fermato all'inizio, prima di incidere: la scheda del laser non conosce il comando G55, "
-                     "che serve per le coordinate assolute. L'ho annotato nel profilo della macchina: premi di nuovo "
-                     "Avvia e il lavoro parte senza quel comando.")
-        self.statusBar().showMessage(msg, 30000)
-        QMessageBox.information(self, tr("Lavoro fermato"), msg)
-
     def _user_pause(self, msg):
         """0.20.2: il lavoro è fermo a una pausa fra i livelli (laser e aria spenti). Finestra non bloccante: il resto
         del programma resta usabile (frecce, Lucciola per controllare il pezzo)."""
@@ -3489,6 +3468,37 @@ class MainWindow(QMainWindow):
         box.show()
         QApplication.beep()
         return box
+
+    def _user_resumed(self):
+        """Ripreso (anche con «Riprendi» della barra o dal telefono): la finestra della pausa non serve più."""
+        box = getattr(self, "_pause_box", None)
+        if box is not None:
+            self._pause_box = None
+            box.hide()
+            box.deleteLater()
+        self.statusBar().clearMessage()
+
+    def _g55_refused(self, how):
+        """0.19.2: nel lavoro la scheda ha rifiutato G55, o proprio su quella riga ha smesso di rispondere (un OMTech
+        K40 fa l'una o l'altra cosa). G55 sta nell'intestazione, prima di ogni incisione. Il lavoro è già fermato, il profilo viene segnato «senza G55» e lo si dice: al
+        prossimo Avvia il lavoro è fatto in G54. Non riparte da solo: riparte chi è davanti alla macchina."""
+        external = bool(getattr(self, "_job_is_external", False))
+        self._g55_stop = True  # il lavoro (già fermato dal controllo) non va offerto per la ripresa: contiene G55
+        if not getattr(self.profile, "no_g55", False):
+            self.profile.no_g55 = True
+            try:
+                self.profile.save()
+            except OSError:
+                pass
+        if external:
+            msg = tr("Lavoro fermato: questo file G-code usa il comando G55 e la scheda del laser non lo conosce. "
+                     "Con questa scheda il file non si può eseguire così com'è.")
+        else:
+            msg = tr("Lavoro fermato all'inizio, prima di incidere: la scheda del laser non conosce il comando G55, "
+                     "che serve per le coordinate assolute. L'ho annotato nel profilo della macchina: premi di nuovo "
+                     "Avvia e il lavoro parte senza quel comando.")
+        self.statusBar().showMessage(msg, 30000)
+        QMessageBox.information(self, tr("Lavoro fermato"), msg)
 
     def _job_finished(self, ok, msg):
         box = getattr(self, "_pause_box", None)
