@@ -521,6 +521,7 @@ if __name__ == "__main__":
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")
     run_suite("test_v201_nomi.py", "Nome del progetto che segue i file nell'interfaccia Banco", "banco")
     run_suite("test_v201_lentezza.py", "Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto")
+    run_suite("test_v201_carverall_jl9.py", "Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

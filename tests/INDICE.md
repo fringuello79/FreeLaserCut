@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 166. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 167. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -96,7 +96,7 @@ Suite: 166. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v201_aria.py`: Air assist delle schede MKS DLC32 (M7) e scelta dell'aria che resta rifacendo il profilo
 - `test_v201_aria.py` (Banco): Air assist delle MKS DLC32 nell'interfaccia Banco
 
-## Macchina, connessione e profili (39)
+## Macchina, connessione e profili (40)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -137,6 +137,7 @@ Suite: 166. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_movimento.py` (Banco): Puntino, Lucciola e joystick nell'interfaccia Banco
 - `test_v200_nomi.py`: Nome del progetto dal file importato e file di provenienza delle forme
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
+- `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
 ## Disegno e modifica (21)
 

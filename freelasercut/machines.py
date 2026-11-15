@@ -174,6 +174,12 @@ CATALOG = (
     ("Sculpfun E1 12W", "Sculpfun", 400, 320, "12 W", 36000),
     ("Sculpfun E1 Pro 21W", "Sculpfun", 400, 320, "21 W", 36000),
     ("Sculpfun E1 3W IR", "Sculpfun", 400, 320, "3 W (infrarosso)", 36000),
+    # 0.20.1: chiesto da Ale per un tester. Carverall JL9, venduto anche come «X1 Pro». Dalla pagina ufficiale Carverall
+    # (SOURCES, letta il 15/11/2026): diodo da 20 W a 455 nm, area 300 × 300 mm, 15.000 mm/min (alcuni annunci dicono
+    # 20.000: si usa il valore della pagina ufficiale), scheda GRBL a 32 bit, USB e Wi-Fi, spot non dichiarato. Dal
+    # manuale ufficiale «X1Pro_JL9 User Manual_EN» (cartella «User Manual» linkata da carverall.com/pages/carverall-user-
+    # guides): chip USB CH340, area 300 × 300 e origine davanti a sinistra nella configurazione GRBL, homing automatico.
+    ("Carverall JL9 (X1 Pro) 20W", "Carverall", 300, 300, "20 W", 15000),
 )
 # area dichiarata dal produttore, quando è stata ridotta per prudenza (vedi sopra)
 AREA_NOTE = {
@@ -233,6 +239,7 @@ SOURCES = {
     "Sculpfun E1 12W": "https://www.sculpfun.com/products/sculpfun-e1-enclosed-dual-laser-engraving-machine",
     "Sculpfun E1 Pro 21W": "https://www.sculpfun.com/products/sculpfun-e1-pro-enclosed-laser-engraving-machine",
     "Sculpfun E1 3W IR": "https://www.sculpfun.com/products/sculpfun-ir3-3w-infrared-laser-module-for-e1-enclosed-laser-engraver",
+    "Carverall JL9 (X1 Pro) 20W": "https://www.carverall.com/products/x1pro-laser-engraver",
 }
 # firmware che rispondono error:20 a G55 (visto nel registro di un Acmer S1, firmware 1.0.4 del 2025)
 NO_G55 = {"Acmer S1 (2,5W / 3,5W / 6W)"}
@@ -293,6 +300,14 @@ for _n in E1:
         "12345678, indirizzo 192.168.4.1, porta 8080. Il rullo e il mandrino Sculpfun girano sull'asse A: il "
         "rotativo di FreeLaserCut usa l'asse Y e non li comanda. Non ancora provato su una E1 vera: alla prima "
         "connessione fai la configurazione guidata, che controlla l'angolo dello 0 e il verso delle frecce.")
+NOTES["Carverall JL9 (X1 Pro) 20W"] = tr(
+    "Carverall JL9 (venduto anche come X1 Pro): scheda GRBL con chip USB CH340, area 300 × 300 mm e origine davanti a "
+    "sinistra (dal manuale Carverall). Prima di collegare installa il driver CH340 e chiudi CutLabX o gli altri programmi "
+    "del laser, che tengono occupata la porta. Carverall dichiara 15.000 mm/min sulla pagina del prodotto (20.000 in "
+    "alcuni annunci): collegando la macchina e premendo «Leggi dalla macchina», velocità e area vere si leggono dalla "
+    "scheda. Il Wi-Fi è pensato per l'app CutLabX e non è provato con FreeLaserCut: usa il cavo USB. Non ancora provato "
+    "su un JL9 vero: alla prima connessione fai la configurazione guidata, che controlla l'angolo dello 0 e il verso "
+    "delle frecce.")
 # spot del laser (mm) dichiarato dal produttore, dove è diverso dal valore comune (0,08 × 0,10)
 for _n, (_ax, _ay) in AREA_NOTE.items():
     _bx, _by = next((c[2], c[3]) for c in CATALOG if c[0] == _n)

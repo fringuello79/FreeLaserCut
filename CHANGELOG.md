@@ -1,6 +1,6 @@
 # Novità di FreeLaserCut
 
-## 0.20.1 — in sviluppo
+## 0.20.1 — 15/11/2026
 Correzioni dai rapporti arrivati il 15/11.
 
 **La finestra non esce più dallo schermo.** Con la 0.20.0, importando un file o aprendo un progetto, la finestra poteva allargarsi da sola oltre il bordo destro dello schermo: i pannelli a destra e gli ultimi menu in alto non si vedevano più, fino a chiudere il programma. Succedeva quando nella barra in basso compariva la scritta «File: …» (il file da cui vengono le forme selezionate), che chiedeva più spazio di quello che c'era. Ora quella scritta usa solo lo spazio libero e, se non basta, si accorcia con «…» (il nome intero resta nel suggerimento, passandoci sopra con il mouse).
@@ -8,6 +8,8 @@ Correzioni dai rapporti arrivati il 15/11.
 **Air assist sulle schede Makerbase MKS DLC32.** Su queste schede (montate anche su tanti laser fatti in casa) l'aria si accende con **M7**, non con M8: ora i profili nuovi delle DLC32, riconosciute dalla scheda o scelte dall'elenco dei modelli, partono con M7, e il riconoscimento della macchina lo ricorda fra le note. Se la tua pompa non parte, il comando si cambia in *Macchina → Air assist* (M8, M7 o nessuno) e si prova con il pulsante *Aria*. La tua scelta ora resta anche se rifai *Riconosci la macchina → Applica*: prima tornava sempre a M8. Le altre macchine non cambiano.
 
 **Nome del progetto e file importati.** In un progetto nuovo il nome viene dal primo file importato (per esempio *Pippo*). Ora, se poi cancelli tutte le forme di Pippo, il progetto prende il nome del primo file importato dopo che è ancora sul piano (per esempio *Pluto*), oppure torna «Senza titolo»: *Salva*, *Esporta SVG* e *Salva G-code* non propongono più il nome di un file che non c'è più, che si rischiava di sovrascrivere. *Annulla* riporta anche il nome. Le forme spostate su un altro piano o messe in un gruppo contano ancora. Quando salvi il progetto, il nome resta quello che hai scelto.
+
+**Carverall JL9 nei modelli pronti** (venduto anche come *X1 Pro*: diodo da 20 W, area 300 × 300 mm; 68 modelli pronti). Area, potenza e velocità vengono dalla pagina ufficiale Carverall, il chip USB (CH340) e l'origine davanti a sinistra dal manuale. Se colleghi una scheda che non dice il produttore e ha un'area di 300 × 300 mm, il riconoscimento della macchina propone la JL9 insieme agli Atomstack Swift e lascia scegliere a te. Non ancora provato su una JL9 vera.
 
 **Meno lavoro per il computer con la telecamera aperta.** Una telecamera USB che nessuno sta guardando (pannello Camera chiuso, nessuna immagine sul piano, nessuna calibrazione o guardia fiamme in corso) dopo 3 secondi smette di essere letta di continuo e riparte da sola appena serve, con un'immagine presa in quel momento. Sui computer meno potenti, e con due telecamere (piano e testa), il programma resta più leggero.
 
