@@ -99,16 +99,19 @@ check("ogni forma importata ricorda il suo file", pippo and pluto, [s.origin for
 ed.select(pippo)
 spin()
 check("selezionata una forma di Pippo.svg: in basso «File: Pippo.svg»",
-      w.lbl_origin.isVisibleTo(w) and w.lbl_origin.text() == tr("File: {0}", "Pippo.svg"), w.lbl_origin.text())
+      w.lbl_origin.isVisibleTo(w) and w.lbl_origin.accessibleName() == tr("File: {0}", "Pippo.svg"),
+      w.lbl_origin.accessibleName())
 ed.select(pluto)
 spin()
-check("selezionata una forma di Pluto.svg: la scritta cambia", w.lbl_origin.text() == tr("File: {0}", "Pluto.svg"),
-      w.lbl_origin.text())
+check("selezionata una forma di Pluto.svg: la scritta cambia",
+      w.lbl_origin.accessibleName() == tr("File: {0}", "Pluto.svg"), w.lbl_origin.accessibleName())
 ed.select(pippo + pluto)
 spin()
 check("forme di due file: il primo e «altri 1», l'elenco completo nel suggerimento",
-      w.lbl_origin.text() == tr("File: {0} e altri {1}", "Pippo.svg", 1) and "Pluto.svg" in w.lbl_origin.toolTip(),
-      (w.lbl_origin.text(), w.lbl_origin.toolTip()))
+      w.lbl_origin.accessibleName() == tr("File: {0} e altri {1}", "Pippo.svg", 1)
+      and "Pluto.svg" in w.lbl_origin.toolTip(), (w.lbl_origin.accessibleName(), w.lbl_origin.toolTip()))
+check("…la scritta mostrata sta nella barra (accorciata solo se non ci sta)",
+      w.lbl_origin.fontMetrics().horizontalAdvance(w.lbl_origin.text()) <= 252 and w.lbl_origin.text())
 drawn = RectShape(20, 20)
 ed.add([drawn])
 ed.select([drawn])

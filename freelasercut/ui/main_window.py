@@ -1253,9 +1253,11 @@ class MainWindow(QMainWindow):
         if not names:
             lab.hide()
             lab.setText("")
+            lab.setAccessibleName("")
             return None
         text = tr("File: {0}", names[0]) if len(names) == 1 else tr("File: {0} e altri {1}", names[0], len(names) - 1)
-        lab.setText(lab.fontMetrics().elidedText(text, Qt.ElideMiddle, 250))
+        lab.setText(lab.fontMetrics().elidedText(text, Qt.ElideMiddle, 250))  # accorciata solo se non ci sta
+        lab.setAccessibleName(text)  # il testo intero (lettori di schermo e prove)
         lab.setToolTip(tr("Le forme selezionate vengono da:") + "\n" + "\n".join(names))
         lab.show()
         return text
