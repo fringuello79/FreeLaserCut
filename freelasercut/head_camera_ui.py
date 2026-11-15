@@ -16,7 +16,7 @@ from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel,
-    QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget,
+    QMessageBox, QProgressBar, QPushButton, QToolButton, QVBoxLayout, QWidget,
 )
 
 from . import camera as camera_mod
@@ -69,9 +69,25 @@ class HeadCameraCard(QWidget):
         self.combo.setMinimumHeight(40)
         self.combo.addItem(tr("Nessuna camera sulla testa"), None)
         self.combo.activated.connect(self._chosen)
-        bl.addWidget(self.combo)
+        self.combo.setToolTip(tr("Quale delle telecamere collegate è fissata alla testa del laser. Puoi scegliere anche "
+                                 "quella che ora è la camera del piano: passa alla testa."))
+        # 0.20.3 (Ale, 15/11): la telecamera della testa si sceglie sempre, fra tutte quelle collegate; ⟳ le cerca di
+        # nuovo anche da qui (prima il pulsante era solo nella scheda Camera)
+        crow = QHBoxLayout()
+        crow.addWidget(self.combo, 1)
+        self.btn_search = QToolButton()
+        self.btn_search.setText("⟳")
+        self.btn_search.setToolTip(tr("Cerca di nuovo le telecamere USB"))
+        self.btn_search.clicked.connect(lambda: self.panel.search(manual=True))
+        crow.addWidget(self.btn_search)
+        bl.addLayout(crow)
         self.state = muted("")
         bl.addWidget(self.state)
+        self.note = muted("")  # che cosa manca per fare quello che hai chiesto (prima il pulsante era solo spento)
+        self.note.hide()
+        bl.addWidget(self.note)
+        self.bed_line = muted("")
+        bl.addWidget(self.bed_line)
         row = QHBoxLayout()
         self.btn_view = QPushButton(tr("Vista della testa…"))
         self.btn_view.setToolTip(tr("Video della camera della testa con mirino e righello: un clic sul video porta lì "
@@ -110,8 +126,49 @@ class HeadCameraCard(QWidget):
         src = self.src
         return src.index if src is not None and isinstance(getattr(src, "index", None), int) else None
 
+    def wanted(self):
+        """0.20.3: la telecamera che la persona ha scelto per la testa (indice), anche se non è ancora aperta: quella
+        salvata, ritrovata per nome se il numero è cambiato. None = nessuna."""
+        if self.index() is not None:
+            return self.index()
+        ch = self.choice()
+        name = self.saved_name()
+        if name:  # 0.20.0: il numero può cambiare (altra porta USB): la ritrovo per nome, se il sistema lo dice
+            for i, n in camera_mod.NAMES.items():
+                if n == name and camera_mod.name_valid(i, (camera_mod.LAST_PROBE.get(i) or {}).get("mode")):
+                    ch = i
+                    break
+        return ch if isinstance(ch, int) else None
+
+    def release(self, forget=True):
+        """0.20.3: la telecamera della testa passa a un altro compito (scelta come camera del piano): si chiude qui."""
+        self.close_src()
+        qs = getattr(self.win, "qs", None)
+        if forget and qs is not None:
+            qs.setValue("head_camera_choice", "none")
+            qs.setValue("head_camera_name", "")
+        self.combo.blockSignals(True)
+        self.combo.setCurrentIndex(0)
+        self.combo.blockSignals(False)
+        self.update_state()
+        self.changed.emit()
+
+    def mark_bed_camera(self):
+        """Nell'elenco della testa la camera del piano si riconosce, e si può scegliere (passa alla testa)."""
+        bed = self.panel.bed_index()
+        tag = "  ·  " + tr("ora camera del piano")
+        for i in range(self.combo.count()):
+            data, text = self.combo.itemData(i), self.combo.itemText(i)
+            if not isinstance(data, int):
+                continue
+            if data == bed and not text.endswith(tag):
+                self.combo.setItemText(i, text + tag)
+            elif data != bed and text.endswith(tag):
+                self.combo.setItemText(i, text[:-len(tag)])
+
     def set_cameras(self, cams, bed_index):
-        """Elenco delle telecamere dopo una ricerca (le stesse del pannello). La camera del piano non si sceglie."""
+        """Elenco delle telecamere dopo una ricerca (le stesse del pannello). 0.20.3: si possono scegliere tutte,
+        anche quella che ora è la camera del piano (che passa alla testa)."""
         usb = [c for c in cams if isinstance(c[0], int) and c[0] >= 0]
         if self.index() is not None and all(c[0] != self.index() for c in usb):
             frame = self.src.get(after=0, timeout=0.3)
@@ -126,28 +183,15 @@ class HeadCameraCard(QWidget):
         self.combo.clear()
         self.combo.addItem(tr("Nessuna camera sulla testa"), None)
         for idx, label, _size, thumb, *_ in usb:
-            text = label + (("  ·  " + tr("camera del piano")) if idx == bed_index else "")
             if thumb is not None:
-                self.combo.addItem(QIcon(QPixmap.fromImage(to_qimage(thumb))), text, idx)
+                self.combo.addItem(QIcon(QPixmap.fromImage(to_qimage(thumb))), label, idx)
             else:
-                self.combo.addItem(text, idx)
-            if idx == bed_index:  # la stessa telecamera non si apre due volte
-                item = self.combo.model().item(self.combo.count() - 1)
-                if item is not None:
-                    item.setEnabled(False)
+                self.combo.addItem(label, idx)
         self.combo.blockSignals(False)
-        want = self.index()
-        if want is None:
-            ch = self.choice()
-            name = self.saved_name()
-            if name:  # 0.20.0: il numero può cambiare (altra porta USB): la ritrovo per nome, se il sistema lo dice
-                for i, n in camera_mod.NAMES.items():
-                    if n == name and camera_mod.name_valid(i, (camera_mod.LAST_PROBE.get(i) or {}).get("mode")):
-                        ch = i
-                        break
-            want = ch if isinstance(ch, int) else None
+        self.mark_bed_camera()
+        want = self.wanted()
         if want is not None and want == bed_index:
-            want = None
+            want = None  # aperta come camera del piano: la stessa telecamera non si apre due volte (da sola)
         i = self.combo.findData(want) if want is not None else 0
         self.combo.setCurrentIndex(max(i, 0))
         if want is not None and i > 0 and self.index() != want:
@@ -157,9 +201,13 @@ class HeadCameraCard(QWidget):
     def _chosen(self, _i):
         idx = self.combo.currentData()
         qs = getattr(self.win, "qs", None)
+        self._note("")
         if idx is not None and idx == self.panel.bed_index():
-            self.combo.setCurrentIndex(0)
-            return
+            # 0.20.3: era la camera del piano: la persona dice che è quella della testa, quindi passa alla testa
+            # (prima la scelta veniva rifiutata, e con una telecamera sola quella della testa non si poteva scegliere)
+            self.panel.release_bed()
+        elif idx is not None and self.panel.choice() == idx and qs is not None:
+            qs.setValue("camera_choice", "none")  # scelta salvata per il piano ma non aperta: non deve riprendersela
         if qs is not None:
             qs.setValue("head_camera_choice", "none" if idx is None else int(idx))
         if idx is None:
@@ -171,8 +219,14 @@ class HeadCameraCard(QWidget):
                 self.panel.mark_head_camera()
                 name = camera_mod.NAMES.get(idx, "")
                 qs.setValue("head_camera_name", name if camera_mod.name_valid(idx, self.src.mode) else "")
+        self.mark_bed_camera()
         self.update_state()
         self.changed.emit()
+
+    def _note(self, text):
+        """Riga gialla nel riquadro: che cosa manca (camera non scelta, laser non connesso…). Vuota = nascosta."""
+        self.note.setText(text or "")
+        self.note.setVisible(bool(text))
 
     def _open(self, idx):
         if self.index() == idx:
@@ -248,7 +302,16 @@ class HeadCameraCard(QWidget):
         self.state.setText(txt)
         self.state.setStyleSheet(f"color:{col};" if col else "")
         self.btn_view.setEnabled(self.src is not None)
-        self.btn_cal.setEnabled(self.src is not None and self.ctl.connected and not busy)
+        # 0.20.3: «Calibra» si può sempre premere (anche con una calibrazione già fatta): se manca qualcosa lo dice,
+        # invece di restare spento senza spiegare perché
+        self.btn_cal.setEnabled(not busy)
+        self.btn_cal.setText(tr("Calibra di nuovo…") if self.model is not None else tr("Calibra…"))
+        bed = self.panel.bed_index() if hasattr(self.panel, "combo") else None
+        bed_txt = self.panel.combo.currentText().split("  ·  ")[0] if bed is not None else tr("nessuna")
+        self.bed_line.setText(tr("Camera del piano (guarda dall'alto): {0}. Si sceglie nella scheda Camera.", bed_txt))
+        line = getattr(self.panel, "_head_line", None)
+        if line is not None:
+            line()
         if self.window is not None:
             self.window.update_state()
         self.update_marker()
@@ -289,6 +352,7 @@ class HeadCameraCard(QWidget):
             self.win.statusBar().showMessage(text, ms)
         except Exception:  # noqa: BLE001
             pass
+        self._note(text if self.cal is None else "")  # 0.20.3: si legge anche nel riquadro (Impostazioni)
         if self.window is not None:
             self.window.info.setText(text)
         return text
@@ -416,6 +480,9 @@ class HeadCameraCard(QWidget):
         """0.20.2: calibrazione completa (griglia di puntini, head_grid.HeadGridCalibration). Prima la finestrella
         (dove è la camera, se sale e scende con il laser, potenza del puntino di prova), poi la testa in un punto da
         cui la camera potrà fotografare la griglia, poi il lavoro vero. ask=False: valori dati (prove, comandi)."""
+        if not self.ctl.connected:  # 0.20.3: detto chiaro (il pulsante ora si può sempre premere)
+            return self._say(tr("Per calibrare connetti il laser: la calibrazione incide una griglia di puntini su un "
+                                "cartone."), 10000) and None
         why = self._can_move(need_model=False)
         if why:
             return self._say(why) and None
@@ -704,6 +771,10 @@ class HeadCameraCard(QWidget):
     # ---------------------------------------------------------------- finestra
     def open_window(self, calibrate=False):
         if self.src is None:
+            # 0.20.3: prima qui non succedeva niente (e il pulsante era spento): ora dice che cosa fare
+            n = self.combo.count() - 1
+            self._say(tr("Scegli prima qui sopra quale telecamera è quella della testa.") if n > 0 else
+                      tr("Nessuna telecamera trovata: collegala alla USB e premi ⟳, poi sceglila qui sopra."), 10000)
             return None
         if self.window is None:
             self.window = HeadCameraWindow(self)
@@ -1394,7 +1465,14 @@ class HeadCameraWindow(QDialog):
         self.th_row.setVisible(cd.model is not None and cd.model.moves_with_head is False)
         self.b_align.setEnabled(cd.board_angle() is not None and not busy)
         self.b_clear.setEnabled(cd.board[0] is not None or cd.board[1] is not None)
-        self.b_cal.setEnabled(cd.src is not None and cd.ctl.connected and not busy)
+        if not ok and not busy:  # 0.20.3: perché i comandi qui sopra sono spenti (prima non lo diceva)
+            self.info.setText(tr("Connetti il laser per usare i comandi della camera della testa.")
+                              if not cd.ctl.connected else
+                              (cd.model_why or tr("Calibra la camera della testa per usare questi comandi.")
+                               if not cd.ready() else self.info.text()))
+        self.b_cal.setEnabled(not busy)  # 0.20.3: sempre possibile rifarla; se manca qualcosa lo dice
+        self.b_cal.setText(tr("◎  Rifai la calibrazione completa…") if cd.model is not None
+                           else tr("◎  Calibrazione completa…"))
         self.b_stop.setVisible(busy)
         if not busy:
             self.bar.hide()

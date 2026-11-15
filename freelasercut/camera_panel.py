@@ -64,7 +64,7 @@ class CameraPanel(QWidget):
         lay.setSpacing(12)
 
         # --- scelta camera
-        cc_, cl = card(tr("Telecamera"))
+        cc_, cl = card(tr("Telecamera del piano (guarda dall'alto)"))
         row = QHBoxLayout()
         self.combo = QComboBox()
         self.combo.setIconSize(QSize(96, 54))
@@ -87,6 +87,13 @@ class CameraPanel(QWidget):
         cl.addLayout(row)
         self.state = muted(tr("Cerco le telecamere…"))
         cl.addWidget(self.state)
+        # 0.20.3 (Ale, 15/11): da qui si vede anche quale telecamera è quella della testa, e si va a sceglierla
+        self.head_line = QLabel()
+        self.head_line.setTextFormat(Qt.RichText)
+        self.head_line.setWordWrap(True)
+        self.head_line.setObjectName("muted")
+        self.head_line.linkActivated.connect(lambda *_: self.win.head_camera_setup())
+        cl.addWidget(self.head_line)
         # 0.19.0: con «Foto del piano dal telefono» un collegamento discreto apre il codice QR del telefono
         self.phone_link = QLabel()
         self.phone_link.setTextFormat(Qt.RichText)
@@ -226,12 +233,18 @@ class CameraPanel(QWidget):
         if idx in (SIM_CAMERA, PHONE_CAMERA):
             return  # la camera simulata e la foto dal telefono non sono scelte da ricordare
         qs.setValue("camera_choice", "none" if idx is None else idx if is_net(idx) else int(idx))
+        if isinstance(idx, int) and self.head.index() is None and self.head.choice() == idx:
+            # 0.20.3: era la scelta salvata per la testa (non aperta): ora è del piano, la testa non se la riprende
+            qs.setValue("head_camera_choice", "none")
+            qs.setValue("head_camera_name", "")
 
     # ---------------------------------------------------------------- ricerca
     def search(self, manual=False):
         if self._searching or self.autocam is not None:
             return
-        if not manual and self.choice() == "none" and self.ctl.sim is None:
+        # 0.20.3: con «Nessuna telecamera» sul piano ma una camera della testa scelta, la ricerca si fa lo stesso:
+        # prima la camera della testa non si riapriva più all'avvio e il suo elenco restava vuoto
+        if not manual and self.choice() == "none" and self.ctl.sim is None and self.head.wanted() is None:
             # «Nessuna telecamera» scelta dalla persona: all'avvio e alla connessione non apro nessuna camera
             # (cercarle accende per un attimo anche la webcam del PC). Il pulsante ⟳ cerca comunque.
             self.combo.blockSignals(True)
@@ -369,12 +382,14 @@ class CameraPanel(QWidget):
         if current == SIM_CAMERA and self.ctl.sim is None:
             current = None
         head_idx = self.head.index()
+        # 0.20.3: la telecamera scelta per la testa (anche se non ancora aperta) non viene presa per il piano
+        reserved = self.head.wanted()
         self.combo.blockSignals(True)
         self.combo.clear()
         self.combo.addItem(tr("Nessuna telecamera"), None)
         for idx, label, size, thumb, *_ in cams:
             if idx == head_idx:
-                continue  # 0.20.0: aperta come camera della testa (la stessa telecamera non si apre due volte)
+                continue  # aperta come camera della testa: aggiunta sotto, senza riaprirla per la miniatura
             if thumb is None:
                 self.combo.addItem(label, idx)
             else:
@@ -393,8 +408,10 @@ class CameraPanel(QWidget):
             want = choice
         if want is None and choice is None and self.saved is not None:
             want = self.saved.get("camera_index")
+        if want is not None and want == reserved and want != current:
+            want = None
         if want is None and choice != "none":
-            real = [c[0] for c in cams if c[3] is not None]
+            real = [c[0] for c in cams if c[3] is not None and c[0] != reserved]
             laser = camera_mod.preferred_camera([c for c in real if isinstance(c, int)])
             nets = [c for c in real if is_net(c)]
             if choice is None and laser is not None:
@@ -417,8 +434,18 @@ class CameraPanel(QWidget):
         if not n and self.ctl.sim is None:
             self.state.setText(tr("Nessuna telecamera trovata. Collegala alla USB e premi ⟳."))
 
+    def release_bed(self):
+        """0.20.3: la telecamera del piano passa alla testa (scelta là): qui si chiude e resta «Nessuna telecamera»."""
+        qs = getattr(self.win, "qs", None)
+        if qs is not None:
+            qs.setValue("camera_choice", "none")
+        self.combo.setCurrentIndex(0)  # on_select la chiude
+        if self.src is not None:
+            self.on_select(0)
+        self.state.setText(tr("Questa telecamera ora è la camera della testa. Per il piano scegline un'altra, se c'è."))
+
     def mark_head_camera(self):
-        """0.20.0: nell'elenco del piano la camera aperta come camera della testa c'è, ma non si può scegliere."""
+        """Nell'elenco del piano la camera della testa si riconosce; 0.20.3: si può scegliere (passa al piano)."""
         idx = self.head.index()
         for i in range(self.combo.count()):
             item = self.combo.model().item(i)
@@ -426,9 +453,9 @@ class CameraPanel(QWidget):
             if item is None or not isinstance(data, int) or data < 0:
                 continue
             mine = data == idx
-            item.setEnabled(not mine)
+            item.setEnabled(True)
             text = self.combo.itemText(i)
-            tag = "  ·  " + tr("camera della testa")
+            tag = "  ·  " + tr("ora camera della testa")
             if mine and not text.endswith(tag):
                 self.combo.setItemText(i, text + tag)
             elif not mine and text.endswith(tag):
@@ -443,17 +470,21 @@ class CameraPanel(QWidget):
         idx = self.combo.currentData()
         if self.src is not None and getattr(self.src, "index", None) == idx and idx != SIM_CAMERA:
             return
-        if idx is not None and idx == self.head.index():  # 0.20.0: è la camera della testa
-            self.combo.blockSignals(True)
-            self.combo.setCurrentIndex(0)
-            self.combo.blockSignals(False)
-            idx = None
+        if idx is not None and idx == self.head.index():
+            # 0.20.3: era la camera della testa: la persona la vuole sul piano, quindi là si chiude (prima la scelta
+            # veniva rifiutata)
+            self.head.release()
+            tag = "  ·  " + tr("ora camera della testa")
+            i = self.combo.currentIndex()
+            if self.combo.itemText(i).endswith(tag):
+                self.combo.setItemText(i, self.combo.itemText(i)[:-len(tag)])
         self._close_src()
         self.phone_top = self.phone_corners = None
         if idx is None:
             self.update_state()
             if self.chk_live.isChecked():
                 self.chk_live.setChecked(False)
+            self._tell_head()
             return
         if idx == PHONE_CAMERA:  # la foto arriva dal telefono: niente da aprire e niente calibrazione AutoCam
             self.src = PhonePhoto()
@@ -505,6 +536,14 @@ class CameraPanel(QWidget):
             self.chk_live.setChecked(True)
         elif self.chk_live.isChecked() and not self.can_show():
             self.chk_live.setChecked(False)  # 0.19.0: quello che c'era sotto il piano era di un'altra sorgente
+        self._tell_head()
+
+    def _tell_head(self):
+        """0.20.3: nell'elenco della testa si vede quale è ora la camera del piano."""
+        hd = getattr(self, "head", None)
+        if hd is not None:
+            hd.mark_bed_camera()
+            hd.update_state()
 
     def _close_src(self):
         if self.src is not None:
@@ -608,14 +647,26 @@ class CameraPanel(QWidget):
             self.chk_live.setChecked(True)
         return True
 
+    def _head_line(self):
+        hd = getattr(self, "head", None)
+        if hd is None or not hasattr(self, "head_line"):
+            return
+        name = hd.combo.currentText().split("  ·  ")[0] if hd.index() is not None else tr("nessuna")
+        link = f"<a href='#' style='color:{C['accent_hi']}'>" + tr("Scegli o calibra…") + "</a>"
+        self.head_line.setText(tr("Camera della testa: {0}.", name) + " " + link)
+
     def update_state(self):
+        self._head_line()
         cam_ok = self.src is not None
         cal_ok = self.model is not None
         phone, raw = self.is_phone(), self.is_raw()
         self.chk_live.setEnabled(self.can_show())
         self.btn_shot.setEnabled(self.can_show() and not phone)
-        self.btn_cal.setEnabled(cam_ok and self.ctl.connected and self.autocam is None and not phone and not raw)
-        self.btn_manual.setEnabled(cam_ok and self.ctl.connected and self.autocam is None and not phone and not raw)
+        # 0.20.3: i due pulsanti si possono premere anche senza telecamera o senza laser: dicono che cosa manca
+        # (prima restavano spenti senza spiegare, anche con una calibrazione già fatta)
+        self.btn_cal.setEnabled(self.autocam is None and not phone and not raw)
+        self.btn_manual.setEnabled(self.autocam is None and not phone and not raw)
+        self.btn_cal.setText(tr("◎  Calibra di nuovo automaticamente") if cal_ok else tr("◎  Calibra automaticamente"))
         self.method.setEnabled(not phone)
         self.phone_link.setVisible(phone)
         self.b_again.setVisible(phone and self.src.get() is not None)
@@ -650,6 +701,14 @@ class CameraPanel(QWidget):
             self.state.setStyleSheet(f"color:{C['warn']};")
         if not self.ctl.connected and cam_ok and not cal_ok:
             self.cal_text.setText(tr("Connetti la macchina per calibrare."))
+
+    def _cal_missing(self):
+        """0.20.3: che cosa manca per calibrare la camera del piano (testo), o "" se si può partire."""
+        if self.src is None:
+            return tr("Scegli prima qui sopra la telecamera che guarda il piano dall'alto (⟳ per cercarle).")
+        if not self.ctl.connected:
+            return tr("Connetti la macchina per calibrare: la calibrazione incide dei dischi su un cartone.")
+        return ""
 
     # ---------------------------------------------------------------- immagini
     def _hint(self):
@@ -806,7 +865,9 @@ class CameraPanel(QWidget):
     # ---------------------------------------------------------------- calibrazione
     def _ready_for_machine(self, after_home):
         """Controlli comuni prima di muovere la testa per la camera. after_home: cosa rifare dopo l'homing."""
-        if self.src is None or not self.ctl.connected:
+        why = self._cal_missing()
+        if why:
+            self.cal_text.setText(why)
             return False
         if self.ctl.job_active:
             QMessageBox.warning(self, tr("AutoCam"), tr("C'è un lavoro in corso."))
@@ -889,7 +950,9 @@ class CameraPanel(QWidget):
         return model
 
     def calibrate(self):
-        if self.src is None or not self.ctl.connected:
+        why = self._cal_missing()
+        if why:
+            self.cal_text.setText(why)
             return
         if self.ctl.job_active:
             QMessageBox.warning(self, tr("AutoCam"), tr("C'è un lavoro in corso."))

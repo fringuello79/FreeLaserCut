@@ -1,7 +1,14 @@
 # Novità di FreeLaserCut
 
-## 0.20.3 — in preparazione
-Schizzo del soggetto che parte da vuoto, foto ritagliate a forma (anche con una forma del disegno), anteprima del carattere sul testo vero, spaziatura delle lettere corretta.
+## 0.20.3 — 15/11/2026
+Telecamera della testa e del piano che si scelgono sempre, calibrazione sempre rifacibile, schizzo del soggetto che parte da vuoto, foto ritagliate a forma (anche con una forma del disegno), anteprima del carattere sul testo vero, spaziatura delle lettere corretta.
+
+**Telecamere: decidi tu quale è della testa e quale guarda il piano.** Nella 0.20.2, con una telecamera sola, FreeLaserCut la prendeva da solo come camera del piano e nell'elenco della camera della testa restava bloccata: non si poteva scegliere, e senza camera della testa aperta «Calibra» restava spento. Ora:
+- in *Impostazioni → Camera della testa…* e nella scheda *Camera* **si possono scegliere tutte le telecamere collegate**. Se scegli per la testa quella che ora è la camera del piano, passa alla testa (e viceversa): negli elenchi è segnata «ora camera del piano» / «ora camera della testa»;
+- la telecamera scelta per la testa **non viene più presa da sola per il piano**, e si riapre all'avvio anche se sul piano hai scelto «Nessuna telecamera» (prima il suo elenco restava vuoto finché non premevi ⟳ nella scheda Camera);
+- nel riquadro della camera della testa c'è anche **⟳** per cercare di nuovo le telecamere, e una riga dice qual è la camera del piano; nella scheda Camera una riga dice qual è la camera della testa, con il collegamento per sceglierla o calibrarla;
+- **«Calibra» si può sempre premere**, anche con una calibrazione già fatta (il pulsante diventa «Calibra di nuovo…»): se manca qualcosa (telecamera non scelta, laser non connesso) lo dice, invece di restare spento. Lo stesso per la calibrazione della camera del piano, e la vista della testa dice perché i suoi comandi sono spenti;
+- una **calibrazione nuova non viene più scartata da sola**: se risulta meno precisa di quella di prima FreeLaserCut lo dice e chiede quale tenere (chi la rifà di solito ha spostato o rimesso a fuoco la camera).
 
 **Testo: il carattere si prova prima di sceglierlo.** Con un testo selezionato apri l'elenco dei caratteri e passa con il mouse sui nomi (o scorri con le frecce): **il tuo testo, sul piano, si vede con il carattere su cui sei**. Cambia davvero solo quando fai clic su un nome, con un passo solo di Annulla; se chiudi l'elenco senza scegliere (Esc, clic fuori) il testo torna com'era.
 

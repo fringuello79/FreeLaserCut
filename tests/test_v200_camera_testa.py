@@ -451,7 +451,8 @@ w.show()
 spin(1.0)
 card = w.camera.head
 check("pannello Camera: riquadro «Camera della testa» con scelta, stato e pulsanti",
-      card is not None and card.combo.count() >= 1 and not card.btn_view.isEnabled() and not card.btn_cal.isEnabled())
+      card is not None and card.combo.count() >= 1 and not card.btn_view.isEnabled() and card.btn_cal.isEnabled())
+# (0.20.3: «Calibra» si può sempre premere e dice che cosa manca: vedi test_v203_telecamere)
 check("menu Laser → Vista della testa… e Impostazioni → Camera della testa…",
       w.acts["head_cam"] in w.m_laser.actions() and w.acts["head_cam_setup"] in w.m_settings.actions())
 check("il riquadro della camera della testa non è più nel pannello Camera", w.camera.isAncestorOf(card) is False)
@@ -504,18 +505,22 @@ check("piano e testa: la camera 0 sul piano, la camera 1 sulla testa (aperta a 1
       panel.bed_index() == 0 and card.index() == 1 and (1, hc.HEAD_SIZE) in opened, (panel.bed_index(), card.index(), opened))
 i1 = card.combo.findData(0)
 item = card.combo.model().item(i1)
-check("nell'elenco della testa la camera del piano c'è ma non si può scegliere", i1 > 0 and not item.isEnabled()
-      and tr("camera del piano") in card.combo.itemText(i1))
+# 0.20.3 (Ale, 15/11): le telecamere si scelgono sempre; quella già usata dall'altro compito passa di qua
+check("nell'elenco della testa la camera del piano c'è, si riconosce e si può scegliere", i1 > 0 and item.isEnabled()
+      and tr("ora camera del piano") in card.combo.itemText(i1))
 j = panel.combo.findData(1)
-check("nell'elenco del piano la camera della testa c'è ma non si può scegliere", j > 0
-      and not panel.combo.model().item(j).isEnabled())
+check("nell'elenco del piano la camera della testa c'è, si riconosce e si può scegliere", j > 0
+      and panel.combo.model().item(j).isEnabled() and tr("ora camera della testa") in panel.combo.itemText(j))
+bed_src = panel.src
 card.combo.setCurrentIndex(i1)
 card._chosen(i1)
-check("scelta la camera del piano anche per la testa: rifiutata (resta una sola apertura)",
-      card.combo.currentData() is None or card.index() != 0)
-panel.combo.setCurrentIndex(j)
-panel.on_select(j)
-check("e la camera della testa scelta per il piano: rifiutata", panel.bed_index() != 1)
+check("scelta per la testa la camera del piano: passa alla testa (sul piano si chiude: mai aperta due volte)",
+      card.index() == 0 and panel.bed_index() is None and bed_src.closed, (card.index(), panel.bed_index()))
+head_src = card.src
+j0 = panel.combo.findData(0)
+panel.combo.setCurrentIndex(j0)
+check("e la camera della testa scelta per il piano: passa al piano (sulla testa si chiude)",
+      panel.bed_index() == 0 and card.index() is None and head_src.closed, (panel.bed_index(), card.index()))
 k = card.combo.findData(1)
 card.combo.setCurrentIndex(k)
 card._chosen(k)

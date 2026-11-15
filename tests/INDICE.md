@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 183. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 185. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -18,7 +18,7 @@ Suite: 183. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_wifi.py`: Wi-Fi delle Longer: interruttore «$50», messaggi e attesa della scheda vera
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
 
-## Telecamera e guardia fiamme (10)
+## Telecamera e guardia fiamme (12)
 
 - `test_v107.py`: Telecamera: la scelta si ricorda, «Nessuna» non accende la webcam
 - `test_v111.py`: Fiamma con il cuore bianco, nomi sotto i comandi
@@ -27,6 +27,8 @@ Suite: 183. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v181_camera.py` (Banco): Telecamere del Falcon A1 nell'interfaccia Banco
 - `test_v200_camera_testa.py`: Camera della testa: calibrazione col puntino inciso, laser e camera dove vuoi, origine dalla camera, tavola da due angoli, foto del piano a mosaico, telecamere cercate di nuovo
 - `test_v200_camera_testa.py` (Banco): Camera della testa nell'interfaccia Banco
+- `test_v203_telecamere.py`: Telecamera della testa e del piano: si scelgono sempre (quella già usata passa di qua), «Calibra» sempre possibile, calibrazione nuova mai scartata senza chiedere
+- `test_v203_telecamere.py` (Banco): Scelta delle telecamere e calibrazione sempre possibile nell'interfaccia Banco
 - `test_v201_lentezza.py`: Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto
 - `test_v202_camera_testa.py`: Calibrazione completa della camera della testa (griglia incisa, lente, inclinazione, verifica onesta), mosaico preciso, camera del piano aiutata, vista raddrizzata e zoom, crocetta dal centro camera
 - `test_v202_camera_testa.py` (Banco): Calibrazione completa e vista della testa nell'interfaccia Banco

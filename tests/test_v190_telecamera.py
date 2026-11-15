@@ -248,9 +248,11 @@ cam.method.setCurrentIndex(cam.method.findData("raw"))
 check("telecamera calibrata ma scelta «senza calibrazione»: si vede così com'è (non quella calibrata), con l'avviso",
       cam.chk_live.isChecked() and bed_pixel() != (0, 255, 0) and "NON" in cam.state.text(), bed_pixel())
 cam.method.setCurrentIndex(cam.method.findData("spot"))
-check("…e tornando a un'altra scelta torna quella calibrata, e i pulsanti della calibrazione seguono il collegamento",
+# 0.20.3: i pulsanti della calibrazione si possono sempre premere (senza laser dicono di connetterlo): vedi
+# test_v203_telecamere
+check("…e tornando a un'altra scelta torna quella calibrata, e i pulsanti della calibrazione si possono premere",
       cam.chk_live.isChecked() and bed_pixel() == (0, 255, 0) and "NON è allineata" not in cam.state.text()
-      and cam.btn_cal.isEnabled() == bool(w.ctl.connected))
+      and cam.btn_cal.isEnabled())
 cam.chk_live.setChecked(False)
 cam.model, cam.saved = None, None
 cam.method.setCurrentIndex(cam.method.findData("auto"))

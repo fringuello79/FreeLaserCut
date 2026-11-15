@@ -1040,14 +1040,20 @@ class HeadGridCalibration(hc.HeadCalibration):
         close = abs(p_new - p_old) <= max(0.15 * min(p_new, p_old), 0.1)
         if not close and p_new < p_old:
             return model, msg
+        # 0.20.3 (Ale, 15/11): decide sempre la persona. Prima una calibrazione nuova «peggiore» veniva scartata senza
+        # chiedere: ma chi l'ha rifatta di solito ha un motivo (camera spostata, messa a fuoco cambiata) che i numeri
+        # sugli stessi punti non vedono.
         if not close:
-            return None, tr("La calibrazione nuova ({0:.1f} pixel) è peggiore di quella che c'è già ({1:.1f} pixel "
-                            "sugli stessi punti di controllo): tengo quella di prima.", p_new, p_old)
+            ask = tr("La calibrazione nuova ({0:.1f} pixel) risulta meno precisa di quella che c'è già ({1:.1f} pixel "
+                     "sugli stessi punti di controllo). Se hai spostato o rimesso a fuoco la camera tieni quella "
+                     "nuova.\n\nTengo quella nuova?", p_new, p_old)
+        else:
+            ask = tr("La calibrazione nuova e quella di prima sono quasi uguali sui punti di controllo "
+                     "(nuova {0:.1f} pixel, prima {1:.1f} pixel). Tengo quella nuova?", p_new, p_old)
         self._choice = None
         self._go.clear()
         self._ok_user = False
-        self.need_choice.emit(tr("La calibrazione nuova e quella di prima sono quasi uguali sui punti di controllo "
-                                 "(nuova {0:.1f} pixel, prima {1:.1f} pixel). Tengo quella nuova?", p_new, p_old))
+        self.need_choice.emit(ask)
         self._go.wait()
         if self._cancel.is_set() or self._choice is None:
             raise CalibrationCancelled()
