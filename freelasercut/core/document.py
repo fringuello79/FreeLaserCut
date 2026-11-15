@@ -799,6 +799,11 @@ class Document:
         self.layers = {}  # indice colore -> CutSettings
         self.images = {}  # id -> PIL.Image (modalità L o RGBA)
         self.name = tr("Senza titolo")
+        # 0.20.1: il nome viene da un file importato (progetto mai salvato): segue i file che restano sul piano
+        # (segnalazione di Evoluzione2, 15/11: tolte le forme di «Pippo», il progetto si chiamava ancora «Pippo»).
+        # Non si salva nel file: un progetto salvato o aperto ha il nome del suo file.
+        self.name_auto = False
+        self.import_order = []  # 0.20.1: i file importati, nell'ordine (nomi come in Shape.origin)
         self.path = None
 
     # ---- piani di lavoro
