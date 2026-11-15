@@ -25,21 +25,24 @@ CHILD = os.environ.get("FLC_TEST_CHILD") == "1"
 if not CHILD:
     ui = sys.argv[1] if len(sys.argv) > 1 else "classica"
     ok_all, total = True, 0
-    for lang in ("it", "en", "es", "fr", "pt"):
-        env = dict(os.environ, FLC_TEST_CHILD="1", FLC_LANG=lang, FLC_UI=ui)
+    # in più, in italiano, la finestra partita già alla sua larghezza minima (come sui server senza schermo): lì
+    # anche pochi pixel in più la allargherebbero
+    for lang, narrow in (("it", ""), ("en", ""), ("es", ""), ("fr", ""), ("pt", ""), ("it", "1")):
+        env = dict(os.environ, FLC_TEST_CHILD="1", FLC_LANG=lang, FLC_UI=ui, FLC_TEST_NARROW=narrow)
+        tag = lang + (" stretta" if narrow else "")
         r = subprocess.run([sys.executable, os.path.abspath(__file__), ui], env=env, capture_output=True, text=True,
                            timeout=600)
         lines = [ln for ln in r.stdout.splitlines() if ln.startswith(("OK  ", "NO  "))]
         for ln in lines:  # «OK»/«KO» in testa: tests/run_tests.py riporta solo queste righe
-            print(("OK  " if ln.startswith("OK") else "KO  ") + f"[{lang}] {ln[4:]}", flush=True)
+            print(("OK  " if ln.startswith("OK") else "KO  ") + f"[{tag}] {ln[4:]}", flush=True)
         for ln in r.stdout.splitlines():
             if ln.startswith("INFO"):
-                print(f"OK  [{lang}] {ln}", flush=True)
+                print(f"OK  [{tag}] {ln}", flush=True)
         total += len(lines)
         if r.returncode != 0 or not lines or any(ln.startswith("NO") for ln in lines):
             ok_all = False
             if not lines:
-                print(f"KO  [{lang}] la prova non è partita: {r.stderr[-800:]}")
+                print(f"KO  [{tag}] la prova non è partita: {r.stderr[-800:]}")
     good = total if ok_all else total - 1
     print(f"\n{good}/{total} superati", flush=True)
     sys.exit(0 if ok_all else 1)
@@ -71,7 +74,7 @@ def spin(n=12):
         app.processEvents()
 
 
-SCREEN = 1366
+SCREEN = 1 if os.environ.get("FLC_TEST_NARROW") else 1366  # 1: la finestra parte alla sua larghezza minima
 w = MainWindow()
 w.resize(SCREEN, 740)
 w.show()

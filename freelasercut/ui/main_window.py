@@ -1219,7 +1219,16 @@ class MainWindow(QMainWindow):
         self.lbl_origin.setObjectName("muted")
         self.lbl_origin.setMaximumWidth(260)
         self.lbl_origin.hide()
-        sb.addPermanentWidget(self.lbl_origin)
+        # in un contenitore sempre presente e largo 0 quando la scritta non c'è: così, quando compare, la barra non
+        # aggiunge nemmeno lo spazio fra un elemento e l'altro (0.20.1)
+        holder = QWidget()
+        hl = QHBoxLayout(holder)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(0)
+        hl.addWidget(self.lbl_origin)
+        holder.setMinimumWidth(0)
+        self._origin_holder = holder
+        sb.addPermanentWidget(holder)
         for w in (self.lbl_fs, self.lbl_head, self.lbl_cursor, self.lbl_zoom):
             sb.addPermanentWidget(w)
 
