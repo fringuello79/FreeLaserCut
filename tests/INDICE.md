@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 155. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 157. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -133,7 +133,7 @@ Suite: 155. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_movimento.py`: Scheda Movimento: Puntino e Lucciola al centro delle frecce, joystick virtuale sul simulatore
 - `test_v195_movimento.py` (Banco): Puntino, Lucciola e joystick nell'interfaccia Banco
 
-## Disegno e modifica (19)
+## Disegno e modifica (21)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -154,6 +154,8 @@ Suite: 155. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_nodi.py` (Banco): Strumento Nodi con più nodi e unione nell'interfaccia Banco
 - `test_v196_tracciati.py`: Tracciati puliti: Semplifica tracciati con lo scarto misurato, disegno a mano libera, Allinea e Distribuisci sui nodi
 - `test_v196_tracciati.py` (Banco): Semplifica tracciati, mano libera e nodi nell'interfaccia Banco
+- `test_v200_selezione.py`: Selezione più visibile: linea piena con alone del colore d'accento
+- `test_v200_selezione.py` (Banco): Selezione più visibile nell'interfaccia Banco
 
 ## Interfaccia (18)
 

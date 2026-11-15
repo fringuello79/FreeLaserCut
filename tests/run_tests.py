@@ -264,6 +264,10 @@ def write_index():
     return False
 
 
+# 0.20.0: suite lente (secondi): sui server di GitHub la camera della testa simulata supera i 900 s
+SLOW = {"test_v200_camera_testa.py": 2400}
+
+
 def parallel_from(argv, env):
     """Quante suite far girare insieme: «--insieme N» oppure la variabile FLC_PROVE_INSIEME; fra 1 e 16."""
     text = env.get("FLC_PROVE_INSIEME", "1")
@@ -284,12 +288,13 @@ def _run_one(name, args):
     # preferenze pulite per ogni prova: su Windows il registro è in comune e una prova lasciava valori alla successiva
     env["FLC_SETTINGS_INI"] = os.path.join(tempfile.mkdtemp(), "prova.ini")
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+    limit = SLOW.get(name, 900)  # 0.20.0: le calibrazioni simulate della camera della testa sui server di GitHub
     try:
         r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", env=env, timeout=900)
+                           errors="replace", env=env, timeout=limit)
     except subprocess.TimeoutExpired as ex:
         out = ex.stdout if isinstance(ex.stdout, str) else (ex.stdout or b"").decode("utf-8", "replace")
-        return 124, out, "tempo scaduto (900 s)"
+        return 124, out, f"tempo scaduto ({limit} s)"
     return r.returncode, r.stdout or "", r.stderr or ""
 
 
@@ -505,6 +510,8 @@ if __name__ == "__main__":
     run_suite("test_v196_varie.py", "Freccette nei campi, vista dei piani e CRLF nell'interfaccia Banco", "banco")
     run_suite("test_v200_camera_testa.py", "Camera della testa: calibrazione col puntino inciso, laser e camera dove vuoi, origine dalla camera, tavola da due angoli, foto del piano a mosaico, telecamere cercate di nuovo")
     run_suite("test_v200_camera_testa.py", "Camera della testa nell'interfaccia Banco", "banco")
+    run_suite("test_v200_selezione.py", "Selezione più visibile: linea piena con alone del colore d'accento")
+    run_suite("test_v200_selezione.py", "Selezione più visibile nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

@@ -10,6 +10,8 @@ La camera della testa, tracciati più puliti, disegno a mano libera e varie como
 - **Tavola da due angoli:** il mirino su un angolo della tavola (A) e su un altro angolo dello stesso lato (B). Con *Cerca l'angolo vicino al mirino* FreeLaserCut trova da solo il punto in cui si incontrano i due bordi (anche sul nido d'ape); se non lo trova usa il mirino e lo dice. La tavola si vede sul piano e *Appoggia la selezione sulla tavola* ruota il disegno come la tavola e lo mette nell'angolo A più il margine scelto, con un solo Annulla.
 - **Foto del piano a mosaico:** la testa passa sopra la zona scelta (tutto il piano, attorno alla selezione o la tavola) a laser spento, la camera fa una foto in ogni punto e le foto, unite in scala 1:1, vanno sotto il piano come la foto della camera del piano.
 
+**Le forme selezionate si vedono meglio** (da un rapporto del 14/11: «il tratteggio si vede male»). Il contorno della selezione non è più una linea tratteggiata sottile: è una linea piena del colore d'accento con un alone chiaro attorno, che si nota anche sulle forme del livello blu (prima avevano lo stesso colore della selezione). Con più di 400 forme selezionate resta solo la linea piena, perché il piano non rallenti.
+
 **Telecamere:**
 - una telecamera collegata (o tolta) mentre FreeLaserCut è aperto viene trovata da sola, senza riavviare;
 - la scritta «Cerco le telecamere…» non resta più ferma: se la ricerca non risponde lo dice e ⟳ torna a funzionare;
