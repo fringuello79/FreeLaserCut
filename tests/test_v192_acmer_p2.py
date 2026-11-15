@@ -63,9 +63,10 @@ check("4 porta a 115200 baud e scala di potenza S 1000, come nel profilo ufficia
 check("4 aria assistita accesa con M7 e spenta con M9 (profilo ufficiale: AirAssistM7)",
       all((p.air_on, p.air_off) == ("M7", "M9") for p in pr.values()) and all(machines.AIR_ON.get(n) == "M7" for n in P2),
       [(p.air_on, p.air_off) for p in pr.values()])
-others = [n for n in names[:-1] if n not in P2]
+# 0.20.1: anche la scheda Makerbase MKS DLC32 (la stessa del P2) parte con M7 (test_v201_aria)
+others = [n for n in names[:-1] if n not in P2 and n != "Scheda Makerbase MKS DLC32"]
 check("4 …le altre voci del catalogo restano con M8 (P3, S1, Longer B1 e tutte le altre)",
-      all(machines.preset_profile(n).air_on == "M8" for n in others) and set(machines.AIR_ON) == set(P2)
+      all(machines.preset_profile(n).air_on == "M8" for n in others) and set(machines.AIR_ON) == set(P2) | {"Scheda Makerbase MKS DLC32"}
       and machines.preset_profile(names[-1]).air_on == "M8",
       [n for n in others if machines.preset_profile(n).air_on != "M8"])
 check("5 niente che Acmer non dichiara: area non ridotta, nessuna correzione della scansione, G55 non tolto",
