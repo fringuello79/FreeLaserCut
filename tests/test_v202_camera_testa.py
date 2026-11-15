@@ -67,7 +67,7 @@ results = []
 def check(name, cond, info=""):
     results.append(bool(cond))
     extra = "" if cond or info is None or (isinstance(info, str) and not info) else f"  [{info}]"
-    print(("OK  " if cond else "NO  ") + name + extra, flush=True)
+    print(("OK  " if cond else "KO  ") + name + extra, flush=True)
 
 
 def spin(t):

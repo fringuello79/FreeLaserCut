@@ -42,7 +42,7 @@ results = []
 
 def check(name, cond, info=""):
     results.append(bool(cond))
-    print(("OK  " if cond else "NO  ") + name + (f"  [{info}]" if info and not cond else ""), flush=True)
+    print(("OK  " if cond else "KO  ") + name + (f"  [{info}]" if info and not cond else ""), flush=True)
 
 
 def line(x0, y0, x1, y1, layer=0):
