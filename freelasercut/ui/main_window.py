@@ -56,9 +56,14 @@ class ShrinkLabel(QLabel):
     """0.20.1: scritta della barra in basso che non chiede mai spazio: larghezza minima 0, al massimo la sua
     larghezza massima; il testo che non ci sta si accorcia nel mezzo con «…». Il testo intero resta in fullText()."""
 
-    def __init__(self, text="", parent=None):
+    def __init__(self, text="", parent=None, reserve=0, elide=Qt.ElideMiddle):
         super().__init__(parent)
         self._full = ""
+        # 0.20.2: «reserve» = larghezza tenuta quando c'è un testo (numeri che cambiano: il resto non si sposta);
+        # senza testo la scritta non occupa niente (Evoluzione2, 15/11: con il laser scollegato la posizione della
+        # testa e la velocità, vuote, tenevano 550 px e alla scritta «File: …» non restava spazio)
+        self._reserve = int(reserve)
+        self._elide_mode = elide
         self.setText(text)
 
     def setText(self, text):
@@ -71,7 +76,7 @@ class ShrinkLabel(QLabel):
 
     def _elide(self):
         room = max(self.width() - 2, 0) if self.isVisible() else self.maximumWidth()
-        QLabel.setText(self, self.fontMetrics().elidedText(self._full, Qt.ElideMiddle, room))
+        QLabel.setText(self, self.fontMetrics().elidedText(self._full, self._elide_mode, room))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -84,7 +89,11 @@ class ShrinkLabel(QLabel):
     def sizeHint(self):
         h = super().sizeHint().height()
         m = self.contentsMargins()
+        if not self._full:
+            return QSize(0, h)
         want = self.fontMetrics().horizontalAdvance(self._full) + m.left() + m.right() + 4
+        if self._reserve:
+            want = max(want, self._reserve)
         return QSize(min(want, self.maximumWidth()), h)
 
     def minimumSizeHint(self):
@@ -1185,8 +1194,14 @@ class MainWindow(QMainWindow):
         self.lbl_cursor = fixed(tr("X -0000.00  Y -0000.00 mm"))
         self.lbl_cursor.setText("X —  Y —")
         self.lbl_zoom = fixed("00000%")
-        self.lbl_head = fixed("testa -000.00, -000.00  ·  lavoro -000.00, -000.00")
-        self.lbl_fs = fixed("F 00000 mm/min · potenza 000%")
+        def reserved(sample):  # 0.20.2: come fixed(), ma vuota non occupa spazio e, se lo spazio manca, si accorcia
+            lab = ShrinkLabel("", reserve=fm.horizontalAdvance(sample) + 14, elide=Qt.ElideRight)
+            lab.setStyleSheet(mono)
+            lab.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            return lab
+
+        self.lbl_head = reserved("testa -000.00, -000.00  ·  lavoro -000.00, -000.00")
+        self.lbl_fs = reserved("F 00000 mm/min · potenza 000%")
         self.lbl_fs.setObjectName("muted")
         self.sb_machine = QPushButton(tr("○  Laser non connesso"))
         self.sb_machine.setFlat(True)

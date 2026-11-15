@@ -7,7 +7,9 @@ centro nella classica non c'è più); il Banco resta com'è.
 
 MATRICE DEI CASI
  1 posto e misure: dopo «Griglia», prima di «F … potenza»; alta come «Griglia»; larga ≥ 150 px e ≥ la scritta
- 2 larghezza della finestra: 1920 (intera) / 1366 e 1280 (lente); passaggio da una all'altra e ritorno
+ 2 larghezza della finestra: 1920 (intera) / sotto la soglia (lente); passaggio da una all'altra e ritorno. Dalla
+   0.20.2 con il laser scollegato la barra ha 550 px liberi in più (posizione e velocità vuote non tengono spazio):
+   la soglia si calcola, non è più fra 1280 e 1366
  3 aprire: Ctrl+F, F3, menu Aiuto (prima voce), clic nella casella, clic sulla lente
  4 scrivere: proposte sopra la casella, al massimo 8 righe, la migliore in cima, dentro la finestra
  5 tastiera: frecce, Invio esegue, Esc svuota e torna al piano; i tasti degli attrezzi non scattano mentre si scrive
@@ -189,7 +191,9 @@ else:
     w.acts["grid"].setChecked(was)
 
     # ---------------------------------------------------------------- 2 e 9. finestre strette: la lente
-    for width in (1366, 1280):
+    hi_t = next((x for x in range(600, 2601, 10) if not box.should_compact(x)), 2600)
+    lens_widths = [x for x in (hi_t - 30, hi_t - 120) if x >= w.minimumSizeHint().width() + 2] or [hi_t - 30]
+    for width in lens_widths:
         w.resize(width, 768); spin(0.5)
         check(f"a {width} px la casella diventa una lente (24 px): ai messaggi non toglie spazio",
               box.compact and box.lens.isVisible() and not box.edit.isVisible() and box.holder.width() == cmd_box.LENS_W,
@@ -212,12 +216,12 @@ else:
     w.resize(1920, 1080); spin(0.5)
     check("riallargando la finestra a 1920 torna la casella intera", not box.compact and box.edit.isVisible()
           and not box.lens.isVisible() and box.edit.width() >= 150)
-    lo, hi = 1280, 1920
-    for width in range(1300, 1921, 20):
+    lo, hi = 600, 1920
+    for width in range(600, 1921, 20):
         if not box.should_compact(width):
             hi = width; break
     check("la soglia fra lente e casella intera è una sola (niente va e vieni): sotto è sempre lente, sopra sempre intera",
-          all(box.should_compact(x) for x in range(1200, hi, 20)) and not any(box.should_compact(x) for x in range(hi, 2600, 20)),
+          all(box.should_compact(x) for x in range(600, hi, 20)) and not any(box.should_compact(x) for x in range(hi, 2600, 20)),
           str(hi))
 
     # ---------------------------------------------------------------- 10. guida, lingue

@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 173. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 175. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -168,7 +168,7 @@ Suite: 173. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (23)
+## Interfaccia (25)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -189,6 +189,8 @@ Suite: 173. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v193_cerca.py` (Banco): Ricerca comandi nell'interfaccia Banco: resta la finestrella
 - `test_v196_varie.py` (Banco): Freccette nei campi, vista dei piani e CRLF nell'interfaccia Banco
 - `test_v200_nomi.py` (Banco): Nome del progetto e file di provenienza nell'interfaccia Banco
+- `test_v202_barra.py`: Barra in basso: «File: …» leggibile, posizione e velocità vuote senza spazio, laser collegato senza allargare
+- `test_v202_barra.py` (Banco): Barra in basso leggibile nell'interfaccia Banco
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco
