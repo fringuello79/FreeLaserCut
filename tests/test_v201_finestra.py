@@ -28,13 +28,16 @@ if not CHILD:
         r = subprocess.run([sys.executable, os.path.abspath(__file__), ui], env=env, capture_output=True, text=True,
                            timeout=600)
         lines = [ln for ln in r.stdout.splitlines() if ln.startswith(("OK  ", "NO  "))]
-        for ln in lines:
-            print(f"[{lang}] {ln}", flush=True)
+        for ln in lines:  # «OK»/«KO» in testa: tests/run_tests.py riporta solo queste righe
+            print(("OK  " if ln.startswith("OK") else "KO  ") + f"[{lang}] {ln[4:]}", flush=True)
+        for ln in r.stdout.splitlines():
+            if ln.startswith("INFO"):
+                print(f"OK  [{lang}] {ln}", flush=True)
         total += len(lines)
         if r.returncode != 0 or not lines or any(ln.startswith("NO") for ln in lines):
             ok_all = False
             if not lines:
-                print(f"[{lang}] NO  la prova non è partita: {r.stderr[-800:]}")
+                print(f"KO  [{lang}] la prova non è partita: {r.stderr[-800:]}")
     good = total if ok_all else total - 1
     print(f"\n{good}/{total} superati", flush=True)
     sys.exit(0 if ok_all else 1)
@@ -73,6 +76,7 @@ w.show()
 spin()
 sb = w.statusBar()
 start_sb = sb.minimumSizeHint().width()
+print(f"INFO avvio: finestra minima {w.minimumSizeHint().width()} px, barra in basso {start_sb} px", flush=True)
 check("1 avvio: la finestra non chiede più dello schermo", w.minimumSizeHint().width() <= SCREEN,
       w.minimumSizeHint().width())
 
