@@ -52,6 +52,45 @@ IMPORT_FILTER = (IMPORT_FILTER.replace(" *.webp)", " *.webp " + _PCB_GLOBS + ")"
 
 BIG_PHOTO_DOTS = 5_000_000  # oltre: chiede conferma prima di preparare il lavoro (tempo, memoria)
 
+class ShrinkLabel(QLabel):
+    """0.20.1: scritta della barra in basso che non chiede mai spazio: larghezza minima 0, al massimo la sua
+    larghezza massima; il testo che non ci sta si accorcia nel mezzo con «…». Il testo intero resta in fullText()."""
+
+    def __init__(self, text="", parent=None):
+        super().__init__(parent)
+        self._full = ""
+        self.setText(text)
+
+    def setText(self, text):
+        self._full = text or ""
+        self._elide()
+        self.updateGeometry()
+
+    def fullText(self):
+        return self._full
+
+    def _elide(self):
+        room = max(self.width() - 2, 0) if self.isVisible() else self.maximumWidth()
+        QLabel.setText(self, self.fontMetrics().elidedText(self._full, Qt.ElideMiddle, room))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._elide()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._elide()
+
+    def sizeHint(self):
+        h = super().sizeHint().height()
+        m = self.contentsMargins()
+        want = self.fontMetrics().horizontalAdvance(self._full) + m.left() + m.right() + 4
+        return QSize(min(want, self.maximumWidth()), h)
+
+    def minimumSizeHint(self):
+        return QSize(0, super().minimumSizeHint().height())
+
+
 class MainWindow(QMainWindow):
     # dopo la connessione: se la scheda non ha ancora risposto, avviso (velocità della porta). 0.17.3: 9 s, perché prima
     # FreeLaserCut prova da solo Ctrl+X (2,5 s) e il riavvio dalla porta USB (4 s, poi 3 s per l'avvio della scheda)
@@ -1173,8 +1212,10 @@ class MainWindow(QMainWindow):
             b.setIconSize(QSize(14, 14))
             sl.addWidget(b)
         sb.addPermanentWidget(snaps)
-        # 0.20.0: da quale file vengono le forme selezionate (si vede solo con una selezione importata)
-        self.lbl_origin = QLabel("")
+        # 0.20.0: da quale file vengono le forme selezionate (si vede solo con una selezione importata). 0.20.1: non
+        # allarga mai la barra, quindi mai la finestra (Evoluzione2, 15/11: aprendo un progetto la finestra usciva dallo
+        # schermo a destra, con i pannelli e i menu); se lo spazio non basta la scritta si accorcia con «…»
+        self.lbl_origin = ShrinkLabel("")
         self.lbl_origin.setObjectName("muted")
         self.lbl_origin.setMaximumWidth(260)
         self.lbl_origin.hide()
