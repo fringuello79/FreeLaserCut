@@ -106,6 +106,32 @@ if not BANCO:
     check("file: salvato e riletto uguale (matrice, scostamento, risoluzione, nome della camera)",
           m2 is not None and np.allclose(m2.M, m.M) and np.allclose(m2.offset, m.offset)
           and m2.frame_size == (1280, 720) and m2.camera_name == "Innomaker-U20CAM-1080p-S1")
+    m3 = hc.HeadModel(hc.natural_matrix(0.08, 12), (30, 5), (1280, 720), k=-0.22)
+    m3.save(path)
+    m4 = hc.HeadModel.load(path)
+    px = rng.uniform(0, [1280, 720], (200, 2))
+    check("lente: salvata e riletta; pixel → piano → pixel uguale anche ai bordi dell'immagine",
+          m4 is not None and abs(m4.k + 0.22) < 1e-12
+          and float(np.abs(m4.bed_to_img(head, m4.img_to_bed(head, px)) - px).max()) < 1e-3)
+    d0 = json.load(open(path))
+    d0.pop("k")
+    json.dump(d0, open(path, "w"))
+    check("file senza la lente (calibrazioni di prima): letto con lente perfetta", hc.HeadModel.load(path).k == 0.0)
+    dot = np.full((450, 800, 3), 90, np.uint8)
+    q = np.array([700.0, 80.0])
+    pd_ = hc.distort_px([q], np.array([400.0, 225.0]), math.hypot(800, 450) / 2, -0.22)[0]
+    cv2.circle(dot, (int(round(pd_[0])), int(round(pd_[1]))), 4, (250, 250, 250), -1, cv2.LINE_AA)
+    flat_m = hc.HeadModel(hc.natural_matrix(0.08), (0, 0), (800, 450), k=-0.22)
+    und = hc.undistort_frame(dot, flat_m)
+    g_ = cv2.cvtColor(und, cv2.COLOR_BGR2GRAY).astype(float) - 150  # solo il punto chiaro (il bordo è nero)
+    g_[g_ < 0] = 0
+    yy, xx = np.mgrid[0:450, 0:800]
+    cen = ((xx * g_).sum() / g_.sum(), (yy * g_).sum() / g_.sum())
+    check("foto «senza lente» per il mosaico: un punto vicino all'angolo torna dove deve (sotto 1 pixel)",
+          math.hypot(cen[0] - q[0], cen[1] - q[1]) < 1.0, cen)
+    far_px = m3.bed_to_img(head, [head + m3.offset + (5000, 5000)])
+    check("punto lontanissimo con una lente a barile: nessuna posizione inventata nell'immagine (non si disegna)",
+          not np.isfinite(far_px).any(), far_px)
     check("file assente: nessuna calibrazione, nessun errore", hc.HeadModel.load(os.path.join(d, "no.json")) is None)
     open(path, "w").write("{rovinato")
     check("file rovinato: nessuna calibrazione", hc.HeadModel.load(path) is None)
@@ -119,6 +145,32 @@ if not BANCO:
     Mt = hc.natural_matrix(0.07, 23, True)
     pix = rng.uniform(-200, 200, (6, 2))
     Ms, rms = hc.solve_matrix(pix, pix @ Mt.T)
+    check("dove è la camera: «a destra, 6 cm» = 60 mm in X; «in alto, 4 cm» = 40 mm in Y; diagonale = stessa distanza",
+          hc.guess_from_direction("r", 6) == (60.0, 0.0) and hc.guess_from_direction("u", 4) == (0.0, 40.0)
+          and hc.guess_from_direction("l", 2.5) == (-25.0, 0.0) and hc.guess_from_direction("d", 3) == (0.0, -30.0)
+          and abs(math.hypot(*hc.guess_from_direction("ul", 10)) - 100) < 1e-3
+          and hc.guess_from_direction("ul", 10)[0] < 0 < hc.guess_from_direction("ul", 10)[1])
+    BED = (450.0, 440.0)
+    st, _w = hc.calibration_start((5, 220), (60, 0), BED)
+    check("camera 6 cm a destra e testa vicino allo 0: il puntino si incide più a destra (la camera deve poterci "
+          "andare sopra)", st == (90.0, 220.0), st)
+    st, _w = hc.calibration_start((440, 200), (-60, 0), BED)
+    check("camera 6 cm a sinistra e testa vicino al bordo destro: il puntino si incide più a sinistra",
+          st == (360.0, 200.0), st)
+    st, _w = hc.calibration_start((200, 15), (0, 50), BED)
+    st2, _w = hc.calibration_start((200, 435), (0, 50), BED)
+    check("camera 5 cm in alto (verso il fondo): il puntino non nei primi 8 cm davanti, e lontano dal bordo in fondo",
+          st == (200.0, 80.0) and st2 == (200.0, 410.0), (st, st2))
+    st, _w = hc.calibration_start((300, 300), (-35, 35), BED)
+    check("camera in diagonale, testa già in un punto buono: il puntino si incide lì", st == (300.0, 300.0), st)
+    st, _w = hc.calibration_start((10, 10), None, BED)
+    check("non sai dov'è la camera: il puntino si incide almeno 6 cm dentro il piano (la ricerca gira tutto intorno)",
+          st == (60.0, 60.0), st)
+    st, why = hc.calibration_start((100, 100), (210, 0), (200, 200))
+    check("piano troppo piccolo per quella distanza: niente calibrazione e si dice perché", st is None and "lontana" in why,
+          (st, why))
+    check("«non lo so» o distanza zero: nessuna indicazione", hc.guess_from_direction("", 5) is None
+          and hc.guess_from_direction("r", 0) is None and hc.guess_from_direction("x", 5) is None)
     check("minimi quadrati: matrice ritrovata esatta", Ms is not None and np.allclose(Ms, Mt) and rms < 1e-9)
     check("spostamenti tutti sulla stessa retta: niente matrice", hc.solve_matrix([(1, 0), (2, 0), (-3, 0)],
                                                                                  [(1, 1), (2, 2), (3, 3)])[0] is None)
@@ -285,7 +337,7 @@ if not BANCO:
             eo = float(np.hypot(*(mdl.offset - cam.true.offset)))
             em = float(np.abs(mdl.M - cam.true.M).max())
             check("calibrazione: " + name + f" (scostamento ±{eo:.3f} mm)", eo < 0.1 and em < 0.002
-                  and mdl.mirrored() == cam.true.mirrored(), (eo, em, msg))
+                  and mdl.mirrored() == cam.true.mirrored() and abs(mdl.k) < 0.005, (eo, em, mdl.k, msg))
             L = hc.head_on_bed(c, prof)
             check("…alla fine il puntino inciso è sotto il mirino", np.hypot(*(mdl.center(L) - np.array(at))) < 0.1,
                   mdl.center(L))
@@ -301,7 +353,32 @@ if not BANCO:
         check("camera 60 mm a destra dell'ugello con fotogrammi in ritardo di 0,6 s" + (" e distanza indicativa 55, 5 mm"
               if guess else "") + ": calibrata giusta, puntino confermato dalla persona",
               mdl is not None and np.hypot(*(mdl.offset - cam.true.offset)) < 0.1 and confirms == [True], (msg, confirms))
+        if guess:
+            L0 = np.array(_cal.mark_bed)
+            check("…con la distanza indicativa la prima foto «prima del puntino» è già con la camera sopra il punto "
+                  "da incidere (testa spostata dalla parte opposta alla camera)",
+                  np.hypot(*(np.array(_cal.before_at[0]) - (L0 - np.array(guess)))) < 0.05
+                  and _cal.before_at[0][0] < L0[0], (_cal.before_at[:2], L0))
         cam.close()
+    # lenti grandangolari (M12): a barile, molto a barile, a cuscino
+    for k_true, at in ((-0.2, (60, 60)), (-0.35, (390, 60)), (0.12, (390, 210))):
+        cam = hc.SimHeadCamera(c.sim, profile=prof, offset=(25, 10), mm_per_px=0.08, angle=15, k=k_true,
+                               size=(800, 450))
+        spin(0.5)
+        mdl, msg, _cal = run_cal(cam, at, guess=(25, 10))
+        ok = mdl is not None
+        if ok:
+            Lt = np.array([200.0, 200.0])
+            pxs = np.column_stack([rng.uniform(0, 800, 300), rng.uniform(0, 450, 300)])
+            err = float(np.linalg.norm(mdl.img_to_bed(Lt, pxs) - cam.true.img_to_bed(Lt, pxs), axis=1).max())
+            plain = float(np.linalg.norm(hc.HeadModel(mdl.M, mdl.offset, mdl.frame_size).img_to_bed(Lt, pxs)
+                                         - cam.true.img_to_bed(Lt, pxs), axis=1).max())
+        check(f"lente {'a barile' if k_true < 0 else 'a cuscino'} ({k_true * 100:+.0f}% ai bordi): misurata e "
+              "corretta, errore su tutta l'immagine sotto 0,3 mm (senza correzione: diversi mm)",
+              ok and abs(mdl.k - k_true) < 0.03 and err < 0.3 and plain > 2.0
+              and np.hypot(*(mdl.offset - cam.true.offset)) < 0.1, (msg, ok and (mdl.k, err, plain)))
+        cam.close()
+
     # la persona dice «non è lui»: sposta la testa e fa clic sul puntino
     cam = hc.SimHeadCamera(c.sim, profile=prof, angle=-8, mm_per_px=0.08, offset=(20, 25))
     spin(0.3)
@@ -488,6 +565,27 @@ until(lambda: hc.head_on_bed(w.ctl, w.profile) is not None and abs(hc.head_on_be
 spin(0.5)
 win = card.open_window()
 check("vista della testa: si apre", win is not None and win.isVisible())
+from PySide6.QtWidgets import QDialog  # noqa: E402
+
+dlg = hcu.HeadCalDialog(card, 20)
+pad = dlg.pad
+pad.set_direction("r")
+pad.cm.setValue(6.0)
+check("prima della calibrazione si chiede dov'è la camera: freccia → e 6 cm = 60 mm a destra; la frase dice che il "
+      "puntino starà a sinistra", pad.guess() == (60.0, 0.0) and "a sinistra rispetto alla camera" in pad.text.text()
+      and pad.buttons["r"].isChecked() and not pad.buttons[""].isChecked(), pad.text.text())
+pad.set_direction("u")
+pad.cm.setValue(4.0)
+check("…freccia ↑ e 4 cm = 40 mm verso l'alto del piano; il puntino starà in basso",
+      pad.guess() == (0.0, 40.0) and "in basso rispetto alla camera" in pad.text.text())
+check("…la scelta si ricorda", w.qs.value("head_camera_where") == "u;4")
+check("…e la finestrella dice dove verrà inciso il puntino", "Il puntino si incide" in dlg.where.text()
+      and dlg.buttons.button(hcu.QDialogButtonBox.Ok).isEnabled(), dlg.where.text())
+pad.set_direction("")
+check("…● = non lo so: nessuna indicazione e distanza spenta", pad.guess() is None and not pad.cm.isEnabled()
+      and w.qs.value("head_camera_where") == "")
+dlg.close()
+hcu.HeadCalDialog.exec = lambda self: QDialog.Accepted  # «Inizia» con quello che c'è nella finestrella
 card.calibrate(25)
 until(lambda: card.cal is None, 200)
 mdl = card.model
@@ -495,6 +593,30 @@ check("calibrazione dalla finestra: riuscita, salvata, testo con i risultati", m
       and os.path.exists(hc.head_file()) and np.hypot(*(mdl.offset - cam.true.offset)) < 0.1
       and "mm per pixel" in win.cal_text.text(), win.cal_text.text())
 check("stato del riquadro: calibrata", "✓" in card.state.text())
+
+# testa troppo vicina al bordo per quella camera: prima di incidere la testa va in un punto che la camera raggiunge
+w.goto_bed(200, 8)
+until(lambda: np.hypot(*(hc.head_on_bed(w.ctl, w.profile) - (200, 8))) < 0.05, 20)
+spin(0.5)
+
+
+def pick_up_3cm(self):
+    self.pad.set_direction("u")
+    self.pad.cm.setValue(3.0)
+    return QDialog.Accepted
+
+
+hcu.HeadCalDialog.exec = pick_up_3cm
+saved_model = card.model
+started = card.calibrate()
+here = hc.head_on_bed(w.ctl, w.profile)
+check("camera 3 cm in alto e testa a 8 mm dal bordo davanti: la testa va prima a Y 60 (il puntino lì la camera lo "
+      "raggiunge), poi parte la calibrazione", started is not None and np.hypot(*(here - (200, 60))) < 0.05, here)
+card.cancel()
+until(lambda: card.cal is None, 60)
+check("…annullata subito: niente inciso e la calibrazione di prima resta", card.model is saved_model
+      and w.ctl.sim.power == 0)
+hcu.HeadCalDialog.exec = lambda self: QDialog.Accepted
 spin(0.5)
 L = card.head()
 until(lambda: w.canvas.cam_center() is not None, 5)

@@ -43,7 +43,7 @@ class HeadModel:
     """Camera della testa calibrata. Tutte le coordinate del piano in mm (piano come si vede)."""
 
     def __init__(self, M, offset, frame_size, rms_px=0.0, rms_mm=0.0, created="", camera_name="",
-                 camera_index=None, power_pct=None):
+                 camera_index=None, power_pct=None, k=0.0):
         self.M = np.array(M, float).reshape(2, 2)
         if not np.all(np.isfinite(self.M)) or abs(np.linalg.det(self.M)) < 1e-12:
             raise ValueError("matrice della camera della testa non valida")
@@ -60,21 +60,38 @@ class HeadModel:
         self.camera_name = str(camera_name or "")
         self.camera_index = camera_index
         self.power_pct = power_pct
+        # 0.20.0: lente (grandangolo M12): distorsione radiale, k per il raggio normalizzato a metà diagonale.
+        # k < 0 = «a barile» (i bordi dell'immagine si stringono). 0 = nessuna correzione (file vecchi).
+        self.k = float(k or 0.0)
+        if not math.isfinite(self.k) or abs(self.k) > 0.8:
+            raise ValueError("coefficiente della lente non valido")
 
     @property
     def c(self):
         return np.array([self.frame_size[0] / 2.0, self.frame_size[1] / 2.0])
 
+    @property
+    def f(self):
+        return math.hypot(*self.frame_size) / 2.0
+
+    def undistort(self, pts):
+        """Pixel dell'immagine → pixel «senza lente» (dove sarebbero con una lente perfetta)."""
+        return undistort_px(pts, self.c, self.f, self.k)
+
+    def distort(self, pts):
+        """Pixel «senza lente» → pixel dell'immagine."""
+        return distort_px(pts, self.c, self.f, self.k)
+
     # ---- conti
     def img_to_bed(self, head, pts):
         """Pixel → punti del piano (mm) con il laser in head."""
-        p = np.atleast_2d(np.asarray(pts, float))
+        p = self.undistort(np.atleast_2d(np.asarray(pts, float)))
         return np.asarray(head, float) + self.offset + (p - self.c) @ self.M.T
 
     def bed_to_img(self, head, pts):
         """Punti del piano (mm) → pixel con il laser in head."""
         P = np.atleast_2d(np.asarray(pts, float))
-        return self.c + (P - np.asarray(head, float) - self.offset) @ self.Minv.T
+        return self.distort(self.c + (P - np.asarray(head, float) - self.offset) @ self.Minv.T)
 
     def center(self, head):
         """Il punto del piano sotto il mirino con il laser in head."""
@@ -107,18 +124,22 @@ class HeadModel:
                  self.mm_per_px(), self.angle_deg(), ox, oy)
         if self.mirrored():
             txt += " · " + tr("immagine specchiata")
+        if abs(self.k) >= 0.005:
+            txt += " · " + tr("lente corretta ({0:+.0f}% ai bordi)", self.k * 100)
         return txt
 
     # ---- file
     def to_dict(self):
         return {"version": 1, "M": self.M.tolist(), "offset": self.offset.tolist(), "frame_size": list(self.frame_size),
                 "rms_px": self.rms_px, "rms_mm": self.rms_mm, "created": self.created,
-                "camera_name": self.camera_name, "camera_index": self.camera_index, "power_pct": self.power_pct}
+                "camera_name": self.camera_name, "camera_index": self.camera_index, "power_pct": self.power_pct,
+                "k": self.k}
 
     @classmethod
     def from_dict(cls, d):
         return cls(d["M"], d["offset"], d["frame_size"], d.get("rms_px", 0.0), d.get("rms_mm", 0.0),
-                   d.get("created", ""), d.get("camera_name", ""), d.get("camera_index"), d.get("power_pct"))
+                   d.get("created", ""), d.get("camera_name", ""), d.get("camera_index"), d.get("power_pct"),
+                   d.get("k", 0.0))
 
     def save(self, path=None):
         path = path or head_file()
@@ -138,6 +159,98 @@ class HeadModel:
                 return cls.from_dict(json.load(fh))
         except (OSError, ValueError, KeyError, TypeError, IndexError):
             return None
+
+
+# Dove è montata la camera rispetto al laser, guardando il piano sullo schermo (destra = X+, su = Y+, cioè verso il
+# fondo della macchina con il piano non ruotato). La persona sceglie una direzione e una distanza; FreeLaserCut ne fa
+# lo scostamento indicativo da cui partire a cercare il puntino.
+def undistort_px(pts, c, f, k):
+    p = np.atleast_2d(np.asarray(pts, float))
+    if not k:
+        return p
+    d = (p - c) / f
+    return c + (p - c) * (1 + k * (d ** 2).sum(axis=1, keepdims=True))
+
+
+def distort_px(pts, c, f, k, iters=40):
+    """Inversa di undistort_px. I punti che con quella lente non possono stare nell'immagine (troppo lontani dal
+    centro: la formula non ha soluzione) diventano NaN, così nessuno li disegna o li usa per sbaglio."""
+    q = np.atleast_2d(np.asarray(pts, float))
+    if not k:
+        return q
+    p = q.copy()
+    with np.errstate(all="ignore"):
+        for _ in range(iters):  # p tale che undistort(p) = q
+            d = (p - c) / f
+            den = 1 + k * (d ** 2).sum(axis=1, keepdims=True)
+            p = c + (q - c) / np.where(den > 0.2, den, np.nan)
+        back = undistort_px(p, c, f, k)
+        bad = ~np.isfinite(p).all(axis=1) | (np.hypot(*(back - q).T) > 0.5)
+    p[bad] = np.nan
+    return p
+
+
+def fit_lens(points, ref, deltas, c, f, kmax=0.5):
+    """Coefficiente della lente che rende i movimenti del puntino nell'immagine proporzionali a quelli della testa.
+    points: pixel del puntino; ref: pixel di riferimento; deltas: spostamenti sul piano (mm) corrispondenti.
+    -> (k, M, rms) con il k migliore e (0, M0, rms0) senza correzione."""
+    def solve(k):
+        u = undistort_px(points, c, f, k) - undistort_px([ref], c, f, k)
+        return solve_matrix(u, deltas)
+
+    best = None
+    grid = np.linspace(-kmax, kmax, 81)
+    for k in grid:
+        M, rms = solve(k)
+        if M is not None and (best is None or rms < best[2]):
+            best = (float(k), M, rms)
+    if best is None:
+        return None
+    step = grid[1] - grid[0]
+    for k in np.linspace(best[0] - step, best[0] + step, 41):
+        M, rms = solve(k)
+        if M is not None and rms < best[2]:
+            best = (float(k), M, rms)
+    return best
+
+
+DIRECTIONS = {"r": (1, 0), "l": (-1, 0), "u": (0, 1), "d": (0, -1),
+              "ur": (1, 1), "ul": (-1, 1), "dr": (1, -1), "dl": (-1, -1)}
+
+
+def guess_from_direction(direction, cm):
+    """("r", 6) → (60, 0) mm: la camera è 6 cm a destra del laser. None se la direzione non è nota o la distanza è 0."""
+    v = DIRECTIONS.get(direction or "")
+    if v is None or not cm or cm <= 0:
+        return None
+    n = math.hypot(*v)
+    return (round(v[0] / n * cm * 10.0, 3), round(v[1] / n * cm * 10.0, 3))
+
+
+START_MARGIN = 30.0  # mm dal bordo per la camera e per il laser, con la distanza indicativa (stima a occhio + passi)
+START_UNKNOWN = 60.0  # mm dal bordo quando non si sa dov'è la camera: la ricerca gira tutto intorno
+
+
+def calibration_start(head, guess, bed, margin=START_MARGIN, unknown=START_UNKNOWN):
+    """Dove incidere il puntino della calibrazione perché la camera possa poi andarci sopra.
+
+    Il puntino si incide con il laser in L0; per vederlo sotto il mirino la testa deve andare in L0 − O. Tutte e due
+    le posizioni devono stare dentro il piano, con un margine per l'errore della stima e per i passi della misura.
+    Con la camera 6 cm a destra del laser, quindi, il puntino non si può incidere nei primi 6 cm a sinistra del piano.
+    Si sceglie il punto valido più vicino a dove è ora la testa.
+    -> ((x, y), None) oppure (None, perché) se il piano è troppo piccolo per quella distanza."""
+    bx, by = float(bed[0]), float(bed[1])
+    g = np.zeros(2) if guess is None else np.asarray(guess, float).reshape(2)
+    m = float(margin if guess is not None else unknown)
+    for mm in (m, min(m, 10.0), 0.0):
+        lo = np.maximum([mm, mm], g + mm)  # L0 ≥ mm e L0 − g ≥ mm
+        hi = np.minimum([bx - mm, by - mm], np.array([bx, by]) + g - mm)  # L0 ≤ piano − mm e L0 − g ≤ piano − mm
+        if np.all(lo <= hi):
+            h = np.asarray(head if head is not None else ((lo + hi) / 2), float)
+            p = np.clip(h, lo, hi)
+            return (float(p[0]), float(p[1])), None
+    return None, tr("la camera è troppo lontana dal laser per questo piano: in nessun punto il laser e la camera ci "
+                    "arrivano tutti e due")
 
 
 def natural_matrix(mm_per_px, angle_deg=0.0, mirror=False):
@@ -383,6 +496,26 @@ def mosaic_positions(zone, view, overlap=0.3):
     return out
 
 
+_UNDIST_CACHE = {}
+
+
+def undistort_frame(frame, model):
+    """La foto «senza lente» (stessa misura), per incollarla con una trasformazione esatta. Senza lente: la stessa."""
+    if not getattr(model, "k", 0.0):
+        return frame
+    h, w = frame.shape[:2]
+    key = (w, h, round(model.k, 6))
+    maps = _UNDIST_CACHE.get(key)
+    if maps is None:
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+        src = distort_px(np.stack([xx.ravel(), yy.ravel()], axis=1), model.c, model.f, model.k)
+        src = np.where(np.isfinite(src), src, -1.0)  # fuori dalla lente: bordo
+        maps = (src[:, 0].reshape(h, w).astype(np.float32), src[:, 1].reshape(h, w).astype(np.float32))
+        _UNDIST_CACHE.clear()
+        _UNDIST_CACHE[key] = maps
+    return cv2.remap(frame, maps[0], maps[1], cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+
+
 class Mosaic:
     """Foto del piano fatta di tante foto della camera della testa (ppm pixel per mm, come la foto della camera del
     piano). Ogni foto si pesa di più al centro: le giunte non si vedono."""
@@ -404,6 +537,7 @@ class Mosaic:
         return A
 
     def add(self, frame, model, head, keep=0.8):
+        frame = undistort_frame(frame, model)
         h, w = frame.shape[:2]
         yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
         wx = 1 - np.abs(xx - w / 2) / (w / 2 * keep)
@@ -433,7 +567,7 @@ class SimHeadCamera(_FrameSource):
     PPM = 8.0  # pixel per mm della trama del materiale
 
     def __init__(self, sim, offset=(0.0, 35.0), mm_per_px=0.08, angle=0.0, mirror=False, size=(640, 480), seed=3,
-                 board=None, profile=None, lag=0.0):
+                 board=None, profile=None, lag=0.0, k=0.0):
         self.index = "sim-testa"
         self.lag = float(lag)  # come le camere vere: fotogrammi che arrivano in ritardo (secondi)
         self._queue = []
@@ -442,7 +576,12 @@ class SimHeadCamera(_FrameSource):
         self.sim = sim
         self.profile = profile
         self.w, self.h = size
-        self.true = HeadModel(natural_matrix(mm_per_px, angle, mirror), offset, size)
+        self.true = HeadModel(natural_matrix(mm_per_px, angle, mirror), offset, size, k=k)
+        if k:  # pixel dell'immagine → pixel «senza lente», una volta sola
+            yy, xx = np.mgrid[0:size[1], 0:size[0]].astype(np.float64)
+            self._und = self.true.undistort(np.stack([xx.ravel(), yy.ravel()], axis=1))
+        else:
+            self._und = None
         self.rng = np.random.default_rng(seed)
         bx, by = float(sim.settings[130]), float(sim.settings[131])
         self.bed = (bx, by)
@@ -496,8 +635,14 @@ class SimHeadCamera(_FrameSource):
         base = L + m.offset - m.M @ m.c
         A = np.array([[k * m.M[0, 0], k * m.M[0, 1], k * base[0]],
                       [-k * m.M[1, 0], -k * m.M[1, 1], k * (self.bed[1] - base[1])]])
-        img = cv2.warpAffine(self.material, A, (self.w, self.h), flags=cv2.WARP_INVERSE_MAP | cv2.INTER_LINEAR,
-                             borderMode=cv2.BORDER_CONSTANT, borderValue=(20, 20, 20))
+        if self._und is None:
+            img = cv2.warpAffine(self.material, A, (self.w, self.h), flags=cv2.WARP_INVERSE_MAP | cv2.INTER_LINEAR,
+                                 borderMode=cv2.BORDER_CONSTANT, borderValue=(20, 20, 20))
+        else:
+            src = self._und @ A[:, :2].T + A[:, 2]
+            img = cv2.remap(self.material, src[:, 0].reshape(self.h, self.w).astype(np.float32),
+                            src[:, 1].reshape(self.h, self.w).astype(np.float32), cv2.INTER_LINEAR,
+                            borderMode=cv2.BORDER_CONSTANT, borderValue=(20, 20, 20))
         if sim.state == "Run" and sim.power > 0:  # il punto del laser acceso, se è nell'inquadratura
             u, v = m.bed_to_img(L, [L])[0]
             if 0 <= u < self.w and 0 <= v < self.h:
@@ -546,6 +691,7 @@ class HeadCalibration(AutoCam):
         self.guess = None if guess is None else np.asarray(guess, float).reshape(2)
         self.ask_confirm = ask_confirm
         self._confirmed = None
+        self.before_at = []
         self.power_pct = float(min(max(power_pct, 1.0), 100.0))
         self.camera_name = camera_name
         self.camera_index = camera_index
@@ -715,15 +861,17 @@ class HeadCalibration(AutoCam):
         size = size or (first[0].shape[1], first[0].shape[0])
         c = np.array([size[0] / 2.0, size[1] / 2.0])
         M_tex = self._texture_matrix(L0, size)
-        cands = self._candidates(L0, M_tex, size)
+        # con la distanza indicativa bastano le posizioni attorno a quella (stima a occhio: qualche cm): meno attesa
+        cands = self._candidates(L0, M_tex, size, cap=9 if self.guess is not None else 36)
         befores = []
+        self.before_at = []  # dove era la testa per ogni foto «prima» (deve essere L0 − g, anche per la prima)
         for i, g in enumerate(cands):
             self._check()
-            if i == 0:
-                self._go_to(*L0)
-            else:
-                self.progress.emit(0, 7, tr("Foto del materiale prima del puntino ({0} di {1})…", i + 1, len(cands)))
-                self._go_to(*(L0 - g))
+            # 0.20.0 (prova sul B1 del 15/11): la prima foto si faceva sempre con la testa in L0, anche quando la prima
+            # posizione da guardare era un'altra (distanza indicativa): dopo il puntino la testa andava sul puntino,
+            # non poteva confrontare le due foto e tornava indietro a cercarlo
+            self.progress.emit(0, 7, tr("Foto del materiale prima del puntino ({0} di {1})…", i + 1, len(cands)))
+            self.before_at.append(tuple(self._go_to(*(L0 - g))))
             befores.append(self._shot(3))
         self._go_to(*L0)
         self.progress.emit(1, 7, tr("Incido il puntino al {0:.0f}%…", self.power_pct))
@@ -823,10 +971,55 @@ class HeadCalibration(AutoCam):
         M, rms_mm = solve_matrix([a for a, _b in pairs], [b for _a, b in pairs])
         if M is None or len(pairs) < 3:
             raise RuntimeError(tr("misure del puntino non coerenti"))
-        O = np.asarray(self.mark_bed) - Lk - M @ (pk - c)
+        # D) il puntino verso i bordi dell'immagine, un anello alla volta: misura la lente (i grandangoli stringono i
+        # bordi). Dopo ogni anello lente e matrice si ricalcolano, così l'anello dopo si prevede bene anche con una
+        # lente molto storta
+        self.progress.emit(5, 7, tr("Misuro la lente verso i bordi dell'immagine…"))
+        f_ = math.hypot(*size) / 2.0
+        k = 0.0
+        far = []
+        kept = len(pairs)
+        pts = [pk + a for a, _b in pairs]
+        dls = [b for _a, b in pairs]
+        for ring in (0.35, 0.55, 0.75):
+            for fx, fy in ((1, 0), (-1, 0), (0, 1), (0, -1), (0.8, 0.8), (-0.8, 0.8), (0.8, -0.8), (-0.8, -0.8)):
+                self._check()
+                tu = c + np.array([fx * ring * size[0] / 2, fy * ring * size[1] / 2])  # dove lo voglio, senza lente
+                pk_u = undistort_px([pk], c, f_, k)[0]
+                d = -(M @ (tu - pk_u))  # spostamento della testa che lo porta lì
+                if not (1.0 <= Lk[0] + d[0] <= self.profile.bed_x - 1
+                        and 1.0 <= Lk[1] + d[1] <= self.profile.bed_y - 1):
+                    continue
+                t = distort_px([tu], c, f_, k)[0]  # dove lo vedrò nell'immagine
+                if not (half <= t[0] <= size[0] - half and half <= t[1] <= size[1] - half):
+                    continue
+                Li = self._go_to(Lk[0] + d[0], Lk[1] + d[1])
+                p, _f = self._measure(tpl, t, 40 + 60 * ring)
+                # dopo il primo anello la previsione è buona: un punto lontano da lei è un riconoscimento sbagliato
+                # (sul bordo dell'immagine il puntino è piccolo e storto) e rovinerebbe la misura della lente
+                tol = 60.0 if not far else 12.0 + 0.04 * float(np.hypot(*(t - c)))
+                if p is None or float(np.hypot(*(np.asarray(p) - t))) > tol:
+                    continue
+                far.append(p)
+                pts.append(np.array(p))
+                dls.append(Lk - Li)
+            if len(far) >= 4:
+                fit0 = solve_matrix(np.array(pts) - pk, dls)
+                fit = fit_lens(pts, pk, dls, c, f_)
+                # la correzione si tiene solo se migliora davvero (con una lente buona resta 0); un anello che non
+                # torna non cancella quello che gli anelli prima hanno già misurato bene
+                if fit is not None and fit0[0] is not None and fit[2] < 0.7 * fit0[1] and abs(fit[0]) >= 0.005:
+                    k, M, rms_mm = fit
+                    kept = len(pts)
+                elif fit0[0] is not None and k == 0.0:
+                    M, rms_mm = fit0
+                    kept = len(pts)
+        pk_u = undistort_px([pk], c, math.hypot(*size) / 2.0, k)[0]
+        O = np.asarray(self.mark_bed) - Lk - M @ (pk_u - c)
+        n_moves = kept
         # centro il puntino sotto il mirino e correggo lo scostamento
         self.progress.emit(6, 7, tr("Porto il puntino sotto il mirino…"))
-        model = HeadModel(M, O, size)
+        model = HeadModel(M, O, size, k=k)
         err = None
         for _ in range(4):
             self._check()
@@ -841,8 +1034,8 @@ class HeadCalibration(AutoCam):
                 break
             self.mark_seen.emit(tuple(p))
             err = math.hypot(p[0] - c[0], p[1] - c[1])
-            O = np.asarray(self.mark_bed) - L - M @ (np.array(p) - c)
-            model = HeadModel(M, O, size)
+            O = np.asarray(self.mark_bed) - L - M @ (model.undistort([p])[0] - c)
+            model = HeadModel(M, O, size, k=k)
             if err <= CENTER_TOL_PX:
                 break
         self.progress.emit(7, 7, tr("Fatto"))
@@ -853,7 +1046,7 @@ class HeadCalibration(AutoCam):
         model.camera_index = self.camera_index
         model.power_pct = self.power_pct
         msg = tr("Camera della testa calibrata: {0}", model.describe())
-        msg += "\n" + tr("Precisione: ±{0:.2f} mm sui {1} spostamenti", model.rms_mm, len(pairs))
+        msg += "\n" + tr("Precisione: ±{0:.2f} mm sui {1} spostamenti", model.rms_mm, n_moves)
         if err is not None:
             msg += "\n" + (tr("Il puntino è sotto il mirino (a {0:.1f} pixel).", err) if err <= CENTER_TOL_PX * 2
                            else tr("Il puntino è vicino al mirino ({0:.1f} pixel): ricalibra in un punto più centrale "
