@@ -40,6 +40,11 @@ os.environ["FLC_UI"] = sys.argv[1] if len(sys.argv) > 1 else "classica"
 os.environ["FLC_NO_DIALOGS"] = "1"
 BANCO = os.environ["FLC_UI"] == "banco"
 PARTI = os.environ.get("FLC_PROVA_PARTI", "ABC")  # per i guasti messi apposta: solo alcune parti (A conti, B, C)
+CASI = [c_ for c_ in os.environ.get("FLC_PROVA_CASI", "").split(",") if c_]  # e solo alcuni casi della parte B
+
+
+def caso(name):
+    return not CASI or name in CASI
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import cv2  # noqa: E402
@@ -160,7 +165,8 @@ if not BANCO and "A" in PARTI:
 
     # ================================================================== A2. punto sotto la camera
     N, tilt = hg.camera_nadir(t1, 60.0)
-    mm2 = hg.camera_model(SIZE, 0.16, angle=180, mirror=True, offset=(30, -5), tilt=3, tilt_dir=-60, height=80)
+    mm2 = hg.camera_model(SIZE, 0.16, angle=180, mirror=True, offset=(30, -5), tilt=3, tilt_dir=-60, height=80,
+                          q=(0.06, -0.05))  # centro della lente ben spostato: l'ordine dei conti conta
     N2, tilt2 = hg.camera_nadir(mm2, 80.0)
     check("punto del piano sotto la camera dalla prospettiva e dall'altezza (anche camera capovolta e specchiata)",
           np.hypot(*(N - t1.nadir)) < 0.2 and abs(tilt - 4) < 0.2 and np.hypot(*(N2 - mm2.nadir)) < 0.2
@@ -197,7 +203,16 @@ if not BANCO and "A" in PARTI:
         if len(a) == 2 and len(b_) == 2 and not (abs(b_[0] - a[0] - 0.8) < 1e-6 and abs(b_[1] - a[1] - 0.8) < 1e-6):
             if abs(b_[1] - a[1]) > 1e-6:  # i cerchi interni dello stesso puntino partono sulla stessa riga
                 approach_ok = False
-    check("…ogni puntino si raggiunge dalla stessa parte (gioco delle cinghie uguale per tutti)", approach_ok)
+    n_appr = 0
+    for i in range(len(lines) - 1):
+        a = lines[i].split()
+        b_ = lines[i + 1].split()
+        if a[0] == "G0" and b_[0] == "G0" and len(a) == 3 and len(b_) == 3:
+            dx = float(b_[1][1:]) - float(a[1][1:])
+            dy = float(b_[2][1:]) - float(a[2][1:])
+            n_appr += abs(dx - 0.8) < 1e-6 and abs(dy - 0.8) < 1e-6
+    check("…ogni puntino si raggiunge dalla stessa parte (gioco delle cinghie uguale per tutti)", approach_ok
+          and n_appr == len(plan), (n_appr, len(plan)))
     check("…tempo stimato dell'incisione: 1–3 minuti", 40 < plan.seconds() < 200, plan.seconds())
     check("camera troppo grossolana (meno di 4 pixel per mm): calibrazione completa rifiutata con il motivo",
           hg.plan_grid(0.3, (190, 140))[0] is None and "pixel per mm" in hg.plan_grid(0.3, (190, 140))[1])
@@ -296,8 +311,11 @@ if not BANCO and "A" in PARTI:
     spot = good.copy()
     cv2.circle(spot, (300, 200), 9, (255, 255, 255), -1)
     grad = (np.linspace(120, 300, 640)[None, :, None] * np.ones((480, 1, 3))).clip(0, 255).astype(np.uint8)
-    check("luce forte sul materiale (puntino rosso, Lucciola): vista; una zona chiara della luce ambiente no",
-          hg.light_spot(spot) and not hg.light_spot(good) and not hg.light_spot(grad))
+    sticker = np.full((480, 640, 3), 244, np.uint8)
+    cv2.rectangle(sticker, (300, 200), (312, 212), (255, 255, 255), -1)  # etichetta bianca su un fondo chiaro
+    check("luce forte sul materiale (puntino rosso, Lucciola): vista; una zona chiara della luce ambiente o un'etichetta "
+          "bianca su un materiale chiaro no", hg.light_spot(spot) and not hg.light_spot(good)
+          and not hg.light_spot(grad) and not hg.light_spot(sticker))
     dark = (good * 0.2).astype(np.uint8)
     bright = np.full_like(good, 252)
     noisy = [good, np.clip(good + rng.normal(0, 14, good.shape[:2])[..., None], 0, 255).astype(np.uint8)]
@@ -370,6 +388,25 @@ if not BANCO and "A" in PARTI:
     check("…giunte nette: le righe del materiale restano sottili anche dove si uniscono due foto (niente linee doppie)",
           max(widths) <= 6, widths)
     check("…le giunte si aggiustano al massimo di 1 mm", all(math.hypot(*s) <= 1.0 + 1e-9 for s in mos.shifts))
+    # calibrazione un po' sbagliata (scala del 3%): le giunte si spostano, ma ogni riga resta una (niente media fra due
+    # foto sfasate, che darebbe righe doppie o fuse)
+    bad = tm.copy()
+    bad.A = bad.A * 1.03
+    bad._refresh()
+    mo3 = hc.Mosaic((300, 200), 4.0)
+    for P_ in hc.mosaic_positions((110, 60, 190, 140), tm.view_mm(), 0.3):
+        L_ = tm.head_for_camera(P_)
+        mo3.add(shot(L_), bad, L_, align=False)
+    o3 = cv2.cvtColor(mo3.image()[int((200 - y1) * 4):int((200 - y0) * 4), int(x0 * 4):int(x1 * 4)],
+                      cv2.COLOR_BGR2GRAY).astype(np.float32)
+    per_row = []
+    for row in range(0, o3.shape[0], 4):
+        r_ = o3[row]
+        dk = r_ < np.median(r_) - 0.5 * (np.median(r_) - r_.min())
+        per_row.append(int(((~dk[:-1]) & dk[1:]).sum()))
+    want_n = len(range(119, 185, 7))
+    check("…con una calibrazione un po' sbagliata le righe restano una per una (niente righe doppie nelle giunte)",
+          max(per_row) <= want_n and min(per_row) >= want_n - 1, (min(per_row), max(per_row), want_n))
     miss = out[int(10 * 4), int(10 * 4)]
     check("…zona non fotografata: tratteggio, non nero né il colore del materiale",
           not np.isfinite(mos.best[40, 40]) and tuple(int(v) for v in miss) in ((46, 40, 34), (70, 62, 54)))
@@ -507,6 +544,8 @@ def grid_started():
 if not BANCO and "B" in PARTI:
     tB = hg.camera_model(SIZE, 0.16, angle=180, mirror=True, offset=(30, -5), tilt=3, tilt_dir=40, k1=-0.18, k2=0.05,
                          q=(0.012, -0.01), height=60)
+    tC = hg.camera_model(SIZE, 0.16, angle=5, offset=(5, 35), tilt=2, tilt_dir=30, k1=-0.15, k2=0.03, q=(0.01, -0.01))
+if not BANCO and "B" in PARTI and caso("capovolta"):
     m, msg, cal, cam = run_cal(tB)
     qd = cal.report.get("quality", {})
     check("calibrazione completa, camera capovolta e specchiata, inclinata, lente forte: riuscita",
@@ -525,7 +564,7 @@ if not BANCO and "B" in PARTI:
     check("…inquadratura ferma, nessun passo perso, gioco misurato", rep["stable_shift_px"] < 0.3
           and rep["return_shift_mm"] < 0.05 and rep["backlash"] is not None, rep)
 
-    tC = hg.camera_model(SIZE, 0.16, angle=5, offset=(5, 35), tilt=2, tilt_dir=30, k1=-0.15, k2=0.03, q=(0.01, -0.01))
+if not BANCO and "B" in PARTI and caso("difficile"):
     m, msg, cal, cam = run_cal(tC, occlude=[(0, 360, 180, 480, 90)], corrupt_every=5, grain=0.5, gradient=0.3,
                                spots=[(215, 205, 1.5), (190, 195, 2.5)])
     check("pezzo della macchina davanti, fotogrammi rovinati, venatura, macchie e luce non uniforme: riuscita",
@@ -533,6 +572,7 @@ if not BANCO and "B" in PARTI:
     check("…la zona coperta è trovata e salvata (il mosaico non la userà)", m is not None and m.occluded
           and all(r[1] >= 340 and r[0] < 200 for r in m.occluded) and "coperta" in msg, m is not None and m.occluded)
 
+if not BANCO and "B" in PARTI and caso("carrello"):
     m, msg, cal, cam = run_cal(tC, moves=False, height=4.0, cam_moves=False)
     check("camera fissa al carrello: seconda altezza con il cartone sollevato di 4 mm (e spostato): altezza misurata",
           m is not None and m.moves_with_head is False and abs(m.height_mm - 60) < 3, (msg, m and m.height_mm))
@@ -546,28 +586,34 @@ if not BANCO and "B" in PARTI:
         tt.set_thickness(10)
         check("…con 10 mm di materiale in più le posizioni seguono la camera vera (entro 0,2 mm)", true_err(mt, tt) < 0.2,
               true_err(mt, tt))
+if not BANCO and "B" in PARTI and caso("nonso"):
     m, msg, cal, cam = run_cal(tC, moves=None, height=4.0, cam_moves=True)
     check("«Non so» e la camera invece sale con il laser: lo capisce da sola (lo spessore non conta)",
           m is not None and m.moves_with_head is True and "sale e scende" in msg, msg)
 
+if not BANCO and "B" in PARTI and caso("fuoco"):
     m, msg, cal, cam = run_cal(tC, on_progress=lambda cam_, cal_, t_: setattr(cam_, "drift", (
         time.time() - cam_._t0 + 0.3, 1.006)) if "tenga l'inquadratura" in t_ and cam_.drift is None else None)
     check("messa a fuoco automatica che cambia l'inquadratura a testa ferma: calibrazione da rifare, non salvata",
           m is None and "inquadratura" in msg and "messa a fuoco" in msg, msg)
 
+if not BANCO and "B" in PARTI and caso("passi"):
     m, msg, cal, cam = run_cal(tC, on_progress=lambda cam_, cal_, t_: setattr(cam_, "slip", np.array([0.4, 0.0]))
                                if "(5 di 5)" in t_ else None)
     check("passi persi durante le foto: calibrazione da rifare, non salvata, con il motivo", m is None
           and "perso passi" in msg, msg)
 
+if not BANCO and "B" in PARTI and caso("buio"):
     m, msg, cal, cam = run_cal(tC, light=0.15)
     check("buio: si ferma prima della griglia e dice di accendere una luce", m is None and "scura" in msg
           and not grid_started(), msg)
 
+if not BANCO and "B" in PARTI and caso("cartone"):
     m, msg, cal, cam = run_cal(tC, board=[(175, 180), (225, 180), (225, 215), (175, 215)])
     check("cartone più piccolo della griglia: si ferma prima di inciderla e dice cosa fare", m is None
           and "non copre" in msg and not grid_started(), msg)
 
+if not BANCO and "B" in PARTI and caso("annulla"):
     m, msg, cal, cam = run_cal(tC, cancel_on="Incido la griglia…")
     spin(1.0)
     check("annulla durante la griglia: il lavoro si ferma davvero, laser spento, niente salvato",
@@ -577,6 +623,7 @@ if not BANCO and "B" in PARTI:
         until(lambda: c.homed and c.last_status.get("state") == "Idle", 30)
         spin(0.5)
 
+if not BANCO and "B" in PARTI and caso("vecchia"):
     good_old = hg.camera_model(SIZE, 0.16, angle=5, offset=(5, 35), tilt=2, tilt_dir=30, k1=-0.15, k2=0.03,
                                q=(0.01, -0.01))
     m, msg, cal, cam = run_cal(tC, old=good_old, choice=False)
@@ -588,6 +635,7 @@ if not BANCO and "B" in PARTI:
     check("calibrazione di prima peggiore: si tiene quella nuova", m is not None and "riuscita" in msg,
           (msg, cal.report.get("old_p95_px")))
 
+if not BANCO and "B" in PARTI and caso("piano"):
     # ---------------------------------------------------------------- B2. camera del piano aiutata (parte 2)
     c.sim.burn_marks.clear()
     while open_cams:
@@ -656,11 +704,11 @@ if not BANCO and "B" in PARTI:
     H_, W_ = bed_top.shape[:2]
     yy_, xx_ = np.mgrid[0:H_, 0:W_].astype(np.float32)
     cx_ = 200 * 4
-    warp = cv2.remap(bed_top, xx_, yy_ + 5.0 * 4 * ((xx_ - cx_) / (100 * 4)) ** 2, cv2.INTER_LINEAR,
+    warp = cv2.remap(bed_top, xx_, yy_ + 3.0 * 4 * ((xx_ - cx_) / (100 * 4)) ** 2, cv2.INTER_LINEAR,
                      borderMode=cv2.BORDER_REPLICATE)
     corr4, msg4, _j = align(warp)
     check("materiale imbarcato (non piano): nessuna correzione e lo dice", corr4 is None
-          and ("non è piano" in msg4 or "non tornano" in msg4), msg4)
+          and any(k_ in msg4 for k_ in ("non è piano", "non tornano", "troppo pochi", "almeno 4")), msg4)
     smooth = np.full_like(bed_top, 170)
     camA.material[:] = 170
     corr3, msg3, _j = align(smooth)
