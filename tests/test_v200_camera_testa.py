@@ -229,12 +229,27 @@ def laser_s(lines):
     return out
 
 
-def run_cal(cam, at, power=20.0, on_click=None, cancel_at=None):
+confirms = []
+
+
+def honest(cal, cam):
+    """La persona guarda il video: conferma il puntino trovato solo se è davvero quello inciso."""
+    def answer(p):
+        L = hc.head_on_bed(c, prof)
+        t = cam.true.bed_to_img(L, [cal.mark_bed])[0]
+        ok = bool(np.hypot(*(np.asarray(p) - t)) < 8)
+        confirms.append(ok)
+        cal.confirm(ok)
+    return answer
+
+
+def run_cal(cam, at, power=20.0, on_click=None, cancel_at=None, guess=None, on_confirm=None):
     mx, my = prof.to_machine(*at)
     c.goto_machine(mx, my, 6000)
     spin(1.0)
     sent.clear()
-    cal = hc.HeadCalibration(c, cam, prof, power)
+    cal = hc.HeadCalibration(c, cam, prof, power, guess=guess)
+    cal.need_confirm.connect(on_confirm(cal) if on_confirm else honest(cal, cam))
     res = {}
     cal.finished.connect(lambda mm, msg: res.update(m=mm, msg=msg))
     if on_click is not None:
@@ -275,6 +290,43 @@ if not BANCO:
             check("…alla fine il puntino inciso è sotto il mirino", np.hypot(*(mdl.center(L) - np.array(at))) < 0.1,
                   mdl.center(L))
         cam.close()
+
+    # prova sul B1 vero (15/11): camera 60 mm a destra dell'ugello, fotogrammi in ritardo. Prima un cambiamento
+    # dell'immagine era stato preso per il puntino; ora le foto si fanno a immagine ferma e il puntino si conferma
+    for guess in (None, (55.0, 5.0)):
+        cam = hc.SimHeadCamera(c.sim, profile=prof, offset=(60, 0), mm_per_px=0.079, angle=1.2, lag=0.6)
+        spin(0.8)
+        confirms.clear()
+        mdl, msg, _cal = run_cal(cam, (100, 390) if guess is None else (300, 390), guess=guess)
+        check("camera 60 mm a destra dell'ugello con fotogrammi in ritardo di 0,6 s" + (" e distanza indicativa 55, 5 mm"
+              if guess else "") + ": calibrata giusta, puntino confermato dalla persona",
+              mdl is not None and np.hypot(*(mdl.offset - cam.true.offset)) < 0.1 and confirms == [True], (msg, confirms))
+        cam.close()
+    # la persona dice «non è lui»: sposta la testa e fa clic sul puntino
+    cam = hc.SimHeadCamera(c.sim, profile=prof, angle=-8, mm_per_px=0.08, offset=(20, 25))
+    spin(0.3)
+    said = []
+
+    def no_then(cal):
+        def answer(_p):
+            said.append("no")
+            cal.confirm(False)
+        return answer
+
+    def jog_and_click(cal):
+        tgt = cam.true.head_for_camera(cal.mark_bed) + [-4.0, 2.0]
+        mx, my = prof.to_machine(*tgt)
+        c.goto_machine(mx, my, 3000)
+        spin(1.5)
+        L = hc.head_on_bed(c, prof)
+        u, v = cam.true.bed_to_img(L, [cal.mark_bed])[0]
+        said.append("clic")
+        cal.click(u - 1.0, v + 2.0)
+
+    mdl, msg, _cal = run_cal(cam, (120, 120), on_confirm=no_then, on_click=jog_and_click)
+    check("«No, non è il puntino»: la persona lo indica con un clic e la calibrazione riesce",
+          said == ["no", "clic"] and mdl is not None and np.hypot(*(mdl.offset - cam.true.offset)) < 0.1, (said, msg))
+    cam.close()
 
     # materiale senza trama: la ricerca automatica non si può fare, il puntino lo indica la persona
     cam = hc.SimHeadCamera(c.sim, profile=prof, angle=12, mm_per_px=0.07, offset=(0, 40))

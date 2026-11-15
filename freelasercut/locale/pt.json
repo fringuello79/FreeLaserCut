@@ -3184,7 +3184,6 @@
  "Niente da fotografare: seleziona un disegno o prendi gli angoli della tavola": "Nada para fotografar: selecione um desenho ou marque os cantos da tábua",
  "Non ancora calibrata.": "Ainda não calibrada.",
  "Non riesco ad aprire la camera della testa: {0}": "Não consigo abrir a câmara da cabeça: {0}",
- "Non vedo il puntino inciso. Sposta la testa con le frecce finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "Não vejo o ponto gravado. Mova a cabeça com as setas até o ver no vídeo da câmara da cabeça e depois clique no ponto.",
  "Origine qui (centro camera)": "Origem aqui (centro da câmara)",
  "Origine utente (X0 Y0) sul centro della camera: X {0:.2f}  Y {1:.2f} mm sul piano": "Origem do utilizador (X0 Y0) no centro da câmara: X {0:.2f}  Y {1:.2f} mm na mesa",
  "Porta il laser qui": "Levar o laser aqui",
@@ -3230,5 +3229,9 @@
  "{0}: X {1:.2f}  Y {2:.2f} mm": "{0}: X {1:.2f}  Y {2:.2f} mm",
  "{0}: fin lì la testa non arriva, si ferma al bordo (mancano {1:.1f} mm)": "{0}: a cabeça não chega lá, para na borda (faltam {1:.1f} mm)",
  "✓ Calibrata il {0}  ·  {1}": "✓ Calibrada em {0}  ·  {1}",
- "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "nenhum canto perto da mira: aproxime-a do canto da tábua"
+ "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "nenhum canto perto da mira: aproxime-a do canto da tábua",
+ "Guarda il video della camera della testa: il cerchio verde è sul puntino appena inciso?\n\nSì: continuo da solo.\nNo: sposti tu la testa con le frecce (scheda Movimento) finché vedi il puntino, poi ci fai clic sopra nel video.": "Veja o vídeo da câmara da cabeça: o círculo verde está sobre o ponto acabado de gravar?\n\nSim: continuo sozinho.\nNão: mova a cabeça com as setas (separador Movimento) até ver o ponto e depois clique nele no vídeo.",
+ "Il centro dell'immagine rispetto all'ugello, misurato a occhio (X verso destra, Y verso il fondo del piano): la ricerca del puntino parte da lì": "O centro da imagem em relação ao bico, medido a olho (X para a direita, Y para o fundo da mesa): a procura do ponto começa aí",
+ "Non vedo il puntino inciso. Sposta la testa con le frecce (scheda Movimento) finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "Não vejo o ponto gravado. Mova a cabeça com as setas (separador Movimento) até o ver no vídeo da câmara da cabeça e depois clique no ponto.",
+ "So più o meno dov'è la camera rispetto al laser:": "Sei mais ou menos onde está a câmara em relação ao laser:"
 }

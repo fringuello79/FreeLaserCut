@@ -3184,7 +3184,6 @@
  "Niente da fotografare: seleziona un disegno o prendi gli angoli della tavola": "Nothing to photograph: select a design or take the board corners",
  "Non ancora calibrata.": "Not calibrated yet.",
  "Non riesco ad aprire la camera della testa: {0}": "I can't open the head camera: {0}",
- "Non vedo il puntino inciso. Sposta la testa con le frecce finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "I can't see the engraved dot. Move the head with the arrows until you see it in the head camera video, then click the dot.",
  "Origine qui (centro camera)": "Origin here (camera centre)",
  "Origine utente (X0 Y0) sul centro della camera: X {0:.2f}  Y {1:.2f} mm sul piano": "User origin (X0 Y0) at the camera centre: X {0:.2f}  Y {1:.2f} mm on the bed",
  "Porta il laser qui": "Move the laser here",
@@ -3230,5 +3229,9 @@
  "{0}: X {1:.2f}  Y {2:.2f} mm": "{0}: X {1:.2f}  Y {2:.2f} mm",
  "{0}: fin lì la testa non arriva, si ferma al bordo (mancano {1:.1f} mm)": "{0}: the head can't reach that far, it stops at the edge ({1:.1f} mm short)",
  "✓ Calibrata il {0}  ·  {1}": "✓ Calibrated on {0}  ·  {1}",
- "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "no corner near the crosshair: move it closer to the board corner"
+ "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "no corner near the crosshair: move it closer to the board corner",
+ "Guarda il video della camera della testa: il cerchio verde è sul puntino appena inciso?\n\nSì: continuo da solo.\nNo: sposti tu la testa con le frecce (scheda Movimento) finché vedi il puntino, poi ci fai clic sopra nel video.": "Look at the head camera video: is the green circle on the dot just engraved?\n\nYes: I carry on by myself.\nNo: move the head with the arrows (Move tab) until you see the dot, then click it in the video.",
+ "Il centro dell'immagine rispetto all'ugello, misurato a occhio (X verso destra, Y verso il fondo del piano): la ricerca del puntino parte da lì": "The centre of the image relative to the nozzle, measured by eye (X to the right, Y towards the back of the bed): the search for the dot starts there",
+ "Non vedo il puntino inciso. Sposta la testa con le frecce (scheda Movimento) finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "I can't see the engraved dot. Move the head with the arrows (Move tab) until you see it in the head camera video, then click the dot.",
+ "So più o meno dov'è la camera rispetto al laser:": "I roughly know where the camera is relative to the laser:"
 }

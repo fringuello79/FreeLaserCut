@@ -3184,7 +3184,6 @@
  "Niente da fotografare: seleziona un disegno o prendi gli angoli della tavola": "Rien à photographier : sélectionne un dessin ou prends les coins de la planche",
  "Non ancora calibrata.": "Pas encore étalonnée.",
  "Non riesco ad aprire la camera della testa: {0}": "Impossible d'ouvrir la caméra de la tête : {0}",
- "Non vedo il puntino inciso. Sposta la testa con le frecce finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "Je ne vois pas le point gravé. Déplace la tête avec les flèches jusqu'à le voir dans la vidéo de la caméra de la tête, puis clique sur le point.",
  "Origine qui (centro camera)": "Origine ici (centre caméra)",
  "Origine utente (X0 Y0) sul centro della camera: X {0:.2f}  Y {1:.2f} mm sul piano": "Origine utilisateur (X0 Y0) au centre de la caméra : X {0:.2f}  Y {1:.2f} mm sur le plateau",
  "Porta il laser qui": "Amener le laser ici",
@@ -3230,5 +3229,9 @@
  "{0}: X {1:.2f}  Y {2:.2f} mm": "{0} : X {1:.2f}  Y {2:.2f} mm",
  "{0}: fin lì la testa non arriva, si ferma al bordo (mancano {1:.1f} mm)": "{0} : la tête n'arrive pas jusque-là, elle s'arrête au bord (il manque {1:.1f} mm)",
  "✓ Calibrata il {0}  ·  {1}": "✓ Étalonnée le {0}  ·  {1}",
- "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "aucun coin près du réticule : rapproche-le du coin de la planche"
+ "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "aucun coin près du réticule : rapproche-le du coin de la planche",
+ "Guarda il video della camera della testa: il cerchio verde è sul puntino appena inciso?\n\nSì: continuo da solo.\nNo: sposti tu la testa con le frecce (scheda Movimento) finché vedi il puntino, poi ci fai clic sopra nel video.": "Regarde la vidéo de la caméra de la tête : le cercle vert est-il sur le point qui vient d'être gravé ?\n\nOui : je continue tout seul.\nNon : déplace la tête avec les flèches (onglet Mouvement) jusqu'à voir le point, puis clique dessus dans la vidéo.",
+ "Il centro dell'immagine rispetto all'ugello, misurato a occhio (X verso destra, Y verso il fondo del piano): la ricerca del puntino parte da lì": "Le centre de l'image par rapport à la buse, mesuré à l'œil (X vers la droite, Y vers le fond du plateau) : la recherche du point commence là",
+ "Non vedo il puntino inciso. Sposta la testa con le frecce (scheda Movimento) finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "Je ne vois pas le point gravé. Déplace la tête avec les flèches (onglet Mouvement) jusqu'à le voir dans la vidéo de la caméra de la tête, puis clique sur le point.",
+ "So più o meno dov'è la camera rispetto al laser:": "Je sais à peu près où est la caméra par rapport au laser :"
 }

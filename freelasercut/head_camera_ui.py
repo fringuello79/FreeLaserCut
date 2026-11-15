@@ -389,7 +389,7 @@ class HeadCameraCard(QWidget):
         return A
 
     # ---------------------------------------------------------------- calibrazione
-    def calibrate(self, power=hc.DEFAULT_POWER, ask=True):
+    def calibrate(self, power=hc.DEFAULT_POWER, ask=True, guess=None):
         why = self._can_move(need_model=False)
         if why:
             return self._say(why) and None
@@ -409,8 +409,9 @@ class HeadCameraCard(QWidget):
                    "Iniziare?", power)) != QMessageBox.Yes:
             return None
         name = camera_mod.NAMES.get(self.index(), "") if self.index() is not None else ""
-        self.cal = hc.HeadCalibration(self.ctl, self.src, self.win.profile, power, name, self.index())
+        self.cal = hc.HeadCalibration(self.ctl, self.src, self.win.profile, power, name, self.index(), guess=guess)
         self.cal.progress.connect(self._cal_progress)
+        self.cal.need_confirm.connect(self._cal_confirm)
         self.cal.need_click.connect(self._cal_need_click)
         self.cal.mark_seen.connect(self._cal_mark)
         self.cal.finished.connect(self._cal_finished)
@@ -438,6 +439,25 @@ class HeadCameraCard(QWidget):
 
     def _cal_mark(self, p):
         self.mark = tuple(p)
+
+    def _cal_confirm(self, p):
+        """Il puntino trovato da solo: la persona lo guarda cerchiato nel video e dice se è lui."""
+        self.mark = tuple(p)
+        if self.window is not None:
+            self.window.tick()
+        cal = self.cal
+        ans = QMessageBox.question(
+            self.window or self, tr("Camera della testa"),
+            tr("Guarda il video della camera della testa: il cerchio verde è sul puntino appena inciso?\n\n"
+               "Sì: continuo da solo.\nNo: sposti tu la testa con le frecce (scheda Movimento) finché vedi il "
+               "puntino, poi ci fai clic sopra nel video."),
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        if cal is None:
+            return
+        if ans == QMessageBox.Cancel:
+            cal.cancel()
+        else:
+            cal.confirm(ans == QMessageBox.Yes)
 
     def click_on_video(self, u, v):
         """Clic sul video: durante la calibrazione è il puntino; altrimenti il centro camera va lì."""
@@ -692,6 +712,29 @@ class HeadCameraWindow(QDialog):
         row.addWidget(self.b_cal, 1)
         row.addWidget(self.b_stop)
         kl.addLayout(row)
+        grow = QHBoxLayout()
+        self.chk_guess = QCheckBox(tr("So più o meno dov'è la camera rispetto al laser:"))
+        self.chk_guess.setToolTip(tr("Il centro dell'immagine rispetto all'ugello, misurato a occhio (X verso destra, Y "
+                                     "verso il fondo del piano): la ricerca del puntino parte da lì"))
+        self.guess_x = QDoubleSpinBox()
+        self.guess_y = QDoubleSpinBox()
+        for sp, pre in ((self.guess_x, "X "), (self.guess_y, "Y ")):
+            sp.setRange(-250.0, 250.0)
+            sp.setDecimals(0)
+            sp.setSuffix(" mm")
+            sp.setPrefix(pre)
+        qs = getattr(card_.win, "qs", None)
+        try:
+            gx, gy = (float(v) for v in str(qs.value("head_camera_guess", "") or "").split(";"))
+            self.guess_x.setValue(gx)
+            self.guess_y.setValue(gy)
+            self.chk_guess.setChecked(True)
+        except (ValueError, AttributeError):
+            pass
+        grow.addWidget(self.chk_guess, 1)
+        grow.addWidget(self.guess_x)
+        grow.addWidget(self.guess_y)
+        kl.addLayout(grow)
         self.bar = QProgressBar()
         self.bar.hide()
         kl.addWidget(self.bar)
@@ -767,6 +810,8 @@ class HeadCameraWindow(QDialog):
         self.b_clear.setEnabled(cd.board[0] is not None or cd.board[1] is not None)
         self.b_cal.setEnabled(cd.src is not None and cd.ctl.connected and not busy)
         self.power.setEnabled(not busy)
+        for w_ in (self.chk_guess, self.guess_x, self.guess_y):
+            w_.setEnabled(not busy)
         self.b_stop.setVisible(busy)
         if not busy:
             self.bar.hide()
@@ -801,8 +846,20 @@ class HeadCameraWindow(QDialog):
         self.cal_text.setText(msg)
         self.update_state()
 
+    def guess(self):
+        """Distanza indicativa laser → centro camera (mm) se spuntata, altrimenti None. Si ricorda."""
+        qs = getattr(self.card.win, "qs", None)
+        if not self.chk_guess.isChecked():
+            if qs is not None:
+                qs.setValue("head_camera_guess", "")
+            return None
+        g = (self.guess_x.value(), self.guess_y.value())
+        if qs is not None:
+            qs.setValue("head_camera_guess", f"{g[0]:g};{g[1]:g}")
+        return g
+
     def start_calibration(self):
-        return self.card.calibrate(self.power.value())
+        return self.card.calibrate(self.power.value(), guess=self.guess())
 
     def _clicked(self, u, v):
         if self.card.click_on_video(u, v) == "mark":

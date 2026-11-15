@@ -3184,7 +3184,6 @@
  "Niente da fotografare: seleziona un disegno o prendi gli angoli della tavola": "Nada que fotografiar: selecciona un diseño o toma las esquinas del tablero",
  "Non ancora calibrata.": "Aún sin calibrar.",
  "Non riesco ad aprire la camera della testa: {0}": "No puedo abrir la cámara del cabezal: {0}",
- "Non vedo il puntino inciso. Sposta la testa con le frecce finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "No veo el punto grabado. Mueve el cabezal con las flechas hasta verlo en el vídeo de la cámara del cabezal y luego haz clic en el punto.",
  "Origine qui (centro camera)": "Origen aquí (centro de la cámara)",
  "Origine utente (X0 Y0) sul centro della camera: X {0:.2f}  Y {1:.2f} mm sul piano": "Origen de usuario (X0 Y0) en el centro de la cámara: X {0:.2f}  Y {1:.2f} mm en la mesa",
  "Porta il laser qui": "Llevar el láser aquí",
@@ -3230,5 +3229,9 @@
  "{0}: X {1:.2f}  Y {2:.2f} mm": "{0}: X {1:.2f}  Y {2:.2f} mm",
  "{0}: fin lì la testa non arriva, si ferma al bordo (mancano {1:.1f} mm)": "{0}: el cabezal no llega hasta allí, se detiene en el borde (faltan {1:.1f} mm)",
  "✓ Calibrata il {0}  ·  {1}": "✓ Calibrada el {0}  ·  {1}",
- "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "ninguna esquina cerca de la mira: acércala a la esquina del tablero"
+ "nessun angolo vicino al mirino: avvicinalo all'angolo della tavola": "ninguna esquina cerca de la mira: acércala a la esquina del tablero",
+ "Guarda il video della camera della testa: il cerchio verde è sul puntino appena inciso?\n\nSì: continuo da solo.\nNo: sposti tu la testa con le frecce (scheda Movimento) finché vedi il puntino, poi ci fai clic sopra nel video.": "Mira el vídeo de la cámara del cabezal: ¿el círculo verde está sobre el punto recién grabado?\n\nSí: sigo yo solo.\nNo: mueve el cabezal con las flechas (pestaña Movimiento) hasta ver el punto y luego haz clic sobre él en el vídeo.",
+ "Il centro dell'immagine rispetto all'ugello, misurato a occhio (X verso destra, Y verso il fondo del piano): la ricerca del puntino parte da lì": "El centro de la imagen respecto a la boquilla, medido a ojo (X hacia la derecha, Y hacia el fondo de la mesa): la búsqueda del punto empieza ahí",
+ "Non vedo il puntino inciso. Sposta la testa con le frecce (scheda Movimento) finché lo vedi nel video della camera della testa, poi fai clic sul puntino.": "No veo el punto grabado. Mueve el cabezal con las flechas (pestaña Movimiento) hasta verlo en el vídeo de la cámara del cabezal y luego haz clic en el punto.",
+ "So più o meno dov'è la camera rispetto al laser:": "Sé más o menos dónde está la cámara respecto al láser:"
 }

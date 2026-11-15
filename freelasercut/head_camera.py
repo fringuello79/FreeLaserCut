@@ -433,8 +433,10 @@ class SimHeadCamera(_FrameSource):
     PPM = 8.0  # pixel per mm della trama del materiale
 
     def __init__(self, sim, offset=(0.0, 35.0), mm_per_px=0.08, angle=0.0, mirror=False, size=(640, 480), seed=3,
-                 board=None, profile=None):
+                 board=None, profile=None, lag=0.0):
         self.index = "sim-testa"
+        self.lag = float(lag)  # come le camere vere: fotogrammi che arrivano in ritardo (secondi)
+        self._queue = []
         self.black = False
         self.mode = "sim"
         self.sim = sim
@@ -503,7 +505,14 @@ class SimHeadCamera(_FrameSource):
                 cv2.circle(glow, (int(u), int(v)), 10, (255, 190, 90), -1, cv2.LINE_AA)
                 img = cv2.add(img, cv2.GaussianBlur(glow, (0, 0), 3))
         noise = self.rng.normal(0, 1.5, img.shape)
-        return np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+        out = np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+        if self.lag <= 0:
+            return out
+        now = time.time()
+        self._queue.append((now, out))
+        while len(self._queue) > 1 and self._queue[1][0] <= now - self.lag:
+            self._queue.pop(0)
+        return self._queue[0][1]
 
 
 # ======================================================================= lavori sulla macchina
@@ -525,15 +534,30 @@ class HeadCalibration(AutoCam):
 
     need_click = Signal(str)  # il puntino non è nell'inquadratura: la persona sposta la testa e fa clic sul puntino
     mark_seen = Signal(object)  # (u, v) del puntino nell'immagine, per disegnarlo
+    # 0.20.0 (prova sul B1 del 15/11): il puntino trovato da solo si fa confermare dalla persona, che lo vede cerchiato
+    # nel video. Sul vero una differenza fra due foto (fotogrammi in ritardo, luce) era stata presa per il puntino.
+    need_confirm = Signal(object)  # (u, v): «è questo il puntino inciso?» → confirm(True/False)
 
-    def __init__(self, ctl, cam, profile, power_pct=DEFAULT_POWER, camera_name="", camera_index=None):
+    def __init__(self, ctl, cam, profile, power_pct=DEFAULT_POWER, camera_name="", camera_index=None, guess=None,
+                 ask_confirm=True):
         super().__init__(ctl, cam, profile, grid_n=1, method="head")
+        # dove si trova più o meno il centro della camera rispetto al laser (mm), se la persona lo sa: la ricerca del
+        # puntino parte da lì
+        self.guess = None if guess is None else np.asarray(guess, float).reshape(2)
+        self.ask_confirm = ask_confirm
+        self._confirmed = None
         self.power_pct = float(min(max(power_pct, 1.0), 100.0))
         self.camera_name = camera_name
         self.camera_index = camera_index
         self._click = None
         self.mark_bed = None  # dove è stato inciso il puntino (mm)
         self._mark_r = 10.0  # raggio del puntino nell'immagine (pixel)
+
+    def confirm(self, ok):
+        """Risposta della persona a need_confirm."""
+        self._confirmed = bool(ok)
+        self._ok_user = True
+        self._go.set()
 
     def click(self, u, v):
         """Clic della persona sul puntino nel video (quando è stato chiesto con need_click)."""
@@ -555,8 +579,21 @@ class HeadCalibration(AutoCam):
         self.ctl.goto_machine(mx, my, 3000)
         return self._head()
 
-    def _shot(self, n=3):
-        frames = self.cam.frames(n, after=time.time() + 0.25)
+    def _shot(self, n=3, settle=4.0):
+        """n foto con l'immagine ferma. Sul vero la camera può dare fotogrammi in ritardo dopo un movimento (code del
+        driver): si aspetta che due fotogrammi di fila siano uguali prima di tenere quelli buoni."""
+        end = time.time() + settle
+        prev = self.cam.get(after=time.time() + 0.2)
+        while prev is not None and time.time() < end:
+            self._check()
+            nxt = self.cam.get(after=time.time() + 0.15)
+            if nxt is None:
+                break
+            a, b = gray(prev)[::4, ::4], gray(nxt)[::4, ::4]
+            if a.shape == b.shape and float(np.abs(a - b).mean()) < 2.5:
+                break
+            prev = nxt
+        frames = self.cam.frames(n, after=time.time() + 0.05)
         if len(frames) < max(1, n - 1):
             raise RuntimeError(tr("la camera della testa non sta inviando immagini"))
         return frames
@@ -644,21 +681,29 @@ class HeadCalibration(AutoCam):
         return M
 
     def _candidates(self, L0, M, size, reach=90.0, cap=36):
-        """Scostamenti g da provare (la testa va in L0 − g): il primo è 0, poi in ordine di distanza."""
+        """Scostamenti g da provare (la testa va in L0 − g). Senza indicazioni il primo è 0 e poi in ordine di
+        distanza; con la distanza indicativa (guess) si parte da lì."""
+        start = self.guess if self.guess is not None else np.zeros(2)
+        bx, by = self.profile.bed_x, self.profile.bed_y
+
+        def inside(g):
+            x, y = L0 - g
+            return 0 <= x <= bx and 0 <= y <= by
+
         if M is None:
-            return [np.zeros(2)]
+            out = [start] + ([np.zeros(2)] if self.guess is not None else [])
+            return [g for g in out if inside(g)] or [np.zeros(2)]
         view = HeadModel(M, (0, 0), size).view_mm()
         step = max(5.0, 0.75 * min(view))
         n = int(reach // step)
         out = []
         for i in range(-n, n + 1):
             for j in range(-n, n + 1):
-                g = np.array([i * step, j * step])
-                x, y = L0 - g
-                if 0 <= x <= self.profile.bed_x and 0 <= y <= self.profile.bed_y:
+                g = start + np.array([i * step, j * step])
+                if inside(g):
                     out.append(g)
-        out.sort(key=lambda g: float(np.hypot(*g)))
-        return out[:cap]
+        out.sort(key=lambda g: float(np.hypot(*(g - start))))
+        return out[:cap] or [np.zeros(2)]
 
     def _calibrate(self):
         self._check()
@@ -696,14 +741,16 @@ class HeadCalibration(AutoCam):
                 frame_k = cc._avg(after).astype(np.uint8)
                 q = refine_dark(frame_k, pk, radius=10)
                 pk = q if q is not None else pk
+                if self.ask_confirm and not self._ask_confirm(pk):
+                    pk = None  # non era il puntino: lo indica la persona
                 break
         if pk is None:
             self.progress.emit(2, 7, tr("Il puntino non è nell'inquadratura"))
             self._click = None
             self._go.clear()
             self._ok_user = False
-            self.need_click.emit(tr("Non vedo il puntino inciso. Sposta la testa con le frecce finché lo vedi nel "
-                                    "video della camera della testa, poi fai clic sul puntino."))
+            self.need_click.emit(tr("Non vedo il puntino inciso. Sposta la testa con le frecce (scheda Movimento) "
+                                    "finché lo vedi nel video della camera della testa, poi fai clic sul puntino."))
             self._go.wait()
             if self._cancel.is_set() or self._click is None:
                 raise CalibrationCancelled()
@@ -833,6 +880,18 @@ class HeadCalibration(AutoCam):
         if k == 0:
             return 10.0
         return float(min(60.0, max(4.0, math.sqrt(stats[k, cv2.CC_STAT_AREA] / math.pi))))
+
+    def _ask_confirm(self, p):
+        """«È questo il puntino inciso?» (cerchiato nel video). -> True / False; Annulla interrompe."""
+        self.mark_seen.emit(tuple(p))
+        self._confirmed = None
+        self._go.clear()
+        self._ok_user = False
+        self.need_confirm.emit(tuple(p))
+        self._go.wait()
+        if self._cancel.is_set() or self._confirmed is None:
+            raise CalibrationCancelled()
+        return self._confirmed
 
     def _inside(self, L, dx, dy):
         """Lo spostamento (dx, dy) da L, girato dall'altra parte se uscirebbe dal piano."""
