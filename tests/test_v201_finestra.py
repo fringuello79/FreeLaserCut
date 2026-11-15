@@ -4,8 +4,10 @@
 schermo»). La causa: la scritta «File: …» nella barra in basso alzava la larghezza minima della barra oltre quella
 dello schermo, e la finestra si allargava per contenerla.
 
-Matrice dei casi (in ogni lingua, Classica e Banco, finestra di 1366 px come i portatili più comuni):
-1 avvio: la larghezza minima della finestra non supera quella dello schermo;
+Matrice dei casi (in ogni lingua, Classica e Banco, finestra di 1366 px come i portatili più comuni, o più larga se
+all'avvio non ci sta: sui server Windows di GitHub, senza schermo e con caratteri di ripiego, la barra in basso è
+larga circa 2000 px già all'avvio, anche con la 0.19.5; per questo le misure sono relative all'avvio):
+1 avvio: la finestra ha la larghezza chiesta, o quella minima se più grande;
 2 importato un file dal nome lunghissimo, poi un secondo file, tutto selezionato, progetto salvato e riaperto: la larghezza minima della barra non supera mai quella dell'avvio e la finestra resta larga 1366;
 3 la scritta «File: …» non chiede spazio (minimo 0) ma si vede quando c'è posto (finestra di 1920 px), con il testo
   intero nel suggerimento e nel nome accessibile;
@@ -77,8 +79,9 @@ spin()
 sb = w.statusBar()
 start_sb = sb.minimumSizeHint().width()
 print(f"INFO avvio: finestra minima {w.minimumSizeHint().width()} px, barra in basso {start_sb} px", flush=True)
-check("1 avvio: la finestra non chiede più dello schermo", w.minimumSizeHint().width() <= SCREEN,
-      w.minimumSizeHint().width())
+BASE = w.width()  # 1366, o la larghezza minima della finestra se all'avvio non ci sta (server senza schermo)
+check("1 avvio: la finestra ha la larghezza chiesta (o la minima, se più grande)",
+      BASE == max(SCREEN, w.minimumSizeHint().width()), (BASE, w.minimumSizeHint().width()))
 
 d = tempfile.mkdtemp()
 
@@ -99,7 +102,7 @@ def look(tag):
     m = sb.minimumSizeHint().width()
     if m > worst[0]:
         worst[:] = [m, tag]
-    return m <= start_sb and w.width() == SCREEN and w.minimumSizeHint().width() <= SCREEN
+    return m <= start_sb and w.width() == BASE and w.minimumSizeHint().width() <= BASE
 
 
 LONG = "Progetto con un nome di file davvero lunghissimo per vedere cosa succede alla barra in basso.svg"
@@ -119,24 +122,25 @@ steps.append(("progetto salvato e riaperto", look("aperto")))
 w.editor.select(list(w.editor.doc.shapes))
 steps.append(("selezione nel progetto riaperto", look("selez2")))
 for name, ok in steps:
-    check(f"2 {name}: barra e finestra non si allargano (finestra {SCREEN} px)", ok,
+    check(f"2 {name}: barra e finestra non si allargano", ok,
           (sb.minimumSizeHint().width(), start_sb, w.width()))
 check("2 il caso peggiore resta entro la larghezza della barra all'avvio", worst[0] <= start_sb, worst)
 
 lab = w.lbl_origin
 check("3 la scritta «File: …» non chiede spazio (minimo 0)", isinstance(lab, ShrinkLabel)
       and lab.minimumSizeHint().width() == 0)
-w.resize(1920, 900)
+w.resize(BASE + 554, 900)
 spin()
-check("3 con posto (1920 px) la scritta si vede, abbastanza larga da leggere",
+check("3 con posto (554 px in più: 1920 sul portatile) la scritta si vede, abbastanza larga da leggere",
       lab.isVisible() and lab.width() >= 120 and lab.text().startswith(("File", "Fich", "Arqu")), (lab.width(), lab.text()))
 check("3 testo intero nel nome accessibile e nel suggerimento",
       LONG in lab.accessibleName() and LONG in lab.toolTip(), lab.accessibleName())
-for width in (1920, 1600, SCREEN, 1240):
+widths = [BASE + 554, BASE + 234, BASE] + ([BASE - 126] if BASE - 126 >= w.minimumSizeHint().width() else [])
+for width in widths:
     w.resize(width, 900)
     spin()
     fits = lab.fontMetrics().horizontalAdvance(lab.text()) <= max(lab.width(), 0) or not lab.text()
-    check(f"4 finestra {width} px: la scritta mostrata sta nella sua larghezza", fits and w.width() == width,
+    check(f"4 finestra larga {width - BASE:+d} px rispetto all'avvio: la scritta mostrata sta nella sua larghezza", fits and w.width() == width,
           (lab.width(), lab.fontMetrics().horizontalAdvance(lab.text()), w.width()))
 
 w.editor.dirty = False
