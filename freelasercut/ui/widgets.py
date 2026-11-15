@@ -5,9 +5,10 @@ import math
 import operator
 import re
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QSizePolicy, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFontMetricsF, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QSizePolicy, QStyle, QStyleOptionFrame, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from ..theme import C
 from . import style
@@ -171,6 +172,50 @@ class NumField(QLineEdit):
         if self._rep_dir:
             self._rep.setInterval(70)
             self.nudge(self._rep_dir, self._rep_big)
+
+    # ---------------------------------------------------------------- 0.20.3: largo quanto serve al testo
+    def fit_text(self, *samples):
+        """Il campo si allarga quanto serve perché questi testi si vedano interi con il carattere vero del campo
+        (mai più stretto della larghezza data alla creazione). Nei modelli «8» sta per una cifra qualsiasi: si usa la
+        più larga. Dalla 0.19.6 le freccette prendevano 10 px e la prima cifra di «310.33 mm» usciva tagliata."""
+        self._fit_samples = tuple(samples)
+        self._fit_base = getattr(self, "_fit_base", self.width())
+        self._refit()
+
+    def text_room(self):
+        """Larghezza (px) che resta al testo dentro il campo: tolti bordo, margini e freccette."""
+        opt = QStyleOptionFrame()
+        self.initStyleOption(opt)
+        inner = self.style().subElementRect(QStyle.SubElement.SE_LineEditContents, opt, self)
+        m = self.textMargins()
+        return inner.width() - m.left() - m.right() - 2 * self.TEXT_PAD
+
+    def _refit(self):
+        samples = getattr(self, "_fit_samples", None)
+        if not samples or getattr(self, "_fitting", False):
+            return
+        self._fitting = True
+        try:
+            self.ensurePolished()  # il carattere del foglio di stile vale solo dopo
+            fm = QFontMetricsF(self.font())
+            wide = max("0123456789", key=fm.horizontalAdvance)
+            need = max(fm.horizontalAdvance(s.replace("8", wide)) for s in samples)
+            w = max(self._fit_base, int(math.ceil(need + (self.width() - self.text_room()) + 1)))
+            if w != self.width():
+                self.setFixedWidth(w)
+        finally:
+            self._fitting = False
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        if e.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):  # tema, lingua, foglio di stile del Banco
+            self._refit()
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._refit()
+
+    TEXT_PAD = 2  # margine che Qt tiene a sinistra e a destra del testo di una casella
 
     def mousePressEvent(self, e):
         d = self._arrow_at(e.position()) if e.button() == Qt.LeftButton else 0

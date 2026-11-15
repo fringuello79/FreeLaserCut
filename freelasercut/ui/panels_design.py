@@ -84,10 +84,15 @@ class NumericBar(QToolBar):
         self.anchor.setProperty("help_key", "num:anchor")
         self.anchor.changed.connect(lambda _: self.refresh())
         self.addWidget(self.anchor)
-        self.fx = self._field("X", suffix=" mm", help_key="num:x")
-        self.fy = self._field("Y", suffix=" mm", help_key="num:y")
+        # 0.20.3: ogni campo è largo quanto serve al numero più lungo che ci si aspetta (NumField.fit_text; «8» = una
+        # cifra). Dalla 0.19.6 le freccette toglievano 10 px e la prima cifra di «310.33 mm» usciva tagliata.
+        # Classica (il posto c'è: lo cede la scritta del tipo di forma, in fondo): quattro cifre intere, o tre con il
+        # segno. Banco (barra stretta, vedi set_compact): tre cifre intere.
+        self._fits = []
+        self.fx = self._field("X", suffix=" mm", help_key="num:x", fit=("8888.88 mm", "-888.88 mm"), tight=("888.88 mm",))
+        self.fy = self._field("Y", suffix=" mm", help_key="num:y", fit=("8888.88 mm", "-888.88 mm"), tight=("888.88 mm",))
         self.addSeparator()
-        self.fw = self._field("L", suffix=" mm", minimum=0.001, help_key="num:w")
+        self.fw = self._field("L", suffix=" mm", minimum=0.001, help_key="num:w", fit=("8888.88 mm",), tight=("888.88 mm",))
         self.lock = QToolButton()
         self.lock.setObjectName("minilock")
         self.lock.setCheckable(True)
@@ -98,9 +103,10 @@ class NumericBar(QToolBar):
         self.lock.toggled.connect(self._lock_icon)
         self._lock_icon(True)
         self.addWidget(self.lock)
-        self.fh = self._field("A", suffix=" mm", minimum=0.001, help_key="num:h")
+        self.fh = self._field("A", suffix=" mm", minimum=0.001, help_key="num:h", fit=("8888.88 mm",), tight=("888.88 mm",))
         # 0.18.2: raggio degli angoli accanto alle misure (rettangoli, poligoni e stelle), più i quattro angoli
-        self.frad = self._field("R", suffix=" mm", width=66, minimum=0.0, step=0.5, help_key="num:radius")
+        self.frad = self._field("R", suffix=" mm", width=66, minimum=0.0, step=0.5, help_key="num:radius",
+                                fit=("888.88 mm",), tight=("88.88 mm",))
         self.btn_corners = QToolButton()
         self.btn_corners.setObjectName("minilock")
         self.btn_corners.setFixedSize(18, 18)
@@ -112,7 +118,8 @@ class NumericBar(QToolBar):
         self.addWidget(self.btn_corners)
         self.corners = CornerPopup(self)
         self.addSeparator()
-        self.fr = self._field("↻", decimals=2, suffix="°", step=1.0, width=58, help_key="num:rot")
+        self.fr = self._field("↻", decimals=2, suffix="°", step=1.0, width=58, help_key="num:rot", fit=("-888.88°",),
+                              tight=("-888.88°",))
         self.addSeparator()
         # ---- comandi rapidi sulla selezione (spazio libero a destra)
         lab = QLabel(tr("Livello"))
@@ -155,7 +162,16 @@ class NumericBar(QToolBar):
         self.lock.setToolTip(tr("Proporzioni bloccate: larghezza e altezza cambiano insieme (clic per sbloccare)") if on
                              else tr("Proporzioni libere: larghezza e altezza indipendenti (clic per bloccare)"))
 
-    def _field(self, label, decimals=2, suffix="", step=1.0, width=76, minimum=None, help_key=None):
+    def set_compact(self, on=True):
+        """0.20.3: campi alla misura stretta (Banco, dove la barra sta sopra il piano e ha poco posto) o a quella
+        larga (Classica)."""
+        for f, wide, tight in self._fits:
+            f.fit_text(*(tight if on else wide))
+        for lab in self.findChildren(QLabel):
+            if lab.objectName() == "numlabel":  # senza il rientro che Qt aggiunge al testo delle etichette
+                lab.setIndent(0 if on else -1)
+
+    def _field(self, label, decimals=2, suffix="", step=1.0, width=76, minimum=None, help_key=None, fit=(), tight=()):
         lab = QLabel(label)
         lab.setObjectName("numlabel")
         self.addWidget(lab)
@@ -163,6 +179,9 @@ class NumericBar(QToolBar):
         f.setObjectName("numbar")
         f.setFixedHeight(self.FIELD_H)
         f.enable_arrows(arrow_step)  # 0.19.6: freccette discrete dentro il campo (passo dalle Preferenze)
+        if fit:
+            f.fit_text(*fit)  # 0.20.3: dopo le freccette, che tolgono posto al testo
+            self._fits.append((f, fit, tight or fit))
         if help_key:
             f.setProperty("help_key", help_key)
             lab.setProperty("help_key", help_key)

@@ -524,6 +524,8 @@ if __name__ == "__main__":
     run_suite("test_v203_ritaglio.py", "Foto ritagliata a forma nell'interfaccia Banco", "banco")
     run_suite("test_v203_testo.py", "Testo: anteprima del carattere sul testo vero scorrendo l'elenco, spaziatura delle lettere senza salti e delle righe")
     run_suite("test_v203_testo.py", "Testo: anteprima del carattere e spaziature nell'interfaccia Banco", "banco")
+    run_suite("test_v203_misure.py", "Barra delle misure: caselle X, Y, L, A, R e rotazione larghe quanto serve al numero (la prima cifra non esce più tagliata)")
+    run_suite("test_v203_misure.py", "Barra delle misure nell'interfaccia Banco: numeri interi senza allargare la barra", "banco")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")

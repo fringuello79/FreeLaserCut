@@ -1101,8 +1101,12 @@ class ContextBar(QFrame):
         win.removeToolBar(win.numeric)
         win.numeric.setParent(self)
         # 0.18.2: etichette X, Y, L, A, R chiare: sul pannello scuro il grigio del tema chiaro quasi non si leggeva
+        # 0.20.3: i campi si sono allargati perché il numero si legga intero (la prima cifra usciva tagliata); il
+        # posto in più si prende da etichette e separatori, così nella barra entra quello che entrava prima
         win.numeric.setStyleSheet("QToolBar { background: transparent; border: none; } "
-                                  "QLabel#numlabel { color: #C3CEE3; }")
+                                  "QLabel#numlabel { color: #C3CEE3; padding: 0 2px 0 3px; } "
+                                  "QToolBar::separator { margin: 4px 3px; }")
+        win.numeric.set_compact(True)
         for act in win.numeric.actions():  # il tipo di forma è già scritto nella scheda Proprietà: qui toglie posto
             if win.numeric.widgetForAction(act) is getattr(win.numeric, "info", None):
                 act.setVisible(False)
