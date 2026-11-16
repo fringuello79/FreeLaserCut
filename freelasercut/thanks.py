@@ -65,54 +65,69 @@ def row_count(names, pos, measure, width, lead="", gap=9.0, sep="·"):
     return k
 
 
-def plan_sizes(names, rows, sizes, count, total_max, first_max, min_diff=4, step=5, limit=4000):
+def plan_sizes(names, rows, sizes, count, total_max, first_max, min_diff=4, step=4, limit=6000, first_min=0):
     """Sceglie la grandezza di ogni riga della trama (Ale, 16/11: grandezze irregolari, alternate, e lo stesso nome
     quando ricompare ha una grandezza diversa), con i nomi sempre nell'ordine dell'elenco.
     sizes: le grandezze possibili; count(riga, posizione nell'elenco, grandezza) -> quanti nomi entrano nella riga;
-    total_max: somma massima delle grandezze (lo spazio in altezza); first_max: grandezza massima della prima riga
-    (deve starci «Grazie a»); min_diff: quanto devono distare due grandezze dello stesso nome; step: quanto devono
-    distare due righe vicine. Cerca in ordine, preferendo grande dopo piccola e piccola dopo grande, e si ferma alla
-    prima disposizione che riempie lo spazio senza righe con un nome solo; se non c'è, tiene la migliore trovata.
+    total_max: somma massima delle grandezze (lo spazio in altezza); first_min, first_max: grandezza della prima riga
+    (deve starci «Grazie a», e deve vedersi); min_diff: quanto devono distare due grandezze dello stesso nome;
+    step: quanto devono distare due righe vicine.
+    Cerca in ordine, preferendo grande dopo piccola e piccola dopo grande. Prima vuole tutto: nessuna riga con un
+    nome solo (una riga così non va da un bordo all'altro) e lo spazio riempito; se non c'è, accetta via via un po'
+    di spazio vuoto in fondo, poi anche una riga con un nome solo. Quanti nomi entrano in una riga dipende dal
+    carattere del sistema: per questo si cerca a ogni avvio, con un tetto ai tentativi (`limit` per passata).
     -> elenco delle grandezze, una per riga (None se non esiste nessuna disposizione valida)."""
     names = list(names)
     n = len(names)
     small, big = sorted(sizes), sorted(sizes, reverse=True)
-    lo = small[0]
-    best = [None, None]
-    nodes = [0]
+    lo, mid = small[0], (small[0] + big[0]) / 2
 
-    def rec(r, pos, chosen, last, total, singles):
-        if r == rows:
-            score = (singles, total_max - total)
-            if best[0] is None or score < best[0]:
-                best[0], best[1] = score, list(chosen)
-            return singles == 0 and total_max - total <= 2 * lo // 3
-        order = small if (chosen and chosen[-1] > (lo + big[0]) / 2) else big
-        for px in order:
-            if r == 0 and px > first_max:
-                continue
-            if chosen and abs(px - chosen[-1]) < step:
-                continue
-            if total + px + (rows - r - 1) * lo > total_max:
-                continue
-            nodes[0] += 1
-            if nodes[0] > limit:
-                return True
-            k = count(r, pos, px)
-            row = [names[(pos + j) % n] for j in range(k)] if n else []
-            if any(abs(last.get(nm, -10 ** 6) - px) < min_diff for nm in row):
-                continue
-            new_last = dict(last)
-            new_last.update((nm, px) for nm in row)
-            chosen.append(px)
-            stop = rec(r + 1, pos + k, chosen, new_last, total + px, singles + (k == 1))
-            chosen.pop()
-            if stop:
-                return True
-        return False
+    def search(allow_single, slack_max):
+        nodes = [0]
+        found = []
 
-    rec(0, 0, [], {}, 0, 0)
-    return best[1]
+        def rec(r, pos, chosen, last, total):
+            if r == rows:
+                if total_max - total <= slack_max:
+                    found[:] = chosen
+                    return True
+                return False
+            order = small if (chosen and chosen[-1] > mid) else big
+            for px in order:
+                if r == 0 and not first_min <= px <= first_max:
+                    continue
+                if chosen and abs(px - chosen[-1]) < step:
+                    continue
+                if total + px + (rows - r - 1) * lo > total_max:
+                    continue
+                if total + px + (rows - r - 1) * big[0] < total_max - slack_max:
+                    continue  # nemmeno con tutte righe grandi dopo si riempirebbe lo spazio
+                nodes[0] += 1
+                if nodes[0] > limit:
+                    return True
+                k = count(r, pos, px)
+                if k == 1 and n > 1 and not allow_single:
+                    continue
+                row = [names[(pos + j) % n] for j in range(k)] if n else []
+                if any(abs(last.get(nm, -10 ** 6) - px) < min_diff for nm in row):
+                    continue
+                new_last = dict(last)
+                new_last.update((nm, px) for nm in row)
+                chosen.append(px)
+                stop = rec(r + 1, pos + k, chosen, new_last, total + px)
+                chosen.pop()
+                if stop:
+                    return True
+            return False
+
+        rec(0, 0, [], {}, 0)
+        return list(found) or None
+
+    for allow_single, slack in ((False, lo // 2), (False, lo * 2), (False, lo * 4), (True, lo * 2), (True, 10 ** 6)):
+        got = search(allow_single, slack)
+        if got:
+            return got
+    return None
 
 
 def layout_rows(seq, measure, width, rows, lead="", gap=9.0, sep="·"):

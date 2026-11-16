@@ -46,8 +46,8 @@ ROWS = 9
 # decide thanks.plan_sizes a ogni avvio, perché dipende da quanti nomi entrano in ogni riga (cioè dall'elenco e dal
 # carattere del sistema): i nomi restano nell'ordine dell'elenco e uno stesso nome, quando ricompare, ha una
 # grandezza diversa di almeno SIZE_DIFF pixel. La prima riga non è delle più grandi: deve starci «Grazie a».
-SIZES = (30, 27, 24, 21, 18, 16)
-FIRST_MAX = 24
+SIZES = (30, 28, 26, 24, 22, 20, 18, 16)
+FIRST_MIN, FIRST_MAX = 20, 24
 SIZE_DIFF = 4
 WEIGHTS = (600, 400, 300, 600, 600, 300, 600, 400, 300)  # peso del carattere riga per riga
 FALLBACK = (24, 16, 29, 18, 25, 16, 30, 18, 22)  # se la ricerca non trova niente (non dovrebbe succedere)
@@ -104,7 +104,7 @@ class Row:
         return name_font(self.px, self.weight)
 
 
-def name_rows(names=None, lead=None):
+def name_rows(names=None, lead=None, stretch=1.0):
     """Le 9 righe della trama (Row), dall'alto: nomi nell'ordine dell'elenco (finito, si ricomincia), righe di
     grandezze irregolari e alternate, lo stesso nome mai due volte di seguito con la stessa grandezza. In ogni riga
     solo nomi interi, da un bordo all'altro. La prima comincia con «Grazie a» nella lingua del programma."""
@@ -121,7 +121,7 @@ def name_rows(names=None, lead=None):
         def m(text):
             key = (px, weight, text)
             if key not in cache:
-                cache[key] = fm.horizontalAdvance(text)
+                cache[key] = fm.horizontalAdvance(text) * stretch
             return cache[key]
         return m
 
@@ -132,7 +132,7 @@ def name_rows(names=None, lead=None):
         return thanks.row_count(names, pos, measure(px, WEIGHTS[r % len(WEIGHTS)]), width, lead if r == 0 else "", gap(px))
 
     room = int((BAND_TOP - 5.0 - TOP0) / LEADING)  # somma massima delle grandezze che sta sopra la fascia in basso
-    sizes = thanks.plan_sizes(names, ROWS, SIZES, count, room, FIRST_MAX, SIZE_DIFF) if names else None
+    sizes = thanks.plan_sizes(names, ROWS, SIZES, count, room, FIRST_MAX, SIZE_DIFF, first_min=FIRST_MIN) if names else None
     sizes = list(sizes or FALLBACK)
     items = thanks.layout_rows(thanks.endless(names), [measure(px, WEIGHTS[r % len(WEIGHTS)]) for r, px in enumerate(sizes)],
                                width, ROWS, lead=lead, gap=[gap(px) for px in sizes])

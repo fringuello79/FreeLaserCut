@@ -781,10 +781,17 @@ check("H quanti nomi entrano in una riga: almeno uno, mai lo stesso due volte, �
       and thanks.row_count(["aa", "bb", "cc"], 1, lambda t: 10.0 * len(t), 50.0, gap=2) == 1
       and thanks.row_count(["x" * 99], 0, lambda t: 10.0 * len(t), 50.0) == 1 and thanks.row_count([], 0, len, 50.0) == 0
       and thanks.row_count(["aa", "bb"], 0, lambda t: 10.0 * len(t), 60.0, lead="Grazie a", gap=2) == 1)
-plan = thanks.plan_sizes(list("ABCDEFGHIJKL"), 9, (30, 27, 24, 21, 18, 16), lambda r, pos, px: max(1, 60 // px), 198, 24)
-check("H scelta delle grandezze: 9 righe, la prima non troppo grande, righe vicine diverse, dentro lo spazio",
-      plan is not None and len(plan) == 9 and plan[0] <= 24 and sum(plan) <= 198
-      and all(abs(plan[i] - plan[i + 1]) >= 5 for i in range(8)), str(plan))
+plan = thanks.plan_sizes(list("ABCDEFGHIJKL"), 9, (30, 27, 24, 21, 18, 16), lambda r, pos, px: max(1, 60 // px), 198, 24,
+                         first_min=20)
+check("H scelta delle grandezze: 9 righe, la prima né troppo grande né piccola, righe vicine diverse, dentro lo spazio",
+      plan is not None and len(plan) == 9 and 20 <= plan[0] <= 24 and sum(plan) <= 198
+      and all(abs(plan[i] - plan[i + 1]) >= 4 for i in range(8)), str(plan))
+plan1 = thanks.plan_sizes(list("ABCDEFGHIJKL"), 9, (30, 26, 22, 18, 16),
+                          lambda r, pos, px: {30: 1, 26: 2, 22: 2, 18: 3, 16: 4}[px], 198, 24)
+check("H scelta delle grandezze: se si può, nessuna riga con un nome solo (non andrebbe da un bordo all'altro)",
+      plan1 is not None and 30 not in plan1, str(plan1))
+plan2 = thanks.plan_sizes(list("ABCDEFGHIJKL"), 9, (30, 24, 16), lambda r, pos, px: 1, 198, 24)
+check("H …e se non si può (nomi lunghissimi) la trama si fa lo stesso", plan2 is not None and len(plan2) == 9)
 check("H scelta delle grandezze impossibile (una sola grandezza): lo dice invece di inventare",
       thanks.plan_sizes(list("ABC"), 9, (20,), lambda r, pos, px: 3, 198, 24) is None)
 rr = splash.name_rows()
@@ -793,7 +800,7 @@ check("H schermata di avvio: 9 righe che vanno da un bordo all'altro con il cara
       len(rr) == splash.ROWS == 9 and all(r.items and abs(r.items[-1][1] + r.items[-1][2] - W_IN) < 0.5 for r in rr))
 sizes_ = [r.px for r in rr]
 check("H grandezze irregolari e alternate: almeno quattro grandezze, righe vicine sempre diverse, grandi e piccole",
-      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 5 for i in range(8))
+      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 4 for i in range(8))
       and max(sizes_) >= 27 and min(sizes_) <= 18, str(sizes_))
 all_names = [n for r in rr for n in r.names()]
 check("H i nomi sono nell'ordine dell'elenco, di seguito, e ricominciano dal primo",
@@ -816,6 +823,19 @@ for extra in (["Uno"], ["Uno", "Due"], list(thanks.NAMES) + ["Nuovo Nome", "altr
     check(f"H con un elenco di {len(extra)} nomi la trama si fa lo stesso (righe dentro i margini e sopra la fascia)",
           len(r_) == 9 and r_[-1].bottom <= splash.BAND_TOP
           and all(not r.items or r.items[-1][1] + r.items[-1][2] <= W_IN + 0.5 or len(r.items) == 1 for r in r_))
+wide_bad = []
+for k in range(84, 127, 3):  # caratteri più stretti e più larghi di quelli di qui (Windows usa Segoe UI: altre larghezze)
+    for nm in (None, list(thanks.NAMES) + ["Nuovo Nome"]):
+        r_ = splash.name_rows(nm, stretch=k / 100)
+        if (splash.repeats_same_size(r_) or any(len(r.names()) < 2 for r in r_) or r_[-1].bottom > splash.BAND_TOP
+                or any(abs(r.items[-1][1] + r.items[-1][2] - W_IN) > 0.5 for r in r_)
+                or [n for r in r_ for n in r.names()][:len(thanks.NAMES)] != list(thanks.NAMES)):
+            wide_bad.append((k, [r.px for r in r_]))
+check("H con caratteri più stretti o più larghi (altri sistemi) la trama resta giusta: righe piene da bordo a bordo, "
+      "nomi in ordine, grandezze diverse a ogni ripetizione", not wide_bad, str(wide_bad[:3]))
+t_plan = time.perf_counter()
+splash.name_rows()
+check("H la scelta delle grandezze non rallenta l'avvio (meno di 0,3 secondi)", time.perf_counter() - t_plan < 0.3)
 check("H …e con più nomi di adesso un nome ripetuto ha ancora grandezze diverse",
       splash.repeats_same_size(splash.name_rows(list(thanks.NAMES) + ["Nuovo Nome", "altro-utente-42", "Z"])) == 0)
 leads = {}
