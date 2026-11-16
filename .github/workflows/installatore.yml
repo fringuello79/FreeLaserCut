@@ -165,8 +165,9 @@ jobs:
       - name: Versione
         id: ver
         run: echo "ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")" >> "$GITHUB_OUTPUT"
-      - name: Librerie xcb da mettere nell'AppImage
-        run: bash build/apt_install.sh libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxkbcommon-x11-0 libxcb-randr0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 file
+      # 0.20.5: anche libglib2.0-0, da cui viene libgthread-2.0.so.0 (openSUSE non la installa di serie)
+      - name: Librerie xcb e libgthread da mettere nell'AppImage
+        run: bash build/apt_install.sh libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-util1 libxkbcommon-x11-0 libxcb-randr0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 libglib2.0-0 file
       - name: Versione di Python per Linux
         id: py
         run: echo "rel=$(grep -oP 'PY_RELEASE = "\K[^"]+' build/prepara_installer.py)" >> "$GITHUB_OUTPUT"
@@ -244,6 +245,10 @@ jobs:
             setup: dnf install -y mesa-libEGL mesa-libGL fontconfig dbus-libs libxkbcommon glib2 findutils
           - image: archlinux:latest
             setup: pacman -Sy --noconfirm libglvnd mesa fontconfig dbus libxkbcommon glib2
+          # 0.20.5: openSUSE tiene libgthread-2.0.so.0 in un pacchetto a parte (libgthread-2_0-0) che qui NON si
+          # installa apposta: è l'AppImage che deve portarla con sé (rapporto del 14/11 da openSUSE Leap 16)
+          - image: opensuse/leap:16.0
+            setup: zypper --non-interactive install Mesa-libEGL1 Mesa-libGL1 libfontconfig1 libdbus-1-3 libxkbcommon0 libglib-2_0-0 findutils gzip tar
     container: ${{ matrix.image }}
     steps:
       - uses: actions/download-artifact@v4

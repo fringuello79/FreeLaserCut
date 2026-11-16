@@ -55,6 +55,15 @@ class PlateBar(QWidget):
         self.add_btn.setToolTip(tr("Nuovo piano di lavoro: un altro lavoro nello stesso progetto, con la stessa macchina "
                                    "e gli stessi livelli. Puoi prepararlo mentre il laser incide un altro piano."))
         self.add_btn.clicked.connect(self.new_plate)
+        # 0.20.5 (Ale, 16/11): un pulsante discreto, prima di «+», per cambiare al volo lo sfondo del piano:
+        # foto della camera del piano → foto a mosaico della camera della testa → bianco. Compare solo se c'è
+        # almeno una foto da mostrare; gli sfondi che mancano si saltano.
+        self.bg_btn = QToolButton()
+        self.bg_btn.setObjectName("plateBg")
+        self.bg_btn.setCursor(Qt.PointingHandCursor)
+        self.bg_btn.clicked.connect(self._bg_clicked)
+        self.bg_btn.hide()
+        self._bg_key = None
         self.ghosts = QToolButton()
         self.ghosts.setObjectName("plateGhosts")
         self.ghosts.setCheckable(True)
@@ -71,6 +80,7 @@ class PlateBar(QWidget):
                                     "modificarlo (Ctrl+Maiusc+O)"))
         self.overview.toggled.connect(self._overview_toggled)
         lay.addWidget(self.tabs, 0, Qt.AlignBottom)
+        lay.addWidget(self.bg_btn, 0, Qt.AlignBottom)
         lay.addWidget(self.add_btn, 0, Qt.AlignBottom)
         lay.addWidget(self.ghosts, 0, Qt.AlignBottom)
         lay.addWidget(self.overview, 0, Qt.AlignBottom)
@@ -111,9 +121,11 @@ QTabBar#plateTabs::tab {{ background: {idle}; border: 1px solid {pal["grid_major
     font-size: 9pt; font-weight: 600; min-width: 0; color: {other}; }}
 QTabBar#plateTabs::tab:selected {{ background: {pal["bed"]}; border-color: {pal["edge"]}; font-weight: 700; color: {cur}; }}
 QTabBar#plateTabs::tab:hover:!selected {{ background: {hover}; color: {cur}; }}
-QToolButton#plateAdd, QToolButton#plateGhosts, QToolButton#plateOverviewBtn {{ background: transparent; border: none;
+QToolButton#plateAdd, QToolButton#plateGhosts, QToolButton#plateOverviewBtn, QToolButton#plateBg {{
+    background: transparent; border: none;
     color: {btn}; font-size: 11pt; font-weight: 700; padding: 0 4px 1px 4px; border-radius: 4px; }}
-QToolButton#plateAdd:hover, QToolButton#plateGhosts:hover, QToolButton#plateOverviewBtn:hover {{ background: {hover}; }}
+QToolButton#plateAdd:hover, QToolButton#plateGhosts:hover, QToolButton#plateOverviewBtn:hover,
+QToolButton#plateBg:hover {{ background: {hover}; }}
 QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ background: rgba(47,125,246,45); }}
 """)
         from . import style
@@ -121,6 +133,9 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
         on = "#2F7DF6" if light else "#8DB8FF"  # acceso: blu, come il bordo del piano attivo nella vista d'insieme
         self.ghosts.setIcon(style.icon("layers", btn, 14, active=on))
         self.overview.setIcon(style.icon("pages", btn, 14, active=on))
+        self._bg_colors = (btn, on)
+        self._bg_key = None
+        self.bg_refresh()
         self.refresh()
 
     def place(self):
@@ -140,8 +155,9 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
             if getattr(self.win, "banco", None) else RULER + 4
         x0 = max(left, round(corner.x()))
         right = vp.width() - ins[2] - 4
-        extra = self.add_btn.sizeHint().width() + 6 + sum(b.sizeHint().width() + 2 for b in (self.ghosts, self.overview)
-                                                           if b.isVisible())
+        extra = self.add_btn.sizeHint().width() + 6 + sum(b.sizeHint().width() + 2
+                                                           for b in (self.bg_btn, self.ghosts, self.overview)
+                                                           if not b.isHidden())
         room = max(120, right - x0 - extra)  # tante linguette: compaiono le frecce invece di uscire dalla vista
         self.tabs.setMaximumWidth(room)
         self.tabs.adjustSize()
@@ -241,6 +257,50 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
         doc = self.win.editor.doc
         if len(doc.plates) > 1:
             self.win.editor.set_plate((doc.current + delta) % len(doc.plates))
+
+    # ---------------------------------------------------------- sfondo del piano (0.20.5)
+    BG_ICONS = {"camera": "camera", "mosaic": "bg_mosaic", "none": "bg_none"}
+
+    def bg_names(self):
+        return {"camera": tr("foto della camera del piano"), "mosaic": tr("foto a mosaico della camera della testa"),
+                "none": tr("piano bianco")}
+
+    def bg_state(self):
+        """(sfondo di adesso, sfondi disponibili) dalla scheda Camera; (None, []) se la scheda non c'è ancora."""
+        cam = getattr(self.win, "camera", None)
+        if cam is None or not hasattr(cam, "bg_modes"):
+            return None, []
+        return cam.bg_mode(), cam.bg_modes()
+
+    def bg_refresh(self):
+        """Aspetto del pulsante dello sfondo: nascosto se non c'è nessuna foto da mostrare; l'icona dice che cosa
+        c'è adesso sotto il piano (colorata = una foto), il suggerimento dice anche che cosa fa il prossimo clic."""
+        cur, modes = self.bg_state()
+        key = (cur, tuple(modes), getattr(self, "_bg_colors", None))
+        if key == self._bg_key:
+            return
+        self._bg_key = key
+        show = len(modes) > 1
+        changed = show != (not self.bg_btn.isHidden())
+        self.bg_btn.setVisible(show)
+        if show:
+            from . import style
+
+            btn, on = getattr(self, "_bg_colors", ("#5B6578", "#2F7DF6"))
+            self.bg_btn.setIcon(style.icon(self.BG_ICONS[cur], on if cur != "none" else btn, 14))
+            nxt = modes[(modes.index(cur) + 1) % len(modes)]
+            names = self.bg_names()
+            self.bg_btn.setToolTip(tr("Sfondo del piano: {0}. Clic: {1}", names[cur], names[nxt]))
+        if changed:
+            self.place()
+
+    def _bg_clicked(self):
+        cam = getattr(self.win, "camera", None)
+        if cam is None or not hasattr(cam, "next_bg"):
+            return
+        now = cam.next_bg()
+        self.bg_refresh()
+        self.win.statusBar().showMessage(tr("Sfondo del piano: {0}", self.bg_names()[now]), 4000)
 
     def _ghosts_toggled(self, on):
         self.win.canvas.set_ghosts(on)

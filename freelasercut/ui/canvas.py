@@ -550,6 +550,7 @@ class Canvas(QGraphicsView):
         # stato interazione
         self.cursor_bed = QPointF(0, 0)
         self.snap_hint = None  # (QPointF piano, etichetta)
+        self.overlay_paths = []  # 0.20.5: tracciati provvisori (mm sul piano) di una finestra, es. anteprima dell'offset
         self.tool_lock = None  # 0.19.0: strumento di disegno bloccato con il doppio clic (resta attivo dopo ogni forma)
         self._snap_cache = None
         self._pan = None
@@ -1531,6 +1532,12 @@ class Canvas(QGraphicsView):
             p.setPen(cpen(C["accent_hi"], SEL_LINE_W, Qt.SolidLine))
             for vp in paths:
                 p.drawPath(vp)
+        if self.overlay_paths:  # 0.20.5: anteprima di una finestra aperta (non è nel documento, non si incide)
+            p.setBrush(Qt.NoBrush)
+            for pen in (cpen("#FFFFFF", 3.2, Qt.SolidLine, 150), cpen(C["accent_hi"], 1.6, Qt.DashLine)):
+                p.setPen(pen)
+                for path in self.overlay_paths:
+                    p.drawPath(tf.map(path))
         self.tool.draw(p, tf)
         if self.snap_hint is not None:
             pt, label = self.snap_hint
@@ -1673,6 +1680,12 @@ class Canvas(QGraphicsView):
         p.drawText(QRectF(0, 0, RULER, RULER), Qt.AlignCenter, "mm")
 
     # ================================================================ API macchina / camera (come il vecchio piano)
+    def set_overlay(self, paths):
+        """0.20.5: tracciati provvisori disegnati sopra il piano (QPainterPath in mm sul piano); [] li toglie.
+        Servono alle finestre che mostrano il risultato prima di crearlo: il documento non viene toccato."""
+        self.overlay_paths = list(paths or [])
+        self.viewport().update()
+
     def set_head(self, x, y, state="Idle", power=0.0):
         self._head.setVisible(True)
         burning = state == "Run" and power > 0

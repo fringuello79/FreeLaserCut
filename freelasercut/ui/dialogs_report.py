@@ -72,6 +72,18 @@ class ReportDialog(QDialog):
         self.contact = QLineEdit()
         self.contact.setPlaceholderText(tr("facoltativa: solo se vuoi una risposta"))
         f.addRow(tr("La tua email"), self.contact)
+        # 0.20.5: chi vuole comparire fra i ringraziamenti (schermata di avvio, Aiuto → Ringraziamenti, sito) scrive
+        # qui il nome o lo pseudonimo; vuoto = non compare. È l'unica cosa del rapporto che può diventare pubblica.
+        self.thanks_name = QLineEdit()
+        self.thanks_name.setMaxLength(40)
+        self.thanks_name.setPlaceholderText(tr("facoltativo: nome o pseudonimo, se vuoi comparire fra i ringraziamenti"))
+        f.addRow(tr("Nome per i ringraziamenti"), self.thanks_name)
+        self.thanks_note = QLabel(tr("Se lo scrivi, questo nome (solo il nome) comparirà nell'elenco pubblico dei "
+                                     "ringraziamenti: nel programma, sul sito e su GitHub. Lascialo vuoto per non "
+                                     "comparire; puoi farlo togliere quando vuoi scrivendo a {0}.", support.SUPPORT_EMAIL))
+        self.thanks_note.setWordWrap(True)
+        self.thanks_note.setObjectName("muted")
+        f.addRow("", self.thanks_note)
         v.addLayout(f)
         self.with_shot = QCheckBox(tr("Aggiungi un'immagine della finestra di FreeLaserCut (si vede il disegno aperto)"))
         self.with_shot.setEnabled(self.shot is not None)
@@ -121,6 +133,15 @@ class ReportDialog(QDialog):
             b.addWidget(w)
         v.addLayout(b)
         self._update()
+        # 0.20.5: con il campo in più la finestra è più alta, e Qt da solo non le dà più di due terzi dello schermo
+        # (su uno schermo da 768 i riquadri si schiacciavano): prende l'altezza che le serve, se lo schermo la offre
+        try:
+            hint = self.sizeHint()
+            scr = (parent or win).screen() if (parent or win) is not None else None
+            room = scr.availableGeometry().height() - 64 if scr is not None else hint.height()
+            self.resize(max(self.minimumWidth(), hint.width()), max(300, min(hint.height(), room)))
+        except Exception:  # noqa: BLE001 — resta la misura scelta da Qt
+            pass
 
     @staticmethod
     def _box(placeholder):
@@ -135,9 +156,13 @@ class ReportDialog(QDialog):
         self.b_mail.setEnabled(on)
 
     def user(self):
-        return {"oggetto": self.subject.text().strip(), "facevi": self.doing.toPlainText().strip(),
-                "aspettavi": self.expected.toPlainText().strip(), "successo": self.happened.toPlainText().strip(),
-                "frequenza": self.freq.currentText()}
+        d = {"oggetto": self.subject.text().strip(), "facevi": self.doing.toPlainText().strip(),
+             "aspettavi": self.expected.toPlainText().strip(), "successo": self.happened.toPlainText().strip(),
+             "frequenza": self.freq.currentText()}
+        name = " ".join(self.thanks_name.text().split())  # 0.20.5: solo se la persona lo ha scritto
+        if name:
+            d["grazie"] = name
+        return d
 
     # ---------------------------------------------------------------- il rapporto
     def build(self, path=None):

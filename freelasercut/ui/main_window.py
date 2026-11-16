@@ -456,6 +456,9 @@ class MainWindow(QMainWindow):
                            checkable=True),
             "shortcuts": A(tr("Scorciatoie da tastiera"), self.show_shortcuts, "F1"),
             "about": A(tr("Informazioni su FreeLaserCut"), self.show_about),
+            # 0.20.5: la targa con i nomi di chi ha aiutato (gli stessi della schermata di avvio), solo da leggere
+            "thanks": A(tr("Ringraziamenti"), self.show_thanks, None, None,
+                        tr("I nomi di chi ha aiutato FreeLaserCut a migliorare con prove, segnalazioni e consigli")),
             "send_report": A(tr("Invia un rapporto all'assistenza…"), self.send_report_dialog, None, None,
                              tr("Racconti cosa è successo e FreeLaserCut manda al progetto il rapporto con le "
                                 "informazioni tecniche (o apre la mail già scritta). Prima puoi vedere cosa contiene.")),
@@ -681,7 +684,7 @@ class MainWindow(QMainWindow):
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
         self._apply_admin()  # 0.17.16: funzioni in prova nascoste finché non si sbloccano
-        hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "send_report", "report",
+        hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "thanks", "send_report", "report",
                                  "linux_info", "linux_desktop", "-", "updates", "update_auto", "update_preview", "-", "support"])
         self.m_help = hm
         hm.insertMenu(hm.actions()[1], self.m_help_level)  # lo stesso sottomenu di Impostazioni: un solo pallino
@@ -1061,6 +1064,8 @@ class MainWindow(QMainWindow):
         self.move.pad.attach_laser(self.laser)  # 0.19.5: Puntino e Lucciola al centro delle frecce
         self.machine = MachinePanel(self.ctl, self.profile, self.on_profile)
         self.camera = CameraPanel(self.ctl, self)
+        self.camera.bg_changed.connect(self.plate_bar.bg_refresh)  # 0.20.5: pulsante dello sfondo accanto alle schede
+        self.plate_bar.bg_refresh()
         self.console = ConsolePanel(self.ctl)
         d1 = self._dock(tr("Livelli"), self.layers, name="dock_layers")
         d2 = self._dock(tr("Proprietà"), self.props, name="dock_props")
@@ -1780,10 +1785,12 @@ class MainWindow(QMainWindow):
     def offset_dialog(self):
         if not self.editor.selection:
             return
-        dlg = OffsetDialog(self)
+        dlg = OffsetDialog(self, self.editor, self.canvas)  # 0.20.5: con l'anteprima sul piano
+        self._offset_dlg = dlg  # per le prove
         if dlg.exec() == QDialog.Accepted:
             d, direction, corner, keep, outer = dlg.values()
             self.editor.offset(d, direction, corner, keep, outer)
+        return dlg
 
     def grid_array_dialog(self):
         if not self.editor.selection:
@@ -4281,6 +4288,16 @@ class MainWindow(QMainWindow):
                                 "per Windows; il collaudo con laser e camera veri lo fa chi la usa. Problemi? "
                                 "<i>Aiuto → Invia un rapporto all'assistenza</i>.") if _is_linux() else ""))
 
+    def show_thanks(self, *_):
+        """Aiuto → Ringraziamenti (0.20.5). -> la finestra (già chiusa)."""
+        from .dialogs_thanks import ThanksDialog
+
+        dlg = ThanksDialog(self)
+        self._thanks_dlg = dlg  # per le prove
+        if os.environ.get("FLC_NO_DIALOGS") != "1":
+            dlg.exec()
+        return dlg
+
     def _build_language_menu(self, parent):
         """Visualizza → Lingua: la scelta vale dal riavvio (il titolo resta riconoscibile anche in inglese)."""
         from .. import i18n
@@ -4435,6 +4452,11 @@ def main(app=None, splash=None):
                 pass
         sys.excepthook(*sys.exc_info())
         sys.exit(1)
+    if splash is not None:  # 0.20.5: sui PC veloci la schermata con i ringraziamenti resta almeno 3 secondi
+        try:
+            splash.wait_min()
+        except Exception:  # noqa: BLE001 — la finestra si apre comunque
+            _diag.ignored("attesa della schermata d'avvio")
     win.show()
     startup_guard.done()  # 0.18.16: la finestra c'è, l'avvio è finito (il segno dell'avvio in corso si toglie)
     win.pin_identity()  # 0.19.3: fissata sulla barra di Windows tiene l'icona e riapre FreeLaserCut

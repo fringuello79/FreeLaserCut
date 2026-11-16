@@ -24,6 +24,7 @@ class Editor(QObject):
     selection_changed = Signal()
     history_changed = Signal()
     plates_changed = Signal()  # piano attivo cambiato, piano aggiunto, tolto o rinominato
+    layer_assigned = Signal(int)  # 0.20.5: livello appena dato alla selezione (o scelto per i prossimi disegni)
     message = Signal(str)
 
     MAX_HISTORY = 300
@@ -372,6 +373,7 @@ class Editor(QObject):
         sel = self.editable()
         if not sel:
             self.current_layer = index
+            self.layer_assigned.emit(index)
             return
 
         moved = []
@@ -388,6 +390,8 @@ class Editor(QObject):
         self.run(tr("Cambia livello"), do)
         self.current_layer = index
         self._tell_moved(moved)
+        # 0.20.5 (Stefano Modena, 16/11): nell'elenco Livelli la riga evidenziata restava quella di prima
+        self.layer_assigned.emit(index)
 
     def replace(self, old, new, label):
         """Sostituisce forme mantenendo la posizione nell'ordine di disegno."""

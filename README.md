@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.5** — niente più scatti selezionando e spostando tanti tracciati sui PC lenti; il Wi-Fi delle schede Makerbase dice quando il laser non trova la rete.
+**Versione 0.20.5** — niente più scatti selezionando e spostando tanti tracciati sui PC lenti; il Wi-Fi delle schede Makerbase dice quando il laser non trova la rete; angoli dei rettangoli raccordati verso l'interno, anteprima dell'offset, sfondo del piano con un clic, AppImage che parte anche su openSUSE, i nomi di chi ci ha aiutato sulla schermata di avvio.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -295,6 +295,12 @@ Claude può:
 ## Sicurezza
 
 Laser di classe 4, 450 nm. Indossa occhiali protettivi adatti, non lasciare mai la macchina incustodita mentre lavora e tieni attivi aria e aspirazione.
+
+## Ringraziamenti
+
+FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah.
+
+Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. Vuoi esserci anche tu? Scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
 
 ## Licenza, garanzia, sostegno
 

@@ -305,6 +305,9 @@ class RectShape(Shape):
         super().__init__(layer)
         self.w, self.h, self.radius = float(w), float(h), float(radius)
         # 0.17.13: raggio di ogni angolo (come si vede sul piano: ↖ ↗ ↘ ↙); None = tutti uguali a «radius»
+        # 0.20.5: un raggio NEGATIVO è un angolo raccordato verso l'interno (scavato: un quarto di cerchio con il
+        # centro sullo spigolo), sia in «radius» sia in «radii». Le versioni precedenti leggono un valore negativo
+        # come 0 (spigolo vivo): il progetto si apre lo stesso, senza gli angoli scavati.
         self.radii = [float(v) for v in radii] if radii is not None and len(radii) == 4 else None
 
     def max_radius(self):
@@ -312,18 +315,30 @@ class RectShape(Shape):
         sx, sy = self._scale()
         return min(abs(self.w) * sx, abs(self.h) * sy) / 2
 
+    @staticmethod
+    def clamp_radius(v, lim):
+        """Un raggio dentro i limiti: da -lim (verso l'interno) a +lim (arrotondato). Valori non numerici = 0."""
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return 0.0
+        if v != v:  # NaN
+            return 0.0
+        return max(-lim, min(v, lim))
+
     def corner_radii(self):
-        """[↖, ↗, ↘, ↙] in mm sul piano, già limitati alla metà del lato più corto."""
+        """[↖, ↗, ↘, ↙] in mm sul piano, già limitati alla metà del lato più corto. Positivo = arrotondato,
+        negativo = raccordato verso l'interno (0.20.5), 0 = spigolo vivo."""
         lim = self.max_radius()
         vals = self.radii if self.radii is not None else [self.radius] * 4
-        return [max(0.0, min(float(v), lim)) for v in vals]
+        return [self.clamp_radius(v, lim) for v in vals]
 
     def local_path(self):
         # 0.17.15: i raggi sono in mm veri anche se il rettangolo è stato ridimensionato dopo il disegno (prima erano
         # nelle misure di quando era stato disegnato: il massimo restava quello vecchio e i valori non cambiavano)
         sx, sy = self._scale()
         p = QPainterPath()
-        if self.radii is None:
+        if self.radii is None and self.radius >= 0:  # il caso di sempre: stesso tracciato di prima
             r = max(0.0, min(self.radius, self.max_radius()))
             if r > 0:
                 p.addRoundedRect(QRectF(0, 0, self.w, self.h), r / sx, r / sy)
@@ -336,19 +351,25 @@ class RectShape(Shape):
         k = self.K
 
         def corner(a, c, b, r):
-            if r <= 0:
+            """Dallo spigolo c: a è il punto sul lato che arriva, b quello sul lato che parte (a |r| mm da c)."""
+            if r == 0:
                 p.lineTo(*c)
                 return
             p.lineTo(*a)
-            p.cubicTo(a[0] + k * (c[0] - a[0]), a[1] + k * (c[1] - a[1]),
-                      b[0] + k * (c[0] - b[0]), b[1] + k * (c[1] - b[1]), b[0], b[1])
+            if r > 0:  # arrotondato: l'arco ha il centro dentro la forma
+                p.cubicTo(a[0] + k * (c[0] - a[0]), a[1] + k * (c[1] - a[1]),
+                          b[0] + k * (c[0] - b[0]), b[1] + k * (c[1] - b[1]), b[0], b[1])
+            else:  # 0.20.5, verso l'interno: l'arco ha il centro sullo spigolo e scava la forma
+                p.cubicTo(a[0] + k * (b[0] - c[0]), a[1] + k * (b[1] - c[1]),
+                          b[0] + k * (a[0] - c[0]), b[1] + k * (a[1] - c[1]), b[0], b[1])
 
         # in coordinate locali un raggio di r mm è r/sx in orizzontale e r/sy in verticale
-        p.moveTo(x0 + bl / sx, y0)
-        corner((x1 - br / sx, y0), (x1, y0), (x1, y0 + br / sy), br)
-        corner((x1, y1 - tr_ / sy), (x1, y1), (x1 - tr_ / sx, y1), tr_)
-        corner((x0 + tl / sx, y1), (x0, y1), (x0, y1 - tl / sy), tl)
-        corner((x0, y0 + bl / sy), (x0, y0), (x0 + bl / sx, y0), bl)
+        tl_, tr2, br_, bl_ = abs(tl), abs(tr_), abs(br), abs(bl)
+        p.moveTo(x0 + bl_ / sx, y0)
+        corner((x1 - br_ / sx, y0), (x1, y0), (x1, y0 + br_ / sy), br)
+        corner((x1, y1 - tr2 / sy), (x1, y1), (x1 - tr2 / sx, y1), tr_)
+        corner((x0 + tl_ / sx, y1), (x0, y1), (x0, y1 - tl_ / sy), tl)
+        corner((x0, y0 + bl_ / sy), (x0, y0), (x0 + bl_ / sx, y0), bl)
         p.closeSubpath()
         return p
 

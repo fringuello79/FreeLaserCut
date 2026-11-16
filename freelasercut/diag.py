@@ -503,12 +503,18 @@ def summary_text(user=None, code="", win=None):
     return sanitize("\n".join(parts))
 
 
+THANKS_LINE = "Nome per i ringraziamenti (la persona vuole comparire nell'elenco): {0}\n"
+
+
 def user_text(user):
     """La descrizione scritta dalla persona."""
     u = user or {}
-    return ("Oggetto: {0}\nCosa stavi facendo:\n{1}\n\nCosa ti aspettavi:\n{2}\n\nCosa è successo:\n{3}\n\n"
+    text = ("Oggetto: {0}\nCosa stavi facendo:\n{1}\n\nCosa ti aspettavi:\n{2}\n\nCosa è successo:\n{3}\n\n"
             "Succede: {4}\n").format(u.get("oggetto", ""), u.get("facevi", ""), u.get("aspettavi", ""),
                                      u.get("successo", ""), u.get("frequenza", ""))
+    if u.get("grazie"):  # 0.20.5: facoltativo, solo se la persona vuole comparire fra i ringraziamenti
+        text += THANKS_LINE.format(u["grazie"])
+    return text
 
 
 def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=None, code="", photo=True):

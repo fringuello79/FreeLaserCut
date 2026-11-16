@@ -13,10 +13,10 @@ import time
 import cv2
 import numpy as np
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPen, QPixmap, QTransform
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel,
-    QMessageBox, QProgressBar, QPushButton, QToolButton, QVBoxLayout, QWidget,
+    QMessageBox, QProgressBar, QPushButton, QScrollArea, QToolButton, QVBoxLayout, QWidget,
 )
 
 from . import camera as camera_mod
@@ -1054,7 +1054,7 @@ class HeadView(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.setMinimumSize(480, 270)
+        self.setMinimumSize(240, 135)  # 0.20.5: la vista si può rimpicciolire (prima 480 × 270: finestra troppo alta)
         self.setCursor(Qt.CrossCursor)
         self.setMouseTracking(False)
         self.frame = None
@@ -1273,8 +1273,31 @@ class HeadCameraWindow(QDialog):
         self.card = card_
         self.setWindowTitle(tr("Camera della testa"))
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
-        self.resize(820, 760)
-        lay = QVBoxLayout(self)
+        # 0.20.5 (Ale, 16/11): la finestra aveva un'altezza minima di quasi 900 pixel (video e quattro riquadri uno
+        # sotto l'altro) e su un monitor non abbastanza alto la parte in basso non si raggiungeva. Ora: video a
+        # sinistra, comandi a destra in una colonna che scorre; la finestra si ridimensiona, si può ingrandire a
+        # tutto schermo, non nasce mai più grande dello schermo e ricorda la sua misura.
+        self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
+        self.setSizeGripEnabled(True)
+        self.setMinimumSize(self.MIN_W, self.MIN_H)
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(10)
+        left = QWidget()
+        lay = QVBoxLayout(left)
+        lay.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(left, 1)
+        self.side = QScrollArea()
+        self.side.setWidgetResizable(True)
+        self.side.setFrameShape(QScrollArea.NoFrame)
+        self.side.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.side.setFixedWidth(self.SIDE_W)
+        side_host = QWidget()
+        side = QVBoxLayout(side_host)
+        side.setContentsMargins(0, 0, 6, 0)
+        side.setSpacing(8)
+        self.side.setWidget(side_host)
+        outer.addWidget(self.side, 0)
         self.view = HeadView()
         self.view.clicked.connect(self._clicked)
         qs = getattr(card_.win, "qs", None)
@@ -1313,7 +1336,9 @@ class HeadCameraWindow(QDialog):
 
         # comandi della testa
         mc, ml = card(tr("Laser e camera"))
+        ml.setSpacing(6)
         g = QGridLayout()
+        g.setSpacing(6)
         self.b_laser = QPushButton(tr("Laser sul centro camera"))
         self.b_laser.setToolTip(tr("Il laser va dove ora c'è il mirino della camera"))
         self.b_laser.clicked.connect(card_.laser_to_camera)
@@ -1328,16 +1353,18 @@ class HeadCameraWindow(QDialog):
         self.chk_design.setChecked(True)
         g.addWidget(self.b_laser, 0, 0)
         g.addWidget(self.b_cam, 0, 1)
-        g.addWidget(self.b_origin, 0, 2)
-        g.addWidget(self.chk_design, 1, 0, 1, 3)
+        g.addWidget(self.b_origin, 1, 0, 1, 2)
+        g.addWidget(self.chk_design, 2, 0, 1, 2)
         ml.addLayout(g)
         ml.addWidget(muted(tr("Un clic sul video porta lì il centro della camera. Sul piano il quadratino verde acqua "
                               "è il punto sotto il mirino.")))
-        lay.addWidget(mc)
+        side.addWidget(mc)
 
         # calibrazione
         kc, kl = card(tr("Calibrazione"))
+        kl.setSpacing(6)
         row = QHBoxLayout()
+        row.setSpacing(6)
         self.b_cal = QPushButton(tr("◎  Calibrazione completa…"))
         self.b_cal.setObjectName("primary")
         self.b_cal.setToolTip(tr("Una volta per tutte: incide una griglia di puntini su un cartone di circa 15 × 10 cm "
@@ -1355,9 +1382,9 @@ class HeadCameraWindow(QDialog):
         self.b_stop.setObjectName("danger")
         self.b_stop.clicked.connect(card_.cancel)
         self.b_stop.hide()
-        row.addWidget(self.b_cal, 1)
-        row.addWidget(self.b_check)
-        row.addWidget(self.b_check_dot)
+        kl.addWidget(self.b_cal)
+        row.addWidget(self.b_check, 1)
+        row.addWidget(self.b_check_dot, 1)
         row.addWidget(self.b_stop)
         kl.addLayout(row)
         # 0.20.2: spessore del materiale, solo per le camere che non salgono e scendono con il laser
@@ -1382,13 +1409,15 @@ class HeadCameraWindow(QDialog):
         kl.addWidget(self.bar)
         self.cal_text = muted("")
         kl.addWidget(self.cal_text)
-        lay.addWidget(kc)
+        side.addWidget(kc)
 
         # tavola (fase 2)
         tc, tl = card(tr("Tavola da due angoli"))
+        tl.setSpacing(6)
         tl.addWidget(muted(tr("Porta il mirino su un angolo della tavola (A), poi su un altro angolo dello stesso lato "
                               "(B): FreeLaserCut sa dov'è e quanto è storta, e ci appoggia il disegno.")))
         r2 = QHBoxLayout()
+        r2.setSpacing(6)
         self.b_a = QPushButton(tr("Angolo A qui"))
         self.b_a.clicked.connect(lambda: card_.take_corner(0, self.chk_auto.isChecked()))
         self.b_b = QPushButton(tr("Angolo B qui"))
@@ -1397,11 +1426,12 @@ class HeadCameraWindow(QDialog):
         self.chk_auto.setChecked(True)
         self.chk_auto.setToolTip(tr("FreeLaserCut cerca nell'immagine i due bordi della tavola e prende il punto in cui "
                                     "si incontrano; se non li trova usa il mirino"))
-        r2.addWidget(self.b_a)
-        r2.addWidget(self.b_b)
-        r2.addWidget(self.chk_auto, 1)
+        r2.addWidget(self.b_a, 1)
+        r2.addWidget(self.b_b, 1)
         tl.addLayout(r2)
+        tl.addWidget(self.chk_auto)
         r3 = QHBoxLayout()
+        r3.setSpacing(6)
         r3.addWidget(muted(tr("Margine")))
         self.margin = QDoubleSpinBox()
         self.margin.setRange(0.0, 200.0)
@@ -1413,16 +1443,19 @@ class HeadCameraWindow(QDialog):
         self.b_align.clicked.connect(lambda: card_.align_selection(self.margin.value()))
         self.b_clear = QPushButton(tr("Togli la tavola"))
         self.b_clear.clicked.connect(card_.clear_board)
-        r3.addWidget(self.b_align, 1)
+        r3.addStretch(1)
         r3.addWidget(self.b_clear)
         tl.addLayout(r3)
+        tl.addWidget(self.b_align)
         self.board_text = muted("")
         tl.addWidget(self.board_text)
-        lay.addWidget(tc)
+        side.addWidget(tc)
 
         # foto a mosaico (fase 3)
         pc, pl = card(tr("Foto del piano con la camera della testa"))
+        pl.setSpacing(6)
         r4 = QHBoxLayout()
+        r4.setSpacing(6)
         self.zone = QComboBox()
         self.zone.addItem(tr("Tutto il piano"), "bed")
         self.zone.addItem(tr("Attorno alla selezione"), "selection")
@@ -1436,20 +1469,77 @@ class HeadCameraWindow(QDialog):
         self.b_unmosaic = QPushButton(tr("Togli la foto dal piano"))
         self.b_unmosaic.setToolTip(tr("Toglie da sotto il piano la foto a mosaico (si può rifare quando vuoi)"))
         self.b_unmosaic.clicked.connect(card_.clear_mosaic)
-        r4.addWidget(self.b_unmosaic)
         pl.addLayout(r4)
+        pl.addWidget(self.b_unmosaic)
         self.b_align_bed = QPushButton(tr("Allinea la foto della camera del piano"))
         self.b_align_bed.setToolTip(tr("Con il materiale sul piano: la camera della testa guarda alcuni punti e corregge "
                                        "la foto della camera in alto (lente, spessore del materiale, coperchio "
                                        "spostato). Circa 30 secondi, laser spento."))
         self.b_align_bed.clicked.connect(card_.align_bed_photo)
         pl.addWidget(self.b_align_bed)
-        lay.addWidget(pc)
+        side.addWidget(pc)
+        side.addStretch(1)
+        self.cards = (mc, kc, tc, pc)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
         self.timer.start(120)
         self.update_state()
+        self._restore_size()
+
+    # ---- misura della finestra (0.20.5)
+    MIN_W, MIN_H = 760, 330  # sta in qualsiasi schermo; sotto queste misure i comandi non si leggono più
+    SIDE_W = 384  # colonna dei comandi
+    START_W, START_H = 1060, 640
+    GEOM_KEY = "head_window_size"
+
+    @staticmethod
+    def fit_size(want, avail, minimum=(760, 330), margin=(24, 64)):
+        """La misura della finestra dentro lo spazio libero dello schermo (bordi e barra del titolo compresi nel
+        margine), mai sotto il minimo. want, avail, minimum: (larghezza, altezza)."""
+        w = max(minimum[0], min(int(want[0]), int(avail[0]) - margin[0]))
+        h = max(minimum[1], min(int(want[1]), int(avail[1]) - margin[1]))
+        return w, h
+
+    def _avail(self):
+        scr = None
+        par = self.parentWidget()
+        if par is not None and par.windowHandle() is not None:
+            scr = par.windowHandle().screen()
+        scr = scr or self.screen() or QGuiApplication.primaryScreen()
+        return scr.availableGeometry() if scr is not None else None
+
+    def _restore_size(self):
+        want = (self.START_W, self.START_H)
+        qs = getattr(self.card.win, "qs", None)
+        if qs is not None:
+            try:
+                sw, sh = (int(x) for x in str(qs.value(self.GEOM_KEY, "")).split("x"))
+                want = (sw, sh)
+            except (TypeError, ValueError):
+                pass
+        av = self._avail()
+        size = self.fit_size(want, (av.width(), av.height()), (self.MIN_W, self.MIN_H)) if av is not None else want
+        self.resize(*size)
+
+    def _keep_on_screen(self):
+        """La finestra (barra del titolo compresa) dentro lo schermo: se sporge si rimpicciolisce e si sposta."""
+        av = self._avail()
+        if av is None or self.isMaximized() or self.isFullScreen():
+            return
+        w, h = self.fit_size((self.width(), self.height()), (av.width(), av.height()), (self.MIN_W, self.MIN_H))
+        if (w, h) != (self.width(), self.height()):
+            self.resize(w, h)
+        fr = self.frameGeometry()
+        x = min(max(fr.left(), av.left()), max(av.left(), av.right() - fr.width() + 1))
+        y = min(max(fr.top(), av.top()), max(av.top(), av.bottom() - fr.height() + 1))
+        if (x, y) != (fr.left(), fr.top()):
+            self.move(x, y)
+
+    def _save_size(self):
+        qs = getattr(self.card.win, "qs", None)
+        if qs is not None and not self.isMaximized() and not self.isFullScreen():
+            qs.setValue(self.GEOM_KEY, f"{self.width()}x{self.height()}")
 
     # ---- stato
     def update_state(self):
@@ -1581,8 +1671,10 @@ class HeadCameraWindow(QDialog):
 
     def closeEvent(self, e):
         self.timer.stop()
+        self._save_size()
         super().closeEvent(e)
 
     def showEvent(self, e):
         self.timer.start(120)
         super().showEvent(e)
+        QTimer.singleShot(0, self._keep_on_screen)

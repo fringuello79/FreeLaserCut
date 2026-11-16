@@ -392,6 +392,79 @@ def check_windows():
 
 
 # ============================================================================ come lo si dice
+# ============================================================================ Linux: una libreria di sistema che manca
+# 0.20.5 (rapporto del 14/11, openSUSE Leap 16): «ImportError: libgthread-2.0.so.0: cannot open shared object file».
+# L'AppImage porta con sé Qt e Python, ma alcune librerie di base le prende dal sistema; se una manca il programma non
+# parte e finora nel registro restava solo la traccia di Python. Ora si dice quale manca e come installarla.
+LIB_PACKAGES = {  # libreria: pacchetto per (openSUSE, Debian/Ubuntu/Mint, Fedora, Arch)
+    "libgthread-2.0.so.0": ("libgthread-2_0-0", "libglib2.0-0", "glib2", "glib2"),
+    "libglib-2.0.so.0": ("libglib-2_0-0", "libglib2.0-0", "glib2", "glib2"),
+    "libEGL.so.1": ("Mesa-libEGL1", "libegl1", "mesa-libEGL", "libglvnd"),
+    "libGL.so.1": ("Mesa-libGL1", "libgl1", "mesa-libGL", "libglvnd"),
+    "libfontconfig.so.1": ("libfontconfig1", "libfontconfig1", "fontconfig", "fontconfig"),
+    "libfreetype.so.6": ("libfreetype6", "libfreetype6", "freetype", "freetype2"),
+    "libdbus-1.so.3": ("libdbus-1-3", "libdbus-1-3", "dbus-libs", "dbus"),
+    "libxkbcommon.so.0": ("libxkbcommon0", "libxkbcommon0", "libxkbcommon", "libxkbcommon"),
+    "libX11.so.6": ("libX11-6", "libx11-6", "libX11", "libx11"),
+    "libX11-xcb.so.1": ("libX11-xcb1", "libx11-xcb1", "libX11-xcb", "libx11"),
+    "libxcb.so.1": ("libxcb1", "libxcb1", "libxcb", "libxcb"),
+    "libz.so.1": ("libz1", "zlib1g", "zlib", "zlib"),
+    "libzstd.so.1": ("libzstd1", "libzstd1", "libzstd", "zstd"),
+}
+_INSTALL = (("openSUSE", "sudo zypper install {0}"), ("Debian, Ubuntu, Mint", "sudo apt install {0}"),
+            ("Fedora", "sudo dnf install {0}"), ("Arch, Manjaro", "sudo pacman -S {0}"))
+_SEARCH = (("openSUSE", "zypper search --provides {0}"), ("Debian, Ubuntu, Mint", "apt-file search {0}"),
+           ("Fedora", "dnf provides '*/{0}'"), ("Arch, Manjaro", "pacman -F {0}"))
+
+
+def missing_library(exc):
+    """Il nome della libreria di sistema che manca, se l'errore è «… .so…: cannot open shared object file»
+    (anche «No such file or directory», e anche se è la causa di un altro errore). Altrimenti None."""
+    import re
+
+    seen = 0
+    while exc is not None and seen < 6:
+        m = re.search(r"([A-Za-z0-9_+.\-]+\.so(?:\.[0-9]+)*): cannot open shared object file", str(exc))
+        if m and isinstance(exc, (ImportError, OSError)):
+            return m.group(1)
+        exc = exc.__cause__ or exc.__context__
+        seen += 1
+    return None
+
+
+def missing_library_text(lib):
+    """Che cosa fare quando manca una libreria di sistema: quale e con che comando installarla. Testo fisso, in
+    inglese e in italiano (come tutti i messaggi della guardia)."""
+    pk = LIB_PACKAGES.get(lib)
+    if pk:
+        rows = [f"  {name}:  {cmd.format(p)}" for (name, cmd), p in zip(_INSTALL, pk)]
+        en = f"A system library is missing: {lib}\nInstall it, then start FreeLaserCut again:"
+        it = f"Manca una libreria di sistema: {lib}\nInstallala, poi riavvia FreeLaserCut:"
+    else:
+        rows = [f"  {name}:  {cmd.format(lib)}" for name, cmd in _SEARCH]
+        en = (f"A system library is missing: {lib}\nFind the package that contains it, install it, then start "
+              "FreeLaserCut again:")
+        it = (f"Manca una libreria di sistema: {lib}\nCerca il pacchetto che la contiene, installalo, poi riavvia "
+              "FreeLaserCut:")
+    cmds = "\n".join(rows)
+    return f"{en}\n{cmds}\n\n{it}\n{cmds}"
+
+
+def linux_dialog(text, title="FreeLaserCut", which=None):
+    """Il comando per una finestra di sistema su Linux senza Qt (kdialog, zenity o xmessage: il primo che c'è).
+    -> elenco di argomenti, o None se non ce n'è nessuno."""
+    import shutil
+
+    which = which or shutil.which
+    if which("kdialog"):
+        return ["kdialog", "--title", title, "--error", text]
+    if which("zenity"):
+        return ["zenity", "--error", "--no-markup", "--width=560", f"--title={title}", f"--text={text}"]
+    if which("xmessage"):
+        return ["xmessage", "-center", "-title", title, text]
+    return None
+
+
 def error_text(path, detail=""):
     """Il messaggio per chi non vede partire il programma. Testo fisso, in inglese e in italiano."""
     if path:
@@ -463,7 +536,23 @@ def show(text):
             sys.stderr.flush()
     except Exception:  # noqa: BLE001
         pass
-    if quiet() or sys.platform != "win32":
+    if quiet():
+        return False
+    if sys.platform != "win32":
+        # 0.20.5: su Linux chi apre l'AppImage con un doppio clic non vede l'uscita degli errori: se il sistema ha
+        # kdialog, zenity o xmessage il messaggio compare in una loro finestra (senza aspettarla: stiamo uscendo)
+        try:
+            cmd = linux_dialog(text) if sys.platform.startswith("linux") and (
+                os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")) else None
+            if cmd:
+                import subprocess
+
+                _hide_qt_windows()
+                subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,  # noqa: S603
+                                 stderr=subprocess.DEVNULL, start_new_session=True)
+                return True
+        except Exception:  # noqa: BLE001 — resta il file
+            pass
         return False
     try:
         _hide_qt_windows()
@@ -489,6 +578,15 @@ def _hook(exc_type, exc, tb):
     except Exception:  # noqa: BLE001
         pass
     detail = "" if path else f"{exc_type.__name__}: {exc}"[:300]
+    lib = None
+    try:  # 0.20.5: una libreria di sistema che manca (Linux): si dice quale e come installarla, anche nel registro
+        lib = missing_library(exc)
+        if lib:
+            hint = missing_library_text(lib)
+            _append(LOG, "\n" + hint + "\n")
+            detail = hint if not detail else detail + "\n\n" + hint
+    except Exception:  # noqa: BLE001 — il messaggio di sempre resta
+        pass
     show(error_text(path, detail))
 
 

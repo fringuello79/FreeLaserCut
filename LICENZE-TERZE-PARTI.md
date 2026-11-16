@@ -65,7 +65,8 @@ Gli stessi componenti dell'installatore per Windows, nelle versioni per Linux, c
 | OpenCV nella versione «headless» (opencv-python-headless: senza la sua copia di Qt) | Apache 2.0; componenti di terze parti tra cui FFmpeg (LGPL 2.1) | `opencv-Apache-2.0.txt`, `opencv-terze-parti.txt` |
 | xcb-util: libxcb-cursor, libxcb-icccm, libxcb-image, libxcb-keysyms, libxcb-render-util, libxcb-util (dai pacchetti di Ubuntu 22.04, perché molte distribuzioni non le installano e Qt 6 le chiede) | MIT/X11 | `xcb-util-MIT.txt` |
 | estensioni di libxcb: libxcb-randr, libxcb-render, libxcb-shape, libxcb-shm, libxcb-sync, libxcb-xfixes, libxcb-xkb (dai pacchetti di Ubuntu 22.04, dalla 0.18.1) | MIT/X11 | `libxcb-MIT.txt` |
-| libxkbcommon-x11 (dal pacchetto di Ubuntu 22.04) | MIT | `libxkbcommon-MIT.txt` |
+| libxkbcommon-x11 e, dalla 0.20.5, libxkbcommon (dai pacchetti di Ubuntu 22.04, sempre in coppia: stessa versione) | MIT | `libxkbcommon-MIT.txt` |
+| GLib: solo libgthread-2.0 (dal pacchetto libglib2.0-0 di Ubuntu 22.04, dalla 0.20.5: Qt la chiede e openSUSE non la installa di serie). Sorgente: <https://gitlab.gnome.org/GNOME/glib> (versione 2.72) | GNU LGPL 2.1 o successiva | `glib-LGPL-2.1.txt` |
 | runtime dell'AppImage (AppImage/type2-runtime) | MIT | — |
 
 Le librerie sono incluse senza modifiche, come file separati: si possono sostituire con quelle del sistema.
