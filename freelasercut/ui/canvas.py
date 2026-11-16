@@ -7,6 +7,7 @@ Sistemi di coordinate:
   - vista (pixel): per maniglie, righelli, aggancio e tutto ciò che ha misura fissa a schermo.
 """
 import math
+import time
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt, QTimer, Signal
@@ -29,6 +30,35 @@ TOOL_LAYER_COLOR = "#8A9BBE"
 # aspetto della selezione (pixel dello schermo): alone trasparente + linea piena
 SEL_HALO_W, SEL_HALO_ALPHA, SEL_LINE_W = 7.0, 85, 2.0
 SEL_HALO_MAX = 400  # oltre questo numero di forme selezionate solo la linea piena (il piano resta veloce)
+# 0.20.4, immagine pronta del piano. Se ridisegnare forme o selezione costa più di PLANE_SLOW_S secondi, mentre si
+# trascina, si sposta la vista o si usa la rotella si mostra l'immagine di prima (spostata o ingrandita) e quella
+# vera si rifà appena ci si ferma: PLANE_IDLE_MS dopo l'ultimo movimento, di più se il disegno è molto pesante.
+PLANE_SLOW_S = 0.045
+PLANE_IDLE_MS = (130, 900)
+PLANE_BURST_S = 0.35  # per quanto tempo dopo un movimento vale ancora «sto trascinando»
+# Disegni con tantissimi punti (SVG complessi, foto vettorializzate): contorni larghi 1 pixel invece di 1,25 e zone
+# riempite senza smussatura dei bordi (che restano sotto il contorno). Per chi disegna il piano è circa dieci volte
+# meno lavoro e la differenza quasi non si vede. Stessa soglia degli altri piani in grigio (_paint_ghosts).
+MANY_POINTS = 20000
+
+
+class PlaneLayer:
+    """Un'immagine pronta di una parte del piano (forme, oppure contorno della selezione), grande come la vista."""
+
+    def __init__(self):
+        self.pix = None
+        self.rect = QRectF()  # la parte della vista che l'immagine riempie (fuori non c'è niente di buono)
+        self.key = None  # di che cosa è l'immagine (vista + contenuto)
+        self.bed_tf = None  # piano -> pixel della vista, al momento del disegno
+        self.cost = 0.0  # secondi dell'ultimo disegno vero
+        self.tfs = {}  # (selezione) trasformazione di ogni forma al momento del disegno
+        self.geom_ver = None  # (selezione) geom_ver del piano al momento del disegno
+        self.renders = 0  # quante volte è stata disegnata davvero (per le prove)
+
+    def drop(self):
+        self.key = self.bed_tf = None  # il foglio (pix) resta: si riusa al prossimo disegno
+        self.rect = QRectF()
+        self.tfs = {}
 
 
 def _default_family():
@@ -70,6 +100,11 @@ class ShapeItem(QGraphicsItem):
         self._path = None
         self._bounds = QRectF()
         self._leaves = None
+        self._rects = None
+        self.points = 0
+        # 0.20.4: Qt non chiama più paint() forma per forma: disegna tutto WorldItem (dall'immagine pronta del
+        # piano, oppure chiamando paint_shape). Con migliaia di forme anche solo il giro delle chiamate pesava
+        self.setFlag(QGraphicsItem.ItemHasNoContents, True)
         self.refresh()
 
     def refresh(self):
@@ -77,6 +112,9 @@ class ShapeItem(QGraphicsItem):
         self._path = self.fb_shape.path()
         self._bounds = self._path.boundingRect().adjusted(-1, -1, 1, 1)
         self._leaves = None  # i percorsi si ricalcolano al prossimo disegno
+        self._rects = None
+        self.points = self._path.elementCount()
+        self.canvas.content_ver += 1  # l'immagine pronta del piano non vale più
         self.update()
 
     def _leaf_paths(self):
@@ -85,6 +123,13 @@ class ShapeItem(QGraphicsItem):
         if self._leaves is None:
             self._leaves = [(leaf, tf, tf.map(leaf.local_path())) for leaf, tf in self.fb_shape.leaves()]
         return self._leaves
+
+    def _leaf_rects(self):
+        """Ingombro di ogni foglia nel piano (stesso ordine di _leaf_paths): serve a saltare quello che non c'entra
+        (fuori dalla vista, lontano dal mouse) senza guardare i percorsi."""
+        if self._rects is None:
+            self._rects = [m.controlPointRect() for _l, _t, m in self._leaf_paths()]
+        return self._rects
 
     def boundingRect(self):
         return self._bounds
@@ -96,11 +141,20 @@ class ShapeItem(QGraphicsItem):
         p.addRect(self._bounds)
         return p
 
-    def paint(self, painter, option, widget=None):
+    def paint(self, painter, option, widget=None):  # non chiamato da Qt (ItemHasNoContents): vedi WorldItem
+        self.paint_shape(painter, None, self.canvas.many_points())
+
+    def paint_shape(self, painter, visible=None, thin=False):
+        """Disegna la forma. visible: la zona del piano che si vede (le foglie tutte fuori si saltano);
+        thin: disegno con tantissimi punti, contorni di 1 pixel (vedi MANY_POINTS)."""
         cv = self.canvas
         doc = cv.editor.doc
-        for leaf, tf, mapped in self._leaf_paths():
+        width = 1.0 if thin else 1.25
+        rects = self._leaf_rects() if visible is not None else None
+        for i, (leaf, tf, mapped) in enumerate(self._leaf_paths()):
             if leaf.hidden:
+                continue
+            if rects is not None and not geom.rect_overlaps(rects[i], visible):
                 continue
             col = layer_color(leaf.layer)
             cs = doc.layers.get(leaf.layer)
@@ -126,7 +180,7 @@ class ShapeItem(QGraphicsItem):
                 painter.setPen(cpen(col, 1, Qt.DashLine, 200))
             else:
                 alpha = 255 if (cs is None or cs.output) else 110
-                painter.setPen(cpen(col, 1.25, Qt.SolidLine, alpha))
+                painter.setPen(cpen(col, width, Qt.SolidLine, alpha))
             painter.drawPath(path)
 
 
@@ -144,6 +198,7 @@ class FillItem(QGraphicsItem):
         self.regions = []
         self._key = None
         self.setZValue(-1)
+        self.setFlag(QGraphicsItem.ItemHasNoContents, True)  # la disegna WorldItem, come le forme
 
     def rebuild(self):
         self._key = None
@@ -173,15 +228,49 @@ class FillItem(QGraphicsItem):
     def boundingRect(self):
         return self.BIG
 
-    def paint(self, painter, option, widget=None):
+    def paint(self, painter, option, widget=None):  # non chiamato da Qt (ItemHasNoContents): vedi WorldItem
+        self.paint_fill(painter, None, self.canvas.many_points())
+
+    def paint_fill(self, painter, visible=None, rough=False):
         layers = self.canvas.editor.doc.layers
         painter.setPen(Qt.NoPen)
+        painter.save()
+        if rough:  # tantissimi punti: bordi della zona non smussati (stanno sotto il contorno)
+            painter.setRenderHint(QPainter.Antialiasing, False)
+        last = None
         for idx, path in self.ensure():
-            cs = layers.get(idx)
-            fc = QColor(layer_color(idx))
-            fc.setAlpha(70 if (cs is None or cs.output) else 30)
-            painter.setBrush(fc)
+            if visible is not None and not geom.rect_overlaps(path.controlPointRect(), visible):
+                continue
+            if idx != last:
+                cs = layers.get(idx)
+                fc = QColor(layer_color(idx))
+                fc.setAlpha(70 if (cs is None or cs.output) else 30)
+                painter.setBrush(fc)
+                last = idx
             painter.drawPath(path)
+        painter.restore()
+
+
+class WorldItem(QGraphicsItem):
+    """Il «mondo» ribaltato (Y in su) che contiene le forme. Dalla 0.20.4 le disegna lui: di norma copia
+    l'immagine pronta del piano (forme e zone riempite, vedi Canvas._plane_pixmap), così passare con il mouse,
+    cambiare selezione o disegnare gli aiuti di uno strumento non ridisegna le forme. Su altre superfici (immagine
+    dell'intera finestra) o con plane_cache spento le disegna una per una, come prima."""
+
+    def __init__(self, canvas):
+        super().__init__()
+        self.canvas = canvas
+
+    def boundingRect(self):
+        return FillItem.BIG
+
+    def paint(self, painter, option, widget=None):
+        cv = self.canvas
+        if widget is not cv.viewport() or not cv._plane_pass:
+            # un'altra superficie (la scena disegnata in un'immagine, la vista stampata) o immagini pronte spente
+            cv.paint_shapes(painter, None)
+            return
+        cv.blit_layer(painter, cv._plane, cv._plane_pixmap())
 
 
 class HeadItem(QGraphicsItem):
@@ -385,8 +474,27 @@ class Canvas(QGraphicsView):
         self.setFocusPolicy(Qt.StrongFocus)
         self.setAcceptDrops(True)
         self.scene().setSceneRect(QRectF(-5000, -5000, 10000, 10000))
-        self.world = QGraphicsPathItem()
-        self.world.setPen(Qt.NoPen)
+        # 0.20.4: immagine pronta del piano (forme e selezione), vedi _plane_pixmap. plane_cache = False (o la
+        # variabile FLC_NO_PLANE_CACHE) torna al disegno diretto di prima, forma per forma a ogni ridisegno
+        import os as _os
+
+        self.plane_cache = not _os.environ.get("FLC_NO_PLANE_CACHE")
+        self.content_ver = 0  # cresce a ogni modifica delle forme (ShapeItem.refresh, sync)
+        self.geom_ver = 0  # cresce quando può essere cambiata la sagoma delle forme (sync), non per i soli spostamenti
+        self._plane = PlaneLayer()
+        self._sel_layer = PlaneLayer()
+        self._plane_pass = False  # il ridisegno in corso usa le immagini pronte
+        # immagini provvisorie durante i movimenti (vedi PLANE_SLOW_S). Senza schermo (prove automatiche, che
+        # fotografano la vista subito dopo ogni azione) restano spente: lì il piano è sempre quello vero
+        from PySide6.QtGui import QGuiApplication
+
+        self.plane_preview = (QGuiApplication.platformName() != "offscreen"
+                              and not _os.environ.get("FLC_NO_PLANE_PREVIEW"))
+        self._burst = 0.0  # ultimo movimento di un trascinamento / spostamento della vista / rotella
+        self._plane_timer = QTimer(self)
+        self._plane_timer.setSingleShot(True)
+        self._plane_timer.timeout.connect(self._plane_idle)
+        self.world = WorldItem(self)
         self.world.setTransform(QTransform.fromScale(1, -1))
         self.scene().addItem(self.world)
         self.items_by_id = {}
@@ -514,6 +622,8 @@ class Canvas(QGraphicsView):
         for sid in list(self.items_by_id):
             if sid not in alive:
                 self.scene().removeItem(self.items_by_id.pop(sid))
+        self.content_ver += 1
+        self.geom_ver += 1
         self._rebuild_fill()
         self._snap_cache = None
         self.viewport().update()
@@ -526,7 +636,8 @@ class Canvas(QGraphicsView):
         it.rebuild()
 
     def refresh_live(self, shapes):
-        """Aggiornamento veloce durante i trascinamenti."""
+        """Aggiornamento veloce durante i trascinamenti: le forme date sono state solo spostate, ruotate o scalate
+        (è cambiata la loro trasformazione, non la sagoma). Se cambia la sagoma si passa da sync (editor.live)."""
         for s in shapes:
             it = self.items_by_id.get(s.id)
             if it is not None:
@@ -639,6 +750,7 @@ class Canvas(QGraphicsView):
         self.viewport().update()
 
     def resizeEvent(self, e):
+        self.touch_burst()
         super().resizeEvent(e)
         if not self._user_zoomed:
             self.fit_bed()
@@ -766,12 +878,29 @@ class Canvas(QGraphicsView):
             cs = doc.layers.get(s.layer)
             if cs is not None and not cs.show and not isinstance(s, GroupShape):
                 continue
-            b = s.bounds().adjusted(-tol, -tol, tol, tol)
+            it = self.items_by_id.get(s.id)
+            known = it is not None and it.fb_shape is s and it._path is s.path()  # ingombro e foglie già pronti
+            b = (it._bounds.adjusted(1, 1, -1, -1) if known else s.bounds()).adjusted(-tol, -tol, tol, tol)
             if not b.contains(bed_pt):
                 continue
             path = s.path()
             if isinstance(s, ImageShape):
                 return s
+            if known and isinstance(s, GroupShape):
+                # 0.20.4: di un gruppo si guardano solo le foglie vicine al punto (stesso risultato: le altre non
+                # contengono il punto e il loro contorno è lontano). Un gruppo di migliaia di tracciati non si
+                # ripassa più tutto a ogni movimento del mouse
+                x, y = bed_pt.x(), bed_pt.y()
+                near = QPainterPath()
+                near.setFillRule(path.fillRule())
+                reach = tol * 1.5  # le punte squadrate del contorno ingrossato arrivano a tol·√2 dagli estremi
+                for (_l, _t, m), r in zip(it._leaf_paths(), it._leaf_rects()):
+                    if r.left() - reach <= x <= r.right() + reach and r.top() - reach <= y <= r.bottom() + reach:
+                        near.addPath(m)
+                near.setFillRule(path.fillRule())
+                if near.isEmpty():
+                    continue
+                path = near
             filled = self.filled_view and cs is not None and cs.mode in ("fill", "offset_fill")
             if (filled or isinstance(s, TextShape)) and path.contains(bed_pt):
                 return s
@@ -797,6 +926,7 @@ class Canvas(QGraphicsView):
 
     # ================================================================ eventi
     def wheelEvent(self, e):
+        self.touch_burst()
         steps = e.angleDelta().y() / 120.0
         if e.modifiers() & Qt.ShiftModifier:
             self.translate_view(e.angleDelta().y() / 2, 0)
@@ -823,6 +953,8 @@ class Canvas(QGraphicsView):
         self.cursor_bed = bed
         self.cursor_moved.emit(bed.x(), bed.y())
         self._update_marker_hint(e.position() if e.buttons() == Qt.NoButton and self._pan is None else None)
+        if self._pan is not None or e.buttons() != Qt.NoButton:
+            self.touch_burst()
         if self._pan is not None:
             d = e.position() - self._pan
             self._pan = e.position()
@@ -845,6 +977,7 @@ class Canvas(QGraphicsView):
         vp.update(0, 0, RULER + 1, vp.height())
 
     def mouseReleaseEvent(self, e):
+        self.end_burst()  # ci si è fermati: il piano torna subito quello vero
         if self._pan is not None and e.button() in (Qt.MiddleButton, Qt.LeftButton):
             self._pan = None
             self.viewport().setCursor(Qt.OpenHandCursor if self._space else self.tool.cursor())
@@ -884,6 +1017,8 @@ class Canvas(QGraphicsView):
             return
         if e.key() == Qt.Key_Escape:
             self.unlock_tool()  # Esc toglie sempre il blocco; poi lo strumento fa quello che faceva (torna a Selezione)
+        if e.isAutoRepeat():
+            self.touch_burst()  # freccia tenuta premuta: come un trascinamento
         if self.tool.key(e):
             self.viewport().update()
             return
@@ -923,8 +1058,295 @@ class Canvas(QGraphicsView):
         t = self.viewportTransform()
         return (t.m11(), t.m12(), t.m21(), t.m22(), t.dx(), t.dy(), vp.width(), vp.height(), vp.devicePixelRatioF())
 
+    # ================================================================ disegno: immagine pronta del piano (0.20.4)
+    def _plane_ok(self, p):
+        """Questo ridisegno può usare le immagini pronte? Sì sulla vista (anche quando Qt la fotografa: grab);
+        no su altre superfici, dove le forme si disegnano una per una."""
+        return self.plane_cache and p.device() is self.viewport()
+
+    def touch_burst(self):
+        """Un movimento di un'azione continua (trascinamento, spostamento della vista, rotella, finestra che cambia
+        misura): per un attimo il piano può mostrare l'immagine di prima, se quella vera costa troppo."""
+        self._burst = time.monotonic()
+
+    def end_burst(self):
+        self._burst = 0.0
+        if self._plane_timer.isActive():
+            self._plane_timer.stop()
+            self.viewport().update()
+
+    def _plane_idle(self):
+        self._burst = 0.0
+        self.viewport().update()
+
+    def flush_plane(self):
+        """Disegna subito le immagini vere (per chi vuole il piano aggiornato adesso, senza aspettare)."""
+        self._burst = 0.0
+        self._plane_timer.stop()
+        self.viewport().repaint()
+
+    def _layers_look(self):
+        """Tutto ciò che, nei livelli e nelle opzioni di vista, cambia l'aspetto delle forme senza passare da sync."""
+        doc = self.editor.doc
+        return (self.filled_view, self.dither_preview, id(doc), doc.current, len(doc.images),
+                tuple(sorted((k, c.mode, c.show, c.output, c.fill_grouping, c.negative, c.dither, c.dpi,
+                              c.halftone_cell, c.halftone_angle, c.halftone_size) for k, c in doc.layers.items())))
+
+    def _stale_ok(self, layer):
+        return (self.plane_preview and layer.key is not None and layer.cost > PLANE_SLOW_S
+                and time.monotonic() - self._burst < PLANE_BURST_S)
+
+    def _wait_idle(self, layer):
+        lo, hi = PLANE_IDLE_MS
+        ms = int(max(lo, min(hi, layer.cost * 2000)))
+        if not self._plane_timer.isActive() or self._plane_timer.interval() < ms:
+            self._plane_timer.setInterval(ms)
+        self._plane_timer.start()
+
+    def _layer_rect(self, bed_rect, margin_px):
+        """La parte della vista (pixel interi) che contiene bed_rect più un margine; vuota se non si vede niente."""
+        vp = self.viewport()
+        if bed_rect is None:
+            return QRectF()
+        r = self.bed_to_view_tf().mapRect(bed_rect).adjusted(-margin_px, -margin_px, margin_px, margin_px)
+        x0, y0 = max(0, math.floor(r.left())), max(0, math.floor(r.top()))
+        x1, y1 = min(vp.width(), math.ceil(r.right())), min(vp.height(), math.ceil(r.bottom()))
+        if x1 <= x0 or y1 <= y0:
+            return QRectF()
+        return QRectF(x0, y0, x1 - x0, y1 - y0)
+
+    def _layer_pixmap(self, old=None):
+        """Un foglio trasparente grande come la vista. Se old ha già le misure giuste si riusa così com'è (con
+        quello che c'era sopra): si usa solo dentro il rettangolo che si prepara con _layer_clear."""
+        vp = self.viewport()
+        dpr = vp.devicePixelRatioF()
+        w, h = max(1, round(vp.width() * dpr)), max(1, round(vp.height() * dpr))
+        if old is not None and (old.width(), old.height()) == (w, h) and old.devicePixelRatioF() == dpr:
+            return old
+        pix = QPixmap(w, h)
+        pix.setDevicePixelRatio(dpr)
+        pix.fill(Qt.transparent)  # serve anche a dare al foglio la trasparenza (senza, il fondo sarebbe nero)
+        return pix
+
+    @staticmethod
+    def _layer_clear(q, rect):
+        """Rende trasparente rect (un po' abbondante) e limita lì il disegno."""
+        q.setCompositionMode(QPainter.CompositionMode_Source)
+        q.fillRect(rect.adjusted(-2, -2, 2, 2), Qt.transparent)
+        q.setCompositionMode(QPainter.CompositionMode_SourceOver)
+        q.setClipRect(rect)
+
+    def blit_layer(self, p, layer, tf):
+        """Copia sul pittore p (della vista) l'immagine pronta di layer: così com'è (tf None) oppure, se è quella
+        provvisoria, portata nella vista di adesso con tf."""
+        if layer.pix is None or layer.rect.isEmpty():
+            return
+        p.save()
+        p.setTransform(tf if tf is not None else QTransform())
+        if tf is not None:
+            p.setRenderHint(QPainter.SmoothPixmapTransform, False)  # immagine provvisoria: conta la velocità
+        p.setClipRect(layer.rect, Qt.IntersectClip)
+        p.drawPixmap(0, 0, layer.pix)
+        p.restore()
+
+    def _visible_bed(self, margin_px=8):
+        vp = self.viewport()
+        r = self.mapToScene(vp.rect().adjusted(-margin_px, -margin_px, margin_px, margin_px)).boundingRect()
+        return QRectF(r.left(), -r.bottom(), r.width(), r.height())
+
+    def content_bounds(self):
+        """Ingombro di tutte le forme del piano (ricordato finché non cambiano); None se non ce ne sono."""
+        ver, b = getattr(self, "_cbounds", (None, None))
+        if ver != self.content_ver:
+            rects = [it._bounds for it in self.items_by_id.values() if it.isVisible()]
+            b = geom.rect_union(rects) if rects else None
+            self._cbounds = (self.content_ver, b)
+        return b
+
+    def paint_shapes(self, q, vis=None):
+        """Zone riempite e forme, nell'ordine del documento, sul pittore q già messo nel sistema del piano.
+        vis: la zona del piano che si vede (quello che è tutto fuori si salta); None = tutto."""
+        many = self.many_points()
+        self.fill_item.paint_fill(q, vis, many)
+        for s in self.editor.doc.shapes:
+            it = self.items_by_id.get(s.id)
+            if it is not None and it.isVisible() and (vis is None or geom.rect_overlaps(it._bounds, vis)):
+                it.paint_shape(q, vis, many)
+
+    def _plane_pixmap(self):
+        """Prepara l'immagine pronta delle forme e delle zone riempite (self._plane). -> la trasformazione con cui
+        disegnarla, oppure None se è quella vera, da copiare così com'è (blit_layer).
+        Si rifà solo quando cambiano le forme, i livelli o la vista: passare con il mouse, cambiare selezione,
+        disegnare gli aiuti di uno strumento non la toccano. Se rifarla costa troppo e si sta trascinando o muovendo
+        la vista, si usa quella di prima portata nella vista di adesso, e quella vera arriva appena ci si ferma."""
+        L = self._plane
+        bed_tf = self.bed_to_view_tf()
+        key = (self._view_key(), self.content_ver, self._layers_look())
+        if L.key == key:
+            return None
+        if self._stale_ok(L):
+            self._wait_idle(L)
+            return L.bed_tf.inverted()[0] * bed_tf
+        t0 = time.perf_counter()
+        rect = self._layer_rect(self.content_bounds(), 6)
+        if not rect.isEmpty():
+            L.pix = self._layer_pixmap(L.pix)
+            q = QPainter(L.pix)
+            self._layer_clear(q, rect)
+            q.setRenderHints(self.renderHints())
+            q.setTransform(bed_tf)
+            self.paint_shapes(q, self._visible_bed())
+            q.end()
+        L.rect, L.key, L.bed_tf = rect, key, bed_tf
+        L.cost = time.perf_counter() - t0
+        L.renders += 1
+        return None
+
+    def many_points(self):
+        """Il disegno ha tantissimi punti (vedi MANY_POINTS)? Contati una volta per modifica."""
+        ver, many = getattr(self, "_many", (None, False))
+        if ver != self.content_ver:
+            n = 0
+            for it in self.items_by_id.values():
+                n += it.points
+                if n > MANY_POINTS:
+                    break
+            many = n > MANY_POINTS
+            self._many = (self.content_ver, many)
+        return many
+
+    def selection_bounds(self):
+        """Ingombro della selezione, ricordato finché non cambiano le forme o la selezione (le maniglie lo chiedono
+        a ogni ridisegno: con migliaia di forme ricalcolarlo ogni volta si sentiva)."""
+        ed = self.editor
+        key = (self.content_ver, tuple(s.id for s in ed.selection))
+        ck, b = getattr(self, "_selb", (None, None))
+        if ck != key:
+            b = ed.selection_bounds()
+            self._selb = (key, b)
+        return QRectF(b)
+
+    def _selection_look(self):
+        return (C["accent"], C["accent_hi"], SEL_HALO_W, SEL_HALO_ALPHA, SEL_LINE_W)
+
+    def _selection_tf(self, L, sel):
+        """Di quanto si sono mosse, tutte insieme, le forme selezionate da quando il contorno è stato disegnato:
+        la trasformazione nel piano, oppure None se non è la stessa per tutte (o la selezione è un'altra)."""
+        if len(sel) != len(L.tfs):
+            return None
+        first = None
+        for s in sel:
+            t0 = L.tfs.get(s.id)
+            if t0 is None:
+                return None
+            inv, ok = t0.inverted()
+            if not ok:
+                return None
+            r = inv * s.tf
+            if first is None:
+                first = r
+                scale = max(abs(r.m11()), abs(r.m12()), abs(r.m21()), abs(r.m22()), 1e-9)
+            elif (max(abs(r.m11() - first.m11()), abs(r.m12() - first.m12()), abs(r.m21() - first.m21()),
+                      abs(r.m22() - first.m22())) > 1e-7 * scale
+                  or max(abs(r.dx() - first.dx()), abs(r.dy() - first.dy())) > 1e-6):
+                return None
+        return first
+
+    def _selection_paths(self, sel, vis):
+        """I contorni da evidenziare, foglia per foglia (un gruppo intero in un percorso solo è molto più lento da
+        disegnare), solo quelli che si vedono. -> lista di percorsi nel piano."""
+        out = []
+        for s in sel:
+            it = self.items_by_id.get(s.id)
+            if it is None or it.fb_shape is not s or it._path is None:
+                out.append(s.path())
+                continue
+            if not geom.rect_overlaps(it._bounds, vis):
+                continue
+            leaves = it._leaf_paths()
+            if len(leaves) == 1:
+                out.append(it._path)
+                continue
+            rects = it._leaf_rects()
+            out += [m for (_l, _t, m), r in zip(leaves, rects) if geom.rect_overlaps(r, vis)]
+        return out
+
+    def _selection_pixmap(self):
+        """Prepara l'immagine pronta del contorno della selezione (self._sel_layer: alone + linea piena).
+        -> trasformazione come _plane_pixmap. Senza selezione l'immagine è vuota."""
+        L = self._sel_layer
+        sel = self.editor.selection
+        if not sel:
+            L.drop()
+            return None
+        bed_tf = self.bed_to_view_tf()
+        ids = tuple(s.id for s in sel)
+        key = (self._view_key(), self.content_ver, ids, self._selection_look())
+        if L.key == key:
+            return None
+        if (self._stale_ok(L) and L.key is not None and L.key[2] == ids
+                and L.key[3] == key[3] and L.geom_ver == self.geom_ver):
+            moved = self._selection_tf(L, sel)
+            if moved is not None:
+                self._wait_idle(L)
+                return L.bed_tf.inverted()[0] * moved * bed_tf
+        t0 = time.perf_counter()
+        rect = self._layer_rect(self.selection_bounds(), SEL_HALO_W + 4)
+        if not rect.isEmpty():
+            paths = self._selection_paths(sel, self._visible_bed(SEL_HALO_W + 4))
+            pix = L.pix = self._layer_pixmap(L.pix)
+            points = sum(self.items_by_id[s.id].points for s in sel if s.id in self.items_by_id)
+            q = QPainter(pix)
+            self._layer_clear(q, rect)
+            q.setBrush(Qt.NoBrush)
+            if points > MANY_POINTS:
+                # tantissimi punti selezionati: niente alone, e la linea di 2 pixel fatta con quattro passate di
+                # 1 pixel spostate di mezzo pixel (le linee fino a 1 pixel si disegnano molto più in fretta)
+                q.setRenderHint(QPainter.Antialiasing)
+                q.setPen(cpen(C["accent_hi"], 1.0, Qt.SolidLine))
+                h = 0.5 / pix.devicePixelRatioF()  # mezzo pixel dello schermo (le penne «cosmetiche» contano quelli)
+                for dx, dy in ((-h, -h), (h, -h), (-h, h), (h, h)):
+                    q.setTransform(bed_tf * QTransform.fromTranslate(dx, dy))
+                    for path in paths:
+                        q.drawPath(path)
+            else:
+                if len(sel) <= SEL_HALO_MAX and len(paths) == 1:
+                    q.setRenderHint(QPainter.Antialiasing)
+                    q.setTransform(bed_tf)
+                    q.setPen(cpen(C["accent"], SEL_HALO_W, Qt.SolidLine, SEL_HALO_ALPHA))
+                    q.drawPath(paths[0])
+                elif len(sel) <= SEL_HALO_MAX:
+                    # più contorni: l'alone si disegna pieno su un foglio a parte e si posa trasparente, così dove
+                    # due contorni si accavallano non diventa più scuro (come quando il gruppo era un percorso solo)
+                    halo = self._halo_pix = self._layer_pixmap(getattr(self, "_halo_pix", None))
+                    hq = QPainter(halo)
+                    self._layer_clear(hq, rect)
+                    hq.setRenderHint(QPainter.Antialiasing)
+                    hq.setTransform(bed_tf)
+                    hq.setBrush(Qt.NoBrush)
+                    hq.setPen(cpen(C["accent"], SEL_HALO_W, Qt.SolidLine))
+                    for path in paths:
+                        hq.drawPath(path)
+                    hq.end()
+                    q.setOpacity(SEL_HALO_ALPHA / 255.0)
+                    q.drawPixmap(0, 0, halo)
+                    q.setOpacity(1.0)
+                q.setRenderHint(QPainter.Antialiasing)
+                q.setTransform(bed_tf)
+                q.setPen(cpen(C["accent_hi"], SEL_LINE_W, Qt.SolidLine))
+                for path in paths:
+                    q.drawPath(path)
+            q.end()
+        L.rect, L.key, L.bed_tf = rect, key, bed_tf
+        L.tfs = {s.id: QTransform(s.tf) for s in sel}
+        L.geom_ver = self.geom_ver
+        L.cost = time.perf_counter() - t0
+        L.renders += 1
+        return None
+
     def drawBackground(self, p, rect):
         vp = self.viewport()
+        self._plane_pass = self._plane_ok(p)
         if p.device() is not vp:  # disegno su un'altra superficie (stampa, immagine): niente cache
             self._paint_background(p, rect)  # niente altri piani in grigio nelle immagini e nelle stampe
             return
@@ -1046,7 +1468,12 @@ class Canvas(QGraphicsView):
         ed = self.editor
         # contorno selezione (0.20.0, da un rapporto del 14/11: «il tratteggio si vede male»): alone largo e
         # trasparente del colore d'accento sotto una linea piena, visibile anche sulle forme del livello blu
-        if ed.selection:
+        if ed.selection and self._plane_pass:
+            # 0.20.4: il contorno è un'immagine pronta, rifatta solo quando cambiano selezione, forme o vista
+            self.blit_layer(p, self._sel_layer, self._selection_pixmap())
+        elif not ed.selection:
+            self._sel_layer.drop()
+        else:
             p.setBrush(Qt.NoBrush)
             paths = []
             for s in ed.selection:

@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 185. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 188. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (12)
 
@@ -151,7 +151,7 @@ Suite: 185. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
-## Disegno e modifica (23)
+## Disegno e modifica (26)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -174,6 +174,9 @@ Suite: 185. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v196_tracciati.py` (Banco): Semplifica tracciati, mano libera e nodi nell'interfaccia Banco
 - `test_v200_selezione.py`: Selezione più visibile: linea piena con alone del colore d'accento
 - `test_v200_selezione.py` (Banco): Selezione più visibile nell'interfaccia Banco
+- `test_v204_piano_veloce.py`: Editor veloce con i disegni complessi: forme e selezione disegnate una volta sola e non a ogni movimento del mouse, clic sui gruppi, tracciati letti in blocco
+- `test_v204_piano_veloce.py` (Banco): Editor veloce con i disegni complessi nell'interfaccia Banco
+- `test_v204_piano_veloce.py` (scala125): Editor veloce con i disegni complessi su uno schermo al 125%
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 

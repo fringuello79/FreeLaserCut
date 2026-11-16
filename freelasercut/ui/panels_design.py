@@ -327,8 +327,8 @@ class NumericBar(QToolBar):
             self.fr.setValue(math.degrees(math.atan2(t.m12(), t.m11())))
         else:
             self.fr.setValue(0.0)
-        kinds = {s.describe() for s in sel}
-        self.info.setText(tr("{0} oggetti", len(sel)) if len(sel) > 1 else next(iter(kinds)))
+        # 0.20.4: la descrizione si calcola solo quando si mostra (con migliaia di tracciati selezionati costava)
+        self.info.setText(tr("{0} oggetti", len(sel)) if len(sel) > 1 else sel[0].describe())
 
     def _move(self, axis, v):
         b = self.ed.selection_bounds()

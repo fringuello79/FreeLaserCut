@@ -77,7 +77,19 @@ def regions(entries, layers):
 
 
 def _has_open(path):
-    """True se il percorso ha un sottopercorso aperto (linea, arco aperto)."""
+    """True se il percorso ha un sottopercorso aperto (linea, arco aperto).
+    0.20.4: si guardano il primo e l'ultimo punto di ogni sottopercorso (li dà Qt), non tutti gli elementi."""
+    for poly in path.toSubpathPolygons():
+        if poly.size() < 2:
+            continue
+        a, b = poly.first(), poly.last()
+        if abs(a.x() - b.x()) > 1e-6 or abs(a.y() - b.y()) > 1e-6:
+            return True
+    return False
+
+
+def _has_open_slow(path):
+    """Come _has_open, un elemento alla volta (com'era fino alla 0.20.3: resta per le prove di confronto)."""
     start = None
     last = None
     for i in range(path.elementCount()):

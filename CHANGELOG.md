@@ -1,5 +1,19 @@
 # Novità di FreeLaserCut
 
+## 0.20.4 — in sviluppo
+Il piano non «scatta» più con i disegni complessi.
+
+**Disegni complessi (SVG con migliaia di tracciati, foto vettorializzate): il programma resta fluido** (dai rapporti del 15/11: «scatta mentre lavoro», su un computer potente con uno schermo grande). A ogni movimento del mouse FreeLaserCut ridisegnava da capo tutte le forme, le zone riempite e il contorno della selezione; lo fa il processore, un pixel alla volta, e su uno schermo grande con un disegno ricco ogni movimento diventava uno scatto. Un computer potente non bastava.
+- **Le forme si disegnano una volta sola.** Forme, zone riempite e contorno della selezione ora stanno in un'immagine già pronta, che si rifà solo quando cambia davvero qualcosa (il disegno, i livelli, la selezione, lo zoom). Passare con il mouse, disegnare il rettangolo di selezione, usare uno strumento, la foto della telecamera che si aggiorna, la testa del laser che si muove durante un lavoro: niente di tutto questo ridisegna più le forme.
+- **Trascinare, spostare la vista e usare la rotella con un disegno pesante:** mentre ti muovi vedi subito il contorno della selezione che segue il mouse (o il disegno di prima spostato e ingrandito); il disegno preciso arriva appena ti fermi, e sempre al rilascio. Con i disegni normali non cambia niente: tutto si aggiorna a ogni movimento, come prima.
+- **Gruppi grandi selezionati:** il contorno di un gruppo si disegna forma per forma (in un colpo solo era molto più lento) e l'alone attorno alla selezione resta uniforme anche dove due contorni sono vicini.
+- **Disegni con più di 20.000 punti:** i contorni sono larghi 1 pixel invece di 1,25, le zone riempite hanno i bordi non smussati (stanno sotto il contorno) e la selezione è una linea piena senza alone. La differenza quasi non si vede, il lavoro per il computer è circa dieci volte meno.
+- **Passare con il mouse sopra un gruppo di migliaia di forme** non ripassa più tutto il gruppo a ogni movimento: si guardano solo le forme vicine al puntatore. Il clic prende le stesse forme di prima.
+- **Inizio e fine di un trascinamento più pronti** con tanti tracciati: la copia per *Annulla* legge i tracciati in blocco invece che un punto alla volta, e la barra delle misure non descrive più ogni forma selezionata quando deve solo scrivere quante sono.
+- Misurato su un disegno di prova di 1500 tracciati curvi in una finestra larga come quella dei rapporti (2752 × 1014 al 125%), stesso computer: passare con il mouse da circa 1,6 secondi a movimento a meno di 20 millesimi; con il gruppo selezionato da oltre 10 secondi a meno di 20 millesimi; trascinare il gruppo da oltre 10 secondi a meno di 60 millesimi a movimento; ridisegnare tutto da fermi da 10 secondi a circa 0,2.
+- **Da provare sul programma vero:** le prove automatiche girano senza schermo, dove il disegno provvisorio durante i movimenti è spento. Su uno schermo vero va guardato che trascinando un disegno pesante il contorno segua bene e che al rilascio tutto torni nitido. Se qualcosa non va, avviando FreeLaserCut con la variabile `FLC_NO_PLANE_CACHE=1` il piano torna a disegnarsi come nella 0.20.3 (e con `FLC_NO_PLANE_PREVIEW=1` resta veloce ma senza disegno provvisorio).
+- Nuova prova automatica `tests/test_v204_piano_veloce.py` (120 controlli; Classica, Banco e schermo al 125%): l'immagine pronta è confrontata pixel per pixel con il disegno di prima dopo ogni tipo di modifica.
+
 ## 0.20.3 — 15/11/2026
 Telecamera della testa e del piano che si scelgono sempre, calibrazione sempre rifacibile, schizzo del soggetto che parte da vuoto, foto ritagliate a forma (anche con una forma del disegno), anteprima del carattere sul testo vero, spaziatura delle lettere corretta.
 

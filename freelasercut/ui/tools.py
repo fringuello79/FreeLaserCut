@@ -115,7 +115,7 @@ class SelectTool(Tool):
 
     # ---- maniglie in coordinate vista
     def _handles(self, tf):
-        b = self.ed.selection_bounds()
+        b = self.cv.selection_bounds()
         if b.isNull() or (b.width() == 0 and b.height() == 0):
             return {}
         x0, x1 = b.left(), b.right()

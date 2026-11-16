@@ -22,6 +22,40 @@ from freelasercut.i18n import tr  # noqa: E402
 
 FORMAT_VERSION = 1
 
+
+def _path_elements_slow(path):
+    els = []
+    for i in range(path.elementCount()):
+        e = path.elementAt(i)
+        els.append([int(e.type.value) if hasattr(e.type, "value") else int(e.type), e.x, e.y])
+    return els
+
+
+def path_elements(path):
+    """[[tipo, x, y], …] di un QPainterPath (0 inizio, 1 linea, 2 curva, 3 dati della curva).
+    0.20.4: i tracciati lunghi si leggono in blocco (il percorso scritto da Qt in memoria: numero di elementi, poi
+    tipo e due coordinate per ciascuno) invece che un elemento alla volta: serve a ogni Annulla, a ogni
+    trascinamento e a ogni salvataggio, e con migliaia di punti era la parte più lenta. Se il blocco non ha la
+    forma attesa si torna alla lettura lenta, che dà lo stesso risultato."""
+    n = path.elementCount()
+    if n >= 32:
+        try:
+            import numpy as np
+            from PySide6.QtCore import QByteArray, QDataStream, QIODevice
+
+            ba = QByteArray()
+            ds = QDataStream(ba, QIODevice.OpenModeFlag.WriteOnly)
+            ds << path
+            raw = bytes(ba.data())
+            if len(raw) == 4 + 20 * n + 8 and int.from_bytes(raw[:4], "big") == n:
+                a = np.frombuffer(raw, dtype=np.dtype([("t", ">i4"), ("x", ">f8"), ("y", ">f8")]), count=n, offset=4)
+                t = a["t"]
+                if int(t.min()) >= 0 and int(t.max()) <= 3:
+                    return [list(z) for z in zip(t.tolist(), a["x"].tolist(), a["y"].tolist())]
+        except Exception:  # noqa: BLE001
+            pass
+    return _path_elements_slow(path)
+
 # 30 colori di livello: distinti fra loro, leggibili su fondo scuro e su foto
 LAYER_COLORS = [
     "#111111", "#2E7CF6", "#E5484D", "#30A46C", "#F5A524", "#8E6CF0", "#22B8CF", "#E54DB0",
@@ -375,11 +409,7 @@ class PathShape(Shape):
         self.invalidate()
 
     def params(self):
-        els = []
-        for i in range(self.qpath.elementCount()):
-            e = self.qpath.elementAt(i)
-            els.append([int(e.type.value) if hasattr(e.type, "value") else int(e.type), e.x, e.y])
-        return {"elements": els}
+        return {"elements": path_elements(self.qpath)}
 
     @staticmethod
     def path_from_elements(els):
