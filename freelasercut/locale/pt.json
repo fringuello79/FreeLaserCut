@@ -3491,5 +3491,8 @@
  "ora camera del piano": "agora câmera da mesa",
  "ora camera della testa": "agora câmera da cabeça",
  "◎  Calibra di nuovo automaticamente": "◎  Calibrar de novo automaticamente",
- "◎  Rifai la calibrazione completa…": "◎  Refazer a calibração completa…"
+ "◎  Rifai la calibrazione completa…": "◎  Refazer a calibração completa…",
+ "il nome della rete non è scritto proprio uguale (maiuscole, minuscole e spazi contano)": "o nome da rede não está escrito exatamente igual (maiúsculas, minúsculas e espaços contam)",
+ "Il laser non trova la rete «{0}»": "O laser não encontra a rede «{0}»",
+ "La scheda ha tenuto nome e password ed è rimasta impostata sulla rete di casa, ma al riavvio non ha trovato «{0}» e in un attimo ha riacceso la sua rete propria (192.168.4.1). Queste schede lo fanno senza dire niente quando la rete non si vede da dove sta il laser. Le cause più probabili, in ordine:": "A placa guardou o nome e a senha e continua configurada para a rede de casa, mas ao reiniciar não encontrou «{0}» e logo voltou a ligar a sua própria rede (192.168.4.1). Estas placas fazem isso sem dizer nada quando a rede não é visível de onde está o laser. As causas mais prováveis, por ordem:"
 }

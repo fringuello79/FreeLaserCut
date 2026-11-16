@@ -333,6 +333,11 @@ def env_text(win=None, code=""):
         pt = perf_text()
         if pt:
             lines.append(pt)
+        from . import perfstats  # 0.20.5: gli scatti brevi mentre si trascina (sotto gli 0,7 s non si contano sopra)
+
+        dt = perfstats.text()
+        if dt:
+            lines.append(dt)
         doc = getattr(getattr(win, "editor", None), "doc", None)
         if doc is not None and hasattr(doc, "shapes"):
             lines.append(f"Forme nel progetto: {len(doc.shapes)}")

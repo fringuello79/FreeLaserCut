@@ -31,30 +31,75 @@ def _path_elements_slow(path):
     return els
 
 
+def _path_raw(path):
+    """Il percorso scritto da Qt in memoria (numero di elementi, poi tipo e due coordinate per ciascuno, poi la regola
+    di riempimento) e i suoi elementi in blocco: (byte, matrice numpy con i campi t, x, y). None se il blocco non ha la
+    forma attesa (allora si legge un elemento alla volta)."""
+    n = path.elementCount()
+    try:
+        import numpy as np
+        from PySide6.QtCore import QByteArray, QDataStream, QIODevice
+
+        ba = QByteArray()
+        ds = QDataStream(ba, QIODevice.OpenModeFlag.WriteOnly)
+        ds << path
+        raw = bytes(ba.data())
+        if len(raw) == 4 + 20 * n + 8 and int.from_bytes(raw[:4], "big") == n:
+            a = np.frombuffer(raw, dtype=np.dtype([("t", ">i4"), ("x", ">f8"), ("y", ">f8")]), count=n, offset=4)
+            if n == 0 or (int(a["t"].min()) >= 0 and int(a["t"].max()) <= 3):
+                return raw, a
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+# 0.20.5: gli elementi dei tracciati già letti, per percorso (i byte scritti da Qt sono la chiave: un percorso uguale
+# dà gli stessi byte). Annulla prende un'istantanea di tutto il disegno all'inizio e alla fine di ogni trascinamento:
+# con centinaia di tracciati da migliaia di punti, rileggerli ogni volta fermava la finestra per mezzo secondo sui PC
+# lenti (rapporto FLC-20261116-0746-D046). Le liste restituite sono condivise fra le istantanee: nessuno le modifica.
+_ELEMENTS_CACHE = {}
+_ELEMENTS_CACHE_MAX = 3_000_000  # elementi in tutto, poi si ricomincia (la memoria resta limitata)
+_ELEMENTS_CACHE_N = [0]
+
+
 def path_elements(path):
     """[[tipo, x, y], …] di un QPainterPath (0 inizio, 1 linea, 2 curva, 3 dati della curva).
     0.20.4: i tracciati lunghi si leggono in blocco (il percorso scritto da Qt in memoria: numero di elementi, poi
     tipo e due coordinate per ciascuno) invece che un elemento alla volta: serve a ogni Annulla, a ogni
     trascinamento e a ogni salvataggio, e con migliaia di punti era la parte più lenta. Se il blocco non ha la
-    forma attesa si torna alla lettura lenta, che dà lo stesso risultato."""
+    forma attesa si torna alla lettura lenta, che dà lo stesso risultato.
+    0.20.5: un percorso già letto non si rilegge (vedi _ELEMENTS_CACHE)."""
     n = path.elementCount()
     if n >= 32:
-        try:
-            import numpy as np
-            from PySide6.QtCore import QByteArray, QDataStream, QIODevice
-
-            ba = QByteArray()
-            ds = QDataStream(ba, QIODevice.OpenModeFlag.WriteOnly)
-            ds << path
-            raw = bytes(ba.data())
-            if len(raw) == 4 + 20 * n + 8 and int.from_bytes(raw[:4], "big") == n:
-                a = np.frombuffer(raw, dtype=np.dtype([("t", ">i4"), ("x", ">f8"), ("y", ">f8")]), count=n, offset=4)
-                t = a["t"]
-                if int(t.min()) >= 0 and int(t.max()) <= 3:
-                    return [list(z) for z in zip(t.tolist(), a["x"].tolist(), a["y"].tolist())]
-        except Exception:  # noqa: BLE001
-            pass
+        got = _path_raw(path)
+        if got is not None:
+            raw, a = got
+            els = _ELEMENTS_CACHE.get(raw)
+            if els is None:
+                els = [list(z) for z in zip(a["t"].tolist(), a["x"].tolist(), a["y"].tolist())]
+                if _ELEMENTS_CACHE_N[0] + n > _ELEMENTS_CACHE_MAX:
+                    _ELEMENTS_CACHE.clear()
+                    _ELEMENTS_CACHE_N[0] = 0
+                _ELEMENTS_CACHE[raw] = els
+                _ELEMENTS_CACHE_N[0] += n
+            return list(els)
     return _path_elements_slow(path)
+
+
+def path_arrays(path):
+    """0.20.5: tipi e coordinate degli elementi di un QPainterPath come matrici numpy (t interi, x, y), lette in
+    blocco: per i conti su tutti i punti (misure, aggancio) senza passare dagli elementi uno a uno."""
+    import numpy as np
+
+    got = _path_raw(path) if path.elementCount() >= 8 else None
+    if got is not None:
+        a = got[1]
+        return a["t"].astype(np.int8), a["x"].astype(float), a["y"].astype(float)
+    els = _path_elements_slow(path)
+    if not els:
+        return np.zeros(0, np.int8), np.zeros(0), np.zeros(0)
+    arr = np.asarray(els, float)
+    return arr[:, 0].astype(np.int8), arr[:, 1].copy(), arr[:, 2].copy()
 
 # 30 colori di livello: distinti fra loro, leggibili su fondo scuro e su foto
 LAYER_COLORS = [

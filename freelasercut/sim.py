@@ -459,11 +459,14 @@ class SimSerial:
         partire subito il collegamento («Wifi Connecting...» → «Wifi Connected» oppure, dopo fail_s secondi, «Wifi
         Connection failed») e risponde ok solo alla fine; al riavvio con «$50=2» riprova da sola e, se fallisce, scrive
         «WiFi Off» e rimette «$50=0». Senza switch50 "lgt" resta la scheda finta di prima (messaggi delle MKS).
+        "mks" con silent=True (0.20.5): come le MKS DLC32 vere dei rapporti del 16/11/2026: al riavvio provano la rete di
+        casa senza scrivere niente; se non la trovano riaccendono subito la loro rete e «[ESP110]» resta STA.
+        Con keeps_mode=False la modalità torna AP a ogni riavvio (una scheda che non tiene la rete di casa).
         nets: {rete: password} che esistono «in casa»; join_ip: l'indirizzo che la scheda riceve."""
         w = dict(kind=kind, mode="OFF", ip="0.0.0.0", ssid="", password="", ap="MKS_DLC",
                  nets={"CasaMia": "passwordgiusta"}, join_ip="192.168.1.77", messages=True, restart=True, drop=False,
                  reject=(), boots=0, delay=0.25, log=[], switch=0, crash=False, telnet=8080, switch50=False, s50="0",
-                 fail_s=1.5)
+                 fail_s=1.5, silent=False, keeps_mode=True)
         if kind == "thmg":
             w.update(mode="AP", ip="192.168.4.1", ap="MECPOW_SIM")
         w.update(kw)
@@ -509,7 +512,24 @@ class SimSerial:
             return self._wifi_connect_thmg(w, say)
         if w["switch50"]:
             return self._wifi_boot_50(w, say)
-        if w["mode"] == "STA":
+        if w["silent"] and not w["keeps_mode"]:  # scheda che al riavvio torna sempre alla sua rete
+            w["mode"] = "AP"
+        if w["mode"] == "STA" and w["silent"]:
+            # 0.20.5: come le MKS DLC32 vere (firmware Makerbase, mks_StartSTA): prova senza dire niente; rete che non
+            # si trova = rete propria subito, password sbagliata = rete propria dopo un po'; la modalità resta STA
+            if w["ssid"] not in w["nets"]:
+                w["ip"] = "192.168.4.1"
+                say(f"[MSG:Local access point {w['ap']} started, 192.168.4.1]")
+            elif w["nets"][w["ssid"]] != w["password"]:
+                time.sleep(w["delay"] * 8)
+                w["ip"] = "192.168.4.1"
+                say(f"[MSG:Local access point {w['ap']} started, 192.168.4.1]")
+            else:
+                time.sleep(w["delay"])
+                w["ip"] = w["join_ip"]
+                say("[MSG:HTTP Started]")
+                say(f"[MSG:TELNET Started {w['telnet']}]")
+        elif w["mode"] == "STA":
             say(f"[MSG:Connecting {w['ssid']}]")
             time.sleep(w["delay"])
             if w["ssid"] in w["nets"] and w["nets"][w["ssid"]] == w["password"]:

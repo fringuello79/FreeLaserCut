@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 188. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 190. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (12)
+## Wi-Fi, rete e telefono (14)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -17,6 +17,8 @@ Suite: 188. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v191_wifi.py` (Banco): Wi-Fi sul vero nell'interfaccia Banco
 - `test_v192_wifi.py`: Wi-Fi delle Longer: interruttore «$50», messaggi e attesa della scheda vera
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
+- `test_v205_scatti_wifi.py`: PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»
+- `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
 
 ## Telecamera e guardia fiamme (12)
 

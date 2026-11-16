@@ -1,6 +1,21 @@
 # Novità di FreeLaserCut
 
-## 0.20.4 — in sviluppo
+## 0.20.5 — in sviluppo
+Niente più scatti quando si selezionano e si spostano tanti tracciati su un PC lento; il Wi-Fi delle schede Makerbase dice la cosa giusta quando il laser non trova la rete.
+
+**Selezionare e spostare con i progetti pesanti, anche su un PC di qualche anno fa** (dai rapporti del 16/11: «continua a scattare nello spostare oggetti», progetto importato da LightBurn con più di 400 tracciati, computer del 2012). La 0.20.4 aveva reso veloce il disegno del piano; restavano tre conti che fermavano la finestra:
+- **le misure della selezione** (perimetro, area e nodi, nel pannello Proprietà e nella barra dello strumento Misura) appiattivano le curve punto per punto: con tutti gli addobbi selezionati quasi un secondo. Ora si calcolano tutte insieme: su un disegno di prova come quello del rapporto (432 tracciati, 186.000 punti) da 0,8 secondi a 0,08. Il perimetro ora è la lunghezza vera delle curve (prima quella di una spezzata, un po' più corta: su curve piccole e mosse anche lo 0,4%); corretti due casi rari: un tratto che va e torna si conta due volte (il laser lo percorre due volte) e una curva sola che si chiude su sé stessa ha la sua lunghezza (prima 0);
+- **la copia per Annulla** all'inizio e alla fine di ogni trascinamento rileggeva tutti i tracciati del disegno: ora quelli che non sono cambiati non si rileggono (da 0,18 a 0,02 secondi);
+- **l'aggancio agli oggetti** raccoglieva i punti di tutte le forme al primo movimento di ogni trascinamento, un punto alla volta (0,3 secondi): ora in blocco, stessi punti. Se i punti da confrontare sono troppi (disegni molto fitti) si agganciano gli angoli, le mezzerie e il centro dell'oggetto, non ogni suo nodo.
+
+**Il rapporto per l'assistenza vede anche gli scatti brevi.** Finora contava solo le fermate della finestra oltre 0,7 secondi; gli scatti mentre si trascina sono tanti e corti, e non si vedevano. Ora dice quanti movimenti con il tasto del mouse premuto ci sono stati, quanti oltre un decimo di secondo, il più lento e quanto ci ha messo l'aggancio, e quanto costano i disegni del piano mentre ci si muove.
+
+**Wi-Fi delle schede Makerbase MKS DLC32 (anche dentro Acmer, Mecpow e altri): «Il laser non trova la rete».** Su queste schede, dopo aver scritto la rete, il riavvio prova la rete di casa senza scrivere niente e, se non la trova, riaccende subito la sua: FreeLaserCut diceva «La scheda non ha provato a collegarsi», che faceva cercare un problema che non c'era (due rapporti del 16/11). Ora, quando la rete propria riparte subito, FreeLaserCut chiede alla scheda in che modalità è rimasta: se è ancora sulla rete di casa vuol dire che ci ha provato e non l'ha trovata, e la pagina finale lo dice con le cause in ordine (rete a 5 GHz, nome scritto diverso, segnale debole, rete per gli ospiti). Se la scheda è tornata alla sua rete il messaggio resta quello di prima. Il Mecpow con l'interruttore «$wifi» e le Longer non cambiano.
+
+- Nuova prova automatica `tests/test_v205_scatti_wifi.py`: misure confrontate con il metodo di prima e con il valore vero, copie per Annulla, punti dell'aggancio uguali a prima, movimenti misurati, quattro comportamenti delle schede Makerbase (rete non trovata, modalità non tenuta, password sbagliata, riuscito senza messaggi).
+- **Da provare sul programma vero:** con il progetto pesante, selezionare tutto e trascinare su un PC lento; il Wi-Fi su una MKS DLC32 con una rete che il laser non vede (per esempio solo a 5 GHz).
+
+## 0.20.4 — 16/11/2026
 Il piano non «scatta» più con i disegni complessi.
 
 **Disegni complessi (SVG con migliaia di tracciati, foto vettorializzate): il programma resta fluido** (dai rapporti del 15/11: «scatta mentre lavoro», su un computer potente con uno schermo grande). A ogni movimento del mouse FreeLaserCut ridisegnava da capo tutte le forme, le zone riempite e il contorno della selezione; lo fa il processore, un pixel alla volta, e su uno schermo grande con un disegno ricco ogni movimento diventava uno scatto. Un computer potente non bastava.

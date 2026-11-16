@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.4** — il piano resta fluido anche con i disegni complessi (SVG con migliaia di tracciati su schermi grandi: le forme non si ridisegnano più a ogni movimento del mouse).
+**Versione 0.20.5** — niente più scatti selezionando e spostando tanti tracciati sui PC lenti; il Wi-Fi delle schede Makerbase dice quando il laser non trova la rete.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 

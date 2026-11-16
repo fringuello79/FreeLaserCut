@@ -531,6 +531,8 @@ if __name__ == "__main__":
     run_suite("test_v204_piano_veloce.py", "Editor veloce con i disegni complessi: forme e selezione disegnate una volta sola e non a ogni movimento del mouse, clic sui gruppi, tracciati letti in blocco")
     run_suite("test_v204_piano_veloce.py", "Editor veloce con i disegni complessi nell'interfaccia Banco", "banco")
     run_suite("test_v204_piano_veloce.py", "Editor veloce con i disegni complessi su uno schermo al 125%", "scala125")
+    run_suite("test_v205_scatti_wifi.py", "PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»")
+    run_suite("test_v205_scatti_wifi.py", "PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco", "banco")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")

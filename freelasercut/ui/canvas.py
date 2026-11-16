@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem, QGraphicsPixmapI
 
 from .. import gcode_preview
 from ..core import geom, imaging, photo_clip
+from .. import perfstats
 from ..core.document import LAYER_COLORS, GroupShape, ImageShape, TextShape
 from ..theme import C
 from . import style
@@ -796,41 +797,56 @@ class Canvas(QGraphicsView):
 
     # ================================================================ aggancio
     def _snap_points(self, exclude_ids):
+        """I punti a cui ci si aggancia (angoli, centri, mezzerie degli ingombri e nodi delle forme), tutti in una
+        matrice, ricordati finché non cambia il disegno o l'insieme delle forme escluse. -> (matrice N×2, tipi).
+        0.20.5: i nodi si leggono in blocco con numpy (path_arrays). Prima un elemento alla volta: il primo movimento
+        di ogni trascinamento, con centinaia di tracciati, fermava la finestra per quasi un secondo sui PC lenti
+        (rapporto FLC-20261116-0746-D046). Stessi punti, nello stesso ordine."""
         if self._snap_cache is not None and self._snap_cache[0] == exclude_ids:
             return self._snap_cache[1], self._snap_cache[2]
-        pts, kinds = [], []
+        from ..core.document import path_arrays
+
+        chunks, kinds = [], []
+        box_kinds = ["angolo"] * 4 + ["centro"] + ["metà"] * 4
         for s in self.editor.doc.shapes:
             if s.id in exclude_ids or s.hidden:
                 continue
             b = s.bounds()
-            for x, y, k in ((b.left(), b.top(), "angolo"), (b.right(), b.top(), "angolo"), (b.left(), b.bottom(), "angolo"),
-                            (b.right(), b.bottom(), "angolo"), (b.center().x(), b.center().y(), "centro"),
-                            (b.center().x(), b.top(), "metà"), (b.center().x(), b.bottom(), "metà"),
-                            (b.left(), b.center().y(), "metà"), (b.right(), b.center().y(), "metà")):
-                pts.append((x, y))
-                kinds.append(k)
+            cx, cy = b.center().x(), b.center().y()
+            chunks.append(np.array(((b.left(), b.top()), (b.right(), b.top()), (b.left(), b.bottom()),
+                                    (b.right(), b.bottom()), (cx, cy), (cx, b.top()), (cx, b.bottom()),
+                                    (b.left(), cy), (b.right(), cy)), float))
+            kinds += box_kinds
             if isinstance(s, ImageShape):
                 continue
             path = s.path()
             n = path.elementCount()
             if n > 4000:
                 continue
-            for i in range(n):
-                e = path.elementAt(i)
-                if e.type in (QPainterPath.ElementType.MoveToElement, QPainterPath.ElementType.LineToElement):
-                    pts.append((e.x, e.y))
-                    kinds.append("nodo")
-                elif e.type == QPainterPath.ElementType.CurveToElement and i + 2 < n:
-                    e3 = path.elementAt(i + 2)
-                    pts.append((e3.x, e3.y))
-                    kinds.append("nodo")
-        arr = np.array(pts, float) if pts else np.zeros((0, 2))
+            t, x, y = path_arrays(path)
+            # nodi: inizi e fine dei segmenti (elementi 0 e 1) e punto finale delle curve (due elementi dopo il 2)
+            idx = np.flatnonzero(t <= 1)
+            ci = np.flatnonzero(t == 2)
+            ci = ci[ci + 2 < n] + 2
+            if len(ci):
+                idx = np.sort(np.r_[idx, ci])
+            if len(idx):
+                chunks.append(np.stack([x[idx], y[idx]], 1))
+                kinds += ["nodo"] * len(idx)
+        arr = np.concatenate(chunks) if chunks else np.zeros((0, 2))
         self._snap_cache = (exclude_ids, arr, kinds)
         return arr, kinds
 
     def snap(self, bed_pt, exclude_ids=frozenset(), force_grid=False):
         """Aggancia a nodi/centri/angoli delle altre forme (entro 9 px) o alla griglia."""
         self.snap_hint = None
+        t0 = time.perf_counter()
+        try:
+            return self._snap(bed_pt, exclude_ids, force_grid)
+        finally:
+            self._snap_s = getattr(self, "_snap_s", 0.0) + time.perf_counter() - t0
+
+    def _snap(self, bed_pt, exclude_ids, force_grid):
         if self.snap_objects:
             arr, kinds = self._snap_points(frozenset(exclude_ids))
             if len(arr):
@@ -852,6 +868,13 @@ class Canvas(QGraphicsView):
         nodi della selezione (non il punto del mouse) a quelli delle altre forme; se nessun punto è a tiro, lato su
         lato con le forme vicine; poi la griglia. box = ingombro della selezione prima dello spostamento, nodes = i
         suoi nodi prima dello spostamento, (dx, dy) = spostamento chiesto dal mouse. -> (dx, dy) corretti."""
+        t0 = time.perf_counter()
+        try:
+            return self._snap_move(box, nodes, dx, dy, exclude_ids)
+        finally:
+            self._snap_s = getattr(self, "_snap_s", 0.0) + time.perf_counter() - t0
+
+    def _snap_move(self, box, nodes, dx, dy, exclude_ids):
         from ..core import snapping
 
         self.snap_hint = None
@@ -949,6 +972,27 @@ class Canvas(QGraphicsView):
         self.viewport().update()
 
     def mouseMoveEvent(self, e):
+        if e.buttons() == Qt.NoButton:
+            return self._mouse_move(e)
+        # 0.20.5: con un tasto premuto ogni movimento si misura (perfstats: nel rapporto per l'assistenza)
+        self._snap_s = 0.0
+        t0 = time.perf_counter()
+        try:
+            self._mouse_move(e)
+        finally:
+            perfstats.note_move(time.perf_counter() - t0, self._snap_s)
+
+    def paintEvent(self, e):
+        burst = getattr(self, "_burst", 0.0)
+        if not burst or time.monotonic() - burst >= PLANE_BURST_S:
+            return super().paintEvent(e)
+        t0 = time.perf_counter()  # 0.20.5: disegno durante un movimento (perfstats)
+        try:
+            return super().paintEvent(e)
+        finally:
+            perfstats.note_paint(time.perf_counter() - t0)
+
+    def _mouse_move(self, e):
         bed = self.to_bed(e.position())
         self.cursor_bed = bed
         self.cursor_moved.emit(bed.x(), bed.y())
