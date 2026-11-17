@@ -267,6 +267,55 @@ cp = Image.open(io.BytesIO(cf[cd["resourcePath"]])).convert("RGBA")
 check("foto ritagliata con una forma: fuori dalla sagoma bianco (non inciso), dentro la foto",
       cp.getpixel((200, 150))[:3] == (200, 200, 200) and cp.getpixel((5, 5))[:3] == (255, 255, 255))
 
+print("--- modi immagine e regolazioni della foto")
+check("retinature con lo stesso nome in xTool Studio: le fa lui (Jarvis, Stucki, Floyd, Atkinson, Bayer)",
+      [xs.BITMAP_MODES[k] for k in ("grayscale", "floyd", "jarvis", "stucki", "atkinson", "bayer")]
+      == ["grayscale", "Floyd", "Jarvis", "Stucki", "Atkinson", "Bayer"])
+
+
+def one_photo(dither, dpi=254, negative=False, brightness=0.0, clip=None, arr_=None):
+    dd = Document()
+    cs_ = dd.layer(4)
+    cs_.mode, cs_.dither, cs_.dpi, cs_.negative = "image", dither, dpi, negative
+    dd.images["g"] = Image.fromarray(arr_ if arr_ is not None else np.full((300, 400), 128, np.uint8))
+    im_ = put(dd, ImageShape("g", 60, 45, layer=4), 10, 10)
+    im_.brightness = brightness
+    if clip:
+        im_.clip = clip
+    ff, _r = xs.build(dd)
+    d_ = load(ff, "displays-0.json")["displays"][0]
+    dv_ = load(ff, "device-JS002-1.json")
+    ov = list(list(dv_["processing"].values())[0]["modes"]["LASER_PLANE"]["patches"].values())[0]["overrides"]
+    return d_, np.asarray(Image.open(io.BytesIO(ff[d_["resourcePath"]]))), ov
+
+
+dj, aj, oj = one_photo("jarvis")
+check("Jarvis: la foto resta a toni di grigio, il modo nel progetto è «Jarvis»", oj["bitmapMode"] == "Jarvis"
+      and aj.shape == (300, 400) and set(np.unique(aj)) == {128})
+dh, ah, oh = one_photo("halftone", dpi=254)
+check("mezzetinte (solo di FreeLaserCut): retinate qui, in bianco e nero, modo «passthrough»",
+      oh["bitmapMode"] == "passthrough" and set(np.unique(ah)) <= {0, 255} and 0.3 < (ah == 0).mean() < 0.7,
+      (oh["bitmapMode"], np.unique(ah)[:5], (ah == 0).mean()))
+check("…alla finezza del livello: 254 dpi = 0,1 mm per punto, 600 × 450 punti per 60 × 45 mm, stessa posizione",
+      ah.shape == (450, 600) and near(dh["transform"][0], 0.1, 1e-6) and near(dh["width"], 60) and near(dh["height"], 45)
+      and near(dh["x"], 10) and near(dh["y"], 320 - 10 - 45) and oh["dpiX"] == 254 and dh["originWidth"] == 600)
+dt, at, ot = one_photo("threshold", dpi=127, arr_=np.tile(np.array([[40, 220]], np.uint8), (300, 200)))
+check("soglia: nero dove la foto è scura, bianco dove è chiara, «passthrough»", ot["bitmapMode"] == "passthrough"
+      and set(np.unique(at)) == {0, 255} and at.shape == (225, 300))
+db, ab, ob = one_photo("grayscale", brightness=50)
+check("luminosità della foto applicata (in FreeLaserCut si applica quando incide): +50 schiarisce di un quarto",
+      abs(int(ab[10, 10]) - (128 + 64)) <= 2, ab[10, 10])
+dn, an, on = one_photo("grayscale", negative=True, clip=[[[[10, 10], [50, 10], [50, 35], [10, 35]]]])
+check("negativo con foto ritagliata: dentro invertita, fuori dalla sagoma bianco (non inciso)",
+      abs(int(an[150, 200]) - 127) <= 1 and an[5, 5] == 255, (an[150, 200], an[5, 5]))
+do_ = Document()
+do_.layer(3).mode = "offset_fill"
+put(do_, RectShape(10, 10, layer=3), 5, 5)
+oo = load(xs.build(do_)[0], "device-JS002-1.json")
+ov_o = list(list(oo["processing"].values())[0]["modes"]["LASER_PLANE"]["patches"].values())[0]["overrides"]
+check("riempimento a contorni: «offset» (quello a righe resta «regular»)", ov_o["fill_type"] == "offset"
+      and val[xs.FILL]["fill_type"] == "regular")
+
 print("--- che cosa resta fuori")
 d5 = Document()
 put(d5, RectShape(10, 10, layer=1), 5, 5)

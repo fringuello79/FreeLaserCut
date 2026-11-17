@@ -37,11 +37,18 @@ from .document import LAYER_COLORS, ImageShape
 DEVICE_CODE = "JS002"
 DEVICE_NAME = "M2"
 BED = (426.0, 320.0)  # mm, moduli da 10 e 20 W (FAQ ufficiale xTool M2)
-LASERS = (10, 20, 40)  # W; nei file visti c'è solo il 10 («laser_blue_10W»): 20 e 40 seguono lo stesso nome
+LASERS = (10, 20, 40)  # W: «laser_blue_10W», «laser_blue_20W», «laser_blue_40W» (nomi di xTool Studio per la M2)
 APP_VERSION = "1.10.15"  # versione di xTool Studio di cui riproduciamo il formato
 TOOL_LAYER = 30
 
 LINE, FILL, CUT, PHOTO = "VECTOR_ENGRAVING", "FILL_VECTOR_ENGRAVING", "VECTOR_CUTTING", "BITMAP_ENGRAVING"
+
+# Modi immagine di xTool Studio 1.10 (nomi come stanno nei progetti): scala di grigi, sei retinature sue e
+# «passthrough», che manda la foto punto per punto senza toccarla. Le retinature con lo stesso nome le fa xTool Studio;
+# quelle che ha solo FreeLaserCut (soglia, mezzetinte) le prepariamo noi e passano con «passthrough».
+BITMAP_MODES = {"grayscale": "grayscale", "floyd": "Floyd", "jarvis": "Jarvis", "stucki": "Stucki",
+                "atkinson": "Atkinson", "bayer": "Bayer"}
+PASSTHROUGH = "passthrough"
 
 
 def _base_values(kind, laser):
@@ -97,9 +104,12 @@ def layer_values(cs, kind, laser):
         v["dpiX"] = v["dpiY"] = _num(25.4 / step, 2)
         v["scanAngle"] = _num(cs.angle, 2)
         v["crossAngle"] = bool(cs.crosshatch)
+        if cs.mode == "offset_fill":
+            v["fill_type"] = "offset"  # riempimento a contorni
     elif kind == PHOTO:
         v["dpiX"] = v["dpiY"] = _num(cs.dpi, 2)
         v["density"] = _num(cs.dpi / 2.54, 2)
+        v["bitmapMode"] = BITMAP_MODES.get(cs.dither, PASSTHROUGH)
     elif kind == CUT:
         if cs.tabs:
             v.update(enableBreakPoint=True, breakPointSize=_num(cs.tab_size, 2), breakPointMode="count",
@@ -241,38 +251,57 @@ def path_display(subs, color, z, filled):
 
 
 # ------------------------------------------------------------------ foto
-def _photo_png(pil, m):
+def _straight(pil, m):
     """Foto e matrice pixel -> tela. Se la foto è dritta (solo scala e posizione) resta com'è; se è ruotata o
-    specchiata viene ridisegnata dritta nel suo ingombro, alla stessa finezza (fuori bianco).
-    -> (bytes PNG, larghezza px, altezza px, mm per pixel in x, in y, x, y sulla tela)."""
+    specchiata viene ridisegnata dritta nel suo ingombro, alla stessa finezza (fuori trasparente).
+    -> (immagine RGBA, mm per pixel in x, in y, x, y sulla tela)."""
     from PIL import Image
 
     a, b, c, d, tx, ty = m
     W, H = pil.size
     if abs(b) < 1e-9 and abs(c) < 1e-9 and a > 0 and d > 0:
-        out, sx, sy, x, y = pil, a, d, tx, ty
-    else:
-        corners = [(a * u + c * v + tx, b * u + d * v + ty) for u, v in ((0, 0), (W, 0), (W, H), (0, H))]
-        x, y = min(p[0] for p in corners), min(p[1] for p in corners)
-        s = math.sqrt(abs(a * d - b * c))  # mm per pixel
-        ow = max(1, int(round((max(p[0] for p in corners) - x) / s)))
-        oh = max(1, int(round((max(p[1] for p in corners) - y) / s)))
-        det = a * d - b * c
-        ia, ic, ib, id_ = d / det, -c / det, -b / det, a / det  # inversa: tela -> pixel
-        # pixel di uscita (U, V) -> tela (x + U·s, y + V·s) -> pixel della foto
-        ox, oy = x - tx, y - ty
-        coeffs = (ia * s, ic * s, ia * ox + ic * oy, ib * s, id_ * s, ib * ox + id_ * oy)
-        out = pil.convert("RGBA").transform((ow, oh), Image.AFFINE, coeffs, resample=Image.BICUBIC,
-                                            fillcolor=(255, 255, 255, 0))
-        sx = sy = s
-    if "A" in out.getbands() or out.mode == "P":
-        # le parti trasparenti (fuori dalla sagoma del ritaglio, attorno a una foto ruotata) diventano bianche = non
-        # incise: così non dipende da come xTool Studio tratta la trasparenza
-        rgba = out.convert("RGBA")
-        white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-        out = Image.alpha_composite(white, rgba).convert("L" if pil.mode in ("L", "LA", "1") else "RGB")
-    elif out.mode not in ("L", "RGB"):
-        out = out.convert("RGB")
+        return pil.convert("RGBA"), a, d, tx, ty
+    corners = [(a * u + c * v + tx, b * u + d * v + ty) for u, v in ((0, 0), (W, 0), (W, H), (0, H))]
+    x, y = min(p[0] for p in corners), min(p[1] for p in corners)
+    s = math.sqrt(abs(a * d - b * c))  # mm per pixel
+    ow = max(1, int(round((max(p[0] for p in corners) - x) / s)))
+    oh = max(1, int(round((max(p[1] for p in corners) - y) / s)))
+    det = a * d - b * c
+    ia, ic, ib, id_ = d / det, -c / det, -b / det, a / det  # inversa: tela -> pixel
+    # pixel di uscita (U, V) -> tela (x + U·s, y + V·s) -> pixel della foto
+    ox, oy = x - tx, y - ty
+    coeffs = (ia * s, ic * s, ia * ox + ic * oy, ib * s, id_ * s, ib * ox + id_ * oy)
+    out = pil.convert("RGBA").transform((ow, oh), Image.AFFINE, coeffs, resample=Image.BICUBIC,
+                                        fillcolor=(255, 255, 255, 0))
+    return out, s, s, x, y
+
+
+def _photo_png(pil, m, leaf, cs):
+    """La foto come la inciderebbe FreeLaserCut, pronta per xTool Studio: luminosità, contrasto, gamma e negativo
+    già applicati (in FreeLaserCut si applicano al momento di incidere); fuori dalla foto e dalla sagoma del ritaglio
+    bianco, cioè non inciso, anche in negativo. Con una retinatura che xTool Studio non ha (soglia, mezzetinte) la foto
+    viene portata alla finezza del livello e retinata qui: esce in bianco e nero, da mandare con «passthrough».
+    -> (bytes PNG, larghezza px, altezza px, mm per pixel in x, in y, x, y sulla tela)."""
+    import numpy as np
+    from PIL import Image
+
+    from . import imaging
+
+    rgba, sx, sy, x, y = _straight(pil, m)
+    if cs.dither not in BITMAP_MODES:  # la griglia dei punti del livello
+        step = 25.4 / max(cs.dpi, 10.0)
+        size = (max(1, int(round(rgba.size[0] * sx / step))), max(1, int(round(rgba.size[1] * sy / step))))
+        rgba = rgba.resize(size, Image.LANCZOS if size[0] < rgba.size[0] else Image.BICUBIC)
+        sx, sy = step, step
+    inside = np.asarray(rgba)[..., 3] > 127
+    dark = imaging.adjust(imaging.to_dark(rgba), getattr(leaf, "brightness", 0.0), getattr(leaf, "contrast", 0.0),
+                          getattr(leaf, "gamma", 1.0), cs.negative)
+    dark = np.where(inside, dark, 0.0).astype(np.float32)
+    if cs.dither not in BITMAP_MODES:
+        cell_px = max(cs.halftone_cell / sx, 2.0)
+        dots = imaging.dither(dark, cs.dither, cell_px, cs.halftone_angle, getattr(cs, "halftone_size", 100.0))
+        dark = np.where(inside & (dots > 0.5), 1.0, 0.0)
+    out = Image.fromarray(np.clip(np.round((1.0 - dark) * 255.0), 0, 255).astype(np.uint8), "L")
     buf = io.BytesIO()
     out.save(buf, "PNG")
     return buf.getvalue(), out.size[0], out.size[1], sx, sy, x, y
@@ -361,7 +390,7 @@ def build(doc, shapes=None, bed=BED, laser_w=10, cut_layers=None, name="FreeLase
                 if pil is None or cs.mode != "image":
                     report["skipped"].append((leaf.layer, leaf.kind))
                     continue
-                pil = photo_clip.clipped_image(pil, leaf)
+                pil = photo_clip.clipped_image(pil, leaf)  # fuori dalla sagoma trasparente
                 W, H = pil.size
                 # pixel (u, v) -> mm locali della foto (u·w/W, h − v·h/H) -> piano (tf) -> tela (x, bh − y)
                 kx, ky = leaf.w / W, leaf.h / H
@@ -371,7 +400,7 @@ def build(doc, shapes=None, bed=BED, laser_w=10, cut_layers=None, name="FreeLase
                 d = tf.m22() * ky
                 tx = tf.m21() * leaf.h + tf.dx()
                 ty = bh - (tf.m22() * leaf.h + tf.dy())
-                png, pw, ph, sx, sy, x, y = _photo_png(pil, (a, b, c, d, tx, ty))
+                png, pw, ph, sx, sy, x, y = _photo_png(pil, (a, b, c, d, tx, ty), leaf, cs)
                 sha = hashlib.sha256(png).hexdigest()
                 res = f"resources/{sha}.png"
                 files[res] = png

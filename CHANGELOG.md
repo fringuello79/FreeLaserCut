@@ -21,7 +21,8 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 - I livelli diventano le lavorazioni di xTool Studio: Linea → incisione di linea o taglio (lo scegli nella finestra; viene proposto «taglio» per i livelli con più passate, ponticelli o compensazione), Riempimento → incisione, Immagine → foto. I mm/min diventano mm/s, il passo delle righe diventa righe per cm.
 - L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a sinistra del piano; se qualcosa esce, lo dice.
 - Scegli il modulo laser montato (10, 20 o 40 W). Livelli che non escono, livello strumenti e forme nascoste restano fuori.
-- Da sapere: l'aria resta ai valori di xTool Studio, le foto arrivano in scala di grigi (la retinatura si sceglie là) e le parti trasparenti diventano bianche. Il formato è quello di xTool Studio 1.10.15; il collegamento diretto con la macchina non c'è.
+- Le foto partono come le inciderebbe FreeLaserCut: luminosità, contrasto, gamma e negativo già applicati. Le retinature che ha anche xTool Studio (Floyd, Jarvis, Stucki, Atkinson, Bayer) le fa lui; soglia e mezzetinte le prepara FreeLaserCut alla finezza del livello e passano punto per punto (modo «passthrough» di xTool Studio 1.10). Il riempimento a contorni resta a contorni.
+- Da sapere: l'aria resta ai valori di xTool Studio e le parti trasparenti delle foto diventano bianche. Il formato è quello di xTool Studio 1.10.15; il collegamento diretto con la macchina non c'è.
 
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 
