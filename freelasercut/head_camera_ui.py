@@ -8,6 +8,7 @@
   il centro della camera.
 Tutti i conti passano dal modello (P = L + O + M · (p − c)); le destinazioni restano dentro il piano."""
 import math
+import os
 import time
 
 import cv2
@@ -355,7 +356,19 @@ class HeadCameraCard(QWidget):
         self._note(text if self.cal is None else "")  # 0.20.3: si legge anche nel riquadro (Impostazioni)
         if self.window is not None:
             self.window.info.setText(text)
+            # 0.20.6: il messaggio resta per la sua durata. Con la camera calibrata la vista riscriveva questa riga a
+            # ogni fotogramma («Centro camera…») e il messaggio spariva prima di poterlo leggere
+            self.window.info_hold = time.time() + ms / 1000.0
         return text
+
+    def _refuse(self, text, ask=True):
+        """0.20.6: la calibrazione non può partire. Lo dice dove si sta guardando: con il pulsante premuto a mano
+        (ask) anche con un avviso, perché la riga in basso passa inosservata e la barra di stato è coperta dalla
+        vista della testa («premo Rifai la calibrazione completa e non succede nulla», Ale, 17/11)."""
+        self._say(text, 12000)
+        if ask and not os.environ.get("FLC_NO_DIALOGS"):
+            QMessageBox.warning(self.window or self.win, tr("Calibrazione completa"), text)
+        return None
 
     def _go(self, target, what):
         """La testa (il laser) in target, dentro il piano. -> (x, y) raggiunto o None."""
@@ -481,18 +494,18 @@ class HeadCameraCard(QWidget):
         (dove è la camera, se sale e scende con il laser, potenza del puntino di prova), poi la testa in un punto da
         cui la camera potrà fotografare la griglia, poi il lavoro vero. ask=False: valori dati (prove, comandi)."""
         if not self.ctl.connected:  # 0.20.3: detto chiaro (il pulsante ora si può sempre premere)
-            return self._say(tr("Per calibrare connetti il laser: la calibrazione incide una griglia di puntini su un "
-                                "cartone."), 10000) and None
+            return self._refuse(tr("Per calibrare connetti il laser: la calibrazione incide una griglia di puntini su "
+                                   "un cartone."), ask)
         why = self._can_move(need_model=False)
         if why:
-            return self._say(why) and None
+            return self._refuse(why, ask)
         if not self.ctl.homed:
-            if ask and QMessageBox.question(self, tr("Camera della testa"),
+            if ask and QMessageBox.question(self.window or self, tr("Camera della testa"),
                                             tr("Prima serve l'homing. Faccio l'homing adesso?")) == QMessageBox.Yes:
                 self.ctl.home()
             return None
         if self.ctl.last_status.get("state") == "Alarm":
-            return self._say(tr("La macchina è in allarme: sblocca o fai l'homing prima.")) and None
+            return self._refuse(tr("La macchina è in allarme: sblocca o fai l'homing prima."), ask)
         qs = getattr(self.win, "qs", None)
         if power is None:
             try:
@@ -519,7 +532,7 @@ class HeadCameraCard(QWidget):
         p = self.win.profile
         start, why = hc.calibration_start(self.head(), guess, (p.bed_x, p.bed_y), margin=hc.START_MARGIN + 60)
         if start is None:
-            return self._say(tr("Calibrazione impossibile: {0}", why), 12000) and None
+            return self._refuse(tr("Calibrazione impossibile: {0}", why), ask)
         head = self.head()
         if math.hypot(start[0] - head[0], start[1] - head[1]) > 0.5:
             # la camera da qui non arriverebbe a fotografare la griglia: la testa va prima nel punto giusto
@@ -1555,7 +1568,8 @@ class HeadCameraWindow(QDialog):
         self.th_row.setVisible(cd.model is not None and cd.model.moves_with_head is False)
         self.b_align.setEnabled(cd.board_angle() is not None and not busy)
         self.b_clear.setEnabled(cd.board[0] is not None or cd.board[1] is not None)
-        if not ok and not busy:  # 0.20.3: perché i comandi qui sopra sono spenti (prima non lo diceva)
+        if not ok and not busy and time.time() >= getattr(self, "info_hold", 0.0):
+            # 0.20.3: perché i comandi qui sopra sono spenti (prima non lo diceva)
             self.info.setText(tr("Connetti il laser per usare i comandi della camera della testa.")
                               if not cd.ctl.connected else
                               (cd.model_why or tr("Calibra la camera della testa per usare questi comandi.")
@@ -1641,8 +1655,9 @@ class HeadCameraWindow(QDialog):
             if self.chk_design.isChecked():
                 self.view.shapes = self._design(m, head)
             c = m.center(head)
-            self.info.setText(tr("Centro camera: X {0:.2f}  Y {1:.2f} mm  ·  laser: X {2:.2f}  Y {3:.2f} mm",
-                                 c[0], c[1], head[0], head[1]))
+            if time.time() >= getattr(self, "info_hold", 0.0):  # 0.20.6: un messaggio appena scritto resta leggibile
+                self.info.setText(tr("Centro camera: X {0:.2f}  Y {1:.2f} mm  ·  laser: X {2:.2f}  Y {3:.2f} mm",
+                                     c[0], c[1], head[0], head[1]))
         self.view.set_frame(frame)
 
     def _design(self, m, head):

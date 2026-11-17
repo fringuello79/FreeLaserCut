@@ -29,6 +29,8 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 - Se il disegno esce dall'area della macchina il lavoro non viene scritto.
 - Non ancora previsti: riempimento a contorni, inclinato o incrociato (escono a righe orizzontali, e te lo dice) e la stampa a inchiostro.
 
+**Camera della testa: «Rifai la calibrazione completa» dice sempre perché non parte.** Premendo il pulsante nella vista della testa, se la calibrazione non poteva partire (laser non connesso, macchina in allarme, un lavoro in corso, cartone che non entrerebbe nell'inquadratura) sembrava non succedere nulla: il motivo finiva in una riga che, con la camera già calibrata, veniva riscritta subito dalle coordinate. Ora compare un avviso sopra la vista, e i messaggi in quella riga restano leggibili per qualche secondo.
+
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 
 ## 0.20.5 — 17/11/2026
