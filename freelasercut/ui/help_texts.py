@@ -55,6 +55,11 @@ HELP = {
                   "foto e, per ogni livello, potenza, velocità e passate già impostate. Lo apri in xTool Studio, "
                   "controlli e avvii da lì. L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a "
                   "sinistra del piano."), None),
+    "export_m2": (tr("Lavoro per xTool M2 (sperimentale)"), tr("Funzione in prova, solo per la xTool M2. Scrive il "
+                  "lavoro nel linguaggio della macchina (un file di testo) e, accanto, la cornice a potenza zero. "
+                  "FreeLaserCut non lo invia alla M2 e nessuno l'ha ancora provato su una macchina vera: serve a chi "
+                  "ci aiuta nelle prove. Per lavorare con la M2 usa «Esporta per xTool Studio (M2)». Se il disegno "
+                  "esce dall'area della macchina il lavoro non viene scritto."), None),
     "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
     "run_file": (tr("Esegui un file G-code"), tr("Invia alla macchina un file G-code già pronto, con anteprima e verifica."), None),

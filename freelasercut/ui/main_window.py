@@ -261,6 +261,10 @@ class MainWindow(QMainWindow):
             "export_xs": A(tr("Esporta per xTool Studio (M2)…"), self.file_export_xs, None, "export",
                            tr("Per la xTool M2, che lavora solo con xTool Studio: salva un progetto .xs con il disegno "
                               "e con potenza, velocità e passate già impostate, da aprire in xTool Studio")),
+            # 0.20.6, sperimentale: il lavoro scritto direttamente nel linguaggio della M2 (non viene inviato)
+            "export_m2": A(tr("Lavoro per xTool M2 (sperimentale)…"), self.file_export_m2, None, "gcode",
+                           tr("In prova, solo per la xTool M2: scrive il lavoro nel linguaggio della macchina. Non lo "
+                              "invia e non è ancora stato provato su una M2 vera")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -615,7 +619,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -1812,6 +1816,75 @@ class MainWindow(QMainWindow):
             msg += " · " + tr("{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)",
                               len(rep["skipped"]))
         self.statusBar().showMessage(msg, 12000)
+        return rep
+
+    def file_export_m2(self, *_, path=None, laser_w=None, cut_layers=None, thickness=None):
+        """0.20.6, sperimentale: il lavoro per la xTool M2 nel suo linguaggio, più la cornice a potenza zero.
+        Non viene inviato alla macchina. -> resoconto di xtool_m2.build, o None se si rinuncia o non si può."""
+        from ..core import xtool_m2, xtool_xs
+
+        doc = self.editor.doc
+        shapes = self.editor.selection or doc.shapes
+        used = {leaf.layer for s in shapes if not s.hidden for leaf, _ in s.leaves() if not leaf.hidden}
+        layers = [cs for cs in doc.used_layers() if cs.index in used and cs.index < xtool_xs.TOOL_LAYER and cs.output]
+        if not layers:
+            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
+            return None
+        if laser_w is None:
+            try:
+                laser_w = int(self.qs.value("xtool_laser_w", 10) or 10)
+                thick0 = float(self.qs.value("xtool_thickness", 3.0) or 0.0)
+            except (TypeError, ValueError):
+                laser_w, thick0 = 10, 3.0
+            if laser_w not in xtool_xs.LASERS:
+                laser_w = 10
+            if thickness is None:
+                thickness = thick0
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                from .dialogs_xtool import XToolExportDialog
+
+                dlg = XToolExportDialog(doc, layers, laser_w, self, job=True, thickness=thickness)
+                if dlg.exec() != QDialog.Accepted:
+                    return None
+                laser_w, cut_layers, thickness = dlg.laser_w(), dlg.cut_layers(), dlg.thickness()
+                self.qs.setValue("xtool_laser_w", laser_w)
+                self.qs.setValue("xtool_thickness", thickness)
+        thickness = float(thickness or 0.0)
+        title = tr("Lavoro per xTool M2 (sperimentale)")
+        if path is None:
+            path, _f = QFileDialog.getSaveFileName(self, title, os.path.join(
+                self.qs.value("last_dir", os.path.expanduser("~")), (self.project_stem() or "disegno") + "-M2.txt"),
+                tr("G-code per xTool M2 (*.txt)"))
+        if not path:
+            return None
+        stem, ext = os.path.splitext(path)
+        frame_path = stem + "-cornice" + (ext or ".txt")
+        try:
+            rep = xtool_m2.export_gcode(doc, path, frame_path=frame_path, shapes=list(shapes), laser_w=laser_w,
+                                        thickness=thickness, cut_layers=cut_layers, app_version=__version__)
+        except xtool_m2.OutsideArea:
+            bw, bh = xtool_m2.HEAD_PLANE[(laser_w, "TO")][2:]
+            QMessageBox.warning(self, title, tr("Il disegno esce dall'area della M2 con questo modulo ({0:g} × {1:g} "
+                                                "mm dall'angolo in basso a sinistra del piano): il lavoro non è "
+                                                "stato scritto.", bw, bh))
+            return None
+        except ValueError:
+            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
+            return None
+        except OSError as ex:
+            QMessageBox.warning(self, title, tr("Non riesco a salvare il file:\n{0}", ex))
+            return None
+        msg = tr("Lavoro per xTool M2 salvato ({0} righe) con la sua cornice. È una funzione in prova: non è stato "
+                 "provato su una M2 vera e FreeLaserCut non lo invia", rep["lines"])
+        notes = {"offset_fill": tr("riempimento a contorni non ancora previsto: fatto a righe"),
+                 "fill_angle": tr("riempimento inclinato o incrociato non ancora previsto: righe orizzontali"),
+                 "image_start": tr("le foto partono sempre dall'alto, a righe orizzontali")}
+        for k in rep["notes"]:
+            msg += " · " + notes.get(k, k)
+        if rep["skipped"]:
+            msg += " · " + tr("{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)",
+                              len(rep["skipped"]))
+        self.statusBar().showMessage(msg, 15000)
         return rep
 
     def autosave(self):

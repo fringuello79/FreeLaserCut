@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 195. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 196. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (14)
 
@@ -62,7 +62,7 @@ Suite: 195. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v160.py` (Banco): Materiali imparati nell'interfaccia Banco
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
 
-## Foto e immagini (22)
+## Foto e immagini (23)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -86,6 +86,7 @@ Suite: 195. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v206_richieste.py`: Foto ritagliata con una forma: misure, maniglie, Allinea e aggancio del lavoro sulla sola parte che si vede, Contorno da tagliare; Prepara foto: forma sull'originale e riquadro del ritaglio che si sposta e si allarga; ingranaggio a evolvente con modulo, angolo di pressione, gioco, foro e alleggerimenti; precisazione dei ringraziamenti
 - `test_v206_richieste.py` (Banco): Foto ritagliata, Contorno da tagliare, Prepara foto, ingranaggio e ringraziamenti nell'interfaccia Banco
 - `test_v206_xtool_xs.py`: Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori
+- `test_v206_xtool_m2.py`: Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area
 
 ## Lavoro e G-code (25)
 

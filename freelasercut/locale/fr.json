@@ -3570,5 +3570,17 @@
  "Salva il progetto…": "Enregistrer le projet…",
  "{0} oggetti escono dall'area della M2 ({1:g} × {2:g} mm)": "{0} objets dépassent de la zone de la M2 ({1:g} × {2:g} mm)",
  "{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)": "{0} objets laissés de côté (calques sans sortie ou photos hors de leur calque)",
- "{0}: {1:g} %, {2:g} mm/min, {3} passate": "{0} : {1:g} %, {2:g} mm/min, {3} passes"
+ "{0}: {1:g} %, {2:g} mm/min, {3} passate": "{0} : {1:g} %, {2:g} mm/min, {3} passes",
+ "Lavoro per xTool M2 (sperimentale)…": "Travail pour xTool M2 (expérimental)…",
+ "Lavoro per xTool M2 (sperimentale)": "Travail pour xTool M2 (expérimental)",
+ "In prova, solo per la xTool M2: scrive il lavoro nel linguaggio della macchina. Non lo invia e non è ancora stato provato su una M2 vera": "En test, uniquement pour la xTool M2 : écrit le travail dans le langage de la machine. Il n'est pas envoyé et n'a pas encore été essayé sur une vraie M2",
+ "Funzione in prova. FreeLaserCut scrive il lavoro nel linguaggio della xTool M2, ma non lo manda alla macchina e nessuno l'ha ancora provato su una M2 vera: serve a chi ci aiuta nelle prove. Per lavorare con la M2 usa «Esporta per xTool Studio (M2)».\nInsieme al lavoro viene scritta la cornice, a potenza zero.": "Fonction en test. FreeLaserCut écrit le travail dans le langage de la xTool M2, mais ne l'envoie pas à la machine et personne ne l'a encore essayé sur une vraie M2 : elle sert à ceux qui nous aident pour les essais. Pour travailler avec la M2, utilisez « Exporter pour xTool Studio (M2) ».\nLe cadre, à puissance nulle, est écrit avec le travail.",
+ "G-code per xTool M2 (*.txt)": "G-code pour xTool M2 (*.txt)",
+ "Il disegno esce dall'area della M2 con questo modulo ({0:g} × {1:g} mm dall'angolo in basso a sinistra del piano): il lavoro non è stato scritto.": "Le dessin dépasse de la zone de la M2 avec ce module ({0:g} × {1:g} mm depuis le coin inférieur gauche du plan) : le travail n'a pas été écrit.",
+ "Lavoro per xTool M2 salvato ({0} righe) con la sua cornice. È una funzione in prova: non è stato provato su una M2 vera e FreeLaserCut non lo invia": "Travail pour xTool M2 enregistré ({0} lignes) avec son cadre. Cette fonction est en test : elle n'a pas été essayée sur une vraie M2 et FreeLaserCut ne l'envoie pas",
+ "Lo spessore del materiale: la M2 mette a fuoco abbassando la testa di conseguenza": "L'épaisseur du matériau : la M2 fait la mise au point en abaissant la tête en conséquence",
+ "Salva il lavoro…": "Enregistrer le travail…",
+ "le foto partono sempre dall'alto, a righe orizzontali": "les photos partent toujours du haut, en lignes horizontales",
+ "riempimento a contorni non ancora previsto: fatto a righe": "remplissage par contours pas encore prévu : fait en lignes",
+ "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "remplissage incliné ou croisé pas encore prévu : lignes horizontales"
 }
