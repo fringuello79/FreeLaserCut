@@ -814,14 +814,30 @@ plan_big = thanks.plan_rows(3, 9, lambda r, pos, k: 0 if k > 1 else 20, 15, 30, 
 check("H nomi così lunghi che due non stanno in una riga: uno per riga, la trama si fa lo stesso",
       len(plan_big) == 9 and all(k == 1 for k, _ in plan_big))
 check("H elenco vuoto: nove righe vuote", thanks.plan_rows(0, 9, lambda r, pos, k: 20, 15, 30, 198, 24) == [(0, 15)] * 9)
-rr = splash.name_rows()
 W_IN = splash.W - 2 * splash.SIDE
+QFM = __import__("PySide6.QtGui", fromlist=["QFontMetricsF"]).QFontMetricsF
+# Il carattere cambia da un sistema all'altro (qui «Segoe UI» non c'è e Qt ne usa un altro; sulle macchine di GitHub
+# con Windows senza schermo ne esce uno molto più largo). Le regole che valgono SEMPRE si provano con il carattere
+# che c'è; l'aspetto (grandezze ben diverse, grandi e piccole) con le larghezze riportate a quelle di un carattere
+# normale, come se fosse lo stesso dappertutto.
+NORM = 268.0 / QFM(splash.name_font(20, 600)).horizontalAdvance("giuseppegrassano77-coder")
+rr = splash.name_rows()
+
+
+def full(rows_):
+    """Ogni riga va da un bordo all'altro; un nome solo soltanto dove con il successivo non ci stava."""
+    return all(r.items and ((r.alone and len(r.names()) == 1) or (len(r.names()) >= 2
+               and abs(r.items[-1][1] + r.items[-1][2] - W_IN) < 0.5)) for r in rows_)
+
+
 check("H schermata di avvio: 9 righe che vanno da un bordo all'altro con il carattere vero",
-      len(rr) == splash.ROWS == 9 and all(r.items and abs(r.items[-1][1] + r.items[-1][2] - W_IN) < 0.5 for r in rr))
-sizes_ = [r.px for r in rr]
+      len(rr) == splash.ROWS == 9 and full(rr), str([(r.px, len(r.names()), r.alone) for r in rr]))
+rn = splash.name_rows(stretch=NORM)
+sizes_ = [r.px for r in rn]
 check("H grandezze irregolari e alternate: almeno quattro grandezze, righe vicine sempre diverse, grandi e piccole",
-      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 2 for i in range(8))
-      and max(sizes_) >= 24 and min(sizes_) <= 19 and all(len(r.names()) >= 2 for r in rr), str(sizes_))
+      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 3 for i in range(8))
+      and max(sizes_) >= 26 and min(sizes_) <= 18 and all(len(r.names()) >= 2 for r in rn) and full(rn)
+      and splash.repeats_same_size(rn, 4) == 0, str(sizes_))
 all_names = [n for r in rr for n in r.names()]
 check("H i nomi sono nell'ordine dell'elenco, di seguito, e ricominciano dal primo",
       all_names == seq[:len(all_names)] and len(all_names) > N, str(all_names[:14]))
@@ -830,7 +846,7 @@ for r in rr:
     for n in r.names():
         by_name.setdefault(n, []).append(r.px)
 check("H lo stesso nome, quando ricompare, ha una grandezza diversa",
-      splash.repeats_same_size(rr) == 0 and all(abs(a - b) >= splash.SIZE_DIFF for v in by_name.values() for a, b in zip(v, v[1:]))
+      splash.repeats_same_size(rr) == 0 and all(a != b for v in by_name.values() for a, b in zip(v, v[1:]))
       and any(len(v) > 1 for v in by_name.values()), str(by_name))
 check("H tutti i nomi dell'elenco compaiono almeno una volta, Deborah compresa", set(by_name) == set(thanks.NAMES))
 check("H «Grazie a» ha la stessa grandezza del primo nome (è un pezzo solo con lui)",
@@ -851,20 +867,25 @@ fams = ["Segoe UI"] + [f for f in QFD.families() if not f.startswith(".")][:9]
 wide_bad, n_wide, fam0 = [], 0, splash.FONT_FAMILY
 for fam in fams:
     splash.FONT_FAMILY = fam
-    for k in range(78, 135, 8):
+    norm_f = 268.0 / max(1.0, QFM(splash.name_font(20, 600)).horizontalAdvance("giuseppegrassano77-coder"))
+    for k in (78, 90, 100, 112, 126, 140, 160):  # dal 22% più stretto al 60% più largo di un carattere normale
         for nm in (None, list(thanks.NAMES) + ["Nuovo Nome"]):
             n_wide += 1
-            r_ = splash.name_rows(nm, stretch=k / 100)
-            if (splash.repeats_same_size(r_) or any(len(r.names()) < 2 for r in r_) or r_[-1].bottom > splash.BAND_TOP
-                    or any(abs(r.items[-1][1] + r.items[-1][2] - W_IN) > 0.5 for r in r_)
+            r_ = splash.name_rows(nm, stretch=norm_f * k / 100)
+            if (splash.repeats_same_size(r_) or not full(r_) or r_[-1].bottom > splash.BAND_TOP
                     or any(r.items[i][1] - (r.items[i - 1][1] + r.items[i - 1][2]) < 4.9 for r in r_ for i in range(1, len(r.items), 2))
                     or len({r.px for r in r_}) < 3
                     or [n for r in r_ for n in r.names()][:len(thanks.NAMES)] != list(thanks.NAMES)):
-                wide_bad.append((fam, k, [r.px for r in r_]))
+                wide_bad.append((fam, k, [(r.px, len(r.names()), r.alone) for r in r_]))
 splash.FONT_FAMILY = fam0
 check(f"H con qualsiasi carattere ({len(fams)} caratteri, più stretti e più larghi: {n_wide} casi) la trama resta giusta: "
-      "almeno due nomi per riga da bordo a bordo, nomi in ordine, grandezze diverse a ogni ripetizione",
-      not wide_bad and n_wide >= 16, str(wide_bad[:3]))
+      "righe da bordo a bordo (un nome solo soltanto se due non ci stanno), nomi in ordine, grandezze diverse a ogni "
+      "ripetizione", not wide_bad and n_wide >= 14, str(wide_bad[:3]))
+alone_rows = splash.name_rows(stretch=NORM * 1.9)
+check("H carattere larghissimo: i due nomi più lunghi non stanno insieme, ognuno ha la sua riga; il resto è da bordo a bordo",
+      any(r.alone for r in alone_rows) and full(alone_rows)
+      and [n for r in alone_rows for n in r.names()] == seq[:sum(len(r.names()) for r in alone_rows)],
+      str([(r.px, r.names()) for r in alone_rows][:5]))
 t_plan = time.perf_counter()
 splash.name_rows()
 check("H la scelta delle grandezze non rallenta l'avvio (meno di 0,3 secondi)", time.perf_counter() - t_plan < 0.3)
@@ -904,7 +925,8 @@ def fronts(a):
     out = []
     for row in RR:
         cols = np.nonzero(dif[int(row.top) + 4:int(row.bottom) - 4].any(axis=0))[0]
-        out.append(int(cols.max()) if cols.size else -1)
+        end = int(splash.SIDE + row.items[-1][1] + row.items[-1][2]) + 1  # oltre la fine del testo passa solo il puntino
+        out.append(min(int(cols.max()), end) if cols.size else -1)
     return out
 
 
@@ -914,7 +936,8 @@ check("H l'incisione avanza con il tempo e non torna indietro, riga per riga",
       fr_[0][0] > 50 and all(fr_[k][i] <= fr_[k + 1][i] + 8 for k in range(5) for i in range(9))
       and all(fr_[k] != fr_[k + 1] for k in range(5)), str(fr_))
 check("H le righe partono una dopo l'altra (a mezzo secondo le ultime non sono ancora cominciate) e alla fine ci sono tutte",
-      fr_[0][-1] == -1 and fr_[0][0] > fr_[0][1] > fr_[0][2] and min(fr_[-1]) > splash.W * 0.8, str(fr_[0]) + str(fr_[-1]))
+      fr_[0][-1] == -1 and fr_[0][0] > fr_[0][1] > fr_[0][2]
+      and all(f >= splash.SIDE + r.items[-1][1] + r.items[-1][2] - 18 for f, r in zip(fr_[-1], RR)), str(fr_[0]) + str(fr_[-1]))
 left, right = f1[:, :(splash.W // 3) * 4], f1[:, (splash.W * 2 // 3) * 4:]
 check("H si incide da sinistra a destra: a metà della prima riga la destra è ancora vuota",
       (left[10:36] != f0[10:36, :(splash.W // 3) * 4]).any() and not (right[10:36] != f0[10:36, (splash.W * 2 // 3) * 4:]).any())

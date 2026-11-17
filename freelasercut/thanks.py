@@ -60,7 +60,7 @@ def row_width(names, pos, k, measure, lead="", gap=9.0, sep="·"):
 
 # Le passate della ricerca in plan_rows, dalla più esigente alla meno: (quanto devono distare le grandezze di uno
 # stesso nome quando ricompare, quanto devono distare due righe vicine, quanto spazio può restare vuoto in fondo)
-PASSES = ((4, 4, 8), (4, 3, 16), (3, 3, 28), (3, 2, 44), (2, 2, 70), (2, 0, 10 ** 6))
+PASSES = ((4, 4, 8), (4, 3, 16), (3, 3, 28), (3, 2, 44), (2, 2, 70), (2, 0, 10 ** 6), (1, 0, 10 ** 6))
 
 
 def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2, 3, 4, 5), limit=8000):
@@ -69,6 +69,8 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
     Ogni riga ha almeno due nomi, così va sempre da un bordo all'altro; la sua grandezza è al massimo quella a cui
     quei nomi ci stanno ancora (fit), quindi le righe con pochi nomi corti vengono grandi e quelle con tanti nomi
     piccole. Quanti nomi stanno in una riga dipende dal carattere del sistema: per questo si decide a ogni avvio.
+    Un nome resta da solo in una riga soltanto se lui e il successivo, insieme, non ci stanno nemmeno alla grandezza
+    più piccola (nomi molto lunghi con un carattere molto largo).
     n: quanti nomi ha l'elenco; fit(riga, posizione, k) -> la grandezza più grande a cui k nomi dalla posizione data
     stanno nella riga (0 se non ci stanno nemmeno alla più piccola); total_max: somma massima delle grandezze (lo
     spazio in altezza); first_max: grandezza massima della prima riga.
@@ -82,7 +84,13 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
 
     def top_size(r, pos, k):
         px = min(size_max, fit(r, pos, k))
+        if k == 1:
+            px = max(px, size_min)  # un nome da solo si mette comunque, alla più piccola se non ci sta
         return min(px, first_max) if r == 0 else px
+
+    def alone(r, pos):
+        """Il nome in questa posizione deve stare da solo: con il successivo non ci sta nemmeno alla più piccola."""
+        return n > 1 and counts[0] > 1 and top_size(r, pos, counts[0]) < size_min
 
     def search(min_diff, step, slack_max):
         nodes = [0]
@@ -96,6 +104,8 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
                 return False
             prev = chosen[-1][1] if chosen else None
             order = counts if (prev is None or prev < mid) else list(reversed(counts))  # dopo una piccola, una grande
+            if alone(r, pos):
+                order = [1]
             for k in order:
                 top = top_size(r, pos, k)
                 for px in range(top, size_min - 1, -2):  # la più grande che ci sta, poi via via più piccola
@@ -128,7 +138,7 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
             return got
     out, pos = [], 0  # ultima risorsa: due nomi per riga (uno, se nemmeno due ci stanno), alla grandezza che ci sta
     for r in range(rows):
-        k = next((k for k in counts if top_size(r, pos, k) >= size_min), 1)
+        k = 1 if alone(r, pos) else next((k for k in counts if top_size(r, pos, k) >= size_min), 1)
         out.append((k, max(size_min, min(top_size(r, pos, k), total_max // rows))))
         pos += k
     return out

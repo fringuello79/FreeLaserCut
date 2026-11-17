@@ -49,7 +49,7 @@ ROWS = 9
 # deve starci «Grazie a».
 SIZE_MIN, SIZE_MAX = 15, 30
 FIRST_MAX = 24
-SIZE_DIFF = 2  # il minimo garantito fra due grandezze dello stesso nome (di solito sono 3-4 pixel o più)
+SIZE_DIFF = 1  # due grandezze dello stesso nome sono sempre diverse (di solito di 3-4 pixel o più)
 WEIGHTS = (600, 400, 300, 600, 600, 300, 600, 400, 300)  # peso del carattere riga per riga
 FONT_FAMILY = "Segoe UI"
 
@@ -93,6 +93,7 @@ class Row:
     def __init__(self, top, px, weight, alpha, items):
         self.top, self.px, self.weight, self.alpha, self.items = float(top), int(px), int(weight), float(alpha), items
         self.h = px * LEADING
+        self.alone = False  # un nome solo perché con il successivo non ci stava nemmeno alla grandezza più piccola
 
     @property
     def bottom(self):
@@ -150,15 +151,18 @@ def name_rows(names=None, lead=None, stretch=1.0):
                               width, lead=lead)
     spare = max(0.0, (BAND_TOP - 5.0 - TOP0) - sum(sizes) * LEADING) / max(1, ROWS - 1)  # lo spazio che avanza, fra le righe
     rows, top = [], TOP0
+    pos = 0
     for r, (px, it) in enumerate(zip(sizes, items)):
         rows.append(Row(top, px, WEIGHTS[r % len(WEIGHTS)], row_alpha(px), it))
+        rows[-1].alone = bool(names) and len(names) > 1 and plan[r][0] == 1 and fit(r, pos, 2) < SIZE_MIN
+        pos += plan[r][0]
         top += px * LEADING + spare
     return rows
 
 
-def repeats_same_size(rows):
-    """Quante volte un nome ricompare con la grandezza dell'ultima volta, o quasi (0 = mai)."""
-    return thanks.same_size_repeats([r.items for r in rows], [r.px for r in rows], min_diff=SIZE_DIFF)
+def repeats_same_size(rows, min_diff=SIZE_DIFF):
+    """Quante volte un nome ricompare con la grandezza dell'ultima volta (0 = mai)."""
+    return thanks.same_size_repeats([r.items for r in rows], [r.px for r in rows], min_diff=min_diff)
 
 
 def row_progress(t, i):
