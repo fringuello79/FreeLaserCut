@@ -257,6 +257,10 @@ class MainWindow(QMainWindow):
                             tr("Come «Importa», ma il disegno entra girato di un quarto di giro: per i file disegnati "
                                "nell'altro verso (per esempio in verticale, se il tuo piano è mostrato ruotato)")),
             "export": A(tr("Esporta SVG…"), self.file_export, "Ctrl+Shift+E", "export"),
+            # 0.20.6: xTool M2 (non GRBL, lavora solo con xTool Studio): progetto pronto da aprire là
+            "export_xs": A(tr("Esporta per xTool Studio (M2)…"), self.file_export_xs, None, "export",
+                           tr("Per la xTool M2, che lavora solo con xTool Studio: salva un progetto .xs con il disegno "
+                              "e con potenza, velocità e passate già impostate, da aprire in xTool Studio")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -611,7 +615,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -1759,6 +1763,56 @@ class MainWindow(QMainWindow):
         if path:
             io_formats.export_svg(shapes, self.editor.doc, path)
             self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)
+
+    def file_export_xs(self, *_, path=None, laser_w=None, cut_layers=None):
+        """0.20.6: progetto per xTool Studio (xTool M2). -> resoconto di xtool_xs.build, o None se si rinuncia."""
+        from ..core import xtool_xs
+
+        doc = self.editor.doc
+        shapes = self.editor.selection or doc.shapes
+        used = {leaf.layer for s in shapes if not s.hidden for leaf, _ in s.leaves() if not leaf.hidden}
+        layers = [cs for cs in doc.used_layers() if cs.index in used and cs.index < xtool_xs.TOOL_LAYER and cs.output]
+        if not layers:
+            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
+            return None
+        if laser_w is None:
+            try:
+                laser_w = int(self.qs.value("xtool_laser_w", 10) or 10)
+            except (TypeError, ValueError):
+                laser_w = 10
+            if laser_w not in xtool_xs.LASERS:
+                laser_w = 10
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                from .dialogs_xtool import XToolExportDialog
+
+                dlg = XToolExportDialog(doc, layers, laser_w, self)
+                if dlg.exec() != QDialog.Accepted:
+                    return None
+                laser_w, cut_layers = dlg.laser_w(), dlg.cut_layers()
+                self.qs.setValue("xtool_laser_w", laser_w)
+        name = self.project_stem() or "disegno"
+        if path is None:
+            path, _f = QFileDialog.getSaveFileName(self, tr("Progetto per xTool Studio"), os.path.join(
+                self.qs.value("last_dir", os.path.expanduser("~")), name + ".xs"), tr("Progetto xTool Studio (*.xs)"))
+        if not path:
+            return None
+        try:
+            rep = xtool_xs.export_xs(doc, path, shapes=list(shapes), laser_w=laser_w, cut_layers=cut_layers, name=name,
+                                     app_version=__version__)
+        except (OSError, ValueError) as ex:
+            QMessageBox.warning(self, tr("Progetto per xTool Studio"), tr("Non riesco a salvare il file:\n{0}", ex))
+            return None
+        n = sum(k for _i, _t, k in rep["layers"])
+        msg = tr("Progetto per xTool Studio salvato: {0} oggetti. Aprilo in xTool Studio e controlla i valori prima "
+                 "di avviare", n)
+        if rep["outside"]:
+            msg += " · " + tr("{0} oggetti escono dall'area della M2 ({1:g} × {2:g} mm)", rep["outside"],
+                              xtool_xs.BED[0], xtool_xs.BED[1])
+        if rep["skipped"]:
+            msg += " · " + tr("{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)",
+                              len(rep["skipped"]))
+        self.statusBar().showMessage(msg, 12000)
+        return rep
 
     def autosave(self):
         if not self.editor.dirty or not self.editor.doc.all_shapes():

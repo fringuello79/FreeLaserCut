@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.6** — la foto ritagliata con una forma si misura, si allinea e si aggancia sulla sola parte che si vede, con il contorno da tagliare in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri a evolvente (modulo, angolo di pressione, gioco, foro, alleggerimenti).
+**Versione 0.20.6** — la foto ritagliata con una forma si misura, si allinea e si aggancia sulla sola parte che si vede, con il contorno da tagliare in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri a evolvente (modulo, angolo di pressione, gioco, foro, alleggerimenti); per la xTool M2, che lavora solo con xTool Studio, un progetto `.xs` pronto da aprire là.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 

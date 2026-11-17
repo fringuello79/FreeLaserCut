@@ -3555,5 +3555,20 @@
  "facoltativo: nome o pseudonimo per l'elenco dei ringraziamenti": "opcional: nome ou pseudónimo para a lista de agradecimentos",
  "nessuno (ruota piena)": "nenhum (roda maciça)",
  "{0} finestre": "{0} janelas",
- "Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto si vede e si incide solo dentro la forma. La forma resta come contorno, non incisa; per tagliarla: Contorno da tagliare": "Selecione uma foto e uma forma fechada que está por cima (coração, estrela, texto…): a foto aparece e é gravada só dentro da forma. A forma fica como contorno, sem gravar; para a cortar: Contorno de corte"
+ "Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto si vede e si incide solo dentro la forma. La forma resta come contorno, non incisa; per tagliarla: Contorno da tagliare": "Selecione uma foto e uma forma fechada que está por cima (coração, estrela, texto…): a foto aparece e é gravada só dentro da forma. A forma fica como contorno, sem gravar; para a cortar: Contorno de corte",
+ "Esporta per xTool Studio (M2)…": "Exportar para xTool Studio (M2)…",
+ "Il modulo laser montato sulla M2: xTool Studio lo scrive nel progetto": "O módulo laser montado na M2: o xTool Studio guarda-o no projeto",
+ "La xTool M2 lavora solo con xTool Studio: FreeLaserCut non la comanda. Qui prepari un progetto con il disegno e con potenza, velocità e passate già impostate; poi lo apri in xTool Studio, controlli e avvii il lavoro da lì.\nL'area della M2 è {0:g} × {1:g} mm: l'angolo in basso a sinistra del piano resta l'angolo in basso a sinistra della macchina.": "A xTool M2 só funciona com o xTool Studio: o FreeLaserCut não a controla. Aqui prepara um projeto com o desenho e com potência, velocidade e passagens já definidas; depois abre-o no xTool Studio, verifica e inicia o trabalho a partir daí.\nA área da M2 é de {0:g} × {1:g} mm: o canto inferior esquerdo do plano continua a ser o canto inferior esquerdo da máquina.",
+ "Livelli in modalità Linea: quali sono tagli? (in xTool Studio «Taglia», gli altri «Incisione Linea»)": "Camadas em modo Linha: quais são cortes? (a operação de corte no xTool Studio; as outras ficam como gravação de linha)",
+ "Modulo laser": "Módulo laser",
+ "Niente da esportare: nessun oggetto su un livello che esce": "Nada para exportar: nenhum objeto numa camada com saída",
+ "Per la xTool M2, che lavora solo con xTool Studio: salva un progetto .xs con il disegno e con potenza, velocità e passate già impostate, da aprire in xTool Studio": "Para a xTool M2, que só funciona com o xTool Studio: guarda um projeto .xs com o desenho e com potência, velocidade e passagens já definidas, para abrir no xTool Studio",
+ "Progetto per xTool Studio": "Projeto para xTool Studio",
+ "Progetto per xTool Studio (xTool M2)": "Projeto para xTool Studio (xTool M2)",
+ "Progetto per xTool Studio salvato: {0} oggetti. Aprilo in xTool Studio e controlla i valori prima di avviare": "Projeto para xTool Studio guardado: {0} objetos. Abra-o no xTool Studio e verifique os valores antes de iniciar",
+ "Progetto xTool Studio (*.xs)": "Projeto do xTool Studio (*.xs)",
+ "Salva il progetto…": "Guardar o projeto…",
+ "{0} oggetti escono dall'area della M2 ({1:g} × {2:g} mm)": "{0} objetos ficam fora da área da M2 ({1:g} × {2:g} mm)",
+ "{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)": "{0} objetos deixados de fora (camadas sem saída ou fotos fora da sua camada)",
+ "{0}: {1:g} %, {2:g} mm/min, {3} passate": "{0}: {1:g} %, {2:g} mm/min, {3} passagens"
 }

@@ -50,6 +50,11 @@ HELP = {
                       "quando nella configurazione hai scelto di vedere il piano ruotato. I disegni importati con "
                       "«Importa» entrano sempre dritti come li vedi sullo schermo; i progetti di FreeLaserCut invece "
                       "sono legati al piatto e si aprono già nel verso giusto."), None),
+    "export_xs": (tr("Esporta per xTool Studio (M2)"), tr("La xTool M2 non è una macchina GRBL e lavora solo con xTool "
+                  "Studio: FreeLaserCut non può comandarla. Questo comando salva un progetto .xs con il disegno, le "
+                  "foto e, per ogni livello, potenza, velocità e passate già impostate. Lo apri in xTool Studio, "
+                  "controlli e avvii da lì. L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a "
+                  "sinistra del piano."), None),
     "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
     "run_file": (tr("Esegui un file G-code"), tr("Invia alla macchina un file G-code già pronto, con anteprima e verifica."), None),

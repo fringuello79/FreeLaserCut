@@ -3555,5 +3555,20 @@
  "facoltativo: nome o pseudonimo per l'elenco dei ringraziamenti": "optional: name or nickname for the acknowledgements list",
  "nessuno (ruota piena)": "none (solid gear)",
  "{0} finestre": "{0} windows",
- "Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto si vede e si incide solo dentro la forma. La forma resta come contorno, non incisa; per tagliarla: Contorno da tagliare": "Select a photo and a closed shape lying over it (heart, star, text…): the photo is shown and engraved only inside the shape. The shape stays as an outline, not engraved; to cut it: Cut outline"
+ "Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto si vede e si incide solo dentro la forma. La forma resta come contorno, non incisa; per tagliarla: Contorno da tagliare": "Select a photo and a closed shape lying over it (heart, star, text…): the photo is shown and engraved only inside the shape. The shape stays as an outline, not engraved; to cut it: Cut outline",
+ "Esporta per xTool Studio (M2)…": "Export for xTool Studio (M2)…",
+ "Il modulo laser montato sulla M2: xTool Studio lo scrive nel progetto": "The laser module fitted on the M2: xTool Studio stores it in the project",
+ "La xTool M2 lavora solo con xTool Studio: FreeLaserCut non la comanda. Qui prepari un progetto con il disegno e con potenza, velocità e passate già impostate; poi lo apri in xTool Studio, controlli e avvii il lavoro da lì.\nL'area della M2 è {0:g} × {1:g} mm: l'angolo in basso a sinistra del piano resta l'angolo in basso a sinistra della macchina.": "The xTool M2 only works with xTool Studio: FreeLaserCut does not control it. Here you prepare a project with the design and with power, speed and passes already set; then you open it in xTool Studio, check it and start the job from there.\nThe M2 work area is {0:g} × {1:g} mm: the bottom-left corner of the workspace stays the bottom-left corner of the machine.",
+ "Livelli in modalità Linea: quali sono tagli? (in xTool Studio «Taglia», gli altri «Incisione Linea»)": "Layers in Line mode: which ones are cuts? (the cut operation in xTool Studio; the others become line engraving)",
+ "Modulo laser": "Laser module",
+ "Niente da esportare: nessun oggetto su un livello che esce": "Nothing to export: no object on a layer with output on",
+ "Per la xTool M2, che lavora solo con xTool Studio: salva un progetto .xs con il disegno e con potenza, velocità e passate già impostate, da aprire in xTool Studio": "For the xTool M2, which only works with xTool Studio: saves an .xs project with the design and with power, speed and passes already set, to open in xTool Studio",
+ "Progetto per xTool Studio": "Project for xTool Studio",
+ "Progetto per xTool Studio (xTool M2)": "Project for xTool Studio (xTool M2)",
+ "Progetto per xTool Studio salvato: {0} oggetti. Aprilo in xTool Studio e controlla i valori prima di avviare": "Project for xTool Studio saved: {0} objects. Open it in xTool Studio and check the values before starting",
+ "Progetto xTool Studio (*.xs)": "xTool Studio project (*.xs)",
+ "Salva il progetto…": "Save the project…",
+ "{0} oggetti escono dall'area della M2 ({1:g} × {2:g} mm)": "{0} objects fall outside the M2 work area ({1:g} × {2:g} mm)",
+ "{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)": "{0} objects left out (layers with output off, or photos outside their layer)",
+ "{0}: {1:g} %, {2:g} mm/min, {3} passate": "{0}: {1:g} %, {2:g} mm/min, {3} passes"
 }

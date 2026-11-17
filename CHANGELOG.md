@@ -17,6 +17,12 @@ La foto ritagliata con una forma si comporta come la sola parte che si vede, e s
 - **alleggerimenti**: da 3 a 8 finestre fra mozzo e corona.
 Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa i denti veri* passano al profilo nuovo.
 
+**xTool M2: progetto pronto per xTool Studio.** La xTool M2 non è una macchina GRBL e lavora solo con xTool Studio: nessun programma di terzi può mandarle un lavoro, e FreeLaserCut non fa eccezione. Da questa versione però puoi preparare tutto qui: *File → Esporta per xTool Studio (M2)…* salva un progetto `.xs` con il disegno, le foto e, per ogni livello, potenza, velocità e passate già impostate. Lo apri in xTool Studio, controlli e avvii da lì.
+- I livelli diventano le lavorazioni di xTool Studio: Linea → incisione di linea o taglio (lo scegli nella finestra; viene proposto «taglio» per i livelli con più passate, ponticelli o compensazione), Riempimento → incisione, Immagine → foto. I mm/min diventano mm/s, il passo delle righe diventa righe per cm.
+- L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a sinistra del piano; se qualcosa esce, lo dice.
+- Scegli il modulo laser montato (10, 20 o 40 W). Livelli che non escono, livello strumenti e forme nascoste restano fuori.
+- Da sapere: l'aria resta ai valori di xTool Studio, le foto arrivano in scala di grigi (la retinatura si sceglie là) e le parti trasparenti diventano bianche. Il formato è quello di xTool Studio 1.10.15; il collegamento diretto con la macchina non c'è.
+
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 
 ## 0.20.5 — 17/11/2026

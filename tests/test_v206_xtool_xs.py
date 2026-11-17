@@ -252,8 +252,9 @@ def px_at(local):  # punto della foto (mm locali) -> pixel della foto ridisegnat
 
 
 dark, light = px_at((5, 42)), px_at((50, 10))  # vicino all'angolo nero (in alto a sinistra) e nella parte chiara
-check("…con il contenuto al posto giusto (l'angolo nero dov'è nel piano) e trasparente fuori",
-      dark[3] > 250 and dark[0] < 20 and light[0] > 180 and tp.getpixel((0, 0))[3] == 0 and near(k, 0.15, 1e-3),
+check("…con il contenuto al posto giusto (l'angolo nero dov'è nel piano) e bianco fuori (non inciso)",
+      dark[0] < 20 and light[0] > 180 and tp.getpixel((0, 0)) == (255, 255, 255, 255) and near(k, 0.15, 1e-3)
+      and "A" not in Image.open(io.BytesIO(files[t["resourcePath"]])).getbands(),
       (dark, light))
 clip_doc = Document()
 clip_doc.layer(4).mode = "image"
@@ -263,8 +264,8 @@ ci.clip = [[[[10, 10], [50, 10], [50, 35], [10, 35]]]]
 cf, _ = xs.build(clip_doc)
 cd = load(cf, "displays-0.json")["displays"][0]
 cp = Image.open(io.BytesIO(cf[cd["resourcePath"]])).convert("RGBA")
-check("foto ritagliata con una forma: fuori dalla sagoma trasparente", cp.getpixel((200, 150))[3] == 255
-      and cp.getpixel((5, 5))[3] == 0)
+check("foto ritagliata con una forma: fuori dalla sagoma bianco (non inciso), dentro la foto",
+      cp.getpixel((200, 150))[:3] == (200, 200, 200) and cp.getpixel((5, 5))[:3] == (255, 255, 255))
 
 print("--- che cosa resta fuori")
 d5 = Document()
@@ -313,6 +314,49 @@ except ValueError:
     pass
 check("se la preparazione fallisce il file che c'era non viene toccato", open(bad, "rb").read() == b"vecchio")
 _ = (photo_clip, math, circle, ring, straight, rect, off, tool, out_r)
+
+print("--- comando nel programma")
+os.environ["FLC_SETTINGS_INI"] = os.path.join(tempfile.mkdtemp(), "prova.ini")
+os.environ["FLC_NO_DIALOGS"] = "1"
+os.environ["FLC_NO_FIRST_RUN"] = "1"
+from PySide6.QtWidgets import QMessageBox  # noqa: E402
+
+QMessageBox.warning = staticmethod(lambda *a, **k: QMessageBox.Ok)
+from freelasercut.ui import help_texts  # noqa: E402
+from freelasercut.ui.dialogs_xtool import XToolExportDialog  # noqa: E402
+from freelasercut.ui.main_window import MainWindow  # noqa: E402
+
+w = MainWindow()
+check("comando nel menu File, accanto a Esporta SVG, con la sua scheda di aiuto",
+      w.acts["export_xs"] in w.m_file.actions() and "export_xs" in help_texts.HELP
+      and w.m_file.actions().index(w.acts["export_xs"]) == w.m_file.actions().index(w.acts["export"]) + 1)
+w.editor.set_document(doc)
+out_ui = os.path.join(TMP, "dal-programma.xs")
+rep_ui = w.file_export_xs(path=out_ui)
+zu = zipfile.ZipFile(out_ui)
+du = json.loads(zu.read(next(n for n in zu.namelist() if n.endswith("displays-0.json"))))["displays"]
+check("dal programma: tutto il piano nel progetto, con la versione di FreeLaserCut", rep_ui and len(du) == 5
+      and json.loads(zu.read("project.json"))["versionInfo"]["ua"].startswith("FreeLaserCut/0."))
+w.editor.select([rect])
+rep_sel = w.file_export_xs(path=os.path.join(TMP, "selezione.xs"))
+check("con una selezione si esporta solo quella", rep_sel["layers"] == [(1, xs.LINE, 1)])
+w.editor.select([])
+w.editor.set_document(Document())
+check("piano vuoto: non scrive niente e lo dice", w.file_export_xs(path=os.path.join(TMP, "vuoto.xs")) is None
+      and not os.path.exists(os.path.join(TMP, "vuoto.xs")))
+w.editor.set_document(doc)
+check("cartella che non esiste: avviso, nessun errore", w.file_export_xs(path=os.path.join(TMP, "no", "x.xs")) is None)
+dlg = XToolExportDialog(doc, [doc.layer(i) for i in (1, 2, 3, 4)], 20)
+check("finestra: modulo 10 / 20 / 40 W (ricordato), i soli livelli Linea da segnare come tagli, già proposti",
+      [dlg.laser.itemData(i) for i in range(dlg.laser.count())] == [10, 20, 40] and dlg.laser_w() == 20
+      and set(dlg.cuts) == {1, 2} and dlg.cut_layers() == {2})
+dlg.cuts[1].setChecked(True)
+dlg.cuts[2].setChecked(False)
+rep_cut = w.file_export_xs(path=os.path.join(TMP, "tagli.xs"), laser_w=dlg.laser_w(), cut_layers=dlg.cut_layers())
+check("la scelta dei tagli e del modulo arriva nel progetto", (1, xs.CUT, 1) in rep_cut["layers"]
+      and (2, xs.LINE, 1) in rep_cut["layers"]
+      and json.loads(zipfile.ZipFile(os.path.join(TMP, "tagli.xs")).read("devices/device-JS002-1.json"))["power"] == [20])
+dlg.close()
 
 ok = sum(results)
 print(f"\n{ok}/{len(results)} superati")

@@ -243,7 +243,7 @@ def path_display(subs, color, z, filled):
 # ------------------------------------------------------------------ foto
 def _photo_png(pil, m):
     """Foto e matrice pixel -> tela. Se la foto è dritta (solo scala e posizione) resta com'è; se è ruotata o
-    specchiata viene ridisegnata dritta nel suo ingombro, alla stessa finezza (fuori trasparente).
+    specchiata viene ridisegnata dritta nel suo ingombro, alla stessa finezza (fuori bianco).
     -> (bytes PNG, larghezza px, altezza px, mm per pixel in x, in y, x, y sulla tela)."""
     from PIL import Image
 
@@ -265,8 +265,14 @@ def _photo_png(pil, m):
         out = pil.convert("RGBA").transform((ow, oh), Image.AFFINE, coeffs, resample=Image.BICUBIC,
                                             fillcolor=(255, 255, 255, 0))
         sx = sy = s
-    if out.mode not in ("L", "RGB", "RGBA"):
-        out = out.convert("RGBA" if "A" in out.getbands() else "RGB")
+    if "A" in out.getbands() or out.mode == "P":
+        # le parti trasparenti (fuori dalla sagoma del ritaglio, attorno a una foto ruotata) diventano bianche = non
+        # incise: così non dipende da come xTool Studio tratta la trasparenza
+        rgba = out.convert("RGBA")
+        white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+        out = Image.alpha_composite(white, rgba).convert("L" if pil.mode in ("L", "LA", "1") else "RGB")
+    elif out.mode not in ("L", "RGB"):
+        out = out.convert("RGB")
     buf = io.BytesIO()
     out.save(buf, "PNG")
     return buf.getvalue(), out.size[0], out.size[1], sx, sy, x, y
