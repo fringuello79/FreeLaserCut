@@ -321,9 +321,13 @@ class MainWindow(QMainWindow):
             "photo_clip": A(tr("Ritaglia la foto con la forma"), e.clip_photo, None, None,
                             tr("Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto "
                                "si vede e si incide solo dentro la forma. La forma resta come contorno, non incisa; "
-                               "per tagliarla mettila su un livello che esce")),
+                               "per tagliarla: Contorno da tagliare")),
             "photo_unclip": A(tr("Togli il ritaglio"), e.unclip_photo, None, None,
                               tr("La foto ritagliata con una forma torna intera; la forma torna sul suo livello")),
+            # 0.20.6 (Evoluzione2): incidere la foto e poi tagliarla sul suo contorno
+            "photo_cut_outline": A(tr("Contorno da tagliare…"), self.cut_outline_dialog, None, None,
+                                   tr("Della foto ritagliata con una forma crea il contorno da tagliare (sul livello "
+                                      "attivo), anche un po' più largo o più stretto; si sposta insieme alla foto")),
             "flip_h": A(tr("Rifletti orizzontalmente"), lambda: e.flip(True), "Ctrl+Shift+H", "flip_h"),
             "flip_v": A(tr("Rifletti verticalmente"), lambda: e.flip(False), "Ctrl+Alt+V", "flip_v"),
             "rot_cw": A(tr("Ruota di 90° in senso orario"), lambda: e.rotate(-90), ".", "rot_cw"),
@@ -644,7 +648,7 @@ class MainWindow(QMainWindow):
                 act.triggered.connect(lambda _=False, i=i: self.head_to_selection(i))
 
         menu(tr("&Disponi"), ["group", "ungroup", "-", "weld", (tr("Operazioni booleane"), ["union", "difference", "intersection", "xor"]),
-                          "photo_clip", "photo_unclip",
+                          "photo_clip", "photo_unclip", "photo_cut_outline",
                           "-", "flip_h", "flip_v", "rot_cw", "rot_ccw", "-",
                           (tr("Allinea"), ["align_left", "align_hcenter", "align_right", "-", "align_top", "align_vcenter",
                                        "align_bottom", "-", "align_center"]),
@@ -1371,6 +1375,7 @@ class MainWindow(QMainWindow):
         clip_ok, unclip_ok = self._clip_states(self.editor.selection)
         self.acts["photo_clip"].setEnabled(clip_ok)
         self.acts["photo_unclip"].setEnabled(unclip_ok)
+        self.acts["photo_cut_outline"].setEnabled(bool(ops.clipped_photos(self.editor.selection)))
 
     @staticmethod
     def _clip_group_photo_ok(sel):
@@ -1782,6 +1787,21 @@ class MainWindow(QMainWindow):
                 self._update_title()
 
     # ================================================================ dialoghi di modifica
+    def cut_outline_dialog(self):
+        """0.20.6: chiede lo scostamento del «Contorno da tagliare» (si ricorda l'ultimo) e lo crea."""
+        last = float(self.qs.value("cut_outline_offset", 0.0) or 0.0)
+        if os.environ.get("FLC_NO_DIALOGS"):
+            d, ok = last, True
+        else:
+            d, ok = QInputDialog.getDouble(
+                self, tr("Contorno da tagliare"),
+                tr("Scostamento dal bordo della foto (mm):\n0 = proprio sul bordo; per esempio 0,1 per un filo di "
+                   "margine fuori, un valore negativo per tagliare un po' dentro"), last, -20.0, 20.0, 2)
+        if not ok:
+            return []
+        self.qs.setValue("cut_outline_offset", d)
+        return self.editor.cut_outline(d)
+
     def offset_dialog(self):
         if not self.editor.selection:
             return
@@ -2543,7 +2563,7 @@ class MainWindow(QMainWindow):
         keys += ["-", "to_path", "offset"]
         clip_ok, unclip_ok = self._clip_states(sel)  # 0.20.3: foto ritagliata con una forma
         keys += ["photo_clip"] if clip_ok else []
-        keys += ["photo_unclip"] if unclip_ok else []
+        keys += ["photo_unclip", "photo_cut_outline"] if unclip_ok else []
         if any(isinstance(leaf, PathShape) for s in sel for leaf, _ in s.leaves()):
             keys.append("simplify")
         keys += ["-", "fit_sel"]
@@ -3278,7 +3298,7 @@ class MainWindow(QMainWindow):
                 if cs.mode != "image" or not cs.output:
                     continue
                 step = 25.4 / max(cs.dpi, 10.0)
-                r = tf.map(leaf.local_path()).boundingRect()
+                r = tf.map(leaf.photo_path()).boundingRect()  # 0.20.6: come la griglia del G-code
                 n += (r.width() / step) * (r.height() / step)
         return n
 

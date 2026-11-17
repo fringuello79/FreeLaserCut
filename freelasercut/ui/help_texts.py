@@ -116,8 +116,13 @@ HELP = {
                    "stella, testo, una forma disegnata a mano): la foto si vede e si incide solo dentro la forma, anche "
                    "con il negativo. La forma resta come contorno sul livello che non si incide e va in un gruppo con la "
                    "foto, così si spostano insieme. Hai modificato la forma? Seleziona il gruppo e ripeti il comando."),
-                   [(tr("Tagliare il contorno"), tr("metti la forma su un livello in modalità Linea che esce")),
+                   [(tr("Tagliare il contorno"), tr("Disponi → Contorno da tagliare (anche dal tasto destro)")),
                     (tr("Togli il ritaglio"), tr("la foto torna intera e la forma torna sul suo livello"))]),
+    "photo_cut_outline": (tr("Contorno da tagliare"), tr("Della foto ritagliata con una forma crea il tracciato da "
+                          "tagliare sul contorno di quello che si vede, sul livello attivo (se è un livello di foto, "
+                          "su un livello nuovo). Lo scostamento lo allarga (per esempio 0,1 mm) o, negativo, lo "
+                          "stringe. Il contorno va nel gruppo con la foto e si sposta con lei. I livelli si fanno "
+                          "nell'ordine dell'elenco: il taglio deve venire dopo la foto (se non è così, lo dice)."), None),
     "photo_unclip": (tr("Togli il ritaglio"), tr("La foto ritagliata con una forma torna intera; il gruppo si separa e la "
                      "forma torna sul livello che aveva prima del ritaglio."), None),
     "weld": (tr("Salda"), tr("Fonde forme sovrapposte in un unico contorno: niente linee interne bruciate due volte."), None),

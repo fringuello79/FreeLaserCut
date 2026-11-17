@@ -1,5 +1,24 @@
 # Novità di FreeLaserCut
 
+## 0.20.6 — 17/11/2026
+La foto ritagliata con una forma si comporta come la sola parte che si vede, e si ritaglia anche con il laser in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri.
+
+**Foto ritagliata con una forma: conta solo quello che si vede** (segnalazione di Evoluzione2). Dopo *Disponi → Ritaglia la foto con la forma* le misure, le maniglie e il riquadro restavano quelli della foto intera, e non si capiva se il materiale bastava. Ora per tutto il programma la foto è la sola parte ritagliata: misure L e A, maniglie, *Allinea*, *Ottimizza lo spazio*, la stampa di *Stampa e taglia*. La foto intera resta salvata nel progetto: *Togli il ritaglio* la rimette com'era, anche dopo un mese. Il G-code della foto non cambia di un punto.
+- **Corretto:** con la partenza da *Posizione attuale* o da *Origine utente* il punto di aggancio (centro, angoli) era calcolato sulla foto intera: il cuore finiva qualche millimetro più in là rispetto alla testa. Ora è calcolato sul cuore. Con la partenza assoluta non cambiava niente.
+
+**Contorno da tagliare** (*Disponi*, tasto destro, nel Banco in *Combina*). Seleziona la foto ritagliata e il comando crea la linea da tagliare sul contorno di quello che si vede, sul livello attivo, anche un po' più larga (per esempio 0,1 mm) o più stretta. La linea va nel gruppo con la foto e si sposta con lei. I livelli si fanno nell'ordine dell'elenco: se il taglio verrebbe prima dell'incisione, il programma lo dice. Prima bisognava duplicare la forma e cambiarle livello a mano.
+
+**Prepara foto: la forma si vede sulla foto originale** (segnalazione di Evoluzione2). Scegliendo cuore, stella, nuvola, cerchio, esagono, ovale o angoli arrotondati, sulla foto a sinistra compare la forma dentro il riquadro del ritaglio, con schiarito quello che resterà fuori: così si vede subito se il soggetto ci sta. Il riquadro ora **si sposta** trascinandolo da dentro e **si allarga** tirando gli angoli e i lati (con Maiusc sugli angoli tiene le proporzioni); resta sempre dentro la foto. Trascinando fuori dal riquadro se ne disegna uno nuovo, come prima.
+
+**Ingranaggi con i denti veri.** La forma *Ingranaggio* aveva solo il numero dei denti. Ora i denti hanno il profilo a evolvente, quello delle ruote vere, e nel pannello *Proprietà* ci sono:
+- **denti** (fino a 200) e **modulo**, cioè la grandezza del dente: diametro esterno = modulo × (denti + 2); il pannello mostra anche diametro primitivo, di piede e passo. Due ruote con lo stesso modulo ingranano alla distanza modulo × (denti della prima + denti della seconda) / 2;
+- **angolo di pressione** (20°, lo standard; 14,5° o 25°), **gioco** fra i denti e **raccordo al piede**;
+- **foro** per l'albero, anche **a D** o con la **cava per la linguetta**, che resta della stessa misura anche quando ingrandisci la ruota;
+- **alleggerimenti**: da 3 a 8 finestre fra mozzo e corona.
+Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa i denti veri* passano al profilo nuovo.
+
+**Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
+
 ## 0.20.5 — 17/11/2026
 Niente più scatti quando si selezionano e si spostano tanti tracciati su un PC lento; il Wi-Fi delle schede Makerbase dice la cosa giusta quando il laser non trova la rete; angoli dei rettangoli raccordati verso l'interno, anteprima dell'offset sul piano, finestra della camera della testa che sta in ogni schermo, sfondo del piano che si cambia con un clic, la versione per Linux parte anche su openSUSE, e un grazie a chi ci ha aiutato.
 

@@ -2,7 +2,7 @@
 """Pannelli di progettazione: barra numerica, tavolozza livelli, livelli/impostazioni di taglio, proprietà forma."""
 import math
 
-from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QPointF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QTransform
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QFrame, QGridLayout,
@@ -1438,7 +1438,9 @@ class PropertiesPanel(QScrollArea):
 
         def pick(k):
             if k != s.form:
-                self.ed.modify(s, tr("Cambia forma"), form=k, param=shapes_lib.default_param(k))
+                # 0.20.6: un ingranaggio nuovo ha i denti veri (opzioni vuote = valori predefiniti)
+                self.ed.modify(s, tr("Cambia forma"), form=k, param=shapes_lib.default_param(k),
+                               opts={} if k == "gear" else None)
                 self.rebuild()
         self._gallery(s.form, pick)
         spec = shapes_lib.SHAPES[s.form]
@@ -1448,10 +1450,101 @@ class PropertiesPanel(QScrollArea):
             sp = _spin(spec[2], spec[3], s.param, dec, 1 if dec == 0 else 0.05)
             sp.valueChanged.connect(lambda v: self._mod(spec[1], param=v))
             f.addRow(spec[1], sp)
+        if s.form == "gear":
+            self._gear(s, f)
         lab = QLabel(tr("{0:.2f} × {1:.2f} mm (forma originale). Converti in tracciato (Ctrl+Maiusc+C) per modificarne i nodi.", s.w, s.h))
         lab.setObjectName("muted")
         lab.setWordWrap(True)
         self.lay.addWidget(lab)
+
+    def _gear(self, s, f):
+        """0.20.6: parametri dell'ingranaggio come nei programmi di disegno meccanico (core/gears)."""
+        from ..core import gears
+
+        if s.opts is None:  # ingranaggio di una versione precedente: resta com'era finché non si sceglie
+            note = QLabel(tr("Ingranaggio delle versioni precedenti (denti semplici). Con i denti veri a evolvente "
+                             "puoi scegliere modulo, angolo di pressione, gioco, foro e alleggerimenti."))
+            note.setObjectName("muted")
+            note.setWordWrap(True)
+            f.addRow("", note)
+            b = QPushButton(tr("Usa i denti veri (evolvente)"))
+            b.clicked.connect(lambda: (self._mod(tr("Denti veri"), opts={}), self.rebuild()))
+            f.addRow("", b)
+            return
+        z = int(round(s.param))
+        m = s.gear_module()
+        inf = gears.info(z, m, s.opts)
+
+        def set_opt(label, key, value):
+            o = dict(s.opts or {})
+            o[key] = value
+            self._mod(label, opts=gears.clean(o))
+
+        def set_module(v):
+            d = float(v) * (z + 2)  # diametro esterno vero; la ruota resta centrata dov'è
+            sx, sy = s._scale()
+            w2, h2 = d / sx, d / sy
+            c = s.tf.map(QPointF(s.w / 2, s.h / 2))
+            t = s.tf
+            lin = QTransform(t.m11(), t.m12(), t.m21(), t.m22(), 0, 0)
+            new_tf = QTransform.fromTranslate(-w2 / 2, -h2 / 2) * lin * QTransform.fromTranslate(c.x(), c.y())
+            self._mod(tr("Modulo"), w=w2, h=h2, tf=new_tf)
+
+        mod = _spin(0.1, 50.0, round(m, 3), 3, 0.25, " mm")
+        mod.setToolTip(tr("Grandezza del dente: diametro primitivo = modulo × denti. Due ruote ingranano se hanno lo "
+                          "stesso modulo e lo stesso angolo di pressione"))
+        mod.valueChanged.connect(set_module)
+        f.addRow(tr("Modulo"), mod)
+        dims = QLabel(tr("esterno {0:.2f} · primitivo {1:.2f} · piede {2:.2f} mm\npasso {3:.2f} mm", inf["outer_d"],
+                         inf["pitch_d"], inf["root_d"], inf["pitch"]))
+        dims.setObjectName("muted")
+        f.addRow(tr("Diametri"), dims)
+        pa = QComboBox()
+        for a in gears.PRESSURE_ANGLES:
+            pa.addItem(f"{a:g}°", a)
+        cur = float(s.opts.get("pa", 20.0))
+        if pa.findData(cur) < 0:
+            pa.addItem(f"{cur:g}°", cur)
+        pa.setCurrentIndex(pa.findData(cur))
+        pa.setToolTip(tr("20° è lo standard; 14,5° nelle ruote vecchie; 25° denti più robusti"))
+        pa.currentIndexChanged.connect(lambda _i: set_opt(tr("Angolo di pressione"), "pa", pa.currentData()))
+        f.addRow(tr("Angolo di pressione"), pa)
+        bl = _spin(0.0, 2.0, float(s.opts.get("backlash", 0.0) or 0.0), 2, 0.05, " mm")
+        bl.setToolTip(tr("Di quanto si assottiglia ogni dente: lascia spazio fra i denti (con il legno aiuta). Per "
+                         "una coppia di ruote, metà su ciascuna"))
+        bl.valueChanged.connect(lambda v: set_opt(tr("Gioco"), "backlash", v))
+        f.addRow(tr("Gioco"), bl)
+        fl = _spin(-0.01, 20.0, -0.01 if s.opts.get("fillet") is None else float(s.opts["fillet"]), 2, 0.1, " mm")
+        fl.setSpecialValueText(tr("automatico"))
+        fl.setToolTip(tr("Raccordo al piede del dente; automatico = 0,38 × modulo. Mai più largo del vano fra i denti"))
+        fl.valueChanged.connect(lambda v: set_opt(tr("Raccordo al piede"), "fillet", None if v < 0 else v))
+        f.addRow(tr("Raccordo al piede"), fl)
+        ho = _spin(-0.01, 2000.0, -0.01 if s.opts.get("hole") is None else float(s.opts["hole"]), 2, 0.5, " mm")
+        ho.setSpecialValueText(tr("automatico ({0:g} mm)", gears.hole_diameter(z, m, {})))
+        ho.setToolTip(tr("Diametro del foro per l'albero; 0 = senza foro. Resta della stessa misura anche se "
+                         "ingrandisci la ruota"))
+        ho.valueChanged.connect(lambda v: set_opt(tr("Foro"), "hole", None if v < 0 else v))
+        f.addRow(tr("Foro"), ho)
+        fd = _spin(0.0, 1000.0, float(s.opts.get("flat", 0.0) or 0.0), 2, 0.1, " mm")
+        fd.setToolTip(tr("Foro a D per gli alberi con il lato piatto: distanza dal centro al piatto (0 = foro tondo)"))
+        fd.valueChanged.connect(lambda v: set_opt(tr("Foro a D"), "flat", v))
+        f.addRow(tr("Foro a D"), fd)
+        kw = _spin(0.0, 1000.0, float(s.opts.get("key_w", 0.0) or 0.0), 2, 0.5, " mm")
+        kh = _spin(0.0, 1000.0, float(s.opts.get("key_h", 0.0) or 0.0), 2, 0.5, " mm")
+        kw.setToolTip(tr("Cava per la linguetta: larghezza (0 = senza)"))
+        kh.setToolTip(tr("Cava per la linguetta: profondità oltre il bordo del foro"))
+        kw.valueChanged.connect(lambda v: set_opt(tr("Cava per linguetta"), "key_w", v))
+        kh.valueChanged.connect(lambda v: set_opt(tr("Cava per linguetta"), "key_h", v))
+        f.addRow(tr("Cava larghezza"), kw)
+        f.addRow(tr("Cava profondità"), kh)
+        sp = QComboBox()
+        for n in gears.SPOKES:
+            sp.addItem(tr("nessuno (ruota piena)") if n == 0 else tr("{0} finestre", n), n)
+        sp.setCurrentIndex(max(0, sp.findData(int(s.opts.get("spokes", 0) or 0))))
+        sp.setToolTip(tr("Finestre fra il mozzo e la corona: ruota più leggera e meno legno da tagliare. Solo se la "
+                         "ruota è abbastanza grande"))
+        sp.currentIndexChanged.connect(lambda _i: set_opt(tr("Alleggerimenti"), "spokes", sp.currentData()))
+        f.addRow(tr("Alleggerimenti"), sp)
 
     def _code(self, s):
         from ..core import codes

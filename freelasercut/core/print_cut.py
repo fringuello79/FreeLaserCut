@@ -227,7 +227,10 @@ def paint_print(painter, doc, to_page):
             flip = QTransform(1, 0, 0, -1, 0, leaf.h)  # i pixel hanno Y verso il basso
             painter.setTransform(flip * tf * to_page * base)
             painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-            painter.drawImage(QRectF(0, 0, leaf.w, leaf.h), _qimage(img))
+            from . import photo_clip
+
+            # 0.20.6: una foto ritagliata si stampa solo dentro la sagoma (l'ingombro è quello)
+            painter.drawImage(QRectF(0, 0, leaf.w, leaf.h), _qimage(photo_clip.clipped_image(img, leaf)))
             painter.restore()
             continue
         painter.save()

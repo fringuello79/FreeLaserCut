@@ -76,11 +76,14 @@ class ReportDialog(QDialog):
         # qui il nome o lo pseudonimo; vuoto = non compare. È l'unica cosa del rapporto che può diventare pubblica.
         self.thanks_name = QLineEdit()
         self.thanks_name.setMaxLength(40)
-        self.thanks_name.setPlaceholderText(tr("facoltativo: nome o pseudonimo, se vuoi comparire fra i ringraziamenti"))
+        self.thanks_name.setPlaceholderText(tr("facoltativo: nome o pseudonimo per l'elenco dei ringraziamenti"))
         f.addRow(tr("Nome per i ringraziamenti"), self.thanks_name)
-        self.thanks_note = QLabel(tr("Se lo scrivi, questo nome (solo il nome) comparirà nell'elenco pubblico dei "
-                                     "ringraziamenti: nel programma, sul sito e su GitHub. Lascialo vuoto per non "
-                                     "comparire; puoi farlo togliere quando vuoi scrivendo a {0}.", support.SUPPORT_EMAIL))
+        # 0.20.6 (Ale): nell'elenco va chi collabora con regolarità o dà un contributo, non chiunque manda un rapporto
+        self.thanks_note = QLabel(tr("L'elenco dei ringraziamenti raccoglie chi aiuta FreeLaserCut con continuità o con "
+                                     "un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Se "
+                                     "scrivi un nome chiedi di farne parte: lo aggiungiamo quando l'aiuto rientra in "
+                                     "questi casi. Sarà pubblico solo il nome (nel programma, sul sito e su GitHub); "
+                                     "puoi farlo togliere quando vuoi scrivendo a {0}.", support.SUPPORT_EMAIL))
         self.thanks_note.setWordWrap(True)
         self.thanks_note.setObjectName("muted")
         f.addRow("", self.thanks_note)

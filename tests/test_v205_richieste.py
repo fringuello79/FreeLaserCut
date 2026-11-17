@@ -1121,7 +1121,7 @@ check("H sito: gli stessi nomi, tutti e soli", m is not None and [x.strip() for 
 check("H informativa privacy: dice del nome facoltativo e che è l'unica cosa che può diventare pubblica (inglese e italiano)",
       "Name for the acknowledgements" in priv and "Nome per i ringraziamenti" in priv
       and "Nothing else from your report is published" in priv and "Nient'altro del tuo rapporto viene pubblicato" in priv
-      and "16 November 2026" in priv)
+      and ("16 November 2026" in priv or "17 November 2026" in priv))  # 0.20.6: aggiornata il 17/11
 
 # ====================================================================== I. traduzioni
 print("--- I. traduzioni")
@@ -1130,8 +1130,10 @@ NEW = ["Grazie a", "Ringraziamenti", "Nome per i ringraziamenti", "Grazie.", "pi
        "Un valore negativo raccorda l'angolo verso l'interno", "Con questi valori l'offset non produce forme",
        "Positivo: angoli arrotondati. Negativo: angoli raccordati verso l'interno. 0: spigoli vivi",
        "Rettangoli: un valore negativo raccorda gli angoli verso l'interno",
-       "facoltativo: nome o pseudonimo, se vuoi comparire fra i ringraziamenti",
-       "Vuoi esserci anche tu? Scrivi il tuo nome quando mandi un rapporto all'assistenza."]
+       # 0.20.6: testi cambiati (nell'elenco chi aiuta con continuità o con un contributo importante)
+       "facoltativo: nome o pseudonimo per l'elenco dei ringraziamenti",
+       "Aiuti FreeLaserCut con continuità o con un contributo importante? Scrivi il tuo nome quando mandi un rapporto "
+       "all'assistenza."]
 for lang in ("en", "es", "fr", "pt"):
     cat = json.load(open(os.path.join(ROOT, "freelasercut", "locale", f"{lang}.json"), encoding="utf-8"))
     miss = [s for s in NEW if not cat.get(s) or cat[s] == s]

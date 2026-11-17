@@ -619,15 +619,38 @@ class ImageShape(Shape):
         self.source_id = None  # «Prepara foto»: immagine originale (image_id è quella preparata)
         self.photo = None  # «Prepara foto»: impostazioni usate (dict), per riaprire la finestra da dove eri
         # 0.20.3: sagoma del ritaglio con una forma (core/photo_clip): pezzi di anelli in mm locali, None = nessuna
-        self.clip = None
+        self._clip = None
+
+    @property
+    def clip(self):
+        return self._clip
+
+    @clip.setter
+    def clip(self, value):
+        # 0.20.6: la sagoma decide l'ingombro della foto (local_path): cambiandola si rifà il tracciato
+        self._clip = value
+        self.invalidate()
 
     def image_ids(self):
         return [i for i in (self.image_id, self.source_id) if i]
 
-    def local_path(self):
+    def photo_path(self):
+        """Il riquadro intero della foto (mm locali), anche se è ritagliata: dove stanno i pixel."""
         p = QPainterPath()
         p.addRect(QRectF(0, 0, self.w, self.h))
         return p
+
+    def local_path(self):
+        """0.20.6: una foto ritagliata con una forma è, per tutto il programma (misure, maniglie, Allinea, aggancio
+        del lavoro, nesting), solo la parte ritagliata; i pixel interi restano (photo_path) e «Togli il ritaglio» li
+        rimette. Prima l'ingombro era sempre la foto intera (Evoluzione2, 16/11)."""
+        if self._clip:
+            from . import photo_clip
+
+            p = photo_clip.outline_path(self._clip, self.w, self.h)
+            if not p.isEmpty():
+                return p
+        return self.photo_path()
 
     def closed(self):
         return True
@@ -682,11 +705,38 @@ class SpecialShape(Shape):
         self.form = form if form in shapes_lib.SHAPES else "arrow"
         self.w, self.h = float(w), float(h)
         self.param = float(shapes_lib.default_param(self.form) if param is None else param)
+        # 0.20.6: opzioni dell'ingranaggio a evolvente (core/gears). Gli ingranaggi nuovi le hanno ({} = valori
+        # predefiniti); None = disegno della versione precedente (denti a trapezio), per i progetti già salvati
+        self.opts = {} if self.form == "gear" else None
+
+    def gear_module(self):
+        """0.20.6: modulo vero (mm sul piano) dell'ingranaggio: diametro esterno / (denti + 2), sul lato più corto."""
+        sx, sy = self._scale()
+        return min(self.w * sx, self.h * sy) / (int(round(self.param)) + 2)
 
     def local_path(self):
         from . import shapes_lib
 
+        if self.form == "gear" and self.opts is not None:
+            return self._gear_path()
         return shapes_lib.make(self.form, self.w, self.h, self.param)
+
+    def _gear_path(self):
+        """0.20.6: denti veri in mm del piano (foro, gioco e raccordi restano in mm anche se la forma è stata
+        ridimensionata con le maniglie), riportati nel riquadro locale w × h."""
+        from . import gears
+
+        z = int(round(self.param))
+        m = self.gear_module()
+        ra = m * (z + 2) / 2.0
+        kx, ky = self.w / (2 * ra), self.h / (2 * ra)
+        p = QPainterPath()
+        for ring in gears.profile(z, m, self.opts):
+            p.moveTo(self.w / 2 + ring[0][0] * kx, self.h / 2 + ring[0][1] * ky)
+            for x, y in ring[1:]:
+                p.lineTo(self.w / 2 + x * kx, self.h / 2 + y * ky)
+            p.closeSubpath()
+        return p
 
     def closed(self):
         from . import shapes_lib
@@ -694,7 +744,10 @@ class SpecialShape(Shape):
         return self.form not in shapes_lib.OPEN_SHAPES
 
     def params(self):
-        return {"form": self.form, "w": self.w, "h": self.h, "param": self.param}
+        d = {"form": self.form, "w": self.w, "h": self.h, "param": self.param}
+        if self.opts is not None:  # 0.20.6: solo l'ingranaggio a evolvente; gli altri progetti restano identici
+            d["opts"] = dict(self.opts)
+        return d
 
     def describe(self):
         from . import shapes_lib
@@ -840,6 +893,10 @@ def shape_from_dict(d, images=None):
         s = GroupShape([shape_from_dict(c, images) for c in p.get("children", [])])
     elif kind == "special":
         s = SpecialShape(p.get("form", "arrow"), p.get("w", 20), p.get("h", 20), p.get("param"))
+        from . import gears
+
+        # 0.20.6: senza «opts» il disegno di prima (anche per un ingranaggio salvato fino alla 0.20.5)
+        s.opts = gears.clean(p.get("opts")) if (s.form == "gear" and "opts" in p) else None
     elif kind == "code":
         s = CodeShape(**{k: v for k, v in p.items() if k in ("code", "data", "w", "h", "ecc", "quiet", "invert", "text",
                                                                "var_offset")})

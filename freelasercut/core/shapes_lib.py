@@ -16,7 +16,7 @@ SHAPES = {
     "double_arrow": (tr("Freccia doppia"), tr("Punte"), 0.1, 0.45, 0.28, 2),
     "heart": (tr("Cuore"), tr("Rotondità"), 0.0, 1.0, 0.5, 2),
     "cross": (tr("Croce"), tr("Spessore"), 0.1, 0.9, 0.34, 2),
-    "gear": (tr("Ingranaggio"), tr("Denti"), 6, 60, 16, 0),
+    "gear": (tr("Ingranaggio"), tr("Denti"), 6, 200, 16, 0),  # 0.20.6: fino a 200 (prima 60)
     "spiral": (tr("Spirale"), tr("Giri"), 1, 20, 4, 1),
     "bubble": (tr("Fumetto"), tr("Coda"), 0.1, 0.4, 0.22, 2),
     "drop": (tr("Goccia"), tr("Punta"), 0.1, 0.9, 0.45, 2),

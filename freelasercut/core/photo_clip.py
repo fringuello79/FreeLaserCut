@@ -14,7 +14,7 @@ import math
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, Qt
 
 SHIFT = 8  # cv2.fillPoly con coordinate a 1/256 di pixel
 MAX_POINTS = 20000  # punti di una sagoma (oltre si semplifica: un testo lungo resta leggero da salvare)
@@ -67,6 +67,54 @@ def pieces_from(leaves, image_tf, tol=0.02):
     if n > MAX_POINTS:  # semplifica tenendo la forma (passo più largo)
         return pieces_from(leaves, image_tf, tol * 2.5)
     return pieces or None
+
+
+_SCALE = 10000.0  # pyclipper lavora con interi: 1/10000 di mm
+
+
+def visible_rings(clip, w, h):
+    """0.20.6: la parte della foto che si vede davvero = sagoma ∩ riquadro della foto, in mm locali.
+    -> [anelli [(x, y), ...]] (contorni esterni e buchi), [] se non resta niente. Un solo punto per l'ingombro."""
+    if not clip or w <= 0 or h <= 0:
+        return []
+    import pyclipper
+
+    def ints(ring):
+        return [(int(round(x * _SCALE)), int(round(y * _SCALE))) for x, y in ring]
+
+    union = []
+    for piece in clip:  # dentro un pezzo pari/dispari, fra i pezzi l'unione (come pixel_mask e grid_mask)
+        pc = pyclipper.Pyclipper()
+        try:
+            pc.AddPaths([ints(r) for r in piece], pyclipper.PT_SUBJECT, True)
+            got = pc.Execute(pyclipper.CT_UNION, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD)
+        except pyclipper.ClipperException:
+            continue
+        union += got
+    if not union:
+        return []
+    pc = pyclipper.Pyclipper()
+    try:
+        pc.AddPaths(union, pyclipper.PT_SUBJECT, True)
+        pc.AddPath(ints([(0, 0), (w, 0), (w, h), (0, h)]), pyclipper.PT_CLIP, True)
+        got = pc.Execute(pyclipper.CT_INTERSECTION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
+    except pyclipper.ClipperException:
+        return []
+    return [[(x / _SCALE, y / _SCALE) for x, y in r] for r in got if len(r) >= 3]
+
+
+def outline_path(clip, w, h):
+    """0.20.6: contorno della parte visibile (mm locali) come QPainterPath; vuoto se la sagoma non copre la foto."""
+    from PySide6.QtGui import QPainterPath
+
+    p = QPainterPath()
+    p.setFillRule(Qt.OddEvenFill)
+    for ring in visible_rings(clip, w, h):
+        p.moveTo(QPointF(*ring[0]))
+        for pt in ring[1:]:
+            p.lineTo(QPointF(*pt))
+        p.closeSubpath()
+    return p
 
 
 def _odd(px, py, ring):
