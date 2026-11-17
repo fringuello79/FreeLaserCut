@@ -474,7 +474,15 @@ from freelasercut.ui import help_texts  # noqa: E402
 from freelasercut.ui.dialogs_xtool import XToolExportDialog  # noqa: E402
 from freelasercut.ui.main_window import MainWindow  # noqa: E402
 
+from freelasercut import admin  # noqa: E402
+
 w = MainWindow()
+check("senza il codice delle funzioni in prova il comando non si vede", not w.acts["export_m2"].isVisible()
+      and w.acts["export_xs"].isVisible() is w.acts["export"].isVisible())
+admin.set_unlocked(w.qs, True)
+w._apply_admin()
+check("con le funzioni in prova sbloccate il comando compare", w.acts["export_m2"].isVisible() is w.acts["export_xs"].isVisible()
+      and admin.unlocked(w.qs))
 acts = w.m_file.actions()
 check("comando nel menu File, subito dopo «Esporta per xTool Studio», con «sperimentale» nel nome e la scheda di aiuto",
       acts.index(w.acts["export_m2"]) == acts.index(w.acts["export_xs"]) + 1

@@ -2728,6 +2728,7 @@ class MainWindow(QMainWindow):
         from .. import admin
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
+        self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 
