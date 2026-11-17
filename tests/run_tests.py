@@ -537,6 +537,7 @@ if __name__ == "__main__":
     run_suite("test_v205_richieste.py", "Angoli verso l'interno, Livelli, offset, Forme, camera della testa, sfondo del piano e ringraziamenti nell'interfaccia Banco", "banco")
     run_suite("test_v206_richieste.py", "Foto ritagliata con una forma: misure, maniglie, Allinea e aggancio del lavoro sulla sola parte che si vede, Contorno da tagliare; Prepara foto: forma sull'originale e riquadro del ritaglio che si sposta e si allarga; ingranaggio a evolvente con modulo, angolo di pressione, gioco, foro e alleggerimenti; precisazione dei ringraziamenti")
     run_suite("test_v206_richieste.py", "Foto ritagliata, Contorno da tagliare, Prepara foto, ingranaggio e ringraziamenti nell'interfaccia Banco", "banco")
+    run_suite("test_v206_xtool_xs.py", "Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")
