@@ -105,7 +105,8 @@ class NumericBar(QToolBar):
         self.addWidget(self.lock)
         self.fh = self._field("A", suffix=" mm", minimum=0.001, help_key="num:h", fit=("8888.88 mm",), tight=("888.88 mm",))
         # 0.18.2: raggio degli angoli accanto alle misure (rettangoli, poligoni e stelle), più i quattro angoli
-        self.frad = self._field("R", suffix=" mm", width=66, minimum=0.0, step=0.5, help_key="num:radius",
+        # 0.20.5: per i rettangoli anche negativo = angoli raccordati verso l'interno (il limite lo dà set_radius)
+        self.frad = self._field("R", suffix=" mm", width=66, minimum=-1000.0, step=0.5, help_key="num:radius",
                                 fit=("888.88 mm",), tight=("88.88 mm",))
         self.btn_corners = QToolButton()
         self.btn_corners.setObjectName("minilock")
@@ -233,9 +234,12 @@ class NumericBar(QToolBar):
 
     @staticmethod
     def shown_radius(s):
-        """Raggio da mostrare: quello unico, o il più grande se il rettangolo ha angoli diversi (in mm, già limitato)."""
-        if isinstance(s, RectShape) and s.radii is not None:
-            return max(s.corner_radii())
+        """Raggio da mostrare: quello unico, o il più grande se il rettangolo ha angoli diversi (in mm, già limitato).
+        0.20.5: nei rettangoli può essere negativo (verso l'interno); «il più grande» è quello più lontano da 0."""
+        if isinstance(s, RectShape):
+            if s.radii is not None:
+                return max(s.corner_radii(), key=abs)
+            return RectShape.clamp_radius(s.radius, s.max_radius())
         return max(0.0, min(s.radius, s.max_radius()))
 
     def _refresh_radius(self):
@@ -249,6 +253,8 @@ class NumericBar(QToolBar):
         s = rs[0]
         self.frad.setValue(self.shown_radius(s))
         tip = tr("Raggio degli angoli (mm) — massimo {0:.2f} mm", s.max_radius())
+        if any(isinstance(x, RectShape) for x in rs):
+            tip += "\n" + tr("Rettangoli: un valore negativo raccorda gli angoli verso l'interno")
         if isinstance(s, RectShape) and s.radii is not None:
             tip += "\n" + tr("Angoli diversi: qui il più grande; scrivendo un valore tornano tutti uguali")
         if len(rs) > 1:
@@ -263,9 +269,12 @@ class NumericBar(QToolBar):
 
         def do():
             for s in rs:
-                s.radius = max(0.0, min(float(v), round(s.max_radius(), 2)))
-                if isinstance(s, RectShape):
+                top = round(s.max_radius(), 2)
+                if isinstance(s, RectShape):  # 0.20.5: negativo = verso l'interno, fino a -massimo
+                    s.radius = RectShape.clamp_radius(v, top)
                     s.radii = None
+                else:  # poligoni e stelle: solo arrotondati
+                    s.radius = max(0.0, min(float(v), top))
                 s.invalidate()
 
         self.ed.run(tr("Raggio angoli"), do)
@@ -280,10 +289,10 @@ class NumericBar(QToolBar):
             for s in rs:
                 top = round(s.max_radius(), 2)
                 if vals is None:
-                    s.radius = min(max(s.corner_radii()), top)
+                    s.radius = RectShape.clamp_radius(max(s.corner_radii(), key=abs), top)
                     s.radii = None
                 else:
-                    s.radii = [max(0.0, min(float(x), top)) for x in vals]
+                    s.radii = [RectShape.clamp_radius(x, top) for x in vals]
                 s.invalidate()
 
         self.ed.run(tr("Raggio di un angolo") if vals is not None else tr("Raggio angoli"), do)
@@ -375,7 +384,8 @@ class CornerPopup(QFrame):
         v = QVBoxLayout(self)
         v.setContentsMargins(10, 8, 10, 10)
         self.each = QCheckBox(tr("Ogni angolo a parte"))
-        self.each.setToolTip(tr("Un raggio per ogni angolo: per arrotondarne solo uno o alcuni (0 = spigolo vivo)"))
+        self.each.setToolTip(tr("Un raggio per ogni angolo: per arrotondarne solo uno o alcuni (0 = spigolo vivo)")
+                             + "\n" + tr("Un valore negativo raccorda l'angolo verso l'interno"))
         self.each.toggled.connect(self._toggled)
         v.addWidget(self.each)
         grid = QGridLayout()
@@ -384,7 +394,7 @@ class CornerPopup(QFrame):
         tips = (tr("Angolo in alto a sinistra"), tr("Angolo in alto a destra"), tr("Angolo in basso a destra"),
                 tr("Angolo in basso a sinistra"))
         for (arrow, r_, c_), tip in zip(self.ORDER, tips):
-            sp = _spin(0, 1000, 0, 2, 0.5, " mm")
+            sp = _spin(-1000, 1000, 0, 2, 0.5, " mm")
             sp.setToolTip(tip)
             lab = QLabel(arrow)
             lab.setToolTip(tip)
@@ -972,7 +982,20 @@ class LayersPanel(QWidget):
         self.q_passes.valueChanged.connect(self._quick_changed)
         self._loading = False
         editor.changed.connect(self.refresh)
+        editor.layer_assigned.connect(self.show_layer)
         self.refresh()
+
+    def show_layer(self, index):
+        """0.20.5: la riga evidenziata passa al livello appena assegnato alla selezione (segnalazione di Stefano
+        Modena del 16/11: «l'ho messo verde, perché resta attivo il rosso?»). Se il livello non ha ancora forme, e
+        quindi non ha una riga, non cambia niente. -> True se la riga c'è."""
+        for i in range(self.tree.topLevelItemCount()):
+            it = self.tree.topLevelItem(i)
+            if it.data(0, Qt.UserRole) == index:
+                if self.tree.currentItem() is not it:
+                    self.tree.setCurrentItem(it)
+                return True
+        return False
 
     def _current_cs(self):
         it = self.tree.currentItem()
@@ -1194,9 +1217,23 @@ class PropertiesPanel(QScrollArea):
         self._typing.setInterval(600)
         self._typing.timeout.connect(self.ed.commit)
         self.text_edit = None
-        editor.selection_changed.connect(self.rebuild)
+        # 0.20.5 (Stefano Modena, 16/11): scelto uno strumento che ha le sue opzioni qui (Forme con la galleria,
+        # rettangolo, poligono, stella), si vedono subito anche se c'è qualcosa di selezionato. Prima il pannello
+        # restava sulle proprietà della selezione e la galleria compariva solo dopo aver disegnato una forma.
+        self._tool_first = False
+        editor.selection_changed.connect(self._selection_changed)
         editor.changed.connect(self._external_change)
-        canvas.tool_changed.connect(lambda _: self.rebuild())
+        canvas.tool_changed.connect(self._tool_picked)
+        self.rebuild()
+
+    TOOLS_WITH_OPTIONS = ("special", "rect", "polygon", "star")
+
+    def _tool_picked(self, name):
+        self._tool_first = name in self.TOOLS_WITH_OPTIONS and bool(self.ed.selection)
+        self.rebuild()
+
+    def _selection_changed(self):
+        self._tool_first = False  # una selezione nuova: tornano le proprietà di quello che è selezionato
         self.rebuild()
 
     def _external_change(self):
@@ -1218,7 +1255,7 @@ class PropertiesPanel(QScrollArea):
             return
         try:
             if isinstance(s, RectShape):
-                vals = [max(0.0, min(s.radius, s.max_radius()))] + s.corner_radii()
+                vals = [RectShape.clamp_radius(s.radius, s.max_radius())] + s.corner_radii()
                 each = getattr(self, "corner_each", None)
                 if each is not None and each.isChecked() != (s.radii is not None):
                     each.blockSignals(True)
@@ -1265,10 +1302,11 @@ class PropertiesPanel(QScrollArea):
             self.ed.commit()
         self._clear()
         sel = self.ed.selection
-        self.shape = sel[0] if len(sel) == 1 else None
+        tool_first = self._tool_first and bool(sel)
+        self.shape = sel[0] if len(sel) == 1 and not tool_first else None
         s = self.shape
         if s is None:
-            self._tool_options(len(sel))
+            self._tool_options(0 if tool_first else len(sel))
         elif isinstance(s, TextShape):
             self._text(s)
         elif isinstance(s, RectShape):
@@ -1340,7 +1378,8 @@ class PropertiesPanel(QScrollArea):
         ratio = _spin(0.05, 0.95, o["star_ratio"], 2, 0.05)
         ratio.valueChanged.connect(lambda v: o.__setitem__("star_ratio", v))
         f.addRow(tr("Rientranza stella"), ratio)
-        rad = _spin(0, 500, o["corner_radius"], 2, 0.5, " mm")
+        rad = _spin(-500, 500, o["corner_radius"], 2, 0.5, " mm")
+        rad.setToolTip(tr("Positivo: angoli arrotondati. Negativo: angoli raccordati verso l'interno. 0: spigoli vivi"))
         rad.valueChanged.connect(lambda v: o.__setitem__("corner_radius", v))
         f.addRow(tr("Raggio angoli rettangolo"), rad)
         self.lay.addWidget(section(tr("Testo nuovo")))
@@ -1640,23 +1679,30 @@ class PropertiesPanel(QScrollArea):
         self.lay.addWidget(section(tr("Rettangolo")))
         f = self._form()
         mx = s.max_radius()  # 0.17.15: il massimo è quello delle misure attuali, e si vede
-        r = _spin(0, 1000, min(s.radius, mx), 2, 0.5, " mm")
+        # 0.20.5: da -massimo (angoli raccordati verso l'interno) a +massimo (arrotondati)
+        inward = tr("Positivo: angoli arrotondati. Negativo: angoli raccordati verso l'interno. 0: spigoli vivi")
+        r = _spin(-1000, 1000, RectShape.clamp_radius(s.radius, mx), 2, 0.5, " mm")
+        r.setToolTip(inward)
         self.radius_max = QLabel()
         self.radius_max.setObjectName("muted")
 
         def clamp(sp, v):
             """Un valore oltre il massimo diventa il massimo (e si vede), invece di restare «bloccato»."""
-            top = round(self.shape.max_radius(), 2) if isinstance(self.shape, RectShape) else v
-            if v > top:
+            top = round(self.shape.max_radius(), 2) if isinstance(self.shape, RectShape) else abs(v)
+            w = max(-top, min(v, top))
+            if w != v:
                 sp.blockSignals(True)
-                sp.setValue(top)
+                sp.setValue(w)
                 sp.blockSignals(False)
-                return top
-            return v
+            return w
 
         r.valueChanged.connect(lambda v: self._mod(tr("Raggio angoli"), radius=clamp(r, v), radii=None))
         f.addRow(tr("Raggio angoli"), r)
         f.addRow("", self.radius_max)
+        neg = QLabel(tr("Un valore negativo raccorda l'angolo verso l'interno"))
+        neg.setObjectName("muted")
+        neg.setWordWrap(True)
+        f.addRow("", neg)
         # 0.17.13: raccordo anche su un angolo solo
         each = QCheckBox(tr("Ogni angolo a parte"))
         each.setToolTip(tr("Un raggio per ogni angolo: per arrotondarne solo uno o alcuni (0 = spigolo vivo)"))
@@ -1673,8 +1719,8 @@ class PropertiesPanel(QScrollArea):
                                                      ("↗", 0, 2, tr("Angolo in alto a destra")),
                                                      ("↘", 1, 2, tr("Angolo in basso a destra")),
                                                      ("↙", 1, 0, tr("Angolo in basso a sinistra")))):
-            sp = _spin(0, 1000, min(vals[i], mx), 2, 0.5, " mm")
-            sp.setToolTip(tip)
+            sp = _spin(-1000, 1000, RectShape.clamp_radius(vals[i], mx), 2, 0.5, " mm")
+            sp.setToolTip(tip + "\n" + inward)
             lab = QLabel(arrow)
             lab.setToolTip(tip)
             g.addWidget(lab, row_, col)
@@ -1701,7 +1747,7 @@ class PropertiesPanel(QScrollArea):
                     sp.blockSignals(False)
                 self._mod(tr("Ogni angolo a parte"), radii=[r.value()] * 4)
             else:
-                big = max(sp.value() for sp in spins)
+                big = max((sp.value() for sp in spins), key=abs)
                 r.blockSignals(True)
                 r.setValue(big)
                 r.blockSignals(False)

@@ -104,7 +104,9 @@ HELP = {
                   (tr("Solo tratti dritti"), tr("niente curve: il file per la macchina diventa più corto"))]),
     "offset": (tr("Offset forme"), tr("Crea un contorno parallelo a distanza fissa."),
                [(tr("Fuori / Dentro / Entrambi"), tr("da che lato nasce il nuovo contorno")),
-                ("Angoli vivi, tondi o smussati", tr("come vengono raccordati gli spigoli"))]),
+                ("Angoli vivi, tondi o smussati", tr("come vengono raccordati gli spigoli")),
+                (tr("Anteprima"), tr("mentre cambi i valori il nuovo contorno si vede tratteggiato sul piano; diventa "
+                                     "una forma vera solo con «Crea offset»"))]),
     "lock": (tr("Blocca"), tr("Le forme bloccate non si spostano né si modificano per sbaglio."), None),
     "unlock": (tr("Sblocca"), tr("Rende di nuovo modificabili le forme bloccate."), None),
     # ------------------------------------------------------------------ disponi
@@ -362,6 +364,9 @@ HELP = {
                   "descrizione e le opzioni. I clic non eseguono nulla. Esc o di nuovo \"?\" per uscire."), None),
     "shortcuts": (tr("Scorciatoie da tastiera"), tr("Elenco completo dei tasti rapidi."), None),
     "about": (tr("Informazioni"), tr("Versione di FreeLaserCut, autore e licenze."), None),
+    "thanks": (tr("Ringraziamenti"), tr("I nomi di chi ha aiutato FreeLaserCut a migliorare con prove, segnalazioni e "
+               "consigli: gli stessi che compaiono sulla schermata di avvio. Per esserci anche tu, scrivi il tuo nome "
+               "nel campo «Nome per i ringraziamenti» quando mandi un rapporto all'assistenza."), None),
     "updates": (tr("Cerca aggiornamenti…"), tr("Controlla su GitHub se c'è una versione più nuova di FreeLaserCut e, se vuoi, la scarica "
                 "e la installa: FreeLaserCut si chiude e si riapre da solo."), None),
     "update_auto": (tr("Controlla gli aggiornamenti ogni giorno"), tr("All'avvio, al massimo una volta al giorno, FreeLaserCut chiede "
@@ -454,9 +459,12 @@ HELP = {
     "num:lock": (tr("Blocca proporzioni"), tr("Chiuso: larghezza e altezza cambiano insieme. Aperto: si cambiano separatamente."), None),
     "num:radius": (tr("Raggio degli angoli (mm)"), tr("Arrotonda gli angoli di rettangoli, poligoni e stelle selezionati, "
                    "in mm veri anche dopo averli ridimensionati. Un valore oltre il massimo diventa il massimo; 0 = "
-                   "spigoli vivi. Con più forme vale per tutte. Lo stesso raggio è anche nel pannello Proprietà."), None),
+                   "spigoli vivi. Con più forme vale per tutte. Lo stesso raggio è anche nel pannello Proprietà."),
+                   [(tr("Valore negativo"), tr("solo per i rettangoli: l'angolo viene raccordato verso l'interno, come "
+                                               "scavato da un quarto di cerchio (targhette, biglietti)"))]),
     "num:corners": (tr("Un raggio per ogni angolo"), tr("Apre i quattro angoli del rettangolo (↖ ↗ ↘ ↙): con «Ogni angolo "
-                    "a parte» si arrotonda solo uno o alcuni, con raggi diversi (0 = spigolo vivo)."), None),
+                    "a parte» si arrotonda solo uno o alcuni, con raggi diversi (0 = spigolo vivo)."),
+                    [(tr("Valore negativo"), tr("quell'angolo viene raccordato verso l'interno invece che arrotondato"))]),
     "num:rot": (tr("Rotazione (gradi)"), tr("Angolo della forma intorno al punto di riferimento. Positivo = antiorario."), None),
     "num:layer": (tr("Livello della selezione"), tr("Sposta le forme selezionate su un altro livello colore (e quindi su altre "
                   "impostazioni di taglio). Senza selezione sceglie il livello dei nuovi disegni."),

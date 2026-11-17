@@ -371,8 +371,9 @@ def contained_in(container, shapes):
     return out
 
 
-def info(shapes):
-    """Misure per la barra di stato: perimetro, area (forme chiuse), nodi, aperte/chiuse."""
+def info_slow(shapes):
+    """Le misure di info() calcolate come fino alla 0.20.4 (tracciati appiattiti punto per punto): restano per le
+    prove, che le confrontano con quelle veloci."""
     per = area = 0.0
     n_open = n_closed = n_nodes = 0
     for s in shapes:
@@ -389,6 +390,105 @@ def info(shapes):
                     n_open += 1
             n_nodes += sum(len(sp.nodes) for sp in nodes.from_path(path))
     return {"perimeter": per, "area": area, "open": n_open, "closed": n_closed, "nodes": n_nodes}
+
+
+# Gauss-Legendre a 8 punti su quattro tratti di [0, 1]: lunghezza delle curve, precisa ben oltre il centesimo di mm anche
+# con anse strette (l'area invece si calcola esatta, con la formula della cubica)
+_GL_T, _GL_W = None, None
+
+
+def _gauss():
+    global _GL_T, _GL_W
+    if _GL_T is None:
+        import numpy as np
+
+        t, w = np.polynomial.legendre.leggauss(8)
+        k = 4
+        _GL_T = np.concatenate([(j + (t + 1.0) / 2.0) / k for j in range(k)])
+        _GL_W = np.tile(w / 2.0 / k, k)
+    return _GL_T, _GL_W
+
+
+def info(shapes):
+    """Misure per la barra di stato e per il pannello: perimetro, area (forme chiuse), nodi, aperte/chiuse.
+    0.20.5: tutti i tracciati insieme, con numpy (rapporto FLC-20261116-0746-D046: selezionare gli addobbi di un
+    progetto con centinaia di tracciati fermava la finestra quasi un secondo su un PC lento, perché le curve si
+    appiattivano punto per punto in Python). Stessi conti di prima: un sottopercorso è chiuso se finisce dove
+    inizia; i nodi sono quelli dello strumento Nodi (il punto finale che coincide con l'inizio non si conta due volte);
+    la lunghezza delle curve è quella vera invece che quella della spezzata a 0,02 mm (differenza di solito sotto lo
+    0,01%, al massimo qualche decimillesimo con curve piene di cuspidi). Due casi dove prima i conti sbagliavano:
+    un tratto che va e torna sugli stessi due punti (prima contato una volta sola) e una sola curva che si chiude su
+    sé stessa (prima lunghezza 0)."""
+    import numpy as np
+
+    from .document import path_arrays
+
+    ts, xs, ys = [], [], []
+    for s in shapes:
+        for leaf, tf in s.leaves():
+            if isinstance(leaf, ImageShape):
+                continue
+            t, x, y = path_arrays(tf.map(leaf.local_path()))
+            if len(t):
+                if t[0] != 0:  # Qt comincia sempre con un inizio; per sicurezza un tracciato non continua il precedente
+                    t, x, y = np.r_[np.int8(0), t], np.r_[x[0], x], np.r_[y[0], y]
+                ts.append(t), xs.append(x), ys.append(y)
+    out = {"perimeter": 0.0, "area": 0.0, "open": 0, "closed": 0, "nodes": 0}
+    if not ts:
+        return out
+    t, x, y = np.concatenate(ts), np.concatenate(xs), np.concatenate(ys)
+    n = len(t)
+    sub = np.cumsum(t == 0) - 1  # a quale sottopercorso appartiene ogni elemento
+    nsub = int(sub[-1]) + 1
+    starts = np.flatnonzero(t == 0)
+    # fine di ogni sottopercorso: l'ultimo elemento prima dell'inizio seguente
+    ends = np.r_[starts[1:] - 1, n - 1]
+    # ---- segmenti
+    li = np.flatnonzero(t == 1)
+    lx0, ly0 = x[li - 1], y[li - 1]
+    llen = np.hypot(x[li] - lx0, y[li] - ly0)
+    larea = (lx0 * y[li] - x[li] * ly0) / 2.0
+    # ---- curve (elemento 2 = primo punto di controllo, poi due elementi 3: secondo controllo e punto finale)
+    ci = np.flatnonzero(t == 2)
+    ci = ci[ci + 2 < n]
+    gt, gw = _gauss()
+    if len(ci):
+        x0, y0, x1, y1 = x[ci - 1], y[ci - 1], x[ci], y[ci]
+        x2, y2, x3, y3 = x[ci + 1], y[ci + 1], x[ci + 2], y[ci + 2]
+        u = gt[None, :]
+        ax, bx, cx = 3 * (x1 - x0)[:, None], 3 * (x2 - x1)[:, None], 3 * (x3 - x2)[:, None]
+        ay, by, cy = 3 * (y1 - y0)[:, None], 3 * (y2 - y1)[:, None], 3 * (y3 - y2)[:, None]
+        v, uu, w2 = (1 - u) ** 2, 2 * (1 - u) * u, u ** 2
+        clen = (np.hypot(ax * v + bx * uu + cx * w2, ay * v + by * uu + cy * w2) * gw).sum(1)  # |derivata|
+        # area sotto la curva (∫ x dy − y dx / 2), esatta
+        carea = (x0 * (6 * y1 + 3 * y2 + y3) + x1 * (-6 * y0 + 3 * y2 + 3 * y3) + x2 * (-3 * y0 - 3 * y1 + 6 * y3)
+                 + x3 * (-y0 - 3 * y1 - 6 * y2)) / 20.0
+    else:
+        clen = carea = np.zeros(0)
+    seg_sub = np.r_[sub[li], sub[ci]].astype(np.int64)
+    seg_len = np.r_[llen, clen]
+    seg_area = np.r_[larea, carea]
+    seg_curve = np.r_[np.zeros(len(li), bool), np.ones(len(ci), bool)]
+    nonzero = seg_len > 1e-6
+    length = np.bincount(seg_sub, seg_len, nsub)
+    sarea = np.bincount(seg_sub, seg_area, nsub)
+    n_nz = np.bincount(seg_sub, nonzero, nsub)
+    n_nz_curve = np.bincount(seg_sub, nonzero & seg_curve, nsub)
+    nseg = np.bincount(seg_sub, None, nsub)
+    fx, fy, ex, ey = x[starts], y[starts], x[ends], y[ends]
+    same_end = np.hypot(ex - fx, ey - fy) < 1e-4
+    keep = n_nz > 0  # come flatten: un sottopercorso senza almeno due punti distinti non c'è
+    closed = keep & same_end & ((n_nz >= 2) | (n_nz_curve >= 1))
+    # area del poligono chiuso: lato di chiusura dalla fine all'inizio (quasi nullo, la fine coincide con l'inizio)
+    sarea = sarea + (ex * fy - fx * ey) / 2.0
+    out["perimeter"] = float(length[keep].sum())
+    out["area"] = float(np.abs(sarea[closed]).sum())
+    out["closed"] = int(closed.sum())
+    out["open"] = int((keep & ~closed).sum())
+    nn = 1 + nseg  # nodi come lo strumento Nodi: l'inizio più un nodo per segmento o curva
+    nn = np.where((nn > 2) & same_end, nn - 1, nn)
+    out["nodes"] = int(nn.sum())
+    return out
 
 
 # ------------------------------------------------------------------ distanza esatta (0.17.16)

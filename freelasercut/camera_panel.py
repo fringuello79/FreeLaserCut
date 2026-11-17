@@ -33,6 +33,7 @@ def to_qimage(bgr):
 
 class CameraPanel(QWidget):
     _found = Signal(object)
+    bg_changed = Signal()  # 0.20.5: è cambiato lo sfondo del piano o quello che si può metterci (pulsante delle schede)
 
     def __init__(self, ctl, window):
         super().__init__()
@@ -51,6 +52,8 @@ class CameraPanel(QWidget):
         self.phone_top = None  # 0.19.0: la foto dal telefono già raddrizzata sull'area di lavoro
         self.align = None  # 0.20.2: correzione della foto del piano misurata con la camera della testa
         self.mosaic = None
+        self.mosaic_ppm = PPM
+        self.mosaic_on = False  # 0.20.5: la foto a mosaico è quella che si vede ora sotto il piano
         self.phone_corners = None
         self._plate_dlg = None
         if os.path.exists(camera_file()):
@@ -657,6 +660,7 @@ class CameraPanel(QWidget):
 
     def update_state(self):
         self._head_line()
+        self.bg_changed.emit()
         cam_ok = self.src is not None
         cal_ok = self.model is not None
         phone, raw = self.is_phone(), self.is_raw()
@@ -830,7 +834,10 @@ class CameraPanel(QWidget):
             self.chk_live.setChecked(False)
             self.chk_live.blockSignals(False)
         self.mosaic = img
+        self.mosaic_ppm = ppm
+        self.mosaic_on = True
         self.win.bed.set_camera_image(to_qimage(img), ppm, self.opacity.value() / 100)
+        self.bg_changed.emit()
 
     def set_align(self, corr):
         """0.20.2: correzione della foto del piano dalla camera della testa (None = nessuna)."""
@@ -851,16 +858,68 @@ class CameraPanel(QWidget):
         """0.20.2 (Leone, 15/11): toglie dal piano la foto a mosaico; la foto dal vivo, se accesa, resta."""
         had = getattr(self, "mosaic", None) is not None
         self.mosaic = None
+        self.mosaic_on = False
         if had and not self.chk_live.isChecked():
             self.win.bed.clear_camera()
+        self.bg_changed.emit()
         return had
 
     def on_live(self, on):
+        # 0.20.5: la foto a mosaico non si butta più quando si accende la foto dal vivo: resta in memoria e si
+        # rimette sotto il piano con il pulsante dello sfondo accanto alle schede dei piani (si toglie con «Togli
+        # la foto dal piano»). Sotto il piano c'è sempre una foto sola.
+        self.mosaic_on = False
         if not on:
             self.win.bed.clear_camera()
         else:
-            self.mosaic = None  # la foto dal vivo prende il suo posto
             self.snapshot()
+        self.bg_changed.emit()
+
+    # ---------------------------------------------------------------- sfondo del piano (0.20.5)
+    BG_MODES = ("camera", "mosaic", "none")
+
+    def bg_modes(self):
+        """Gli sfondi del piano che si possono scegliere adesso, nell'ordine del giro: «camera» (la foto dal vivo
+        della camera del piano, o la foto dal telefono) solo se c'è qualcosa da mostrare, «mosaic» (la foto a
+        mosaico fatta con la camera della testa) solo se è stata fatta, «none» (piano bianco) sempre."""
+        out = []
+        if self.can_show():
+            out.append("camera")
+        if self.mosaic is not None:
+            out.append("mosaic")
+        out.append("none")
+        return out
+
+    def bg_mode(self):
+        """Lo sfondo che c'è adesso sotto il piano."""
+        if self.chk_live.isChecked():
+            return "camera"
+        if self.mosaic is not None and self.mosaic_on:
+            return "mosaic"
+        return "none"
+
+    def set_bg_mode(self, mode):
+        """Mette sotto il piano lo sfondo chiesto, se si può. -> lo sfondo che c'è dopo."""
+        if mode not in self.bg_modes() or mode == self.bg_mode():
+            return self.bg_mode()
+        if mode == "camera":
+            self.chk_live.setChecked(True)  # on_live: scatta la foto e la mette sotto il piano
+        elif mode == "mosaic":
+            self.show_mosaic(self.mosaic, self.mosaic_ppm)  # spegne da sola la foto dal vivo
+        else:
+            if self.chk_live.isChecked():
+                self.chk_live.setChecked(False)  # on_live: toglie la foto
+            else:
+                self.mosaic_on = False
+                self.win.bed.clear_camera()
+                self.bg_changed.emit()
+        return self.bg_mode()
+
+    def next_bg(self):
+        """Il pulsante accanto alle schede dei piani: passa allo sfondo successivo fra quelli disponibili."""
+        modes = self.bg_modes()
+        cur = self.bg_mode()
+        return self.set_bg_mode(modes[(modes.index(cur) + 1) % len(modes)] if cur in modes else modes[0])
 
     # ---------------------------------------------------------------- calibrazione
     def _ready_for_machine(self, after_home):

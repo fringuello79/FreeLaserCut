@@ -87,6 +87,7 @@ def cause_text(code):
         "weak": tr("il segnale è debole dove sta il laser"),
         "guest": tr("è una rete per gli ospiti: spesso non lascia entrare questi apparecchi"),
         "not_seen": tr("il PC non vede una rete con questo nome: controlla com'è scritto"),
+        "name": tr("il nome della rete non è scritto proprio uguale (maiuscole, minuscole e spazi contano)"),
     }.get(code, code)
 
 
@@ -121,7 +122,7 @@ def router_guide():
 
 
 # i passi in cui la procedura è arrivata in fondo, bene o male: lì si salva il registro (0.19.0)
-END_STATES = ("ok", "failed", "not_tried", "unknown", "no_port", "other_subnet", "find_none", "mute", "serial_lost",
+END_STATES = ("ok", "failed", "not_tried", "not_found", "unknown", "no_port", "other_subnet", "find_none", "mute", "serial_lost",
               "E2_fail", "off_done")
 NOT_TRIED_S = 5.0  # la rete propria ripartita entro tanti secondi dal riavvio, senza «Connecting»: non ha provato
 
@@ -874,6 +875,8 @@ class WifiWizard(QDialog):
             # 0.19.1: rete propria ripartita subito, senza nessun tentativo: non è la password, è la scheda che non
             # ha tenuto «rete di casa». Dirlo, invece di far cercare all'utente un errore che non c'è
             if not self._tried and time.time() - self._t0 < NOT_TRIED_S:
+                if self._silent_sta():
+                    return self._check_mode_after_own()
                 self._outcome_not_tried()
             else:
                 self._outcome_failed()
@@ -884,6 +887,35 @@ class WifiWizard(QDialog):
                 self.port.setValue(int(m[1]))
             g = self._gen
             QTimer.singleShot(1000, lambda: g == self._gen and self.state == "wait" and self._ask_ip_now(g))
+
+    def _silent_sta(self):
+        """0.20.5: è una scheda Makerbase (MKS DLC32, anche dentro Acmer, Mecpow…) senza interruttore «$wifi»? Nel
+        firmware Makerbase pubblico (MKS-DLC32-FIRMWARE, WebUI/WifiConfig.cpp: mks_setup → mks_StartSTA) all'avvio la
+        scheda prova la rete di casa SENZA scrivere niente, e se la rete non si trova rinuncia subito e riaccende la
+        sua: la rete propria ripartita in un attimo non vuol dire per forza che non ha provato."""
+        info = self.info()
+        return bool(self.family == "esp" and self.ctl.connected and not self.lgt
+                    and wifi_setup.is_mks_like(info) and not wifi_setup.has_wifi_switch(info))
+
+    def _check_mode_after_own(self):
+        """0.20.5 (rapporti FLC-20261116-1442-E34D e -1539-DBAF, due MKS DLC32): dopo il riavvio chiedo alla scheda
+        in che modalità è rimasta. «STA» = ha tenuto la rete di casa, quindi ci ha provato e non l'ha trovata (la
+        rete non si vede da lì: 5 GHz, nome diverso, troppo lontana). Altro = non ha tenuto la modalità: «non ha
+        provato» come prima."""
+        g = self._gen
+        self._note("mode_after")
+
+        def got(ok, lines):
+            if g != self._gen or self.state != "wait":
+                return
+            mode = wifi_setup.parse_mode(lines) if ok else None
+            self._note(f"mode_after:{mode}")
+            if mode == "STA":
+                return self._outcome_not_found()
+            self._outcome_not_tried()
+        # la scheda ha appena riacceso la sua rete: un attimo e poi glielo chiedo
+        QTimer.singleShot(1500, lambda: g == self._gen and self.state == "wait"
+                          and self.talk.ask("[ESP110]", got, 3.0))
 
     def _ask_ip_now(self, g):
         if not (self.family == "esp" and self.ctl.connected):
@@ -1043,6 +1075,17 @@ class WifiWizard(QDialog):
                       "dentro ci sono le risposte della scheda (senza la password) e possiamo aggiungerla.",
                       self.ssid_sent),
                    [self._close_btn(), ("retry", tr("Riprova"), self._page_net)])
+
+    def _outcome_not_found(self):
+        self._set("not_found")
+        self.result = None
+        why = "".join(f"<br>• {cause_text(c)}" for c in ("band5", "name", "weak", "guest"))
+        self._page(tr("Il laser non trova la rete «{0}»", self.ssid_sent),
+                   tr("La scheda ha tenuto nome e password ed è rimasta impostata sulla rete di casa, ma al riavvio "
+                      "non ha trovato «{0}» e in un attimo ha riacceso la sua rete propria (192.168.4.1). Queste "
+                      "schede lo fanno senza dire niente quando la rete non si vede da dove sta il laser. Le cause "
+                      "più probabili, in ordine:", self.ssid_sent) + why,
+                   [self._close_btn(), ("retry", tr("Correggi e riprova"), self._page_net)])
 
     def _outcome_failed(self, off=False):
         self._set("failed")

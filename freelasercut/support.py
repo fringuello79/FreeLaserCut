@@ -28,6 +28,8 @@ def payload(zip_bytes, code, user=None, contact="", summary=""):
     u = user or {}
     desc = ("Cosa stavi facendo:\n{0}\n\nCosa ti aspettavi:\n{1}\n\nCosa è successo:\n{2}\n\nSuccede: {3}").format(
         u.get("facevi", ""), u.get("aspettavi", ""), u.get("successo", ""), u.get("frequenza", ""))
+    if u.get("grazie"):  # 0.20.5: nome per i ringraziamenti, solo se la persona lo ha scritto
+        desc += "\n\nNome per i ringraziamenti: {0}".format(u["grazie"])
     return {"app": "FreeLaserCut", "versione": __version__, "codice": code, "oggetto": u.get("oggetto", ""),
             "descrizione": desc, "contatto": contact or "", "riassunto": summary[:30000],
             "zip": base64.b64encode(zip_bytes).decode("ascii")}
@@ -69,6 +71,8 @@ def mailto(code, user=None, summary=""):
     body = ("Ciao, ti mando il rapporto per l'assistenza (il file .zip allegato: trascinalo qui).\n\n"
             f"Codice: {code}\n\nCosa stavo facendo:\n{u.get('facevi', '')}\n\nCosa mi aspettavo:\n"
             f"{u.get('aspettavi', '')}\n\nCosa è successo:\n{u.get('successo', '')}\n\nSuccede: {u.get('frequenza', '')}\n")
+    if u.get("grazie"):
+        body += f"\nNome per i ringraziamenti: {u['grazie']}\n"
     if summary:
         body += "\n— riassunto tecnico —\n" + summary[:1500]
     q = urllib.parse.urlencode({"subject": subject, "body": body}, quote_via=urllib.parse.quote)

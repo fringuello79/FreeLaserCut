@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 188. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 192. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (12)
+## Wi-Fi, rete e telefono (14)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -17,8 +17,10 @@ Suite: 188. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v191_wifi.py` (Banco): Wi-Fi sul vero nell'interfaccia Banco
 - `test_v192_wifi.py`: Wi-Fi delle Longer: interruttore «$50», messaggi e attesa della scheda vera
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
+- `test_v205_scatti_wifi.py`: PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»
+- `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
 
-## Telecamera e guardia fiamme (12)
+## Telecamera e guardia fiamme (14)
 
 - `test_v107.py`: Telecamera: la scelta si ricorda, «Nessuna» non accende la webcam
 - `test_v111.py`: Fiamma con il cuore bianco, nomi sotto i comandi
@@ -29,6 +31,8 @@ Suite: 188. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v200_camera_testa.py` (Banco): Camera della testa nell'interfaccia Banco
 - `test_v203_telecamere.py`: Telecamera della testa e del piano: si scelgono sempre (quella già usata passa di qua), «Calibra» sempre possibile, calibrazione nuova mai scartata senza chiedere
 - `test_v203_telecamere.py` (Banco): Scelta delle telecamere e calibrazione sempre possibile nell'interfaccia Banco
+- `test_v205_richieste.py`: Angoli del rettangolo raccordati verso l'interno, riga dei Livelli che segue il livello assegnato, anteprima dell'offset sul piano, opzioni dello strumento Forme subito; finestra della camera della testa ridimensionabile, pulsante dello sfondo del piano; Linux: libgthread nell'AppImage e libreria mancante detta all'avvio; ringraziamenti sulla schermata di avvio, in Aiuto e nel rapporto
+- `test_v205_richieste.py` (Banco): Angoli verso l'interno, Livelli, offset, Forme, camera della testa, sfondo del piano e ringraziamenti nell'interfaccia Banco
 - `test_v201_lentezza.py`: Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto
 - `test_v202_camera_testa.py`: Calibrazione completa della camera della testa (griglia incisa, lente, inclinazione, verifica onesta), mosaico preciso, camera del piano aiutata, vista raddrizzata e zoom, crocetta dal centro camera
 - `test_v202_camera_testa.py` (Banco): Calibrazione completa e vista della testa nell'interfaccia Banco

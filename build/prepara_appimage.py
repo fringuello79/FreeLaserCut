@@ -9,7 +9,8 @@ Lo stesso programma dell'installatore per Windows, con lo stesso Python e le ste
 1. scarica Python per Linux (python-build-standalone, stessa versione dell'installatore) in AppDir/usr/python;
 2. installa le librerie per Linux (ruote ufficiali da PyPI; OpenCV nella versione «headless», che non porta un suo
    Qt in conflitto con PySide6);
-3. aggiunge le poche librerie xcb che Qt 6 vuole e che molte distribuzioni non installano (xcb-cursor…);
+3. aggiunge le poche librerie xcb che Qt 6 vuole e che molte distribuzioni non installano (xcb-cursor…) e
+   libgthread (0.20.5: openSUSE non la installa), poi controlla che Qt non chieda al sistema niente di imprevisto;
 4. copia il programma, compila i .pyc (l'AppImage è in sola lettura) e scrive AppRun, il file .desktop e l'icona;
 5. impacchetta tutto con appimagetool.
 
@@ -20,6 +21,7 @@ import os
 import re
 import shutil
 import stat
+import struct
 import subprocess
 import sys
 import tarfile
@@ -56,6 +58,30 @@ XCB_EXTRA = ["libxcb-cursor.so.0", "libxcb-icccm.so.4", "libxcb-image.so.0", "li
              "libxkbcommon.so.0",  # 0.20.5: sempre in coppia con libxkbcommon-x11 (stessa versione, vedi sotto)
              "libxcb-randr.so.0", "libxcb-render.so.0", "libxcb-shape.so.0", "libxcb-shm.so.0", "libxcb-sync.so.1",
              "libxcb-xfixes.so.0", "libxcb-xkb.so.1"]
+# 0.20.5 (rapporto del 14/11 da openSUSE Leap 16: «ImportError: libgthread-2.0.so.0: cannot open shared object
+# file» al caricamento di Qt, il programma non partiva). Le librerie di Qt (Core, Gui, XcbQpa) chiedono
+# libgthread-2.0.so.0: Ubuntu, Debian, Fedora e Arch la danno insieme a glib, openSUSE la tiene in un pacchetto a
+# parte (libgthread-2_0-0) che di serie non c'è. È una libreria minuscola e vuota da anni (g_thread_init non fa più
+# niente): si mette accanto alle librerie di Qt e si appoggia alla libglib-2.0 del sistema. Licenza LGPL-2.1+.
+GLIB_EXTRA = ["libgthread-2.0.so.0"]
+# Le librerie del SISTEMA che Qt e le librerie aggiunte qui sopra possono chiedere: quelle che ogni distribuzione con
+# un desktop installa (glibc, libstdc++, glib, zlib, X11, OpenGL, caratteri, D-Bus). Se una versione nuova di Qt ne
+# chiede un'altra la costruzione si ferma (system_libs, più sotto): così ce ne accorgiamo noi, prima di chi installa.
+# Una libreria nuova va messa nell'AppImage (come XCB_EXTRA e GLIB_EXTRA) oppure, se c'è davvero dappertutto, qui.
+SYSTEM_OK = {
+    "ld-linux-x86-64.so.2", "libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1",  # glibc
+    "libresolv.so.2",                                                                               # glibc (rete)
+    "libgcc_s.so.1", "libstdc++.so.6",                                                              # GCC
+    "libglib-2.0.so.0", "libz.so.1", "libzstd.so.1",                                                # base
+    "libX11.so.6", "libX11-xcb.so.1", "libxcb.so.1",                                                # X11
+    "libEGL.so.1", "libGL.so.1",                                                                    # OpenGL
+    "libfontconfig.so.1", "libfreetype.so.6",                                                       # caratteri
+    "libdbus-1.so.3",                                                                               # D-Bus
+    # solo QtNetwork (finestra unica e collegamento con MakerHub; se mancano il programma parte lo stesso)
+    "libgssapi_krb5.so.2", "libbrotlidec.so.1", "libbrotlicommon.so.1",
+}
+# I moduli di Qt che il programma carica (QtMultimedia no: serve solo per i nomi delle telecamere, dentro un try)
+QT_MODULES = ["Core", "Gui", "Widgets", "DBus", "Svg", "Network", "OpenGL", "OpenGLWidgets", "XcbQpa"]
 LIB_DIRS = ["/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib", "/lib/x86_64-linux-gnu"]
 if os.environ.get("FLC_XCB_DIR"):  # costruzione su un sistema più nuovo: librerie prese da Ubuntu 22.04 a parte
     LIB_DIRS.insert(0, os.environ["FLC_XCB_DIR"])
@@ -111,6 +137,86 @@ def xcb_outside(plugin, appdir):
         if not os.path.realpath(where).startswith(os.path.realpath(appdir) + os.sep):
             bad.append(f"{parts[0]} ({where})")
     return bad
+
+
+def elf_needed(path):
+    """Le librerie che un file ELF a 64 bit chiede (voci DT_NEEDED), lette dal file senza strumenti esterni.
+    [] se non è un file ELF a 64 bit o non ha librerie dinamiche."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        return []
+    if data[:4] != b"\x7fELF" or len(data) < 64 or data[4] != 2 or data[5] != 1:  # ELF64, little endian
+        return []
+    try:
+        phoff, = struct.unpack_from("<Q", data, 0x20)
+        phentsize, phnum = struct.unpack_from("<HH", data, 0x36)
+        loads, dyn = [], None
+        for i in range(phnum):
+            p_type, _fl, p_offset, p_vaddr, _pa, p_filesz, _mem, _al = struct.unpack_from("<IIQQQQQQ", data,
+                                                                                         phoff + i * phentsize)
+            if p_type == 1:  # PT_LOAD
+                loads.append((p_vaddr, p_offset, p_filesz))
+            elif p_type == 2:  # PT_DYNAMIC
+                dyn = (p_offset, p_filesz)
+        if dyn is None:
+            return []
+        names, strtab = [], None
+        for off in range(dyn[0], dyn[0] + dyn[1], 16):
+            tag, val = struct.unpack_from("<qQ", data, off)
+            if tag == 0:
+                break
+            if tag == 1:  # DT_NEEDED
+                names.append(val)
+            elif tag == 5:  # DT_STRTAB
+                strtab = val
+        if strtab is None:
+            return []
+        base = next((o + strtab - v for v, o, size in loads if v <= strtab < v + size), None)
+        if base is None:
+            return []
+        return [data[base + n:data.index(b"\0", base + n)].decode("utf-8", "replace") for n in names]
+    except (struct.error, ValueError, OverflowError, IndexError, MemoryError):  # file rovinato
+        return []
+
+
+def system_libs(roots, inside):
+    """Le librerie che i file `roots`, e a catena quelle che loro chiedono, vanno a prendere FUORI dall'AppImage.
+    inside: le cartelle dell'AppImage dove Qt cerca le sue librerie (Qt/lib: hanno tutte RUNPATH=$ORIGIN).
+    -> {nome della libreria di sistema: nome del file che la chiede}."""
+    index = {}
+    for d in inside:
+        for f in sorted(os.listdir(d)):
+            index.setdefault(f, os.path.join(d, f))
+    seen, todo, outside = set(), list(roots), {}
+    while todo:
+        p = todo.pop()
+        real = os.path.realpath(p)
+        if real in seen:
+            continue
+        seen.add(real)
+        for name in elf_needed(real):
+            if name in index:
+                todo.append(index[name])
+            else:
+                outside.setdefault(name, os.path.basename(p))
+    return outside
+
+
+def qt_roots(pyside):
+    """I file di Qt da cui parte il controllo: le librerie dei moduli usati e il plugin xcb."""
+    qt_lib = os.path.join(pyside, "Qt", "lib")
+    roots = [os.path.join(qt_lib, f"libQt6{m}.so.6") for m in QT_MODULES]
+    roots.append(os.path.join(pyside, "Qt", "plugins", "platforms", "libqxcb.so"))
+    return [r for r in roots if os.path.exists(r)]
+
+
+def unexpected_system_libs(pyside):
+    """Le librerie di sistema chieste da Qt che non sono fra quelle previste (SYSTEM_OK): devono essere zero.
+    -> ["libreria (chiesta da file)", …]"""
+    out = system_libs(qt_roots(pyside), [os.path.join(pyside, "Qt", "lib")])
+    return [f"{name} (chiesta da {who})" for name, who in sorted(out.items()) if name not in SYSTEM_OK]
 
 
 def glibc_needed(folder):
@@ -184,10 +290,10 @@ def main():
     with open(os.path.join(site, "freelasercut_app.pth"), "w", encoding="utf-8") as fh:
         fh.write("../../../../app\n")
 
-    step("Librerie xcb per Qt")
+    step("Librerie xcb e libgthread per Qt")
     qt_lib = os.path.join(pyside, "Qt", "lib")
     missing = []
-    for name in XCB_EXTRA:
+    for name in XCB_EXTRA + GLIB_EXTRA:
         src = find_lib(name)
         if src is None:
             missing.append(name)
@@ -195,11 +301,22 @@ def main():
         shutil.copy2(src, os.path.join(qt_lib, name))
         print("  +", name)
     if missing:
-        sys.exit("librerie xcb non trovate sul sistema di costruzione: " + ", ".join(missing))
+        sys.exit("librerie xcb non trovate (o libgthread) sul sistema di costruzione: " + ", ".join(missing))
     outside = xcb_outside(os.path.join(pyside, "Qt", "plugins", "platforms", "libqxcb.so"), APPDIR)
     if outside:
         sys.exit("il plugin xcb di Qt prende ancora dal sistema: " + ", ".join(outside))
     print("  il plugin xcb usa solo libxcb.so.1 del sistema; le altre librerie xcb sono nell'AppImage")
+
+    step("Librerie che Qt prende dal sistema")
+    if len(qt_roots(pyside)) < len(QT_MODULES) + 1:
+        sys.exit("mancano librerie di Qt nell'AppDir: " + ", ".join(
+            m for m in QT_MODULES if not os.path.exists(os.path.join(qt_lib, f"libQt6{m}.so.6"))))
+    extra = unexpected_system_libs(pyside)
+    if extra:
+        sys.exit("Qt chiede al sistema librerie non previste: " + ", ".join(extra) + ".\nSu una distribuzione che non "
+                 "le installa di serie il programma non partirebbe (successo con libgthread su openSUSE). Vanno "
+                 "messe nell'AppImage (XCB_EXTRA, GLIB_EXTRA) oppure, se ci sono davvero dappertutto, in SYSTEM_OK.")
+    print("  solo librerie di base (glibc, libstdc++, glib, zlib, X11, OpenGL, caratteri, D-Bus)")
 
     step("Programma, licenze, README")
     app = os.path.join(usr, "app")

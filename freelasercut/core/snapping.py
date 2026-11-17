@@ -16,6 +16,9 @@ import numpy as np
 
 BOX_KINDS = ("angolo", "angolo", "angolo", "angolo", "centro", "metà", "metà", "metà", "metà")
 MAX_NODES = 1500  # oltre, della selezione si usano solo i 9 punti dell'ingombro (resta veloce anche con disegni fitti)
+# 0.20.5: oltre tante coppie (nodi della selezione × punti vicini delle altre forme) si usano solo i 9 punti
+# dell'ingombro: con disegni fitti la matrice delle distanze costava decine di millesimi a ogni movimento
+MAX_PAIRS = 300_000
 
 
 def box_points(x0, y0, x1, y1):
@@ -57,6 +60,13 @@ def move(box, nodes, dx, dy, targets, kinds, boxes, radius, grid=None):
                           & (targets[:, 1] >= lo[1]) & (targets[:, 1] <= hi[1]))[0]
         if len(near):
             t = targets[near]
+            if len(moved) > len(BOX_KINDS) and len(moved) * len(near) > MAX_PAIRS:
+                # 0.20.5: troppe coppie (disegni fitti, tanti nodi vicini): si agganciano solo i 9 punti dell'ingombro
+                moved = moved[:len(BOX_KINDS)]
+                lo, hi = moved.min(0) - radius, moved.max(0) + radius
+                keep = ((t[:, 0] >= lo[0]) & (t[:, 0] <= hi[0]) & (t[:, 1] >= lo[1]) & (t[:, 1] <= hi[1]))
+                near, t = near[keep], t[keep]
+        if len(near):
             dist = np.hypot(moved[:, None, 0] - t[None, :, 0], moved[:, None, 1] - t[None, :, 1])
             i, j = np.unravel_index(int(np.argmin(dist)), dist.shape)  # a parità vince il primo: l'ingombro sui nodi
             if dist[i, j] <= radius:

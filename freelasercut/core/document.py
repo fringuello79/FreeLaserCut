@@ -31,30 +31,75 @@ def _path_elements_slow(path):
     return els
 
 
+def _path_raw(path):
+    """Il percorso scritto da Qt in memoria (numero di elementi, poi tipo e due coordinate per ciascuno, poi la regola
+    di riempimento) e i suoi elementi in blocco: (byte, matrice numpy con i campi t, x, y). None se il blocco non ha la
+    forma attesa (allora si legge un elemento alla volta)."""
+    n = path.elementCount()
+    try:
+        import numpy as np
+        from PySide6.QtCore import QByteArray, QDataStream, QIODevice
+
+        ba = QByteArray()
+        ds = QDataStream(ba, QIODevice.OpenModeFlag.WriteOnly)
+        ds << path
+        raw = bytes(ba.data())
+        if len(raw) == 4 + 20 * n + 8 and int.from_bytes(raw[:4], "big") == n:
+            a = np.frombuffer(raw, dtype=np.dtype([("t", ">i4"), ("x", ">f8"), ("y", ">f8")]), count=n, offset=4)
+            if n == 0 or (int(a["t"].min()) >= 0 and int(a["t"].max()) <= 3):
+                return raw, a
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+# 0.20.5: gli elementi dei tracciati già letti, per percorso (i byte scritti da Qt sono la chiave: un percorso uguale
+# dà gli stessi byte). Annulla prende un'istantanea di tutto il disegno all'inizio e alla fine di ogni trascinamento:
+# con centinaia di tracciati da migliaia di punti, rileggerli ogni volta fermava la finestra per mezzo secondo sui PC
+# lenti (rapporto FLC-20261116-0746-D046). Le liste restituite sono condivise fra le istantanee: nessuno le modifica.
+_ELEMENTS_CACHE = {}
+_ELEMENTS_CACHE_MAX = 3_000_000  # elementi in tutto, poi si ricomincia (la memoria resta limitata)
+_ELEMENTS_CACHE_N = [0]
+
+
 def path_elements(path):
     """[[tipo, x, y], …] di un QPainterPath (0 inizio, 1 linea, 2 curva, 3 dati della curva).
     0.20.4: i tracciati lunghi si leggono in blocco (il percorso scritto da Qt in memoria: numero di elementi, poi
     tipo e due coordinate per ciascuno) invece che un elemento alla volta: serve a ogni Annulla, a ogni
     trascinamento e a ogni salvataggio, e con migliaia di punti era la parte più lenta. Se il blocco non ha la
-    forma attesa si torna alla lettura lenta, che dà lo stesso risultato."""
+    forma attesa si torna alla lettura lenta, che dà lo stesso risultato.
+    0.20.5: un percorso già letto non si rilegge (vedi _ELEMENTS_CACHE)."""
     n = path.elementCount()
     if n >= 32:
-        try:
-            import numpy as np
-            from PySide6.QtCore import QByteArray, QDataStream, QIODevice
-
-            ba = QByteArray()
-            ds = QDataStream(ba, QIODevice.OpenModeFlag.WriteOnly)
-            ds << path
-            raw = bytes(ba.data())
-            if len(raw) == 4 + 20 * n + 8 and int.from_bytes(raw[:4], "big") == n:
-                a = np.frombuffer(raw, dtype=np.dtype([("t", ">i4"), ("x", ">f8"), ("y", ">f8")]), count=n, offset=4)
-                t = a["t"]
-                if int(t.min()) >= 0 and int(t.max()) <= 3:
-                    return [list(z) for z in zip(t.tolist(), a["x"].tolist(), a["y"].tolist())]
-        except Exception:  # noqa: BLE001
-            pass
+        got = _path_raw(path)
+        if got is not None:
+            raw, a = got
+            els = _ELEMENTS_CACHE.get(raw)
+            if els is None:
+                els = [list(z) for z in zip(a["t"].tolist(), a["x"].tolist(), a["y"].tolist())]
+                if _ELEMENTS_CACHE_N[0] + n > _ELEMENTS_CACHE_MAX:
+                    _ELEMENTS_CACHE.clear()
+                    _ELEMENTS_CACHE_N[0] = 0
+                _ELEMENTS_CACHE[raw] = els
+                _ELEMENTS_CACHE_N[0] += n
+            return list(els)
     return _path_elements_slow(path)
+
+
+def path_arrays(path):
+    """0.20.5: tipi e coordinate degli elementi di un QPainterPath come matrici numpy (t interi, x, y), lette in
+    blocco: per i conti su tutti i punti (misure, aggancio) senza passare dagli elementi uno a uno."""
+    import numpy as np
+
+    got = _path_raw(path) if path.elementCount() >= 8 else None
+    if got is not None:
+        a = got[1]
+        return a["t"].astype(np.int8), a["x"].astype(float), a["y"].astype(float)
+    els = _path_elements_slow(path)
+    if not els:
+        return np.zeros(0, np.int8), np.zeros(0), np.zeros(0)
+    arr = np.asarray(els, float)
+    return arr[:, 0].astype(np.int8), arr[:, 1].copy(), arr[:, 2].copy()
 
 # 30 colori di livello: distinti fra loro, leggibili su fondo scuro e su foto
 LAYER_COLORS = [
@@ -260,6 +305,9 @@ class RectShape(Shape):
         super().__init__(layer)
         self.w, self.h, self.radius = float(w), float(h), float(radius)
         # 0.17.13: raggio di ogni angolo (come si vede sul piano: ↖ ↗ ↘ ↙); None = tutti uguali a «radius»
+        # 0.20.5: un raggio NEGATIVO è un angolo raccordato verso l'interno (scavato: un quarto di cerchio con il
+        # centro sullo spigolo), sia in «radius» sia in «radii». Le versioni precedenti leggono un valore negativo
+        # come 0 (spigolo vivo): il progetto si apre lo stesso, senza gli angoli scavati.
         self.radii = [float(v) for v in radii] if radii is not None and len(radii) == 4 else None
 
     def max_radius(self):
@@ -267,18 +315,30 @@ class RectShape(Shape):
         sx, sy = self._scale()
         return min(abs(self.w) * sx, abs(self.h) * sy) / 2
 
+    @staticmethod
+    def clamp_radius(v, lim):
+        """Un raggio dentro i limiti: da -lim (verso l'interno) a +lim (arrotondato). Valori non numerici = 0."""
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return 0.0
+        if v != v:  # NaN
+            return 0.0
+        return max(-lim, min(v, lim))
+
     def corner_radii(self):
-        """[↖, ↗, ↘, ↙] in mm sul piano, già limitati alla metà del lato più corto."""
+        """[↖, ↗, ↘, ↙] in mm sul piano, già limitati alla metà del lato più corto. Positivo = arrotondato,
+        negativo = raccordato verso l'interno (0.20.5), 0 = spigolo vivo."""
         lim = self.max_radius()
         vals = self.radii if self.radii is not None else [self.radius] * 4
-        return [max(0.0, min(float(v), lim)) for v in vals]
+        return [self.clamp_radius(v, lim) for v in vals]
 
     def local_path(self):
         # 0.17.15: i raggi sono in mm veri anche se il rettangolo è stato ridimensionato dopo il disegno (prima erano
         # nelle misure di quando era stato disegnato: il massimo restava quello vecchio e i valori non cambiavano)
         sx, sy = self._scale()
         p = QPainterPath()
-        if self.radii is None:
+        if self.radii is None and self.radius >= 0:  # il caso di sempre: stesso tracciato di prima
             r = max(0.0, min(self.radius, self.max_radius()))
             if r > 0:
                 p.addRoundedRect(QRectF(0, 0, self.w, self.h), r / sx, r / sy)
@@ -291,19 +351,25 @@ class RectShape(Shape):
         k = self.K
 
         def corner(a, c, b, r):
-            if r <= 0:
+            """Dallo spigolo c: a è il punto sul lato che arriva, b quello sul lato che parte (a |r| mm da c)."""
+            if r == 0:
                 p.lineTo(*c)
                 return
             p.lineTo(*a)
-            p.cubicTo(a[0] + k * (c[0] - a[0]), a[1] + k * (c[1] - a[1]),
-                      b[0] + k * (c[0] - b[0]), b[1] + k * (c[1] - b[1]), b[0], b[1])
+            if r > 0:  # arrotondato: l'arco ha il centro dentro la forma
+                p.cubicTo(a[0] + k * (c[0] - a[0]), a[1] + k * (c[1] - a[1]),
+                          b[0] + k * (c[0] - b[0]), b[1] + k * (c[1] - b[1]), b[0], b[1])
+            else:  # 0.20.5, verso l'interno: l'arco ha il centro sullo spigolo e scava la forma
+                p.cubicTo(a[0] + k * (b[0] - c[0]), a[1] + k * (b[1] - c[1]),
+                          b[0] + k * (a[0] - c[0]), b[1] + k * (a[1] - c[1]), b[0], b[1])
 
         # in coordinate locali un raggio di r mm è r/sx in orizzontale e r/sy in verticale
-        p.moveTo(x0 + bl / sx, y0)
-        corner((x1 - br / sx, y0), (x1, y0), (x1, y0 + br / sy), br)
-        corner((x1, y1 - tr_ / sy), (x1, y1), (x1 - tr_ / sx, y1), tr_)
-        corner((x0 + tl / sx, y1), (x0, y1), (x0, y1 - tl / sy), tl)
-        corner((x0, y0 + bl / sy), (x0, y0), (x0 + bl / sx, y0), bl)
+        tl_, tr2, br_, bl_ = abs(tl), abs(tr_), abs(br), abs(bl)
+        p.moveTo(x0 + bl_ / sx, y0)
+        corner((x1 - br_ / sx, y0), (x1, y0), (x1, y0 + br_ / sy), br)
+        corner((x1, y1 - tr2 / sy), (x1, y1), (x1 - tr2 / sx, y1), tr_)
+        corner((x0 + tl_ / sx, y1), (x0, y1), (x0, y1 - tl_ / sy), tl)
+        corner((x0, y0 + bl_ / sy), (x0, y0), (x0 + bl_ / sx, y0), bl)
         p.closeSubpath()
         return p
 

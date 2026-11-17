@@ -40,8 +40,16 @@ def _dspin(lo, hi, val, dec=2, step=1.0, suffix=""):
 
 
 class OffsetDialog(QDialog):
-    def __init__(self, parent=None):
+    """Offset forme. 0.20.5 (Stefano Modena, 16/11): con l'editor e il piano, il risultato si vede tratteggiato sul
+    piano mentre si cambiano distanza, direzione e angoli. È solo un disegno provvisorio: il documento non cambia
+    finché non si preme «Crea offset», e con Annulla non resta niente."""
+
+    PREVIEW_MS = 150  # dopo l'ultima modifica di un valore, prima di ricalcolare
+
+    def __init__(self, parent=None, editor=None, canvas=None):
         super().__init__(parent)
+        self.ed, self.cv = editor, canvas
+        self.preview = []  # le forme dell'anteprima (PathShape mai entrate nel documento)
         self.setWindowTitle(tr("Offset forme"))
         f = QFormLayout(self)
         self.dist = _dspin(0.01, 500, 2.0, 2, 0.5, " mm")
@@ -59,11 +67,59 @@ class OffsetDialog(QDialog):
         self.keep = QCheckBox(tr("Mantieni l'originale"))
         self.keep.setChecked(True)
         f.addRow("", self.keep)
+        self.note = QLabel("")
+        self.note.setObjectName("muted")
+        self.note.setWordWrap(True)
+        f.addRow("", self.note)
         f.addRow(_buttons(self, tr("Crea offset")))
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(self.PREVIEW_MS)
+        self._timer.timeout.connect(self.update_preview)
+        if self.ed is not None and self.cv is not None:
+            self.dist.valueChanged.connect(lambda *_: self._timer.start())
+            self.direction.currentIndexChanged.connect(lambda *_: self._timer.start())
+            self.corner.currentIndexChanged.connect(lambda *_: self._timer.start())
+            self.outer.toggled.connect(lambda *_: self._timer.start())
+            self.update_preview()
 
     def values(self):
         return (self.dist.value(), self.direction.currentData(), self.corner.currentData(), self.keep.isChecked(),
                 self.outer.isChecked())
+
+    def sources(self):
+        """Le forme da cui parte l'offset: le stesse che userà «Crea offset» (Editor.offset)."""
+        from ..core.document import ImageShape
+
+        return [s for s in self.ed.editable() if not isinstance(s, ImageShape)] if self.ed is not None else []
+
+    def update_preview(self):
+        """Ricalcola l'anteprima sul piano con i valori di adesso. -> le forme dell'anteprima."""
+        self._timer.stop()
+        if self.ed is None or self.cv is None:
+            return []
+        from PySide6.QtWidgets import QApplication
+
+        from ..core import ops
+
+        d, direction, corner, _keep, outer = self.values()
+        sel = self.sources()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            self.preview = ops.offset_shapes(sel, d, direction, corner, outer) if sel else []
+        except Exception:  # noqa: BLE001 — un'anteprima non riuscita non deve chiudere la finestra
+            self.preview = []
+        finally:
+            QApplication.restoreOverrideCursor()
+        self.cv.set_overlay([s.path() for s in self.preview])
+        self.note.setText("" if self.preview else tr("Con questi valori l'offset non produce forme"))
+        return self.preview
+
+    def done(self, r):
+        self._timer.stop()
+        if self.cv is not None:
+            self.cv.set_overlay([])
+        super().done(r)
 
 
 class GridArrayDialog(QDialog):
