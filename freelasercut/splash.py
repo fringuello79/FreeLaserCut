@@ -42,15 +42,16 @@ BAND_TOP = 249.0  # da qui in giù c'è la fascia in basso: la trama (alone comp
 TOP0 = 9.0  # la prima riga
 LEADING = 1.18  # altezza di una riga = grandezza del carattere × questo
 ROWS = 9
-# Le grandezze delle righe (pixel del carattere): irregolari e alternate, una grande dopo una piccola. Quali usare lo
-# decide thanks.plan_sizes a ogni avvio, perché dipende da quanti nomi entrano in ogni riga (cioè dall'elenco e dal
-# carattere del sistema): i nomi restano nell'ordine dell'elenco e uno stesso nome, quando ricompare, ha una
-# grandezza diversa di almeno SIZE_DIFF pixel. La prima riga non è delle più grandi: deve starci «Grazie a».
-SIZES = (30, 28, 26, 24, 22, 20, 18, 16)
-FIRST_MIN, FIRST_MAX = 20, 24
-SIZE_DIFF = 4
+# Le grandezze delle righe (pixel del carattere): irregolari e alternate, una grande dopo una piccola. Quanti nomi
+# mettere in ogni riga e con che grandezza lo decide thanks.plan_rows a ogni avvio, perché dipende dall'elenco e dal
+# carattere del sistema: ogni riga ha almeno due nomi (va sempre da un bordo all'altro), i nomi restano nell'ordine
+# dell'elenco e uno stesso nome, quando ricompare, ha una grandezza diversa. La prima riga non è delle più grandi:
+# deve starci «Grazie a».
+SIZE_MIN, SIZE_MAX = 15, 30
+FIRST_MAX = 24
+SIZE_DIFF = 2  # il minimo garantito fra due grandezze dello stesso nome (di solito sono 3-4 pixel o più)
 WEIGHTS = (600, 400, 300, 600, 600, 300, 600, 400, 300)  # peso del carattere riga per riga
-FALLBACK = (24, 16, 29, 18, 25, 16, 30, 18, 22)  # se la ricerca non trova niente (non dovrebbe succedere)
+FONT_FAMILY = "Segoe UI"
 
 
 def row_alpha(px):
@@ -80,7 +81,7 @@ def headless():
 
 
 def name_font(px=19, weight=600):
-    f = QFont("Segoe UI")
+    f = QFont(FONT_FAMILY)
     f.setPixelSize(int(px))
     f.setWeight(QFont.Weight(int(weight)))
     return f
@@ -107,11 +108,12 @@ class Row:
 def name_rows(names=None, lead=None, stretch=1.0):
     """Le 9 righe della trama (Row), dall'alto: nomi nell'ordine dell'elenco (finito, si ricomincia), righe di
     grandezze irregolari e alternate, lo stesso nome mai due volte di seguito con la stessa grandezza. In ogni riga
-    solo nomi interi, da un bordo all'altro. La prima comincia con «Grazie a» nella lingua del programma."""
+    almeno due nomi interi, da un bordo all'altro. La prima comincia con «Grazie a» nella lingua del programma.
+    stretch: per le prove, allarga o stringe le larghezze misurate (altri sistemi hanno altri caratteri)."""
     names = [n for n in (thanks.NAMES if names is None else names) if n and n.strip()]
     lead = tr("Grazie a") if lead is None else lead
     width = W - 2 * SIDE
-    fms, cache = {}, {}
+    fms, cache, fits = {}, {}, {}
 
     def measure(px, weight):
         fm = fms.get((px, weight))
@@ -126,16 +128,26 @@ def name_rows(names=None, lead=None, stretch=1.0):
         return m
 
     def gap(px):
-        return max(6.0, px * 0.45)
+        return max(5.0, px * 0.4)
 
-    def count(r, pos, px):
-        return thanks.row_count(names, pos, measure(px, WEIGHTS[r % len(WEIGHTS)]), width, lead if r == 0 else "", gap(px))
+    def fit(r, pos, k):
+        """La grandezza più grande a cui k nomi dalla posizione pos stanno nella riga r (0 = nemmeno la minima)."""
+        weight = WEIGHTS[r % len(WEIGHTS)]
+        key = (weight, pos % len(names), k, r == 0)
+        if key not in fits:
+            best = 0
+            for px in range(SIZE_MIN, SIZE_MAX + 1):
+                if thanks.row_width(names, pos, k, measure(px, weight), lead if r == 0 else "", gap(px)) > width:
+                    break
+                best = px
+            fits[key] = best
+        return fits[key]
 
     room = int((BAND_TOP - 5.0 - TOP0) / LEADING)  # somma massima delle grandezze che sta sopra la fascia in basso
-    sizes = thanks.plan_sizes(names, ROWS, SIZES, count, room, FIRST_MAX, SIZE_DIFF, first_min=FIRST_MIN) if names else None
-    sizes = list(sizes or FALLBACK)
-    items = thanks.layout_rows(thanks.endless(names), [measure(px, WEIGHTS[r % len(WEIGHTS)]) for r, px in enumerate(sizes)],
-                               width, ROWS, lead=lead, gap=[gap(px) for px in sizes])
+    plan = thanks.plan_rows(len(names), ROWS, fit, SIZE_MIN, SIZE_MAX, room, FIRST_MAX)
+    sizes = [px for _k, px in plan]
+    items = thanks.place_rows(names, plan, [measure(px, WEIGHTS[r % len(WEIGHTS)]) for r, px in enumerate(sizes)],
+                              width, lead=lead)
     spare = max(0.0, (BAND_TOP - 5.0 - TOP0) - sum(sizes) * LEADING) / max(1, ROWS - 1)  # lo spazio che avanza, fra le righe
     rows, top = [], TOP0
     for r, (px, it) in enumerate(zip(sizes, items)):

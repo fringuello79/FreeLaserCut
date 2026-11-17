@@ -753,55 +753,75 @@ check("H i nomi a ripetizione: sempre nell'ordine dell'elenco, e finito l'elenco
       tuple(seq) == thanks.NAMES * 6)
 check("H elenco vuoto o con un nome solo: nessun errore", list(thanks.endless([])) == []
       and [x for x, _ in zip(thanks.endless(["Uno"]), range(3))] == ["Uno"] * 3)
-rows = thanks.layout_rows(thanks.endless(), lambda t: 10.0 * len(t), 500.0, 9, lead="Grazie a")
+M10 = lambda t: 10.0 * len(t)  # noqa: E731  (un carattere finto: 10 pixel a lettera)
+PLAN = [(2, 20), (3, 20), (2, 20)]
+rows = thanks.place_rows(thanks.NAMES, PLAN, [M10] * 3, 500.0, lead="Grazie a")
 flat = [t for row in rows for t, _, _ in row if t != "·"]
-check("H trama: 9 righe, la prima comincia con «Grazie a», tre spazi e il primo nome",
-      len(rows) == 9 and rows[0][0][0] == "Grazie a\u00a0\u00a0\u00a0Stefano Modena" and rows[0][0][1] == 0.0)
+check("H trama: la prima riga comincia con «Grazie a», tre spazi e il primo nome",
+      len(rows) == 3 and rows[0][0][0] == "Grazie a\u00a0\u00a0\u00a0Stefano Modena" and rows[0][0][1] == 0.0)
 flat[0] = flat[0].split("\u00a0")[-1]
-check("H trama: solo nomi interi, di seguito da una riga all'altra", flat == seq[:len(flat)] and len(flat) > N)
+check("H trama: solo nomi interi, di seguito da una riga all'altra, tanti quanti dice il piano",
+      flat == seq[:7] and [len(r) // 2 + 1 for r in rows] == [2, 3, 2])
 check("H trama: ogni riga va da un bordo all'altro (primo pezzo a sinistra, ultimo che finisce a destra)",
-      all(r[0][1] == 0.0 and (len(r) == 1 or abs(r[-1][1] + r[-1][2] - 500.0) < 1e-6) for r in rows))
+      all(r[0][1] == 0.0 and abs(r[-1][1] + r[-1][2] - 500.0) < 1e-6 for r in rows))
 check("H trama: fra due nomi c'è sempre un «·» con lo stesso spazio ai due lati",
       all(r[i][0] == "·" and abs((r[i][1] - (r[i - 1][1] + r[i - 1][2])) - (r[i + 1][1] - (r[i][1] + r[i][2]))) < 1e-6
           for r in rows for i in range(1, len(r), 2)) and all(len(r) % 2 == 1 for r in rows))
-check("H trama: nessuna riga più larga dello spazio", all(sum(x[2] for x in r) <= 500.0 + 1e-6 for r in rows))
-long_rows = thanks.layout_rows(iter(["x" * 80, "corto"]), lambda t: 10.0 * len(t), 500.0, 3)
-check("H un nome più largo della riga resta intero su una riga sua; finiti i nomi le righe restano vuote",
-      [len(r) for r in long_rows] == [1, 1, 0])
-two = thanks.layout_rows(thanks.endless(), [lambda t: 20.0 * len(t), lambda t: 8.0 * len(t)], 500.0, 2, gap=[12, 5])
-check("H righe di grandezza diversa: in quella grande entrano meno nomi che in quella piccola, i nomi proseguono",
-      len([x for x in two[0] if x[0] != "·"]) < len([x for x in two[1] if x[0] != "·"])
-      and [x[0] for r in two for x in r if x[0] != "·"] == seq[:sum(len(r) // 2 + 1 for r in two)])
+long_plan = thanks.place_rows(["a", "b"], [(2, 20), (2, 20), (0, 20)], [M10] * 3, 100.0)
+check("H l'elenco ricomincia dal primo nome; una riga senza nomi resta vuota",
+      [[x[0] for x in r] for r in long_plan] == [["a", "·", "b"], ["a", "·", "b"], []])
 check("H stesso nome con la stessa grandezza: contato (i «·» non contano)",
       thanks.same_size_repeats([[("A", 0, 1), ("·", 1, 1), ("B", 2, 1)], [("A", 0, 1)], [("B", 0, 1)]], [20, 20, 24]) == 1
       and thanks.same_size_repeats([[("A", 0, 1)], [("A", 0, 1)]], [20, 22], min_diff=4) == 1
       and thanks.same_size_repeats([[("A", 0, 1)], [("A", 0, 1)]], [20, 24], min_diff=4) == 0)
-check("H quanti nomi entrano in una riga: almeno uno, mai lo stesso due volte, «Grazie a» conta nella prima",
-      thanks.row_count(["aa", "bb", "cc"], 0, lambda t: 10.0 * len(t), 1000.0) == 3
-      and thanks.row_count(["aa", "bb", "cc"], 1, lambda t: 10.0 * len(t), 50.0, gap=2) == 1
-      and thanks.row_count(["x" * 99], 0, lambda t: 10.0 * len(t), 50.0) == 1 and thanks.row_count([], 0, len, 50.0) == 0
-      and thanks.row_count(["aa", "bb"], 0, lambda t: 10.0 * len(t), 60.0, lead="Grazie a", gap=2) == 1)
-plan = thanks.plan_sizes(list("ABCDEFGHIJKL"), 9, (30, 27, 24, 21, 18, 16), lambda r, pos, px: max(1, 60 // px), 198, 24,
-                         first_min=20)
-check("H scelta delle grandezze: 9 righe, la prima né troppo grande né piccola, righe vicine diverse, dentro lo spazio",
-      plan is not None and len(plan) == 9 and 20 <= plan[0] <= 24 and sum(plan) <= 198
-      and all(abs(plan[i] - plan[i + 1]) >= 4 for i in range(8)), str(plan))
-plan1 = thanks.plan_sizes(list("ABCDEFGHIJKL"), 9, (30, 26, 22, 18, 16),
-                          lambda r, pos, px: {30: 1, 26: 2, 22: 2, 18: 3, 16: 4}[px], 198, 24)
-check("H scelta delle grandezze: se si può, nessuna riga con un nome solo (non andrebbe da un bordo all'altro)",
-      plan1 is not None and 30 not in plan1, str(plan1))
-plan2 = thanks.plan_sizes(list("ABCDEFGHIJKL"), 9, (30, 24, 16), lambda r, pos, px: 1, 198, 24)
-check("H …e se non si può (nomi lunghissimi) la trama si fa lo stesso", plan2 is not None and len(plan2) == 9)
-check("H scelta delle grandezze impossibile (una sola grandezza): lo dice invece di inventare",
-      thanks.plan_sizes(list("ABC"), 9, (20,), lambda r, pos, px: 3, 198, 24) is None)
+check("H larghezza minima di una riga: nomi, «·» e spazio attorno; «Grazie a» conta nella prima",
+      thanks.row_width(["aa", "bb", "cc"], 1, 2, M10, gap=3) == 20 + 20 + 10 + 6
+      and thanks.row_width(["aa", "bb", "cc"], 2, 2, M10, gap=0) == 50
+      and thanks.row_width(["aa"], 0, 1, M10, lead="Grazie a") == 130)
+
+
+def fake_fit(widths):
+    """fit per le prove: nomi larghi widths[i] × grandezza / 10, riga di 500, «·» e spazi = grandezza."""
+    def fit(r, pos, k):
+        best = 0
+        for px in range(15, 31):
+            w = sum(widths[(pos + j) % len(widths)] for j in range(k)) * px / 10 + (k - 1) * px
+            if w > 500:
+                break
+            best = px
+        return best
+    return fit
+
+
+WID = [70, 40, 45, 55, 30, 45, 100, 120, 45, 50, 85, 35]
+plan = thanks.plan_rows(12, 9, fake_fit(WID), 15, 30, 198, 24)
+pos_, last_, rep_ok = 0, {}, True
+for k_, px_ in plan:
+    for j in range(k_):
+        i_ = (pos_ + j) % 12
+        rep_ok = rep_ok and abs(last_.get(i_, -99) - px_) >= 2
+        last_[i_] = px_
+    pos_ += k_
+check("H piano delle righe: 9 righe, almeno due nomi in ognuna, la prima non troppo grande, dentro lo spazio",
+      len(plan) == 9 and all(k >= 2 for k, _ in plan) and plan[0][1] <= 24 and sum(px for _, px in plan) <= 198
+      and all(15 <= px <= 30 for _, px in plan), str(plan))
+check("H piano delle righe: grandezze irregolari (righe vicine diverse) e lo stesso nome mai con la stessa grandezza",
+      len({px for _, px in plan}) >= 4 and all(plan[i][1] != plan[i + 1][1] for i in range(8)) and rep_ok and pos_ > 12,
+      str(plan))
+check("H piano delle righe: ogni riga sta nella larghezza alla sua grandezza",
+      all(px <= fake_fit(WID)(r, sum(k for k, _ in plan[:r]), plan[r][0]) for r, (_, px) in enumerate(plan)))
+plan_big = thanks.plan_rows(3, 9, lambda r, pos, k: 0 if k > 1 else 20, 15, 30, 198, 24)
+check("H nomi così lunghi che due non stanno in una riga: uno per riga, la trama si fa lo stesso",
+      len(plan_big) == 9 and all(k == 1 for k, _ in plan_big))
+check("H elenco vuoto: nove righe vuote", thanks.plan_rows(0, 9, lambda r, pos, k: 20, 15, 30, 198, 24) == [(0, 15)] * 9)
 rr = splash.name_rows()
 W_IN = splash.W - 2 * splash.SIDE
 check("H schermata di avvio: 9 righe che vanno da un bordo all'altro con il carattere vero",
       len(rr) == splash.ROWS == 9 and all(r.items and abs(r.items[-1][1] + r.items[-1][2] - W_IN) < 0.5 for r in rr))
 sizes_ = [r.px for r in rr]
 check("H grandezze irregolari e alternate: almeno quattro grandezze, righe vicine sempre diverse, grandi e piccole",
-      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 4 for i in range(8))
-      and max(sizes_) >= 27 and min(sizes_) <= 18, str(sizes_))
+      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 2 for i in range(8))
+      and max(sizes_) >= 24 and min(sizes_) <= 19 and all(len(r.names()) >= 2 for r in rr), str(sizes_))
 all_names = [n for r in rr for n in r.names()]
 check("H i nomi sono nell'ordine dell'elenco, di seguito, e ricominciano dal primo",
       all_names == seq[:len(all_names)] and len(all_names) > N, str(all_names[:14]))
@@ -809,7 +829,7 @@ by_name = {}
 for r in rr:
     for n in r.names():
         by_name.setdefault(n, []).append(r.px)
-check("H lo stesso nome, quando ricompare, ha una grandezza diversa (almeno 4 pixel)",
+check("H lo stesso nome, quando ricompare, ha una grandezza diversa",
       splash.repeats_same_size(rr) == 0 and all(abs(a - b) >= splash.SIZE_DIFF for v in by_name.values() for a, b in zip(v, v[1:]))
       and any(len(v) > 1 for v in by_name.values()), str(by_name))
 check("H tutti i nomi dell'elenco compaiono almeno una volta, Deborah compresa", set(by_name) == set(thanks.NAMES))
@@ -823,16 +843,28 @@ for extra in (["Uno"], ["Uno", "Due"], list(thanks.NAMES) + ["Nuovo Nome", "altr
     check(f"H con un elenco di {len(extra)} nomi la trama si fa lo stesso (righe dentro i margini e sopra la fascia)",
           len(r_) == 9 and r_[-1].bottom <= splash.BAND_TOP
           and all(not r.items or r.items[-1][1] + r.items[-1][2] <= W_IN + 0.5 or len(r.items) == 1 for r in r_))
-wide_bad = []
-for k in range(84, 127, 3):  # caratteri più stretti e più larghi di quelli di qui (Windows usa Segoe UI: altre larghezze)
-    for nm in (None, list(thanks.NAMES) + ["Nuovo Nome"]):
-        r_ = splash.name_rows(nm, stretch=k / 100)
-        if (splash.repeats_same_size(r_) or any(len(r.names()) < 2 for r in r_) or r_[-1].bottom > splash.BAND_TOP
-                or any(abs(r.items[-1][1] + r.items[-1][2] - W_IN) > 0.5 for r in r_)
-                or [n for r in r_ for n in r.names()][:len(thanks.NAMES)] != list(thanks.NAMES)):
-            wide_bad.append((k, [r.px for r in r_]))
-check("H con caratteri più stretti o più larghi (altri sistemi) la trama resta giusta: righe piene da bordo a bordo, "
-      "nomi in ordine, grandezze diverse a ogni ripetizione", not wide_bad, str(wide_bad[:3]))
+# Ogni sistema ha i suoi caratteri (Windows usa Segoe UI, qui e su GitHub ce ne sono altri) e quanti nomi entrano in
+# una riga cambia: la trama deve restare giusta con qualsiasi carattere. Si prova con i caratteri che ci sono, anche
+# a spaziatura fissa, più stretti e più larghi.
+QFD = __import__("PySide6.QtGui", fromlist=["QFontDatabase"]).QFontDatabase
+fams = ["Segoe UI"] + [f for f in QFD.families() if not f.startswith(".")][:9]
+wide_bad, n_wide, fam0 = [], 0, splash.FONT_FAMILY
+for fam in fams:
+    splash.FONT_FAMILY = fam
+    for k in range(78, 135, 8):
+        for nm in (None, list(thanks.NAMES) + ["Nuovo Nome"]):
+            n_wide += 1
+            r_ = splash.name_rows(nm, stretch=k / 100)
+            if (splash.repeats_same_size(r_) or any(len(r.names()) < 2 for r in r_) or r_[-1].bottom > splash.BAND_TOP
+                    or any(abs(r.items[-1][1] + r.items[-1][2] - W_IN) > 0.5 for r in r_)
+                    or any(r.items[i][1] - (r.items[i - 1][1] + r.items[i - 1][2]) < 4.9 for r in r_ for i in range(1, len(r.items), 2))
+                    or len({r.px for r in r_}) < 3
+                    or [n for r in r_ for n in r.names()][:len(thanks.NAMES)] != list(thanks.NAMES)):
+                wide_bad.append((fam, k, [r.px for r in r_]))
+splash.FONT_FAMILY = fam0
+check(f"H con qualsiasi carattere ({len(fams)} caratteri, più stretti e più larghi: {n_wide} casi) la trama resta giusta: "
+      "almeno due nomi per riga da bordo a bordo, nomi in ordine, grandezze diverse a ogni ripetizione",
+      not wide_bad and n_wide >= 16, str(wide_bad[:3]))
 t_plan = time.perf_counter()
 splash.name_rows()
 check("H la scelta delle grandezze non rallenta l'avvio (meno di 0,3 secondi)", time.perf_counter() - t_plan < 0.3)
