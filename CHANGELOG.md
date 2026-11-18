@@ -26,6 +26,9 @@ Disegni SVG con contorno e riempimento separati da soli, e riempimenti in toni d
 - Mentre il laser incide un piano e tu ne guardi un altro con *Mostra gli altri piani* spento, l'anteprima e la scia del lavoro in corso non si vedono; tornando sul piano del lavoro, o con *Mostra gli altri piani* acceso, si rivedono (con tutto quello inciso nel frattempo).
 - Nuova prova automatica: `tests/test_v207_scia.py` (24 controlli, Classica e Banco; 7 guasti messi apposta, tutti presi).
 
+**Barra in basso ferma anche su Windows.** Le scritte della posizione della testa e di velocità e potenza tengono una larghezza fissa, così i numeri che cambiano non spostano il resto della barra. La larghezza era misurata con un carattere diverso da quello con cui la scritta si disegna: su alcuni Windows, con numeri più corti, la scritta si stringeva e il resto della barra saltava di lato. Ora si misura con il carattere vero.
+- Le prove automatiche su Windows erano rosse da prima della 0.20.0 per un motivo del server di GitHub (nessun carattere installato nella modalità senza schermo): corretto, e ora sono verdi.
+
 **Creality Falcon A1 Pro 20W** nell'elenco dei modelli (domanda arrivata su YouTube): area 358 × 268 mm, 600 mm/s; collegando la macchina la scheda si riconosce e l'area vera si legge dalla scheda. Il modulo a infrarosso da 2 W non è ancora provato.
 
 ## 0.20.6 — 18/11/2026
