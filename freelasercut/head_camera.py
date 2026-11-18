@@ -291,6 +291,8 @@ class HeadModel:
         qd = self.quality or {}
         if qd.get("max_mm") is not None:
             txt += " · " + tr("errore massimo {0:.2f} mm", qd["max_mm"])
+        if qd.get("approx"):  # 0.20.6: tenuta perché migliore di niente o di quella di prima, ma non precisa
+            txt += " · " + tr("poco precisa")
         return txt
 
     # ---- file
@@ -901,7 +903,7 @@ class SimHeadCamera(_FrameSource):
 
     def __init__(self, sim, offset=(0.0, 35.0), mm_per_px=0.08, angle=0.0, mirror=False, size=(640, 480), seed=3,
                  board=None, profile=None, lag=0.0, k=0.0, model=None, light=1.0, gradient=0.0, occlude=None,
-                 spots=None, grain=0.0, moves=True, drift=None, corrupt_every=0, dot_r=0.3):
+                 spots=None, grain=0.0, moves=True, drift=None, corrupt_every=0, dot_r=0.3, warp=0.0):
         self.index = "sim-testa"
         self.lag = float(lag)  # come le camere vere: fotogrammi che arrivano in ritardo (secondi)
         self._queue = []
@@ -924,6 +926,8 @@ class SimHeadCamera(_FrameSource):
         self.drift = drift  # (dopo quanti secondi, scala): messa a fuoco automatica che cambia l'inquadratura
         self.corrupt_every = int(corrupt_every)  # un fotogramma rovinato ogni n
         self.dot_r = float(dot_r)  # mm: raggio della bruciatura di ogni punto inciso
+        # 0.20.6: lente che il modello non sa seguire (ondulazione): mm di spostamento al massimo
+        self.warp = float(warp)
         self._n_grab = 0
         self._t0 = time.time()
         self.slip = np.zeros(2)  # passi persi: la testa vera è spostata da dove dice la scheda (mm)
@@ -979,6 +983,11 @@ class SimHeadCamera(_FrameSource):
                 m.set_thickness(z)
             yy, xx = np.mgrid[0:self.h, 0:self.w].astype(np.float64)
             self._R = m._rel(np.stack([xx.ravel(), yy.ravel()], axis=1))
+            if self.warp:  # ondulazione che nessun modello di lente segue: fino a «warp» mm
+                u = xx.ravel() / self.w
+                v = yy.ravel() / self.h
+                self._R = self._R + self.warp * np.stack([np.sin(5 * u + 1) * np.cos(4 * v),
+                                                          np.cos(5 * u) * np.sin(4 * v + 1)], axis=1)
             self._R_key = key
         return self._R
 

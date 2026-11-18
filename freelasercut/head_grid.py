@@ -43,6 +43,7 @@ MIN_DOT_PX = 8.0
 BIG = 2.2  # i tre puntini grandi: 2,2 volte quelli piccoli
 GOOD_P95_PX = 1.5  # buona: il 95% dei punti di controllo entro 1,5 pixel…
 GOOD_MAX_PX = 3.0  # …e nessuno oltre 3 pixel
+USABLE_MAX_MM = 2.0  # 0.20.6: oltre, una calibrazione non si tiene nemmeno come «poco precisa»
 MIN_SEEN = 0.8  # ogni foto deve riconoscere almeno l'80% dei puntini che dovrebbe vedere
 STABLE_WAIT = 10.0  # s fra le due foto del controllo dell'inquadratura
 APPROACH = 1.5  # mm: ogni foto si raggiunge da (−1,5; −1,5) mm, sempre dalla stessa parte (gioco delle cinghie)
@@ -955,9 +956,27 @@ class HeadGridCalibration(hc.HeadCalibration):
             if flat_trouble(obs_ctl["X"], e_ctl, plan.size):
                 why = " " + tr("Gli errori grandi sono tutti in una zona: il cartone non è piatto. Fermalo con dei pesi "
                                "(fuori dalla griglia) o usa un compensato sottile.")
-            return None, tr("Calibrazione da rifare: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di controllo, "
-                            "troppo per questa camera.", qd["max_mm"], qd["max_px"]) + why + "\n" + \
-                tr("La calibrazione di prima resta com'era.")
+            # 0.20.6 (Ale, 18/11): una calibrazione non precisa ma migliore di quella che c'è si tiene, con l'avviso.
+            # Prima veniva scartata anche quando quella rimasta sbagliava molto di più (lente molto grandangolare:
+            # 1 mm scartato, 2–4 mm tenuti). Si scarta se quella di prima è migliore sugli stessi punti o se è
+            # proprio inservibile.
+            old = self.old_model
+            old_p95 = None
+            if old is not None and tuple(old.frame_size) == tuple(model.frame_size):
+                old_p95 = float(np.percentile(model_errors_px(old, obs_ctl), 95))
+            rep["old_p95_px"] = old_p95
+            if qd["max_mm"] > USABLE_MAX_MM or (old_p95 is not None and old_p95 <= qd["p95_px"]):
+                return None, tr("Calibrazione da rifare: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di "
+                                "controllo, troppo per questa camera.", qd["max_mm"], qd["max_px"]) + why + "\n" + \
+                    tr("La calibrazione di prima resta com'era.")
+            model.quality["approx"] = True
+            msg = tr("Calibrazione tenuta, ma poco precisa: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di "
+                     "controllo, il 95% entro {2:.2f} mm. Vicino ai bordi dell'immagine il disegno sul video può essere "
+                     "spostato di qualche decimo.", qd["max_mm"], qd["max_px"], qd["p95_mm"]) + why
+            if old_p95 is not None:
+                msg += "\n" + tr("È comunque più precisa di quella di prima ({0:.1f} pixel contro {1:.1f} sugli stessi "
+                                 "punti).", qd["p95_px"], old_p95)
+            return model, msg
         msg = tr("Calibrazione completa riuscita: {0}", model.describe())
         msg += "\n" + tr("Verifica su {0} punti di controllo (non usati per il calcolo): errore massimo {1:.2f} mm "
                          "({2:.1f} pixel), il 95% entro {3:.2f} mm.", qd["n_ctrl"], qd["max_mm"], qd["max_px"],

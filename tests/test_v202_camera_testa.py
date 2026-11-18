@@ -635,6 +635,28 @@ if not BANCO and "B" in PARTI and caso("vecchia"):
     check("calibrazione di prima peggiore: si tiene quella nuova", m is not None and "riuscita" in msg,
           (msg, cal.report.get("old_p95_px")))
 
+if not BANCO and "B" in PARTI and caso("lente"):
+    # 0.20.6 (Ale, 18/11): lente che il modello non segue del tutto. Una calibrazione non precisa ma migliore di niente
+    # o di quella di prima si tiene, con l'avviso; se quella di prima è migliore, o se è proprio inservibile, no
+    m, msg, cal, cam = run_cal(tC, warp=0.5)
+    qd = cal.report.get("quality", {})
+    print("     (lente oltre il modello: errore massimo", round(qd.get("max_px", -1), 1), "pixel,",
+          round(qd.get("max_mm", -1), 2), "mm)")
+    check("lente oltre il modello, nessuna calibrazione prima: tenuta come «poco precisa», con l'errore",
+          m is not None and m.quality.get("approx") and "poco precisa" in msg and "poco precisa" in m.describe()
+          and (qd.get("p95_px", 0) > hg.GOOD_P95_PX or qd.get("max_px", 0) > hg.GOOD_MAX_PX), (msg, qd))
+    _errs = hg.model_errors_px
+    hg.model_errors_px = lambda model, obs: np.zeros(len(obs["P"]))  # quella di prima: perfetta sugli stessi punti
+    try:
+        m2, msg2, cal2, cam2 = run_cal(tC, warp=0.5, old=hc.HeadModel(tC.M, tC.offset, SIZE))
+    finally:
+        hg.model_errors_px = _errs
+    check("…ma se quella di prima è più precisa sugli stessi punti resta quella", m2 is None
+          and "resta com'era" in msg2, msg2)
+    m3, msg3, cal3, cam3 = run_cal(tC, warp=4.0)
+    check("…e se l'errore è troppo grande (oltre 2 mm) non si tiene", m3 is None and "rifare" in msg3,
+          (msg3, cal3.report.get("quality", {}).get("max_mm")))
+
 if not BANCO and "B" in PARTI and caso("piano"):
     # ---------------------------------------------------------------- B2. camera del piano aiutata (parte 2)
     c.sim.burn_marks.clear()
