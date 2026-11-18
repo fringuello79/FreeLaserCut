@@ -257,6 +257,14 @@ class MainWindow(QMainWindow):
                             tr("Come «Importa», ma il disegno entra girato di un quarto di giro: per i file disegnati "
                                "nell'altro verso (per esempio in verticale, se il tuo piano è mostrato ruotato)")),
             "export": A(tr("Esporta SVG…"), self.file_export, "Ctrl+Shift+E", "export"),
+            # 0.20.6: xTool M2 (non GRBL, lavora solo con xTool Studio): progetto pronto da aprire là
+            "export_xs": A(tr("Esporta per xTool Studio (M2)…"), self.file_export_xs, None, "export",
+                           tr("Per la xTool M2, che lavora solo con xTool Studio: salva un progetto .xs con il disegno "
+                              "e con potenza, velocità e passate già impostate, da aprire in xTool Studio")),
+            # 0.20.6, sperimentale: il lavoro scritto direttamente nel linguaggio della M2 (non viene inviato)
+            "export_m2": A(tr("Lavoro per xTool M2 (sperimentale)…"), self.file_export_m2, None, "gcode",
+                           tr("In prova, solo per la xTool M2: scrive il lavoro nel linguaggio della macchina. Non lo "
+                              "invia e non è ancora stato provato su una M2 vera")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -321,9 +329,13 @@ class MainWindow(QMainWindow):
             "photo_clip": A(tr("Ritaglia la foto con la forma"), e.clip_photo, None, None,
                             tr("Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto "
                                "si vede e si incide solo dentro la forma. La forma resta come contorno, non incisa; "
-                               "per tagliarla mettila su un livello che esce")),
+                               "per tagliarla: Contorno da tagliare")),
             "photo_unclip": A(tr("Togli il ritaglio"), e.unclip_photo, None, None,
                               tr("La foto ritagliata con una forma torna intera; la forma torna sul suo livello")),
+            # 0.20.6 (Evoluzione2): incidere la foto e poi tagliarla sul suo contorno
+            "photo_cut_outline": A(tr("Contorno da tagliare…"), self.cut_outline_dialog, None, None,
+                                   tr("Della foto ritagliata con una forma crea il contorno da tagliare (sul livello "
+                                      "attivo), anche un po' più largo o più stretto; si sposta insieme alla foto")),
             "flip_h": A(tr("Rifletti orizzontalmente"), lambda: e.flip(True), "Ctrl+Shift+H", "flip_h"),
             "flip_v": A(tr("Rifletti verticalmente"), lambda: e.flip(False), "Ctrl+Alt+V", "flip_v"),
             "rot_cw": A(tr("Ruota di 90° in senso orario"), lambda: e.rotate(-90), ".", "rot_cw"),
@@ -607,7 +619,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -644,7 +656,7 @@ class MainWindow(QMainWindow):
                 act.triggered.connect(lambda _=False, i=i: self.head_to_selection(i))
 
         menu(tr("&Disponi"), ["group", "ungroup", "-", "weld", (tr("Operazioni booleane"), ["union", "difference", "intersection", "xor"]),
-                          "photo_clip", "photo_unclip",
+                          "photo_clip", "photo_unclip", "photo_cut_outline",
                           "-", "flip_h", "flip_v", "rot_cw", "rot_ccw", "-",
                           (tr("Allinea"), ["align_left", "align_hcenter", "align_right", "-", "align_top", "align_vcenter",
                                        "align_bottom", "-", "align_center"]),
@@ -1371,6 +1383,7 @@ class MainWindow(QMainWindow):
         clip_ok, unclip_ok = self._clip_states(self.editor.selection)
         self.acts["photo_clip"].setEnabled(clip_ok)
         self.acts["photo_unclip"].setEnabled(unclip_ok)
+        self.acts["photo_cut_outline"].setEnabled(bool(ops.clipped_photos(self.editor.selection)))
 
     @staticmethod
     def _clip_group_photo_ok(sel):
@@ -1755,6 +1768,125 @@ class MainWindow(QMainWindow):
             io_formats.export_svg(shapes, self.editor.doc, path)
             self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)
 
+    def file_export_xs(self, *_, path=None, laser_w=None, cut_layers=None):
+        """0.20.6: progetto per xTool Studio (xTool M2). -> resoconto di xtool_xs.build, o None se si rinuncia."""
+        from ..core import xtool_xs
+
+        doc = self.editor.doc
+        shapes = self.editor.selection or doc.shapes
+        used = {leaf.layer for s in shapes if not s.hidden for leaf, _ in s.leaves() if not leaf.hidden}
+        layers = [cs for cs in doc.used_layers() if cs.index in used and cs.index < xtool_xs.TOOL_LAYER and cs.output]
+        if not layers:
+            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
+            return None
+        if laser_w is None:
+            try:
+                laser_w = int(self.qs.value("xtool_laser_w", 10) or 10)
+            except (TypeError, ValueError):
+                laser_w = 10
+            if laser_w not in xtool_xs.LASERS:
+                laser_w = 10
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                from .dialogs_xtool import XToolExportDialog
+
+                dlg = XToolExportDialog(doc, layers, laser_w, self)
+                if dlg.exec() != QDialog.Accepted:
+                    return None
+                laser_w, cut_layers = dlg.laser_w(), dlg.cut_layers()
+                self.qs.setValue("xtool_laser_w", laser_w)
+        name = self.project_stem() or "disegno"
+        if path is None:
+            path, _f = QFileDialog.getSaveFileName(self, tr("Progetto per xTool Studio"), os.path.join(
+                self.qs.value("last_dir", os.path.expanduser("~")), name + ".xs"), tr("Progetto xTool Studio (*.xs)"))
+        if not path:
+            return None
+        try:
+            rep = xtool_xs.export_xs(doc, path, shapes=list(shapes), laser_w=laser_w, cut_layers=cut_layers, name=name,
+                                     app_version=__version__)
+        except (OSError, ValueError) as ex:
+            QMessageBox.warning(self, tr("Progetto per xTool Studio"), tr("Non riesco a salvare il file:\n{0}", ex))
+            return None
+        n = sum(k for _i, _t, k in rep["layers"])
+        msg = tr("Progetto per xTool Studio salvato: {0} oggetti. Aprilo in xTool Studio e controlla i valori prima "
+                 "di avviare", n)
+        if rep["outside"]:
+            msg += " · " + tr("{0} oggetti escono dall'area della M2 ({1:g} × {2:g} mm)", rep["outside"],
+                              xtool_xs.BED[0], xtool_xs.BED[1])
+        if rep["skipped"]:
+            msg += " · " + tr("{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)",
+                              len(rep["skipped"]))
+        self.statusBar().showMessage(msg, 12000)
+        return rep
+
+    def file_export_m2(self, *_, path=None, laser_w=None, cut_layers=None, thickness=None):
+        """0.20.6, sperimentale: il lavoro per la xTool M2 nel suo linguaggio, più la cornice a potenza zero.
+        Non viene inviato alla macchina. -> resoconto di xtool_m2.build, o None se si rinuncia o non si può."""
+        from ..core import xtool_m2, xtool_xs
+
+        doc = self.editor.doc
+        shapes = self.editor.selection or doc.shapes
+        used = {leaf.layer for s in shapes if not s.hidden for leaf, _ in s.leaves() if not leaf.hidden}
+        layers = [cs for cs in doc.used_layers() if cs.index in used and cs.index < xtool_xs.TOOL_LAYER and cs.output]
+        if not layers:
+            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
+            return None
+        if laser_w is None:
+            try:
+                laser_w = int(self.qs.value("xtool_laser_w", 10) or 10)
+                thick0 = float(self.qs.value("xtool_thickness", 3.0) or 0.0)
+            except (TypeError, ValueError):
+                laser_w, thick0 = 10, 3.0
+            if laser_w not in xtool_xs.LASERS:
+                laser_w = 10
+            if thickness is None:
+                thickness = thick0
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                from .dialogs_xtool import XToolExportDialog
+
+                dlg = XToolExportDialog(doc, layers, laser_w, self, job=True, thickness=thickness)
+                if dlg.exec() != QDialog.Accepted:
+                    return None
+                laser_w, cut_layers, thickness = dlg.laser_w(), dlg.cut_layers(), dlg.thickness()
+                self.qs.setValue("xtool_laser_w", laser_w)
+                self.qs.setValue("xtool_thickness", thickness)
+        thickness = float(thickness or 0.0)
+        title = tr("Lavoro per xTool M2 (sperimentale)")
+        if path is None:
+            path, _f = QFileDialog.getSaveFileName(self, title, os.path.join(
+                self.qs.value("last_dir", os.path.expanduser("~")), (self.project_stem() or "disegno") + "-M2.txt"),
+                tr("G-code per xTool M2 (*.txt)"))
+        if not path:
+            return None
+        stem, ext = os.path.splitext(path)
+        frame_path = stem + "-cornice" + (ext or ".txt")
+        try:
+            rep = xtool_m2.export_gcode(doc, path, frame_path=frame_path, shapes=list(shapes), laser_w=laser_w,
+                                        thickness=thickness, cut_layers=cut_layers, app_version=__version__)
+        except xtool_m2.OutsideArea:
+            bw, bh = xtool_m2.HEAD_PLANE[(laser_w, "TO")][2:]
+            QMessageBox.warning(self, title, tr("Il disegno esce dall'area della M2 con questo modulo ({0:g} × {1:g} "
+                                                "mm dall'angolo in basso a sinistra del piano): il lavoro non è "
+                                                "stato scritto.", bw, bh))
+            return None
+        except ValueError:
+            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
+            return None
+        except OSError as ex:
+            QMessageBox.warning(self, title, tr("Non riesco a salvare il file:\n{0}", ex))
+            return None
+        msg = tr("Lavoro per xTool M2 salvato ({0} righe) con la sua cornice. È una funzione in prova: non è stato "
+                 "provato su una M2 vera e FreeLaserCut non lo invia", rep["lines"])
+        notes = {"offset_fill": tr("riempimento a contorni non ancora previsto: fatto a righe"),
+                 "fill_angle": tr("riempimento inclinato o incrociato non ancora previsto: righe orizzontali"),
+                 "image_start": tr("le foto partono sempre dall'alto, a righe orizzontali")}
+        for k in rep["notes"]:
+            msg += " · " + notes.get(k, k)
+        if rep["skipped"]:
+            msg += " · " + tr("{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)",
+                              len(rep["skipped"]))
+        self.statusBar().showMessage(msg, 15000)
+        return rep
+
     def autosave(self):
         if not self.editor.dirty or not self.editor.doc.all_shapes():
             return
@@ -1782,6 +1914,21 @@ class MainWindow(QMainWindow):
                 self._update_title()
 
     # ================================================================ dialoghi di modifica
+    def cut_outline_dialog(self):
+        """0.20.6: chiede lo scostamento del «Contorno da tagliare» (si ricorda l'ultimo) e lo crea."""
+        last = float(self.qs.value("cut_outline_offset", 0.0) or 0.0)
+        if os.environ.get("FLC_NO_DIALOGS"):
+            d, ok = last, True
+        else:
+            d, ok = QInputDialog.getDouble(
+                self, tr("Contorno da tagliare"),
+                tr("Scostamento dal bordo della foto (mm):\n0 = proprio sul bordo; per esempio 0,1 per un filo di "
+                   "margine fuori, un valore negativo per tagliare un po' dentro"), last, -20.0, 20.0, 2)
+        if not ok:
+            return []
+        self.qs.setValue("cut_outline_offset", d)
+        return self.editor.cut_outline(d)
+
     def offset_dialog(self):
         if not self.editor.selection:
             return
@@ -2529,6 +2676,9 @@ class MainWindow(QMainWindow):
         if not sel:
             return ["paste", "paste_in_place", "-", "undo", "redo", "-", "select_all", "-", "import", "-", "fit"] + head
         keys = ["cut", "copy", "paste", "duplicate", "delete", "-"]
+        if len(sel) == 1 and isinstance(sel[0], ImageShape):
+            # 0.20.6 (Ale, 17/11): tasto destro su una foto: i due comandi che servono subito, senza cercarli nei menu
+            keys += ["photo", "trace", "-"]
         if len(sel) > 1:
             keys.append("group")
         if any(s.kind == "group" for s in sel):
@@ -2543,7 +2693,7 @@ class MainWindow(QMainWindow):
         keys += ["-", "to_path", "offset"]
         clip_ok, unclip_ok = self._clip_states(sel)  # 0.20.3: foto ritagliata con una forma
         keys += ["photo_clip"] if clip_ok else []
-        keys += ["photo_unclip"] if unclip_ok else []
+        keys += ["photo_unclip", "photo_cut_outline"] if unclip_ok else []
         if any(isinstance(leaf, PathShape) for s in sel for leaf, _ in s.leaves()):
             keys.append("simplify")
         keys += ["-", "fit_sel"]
@@ -2581,6 +2731,7 @@ class MainWindow(QMainWindow):
         from .. import admin
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
+        self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 
@@ -3278,7 +3429,7 @@ class MainWindow(QMainWindow):
                 if cs.mode != "image" or not cs.output:
                     continue
                 step = 25.4 / max(cs.dpi, 10.0)
-                r = tf.map(leaf.local_path()).boundingRect()
+                r = tf.map(leaf.photo_path()).boundingRect()  # 0.20.6: come la griglia del G-code
                 n += (r.width() / step) * (r.height() / step)
         return n
 
@@ -3511,6 +3662,16 @@ class MainWindow(QMainWindow):
         box.setIcon(QMessageBox.Warning)
         box.setWindowTitle(tr("Lavoro in pausa"))
         box.setText(tr("<b>La scheda ha rifiutato la riga {0}</b>: <code>{1}</code><br>error:{2} — {3}<br><br>Il lavoro è stato messo in pausa per sicurezza.", index + 1, line, code, text))
+        from .. import grbl, netport
+
+        if code in grbl.NET_GARBLED and netport.is_net(self.ctl.port or ""):
+            # 0.20.6 (rapporto FLC-20261118-1316-895B): in Wi-Fi una riga giusta arrivata rovinata alla scheda
+            box.setInformativeText(tr(
+                "La riga è giusta: è arrivata rovinata alla scheda. Succede con il Wi-Fi disturbato o con disturbi "
+                "elettrici (pompa dell'aria, compressore, aspiratore sulla stessa presa). Da ora FreeLaserCut manda "
+                "una riga per volta, più lentamente. Controlla il pezzo: la riga saltata può aver lasciato un segno "
+                "sbagliato. Se succede ancora, prova con il cavo USB e alimenta pompa e compressore da un'altra "
+                "presa."))
         stop = box.addButton(tr("Ferma il lavoro"), QMessageBox.RejectRole)
         box.addButton(tr("Continua comunque"), QMessageBox.AcceptRole)
         box.exec()

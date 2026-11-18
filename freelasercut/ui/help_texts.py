@@ -50,6 +50,16 @@ HELP = {
                       "quando nella configurazione hai scelto di vedere il piano ruotato. I disegni importati con "
                       "«Importa» entrano sempre dritti come li vedi sullo schermo; i progetti di FreeLaserCut invece "
                       "sono legati al piatto e si aprono già nel verso giusto."), None),
+    "export_xs": (tr("Esporta per xTool Studio (M2)"), tr("La xTool M2 non è una macchina GRBL e lavora solo con xTool "
+                  "Studio: FreeLaserCut non può comandarla. Questo comando salva un progetto .xs con il disegno, le "
+                  "foto e, per ogni livello, potenza, velocità e passate già impostate. Lo apri in xTool Studio, "
+                  "controlli e avvii da lì. L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a "
+                  "sinistra del piano."), None),
+    "export_m2": (tr("Lavoro per xTool M2 (sperimentale)"), tr("Funzione in prova, solo per la xTool M2. Scrive il "
+                  "lavoro nel linguaggio della macchina (un file di testo) e, accanto, la cornice a potenza zero. "
+                  "FreeLaserCut non lo invia alla M2 e nessuno l'ha ancora provato su una macchina vera: serve a chi "
+                  "ci aiuta nelle prove. Per lavorare con la M2 usa «Esporta per xTool Studio (M2)». Se il disegno "
+                  "esce dall'area della macchina il lavoro non viene scritto."), None),
     "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
     "run_file": (tr("Esegui un file G-code"), tr("Invia alla macchina un file G-code già pronto, con anteprima e verifica."), None),
@@ -116,8 +126,13 @@ HELP = {
                    "stella, testo, una forma disegnata a mano): la foto si vede e si incide solo dentro la forma, anche "
                    "con il negativo. La forma resta come contorno sul livello che non si incide e va in un gruppo con la "
                    "foto, così si spostano insieme. Hai modificato la forma? Seleziona il gruppo e ripeti il comando."),
-                   [(tr("Tagliare il contorno"), tr("metti la forma su un livello in modalità Linea che esce")),
+                   [(tr("Tagliare il contorno"), tr("Disponi → Contorno da tagliare (anche dal tasto destro)")),
                     (tr("Togli il ritaglio"), tr("la foto torna intera e la forma torna sul suo livello"))]),
+    "photo_cut_outline": (tr("Contorno da tagliare"), tr("Della foto ritagliata con una forma crea il tracciato da "
+                          "tagliare sul contorno di quello che si vede, sul livello attivo (se è un livello di foto, "
+                          "su un livello nuovo). Lo scostamento lo allarga (per esempio 0,1 mm) o, negativo, lo "
+                          "stringe. Il contorno va nel gruppo con la foto e si sposta con lei. I livelli si fanno "
+                          "nell'ordine dell'elenco: il taglio deve venire dopo la foto (se non è così, lo dice)."), None),
     "photo_unclip": (tr("Togli il ritaglio"), tr("La foto ritagliata con una forma torna intera; il gruppo si separa e la "
                      "forma torna sul livello che aveva prima del ritaglio."), None),
     "weld": (tr("Salda"), tr("Fonde forme sovrapposte in un unico contorno: niente linee interne bruciate due volte."), None),
@@ -411,7 +426,11 @@ HELP = {
                    [(tr("Ctrl+clic / Maiusc+clic"), tr("aggiunge o toglie un nodo dalla selezione")),
                     (tr("trascina sul vuoto"), tr("seleziona i nodi dentro il rettangolo")),
                     ("Ctrl+A", tr("tutti i nodi")), ("Esc", tr("toglie la selezione dei nodi (di nuovo: torna a Selezione)")),
-                    ("D", tr("elimina i nodi selezionati")), ("C / S", tr("angolo / morbido")), ("B", tr("spezza")),
+                    ("D", tr("elimina i nodi selezionati")),
+                    (tr("D su un tratto"), tr("toglie il tratto: in mezzo a una linea restano due linee separate")),
+                    (tr("trascina un estremo su un altro estremo"), tr("unisce: chiude la linea, o fa una linea sola "
+                                                                       "di due linee diverse")),
+                    ("C / S", tr("angolo / morbido")), ("B", tr("spezza")),
                     ("L", tr("raddrizza")), ("M", tr("nodo nel punto medio")), ("A", tr("arrotonda lo spigolo (raccordo)")),
                     ("J", tr("unisce due estremi selezionati in un punto solo, a metà strada")),
                     (tr("Maiusc+J"), tr("collega due estremi selezionati con un tratto dritto")),

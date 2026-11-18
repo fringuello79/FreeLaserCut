@@ -165,7 +165,8 @@ class ThanksDialog(QDialog):
         v.addWidget(self.view)
         v.addStretch(1)
         row = QHBoxLayout()
-        self.note = QLabel(tr("Vuoi esserci anche tu? Scrivi il tuo nome quando mandi un rapporto all'assistenza."))
+        self.note = QLabel(tr("Aiuti FreeLaserCut in modo attivo e con regolarità, o con una donazione? Scrivi il tuo "
+                              "nome quando mandi un rapporto all'assistenza."))
         self.note.setWordWrap(True)
         self.note.setStyleSheet(f"color:{MUTED}; background:transparent; font-size:13px;")
         row.addWidget(self.note, 1)

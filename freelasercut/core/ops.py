@@ -532,6 +532,7 @@ def distance_shift(fixed, moving, axis, mode, side, d, ef="min", em="min"):
 # ------------------------------------------------------------------ 0.20.3: foto ritagliata con una forma
 CLIP_ROLE = "clip"  # gruppo «foto ritagliata»: la foto e la sua sagoma
 CLIP_OUTLINE = "clip:"  # sagoma dentro il gruppo: «clip:<livello di prima>» (Togli il ritaglio lo rimette)
+CUT_OUTLINE = "cut-outline"  # 0.20.6: «Contorno da tagliare» dentro il gruppo (resta sul suo livello)
 
 
 def clip_selection(shapes):
@@ -542,6 +543,11 @@ def clip_selection(shapes):
     leaves = [(leaf, tf) for s in shapes for leaf, tf in s.leaves() if not leaf.hidden]
     imgs = [(leaf, tf) for leaf, tf in leaves if isinstance(leaf, ImageShape)]
     others = [(leaf, tf) for leaf, tf in leaves if not isinstance(leaf, ImageShape)]
+    if len(shapes) == 1 and is_clip_group(shapes[0]):
+        # 0.20.6: ritagliando di nuovo un gruppo già ritagliato conta solo la sagoma, non il «Contorno da tagliare»
+        # (che può essere più largo, con lo scostamento) né altro aggiunto al gruppo
+        outl = [(leaf, tf) for leaf, tf in others if outline_layer(leaf) is not None]
+        others = outl or others
     if len(imgs) != 1 or not others:
         return None, None, [], tr("Ritaglia la foto con la forma: seleziona una foto sola e la forma chiusa che le sta "
                                   "sopra (cuore, stella, testo…)")
@@ -558,6 +564,25 @@ def is_clip_group(s):
 def clipped_photos(shapes):
     """Foto ritagliate fra le forme (anche dentro i gruppi)."""
     return [leaf for s in shapes for leaf, _ in s.leaves() if isinstance(leaf, ImageShape) and leaf.clip]
+
+
+def cut_outline_path(img, tf, distance=0.0):
+    """0.20.6: «Contorno da tagliare» di una foto ritagliata: il contorno della parte che si vede (sagoma ∩ foto) sul
+    piano, allargato (distance > 0) o ristretto (< 0) di `distance` mm con angoli tondi. -> QPainterPath (vuoto se
+    non resta niente)."""
+    from . import photo_clip
+
+    polys = []
+    for ring in photo_clip.visible_rings(img.clip, img.w, img.h):
+        pts = [(q.x(), q.y()) for q in (tf.map(QPointF(x, y)) for x, y in ring)]
+        polys.append(geom.Poly(pts, True))
+    if not polys:
+        return QPainterPath()
+    if abs(distance) > 1e-9:
+        from .gcode import _orient
+
+        polys = geom.offset(_orient(polys), distance, "round") or []
+    return geom.polys_to_path(polys)
 
 
 def outline_layer(leaf):

@@ -56,6 +56,8 @@ class _View(QWidget):
         self.detail = None  # (QImage, (x0, y0, x1, y1)): la zona visibile a punti veri, sopra l'immagine
         self._drag = None
         self._pan = None
+        self.form = "none"  # 0.20.6: forma di Prepara foto (photo.MASKS), disegnata dentro il riquadro del ritaglio
+        self._edit = None  # 0.20.6: (parti del riquadro prese: "move" o lati "l t r b", frazione di partenza, ritaglio)
         self.paths = []  # [(QPainterPath in mm, QColor, riempito)]
         self.mm = None  # (w, h) dei tracciati
         self.faint = False
@@ -228,6 +230,9 @@ class _View(QWidget):
             p.setPen(pen)
             p.setBrush(Qt.NoBrush)
             p.drawRect(r)
+            self._paint_form(p, r)
+            if not self.hint_mode:
+                self._paint_handles(p, r)
         self._paint_hints(p, t)
         if self.message:  # 0.20.3: avviso al centro (al posto di un'anteprima vuota che non dice niente)
             p.setFont(style.ui_font(10))
@@ -325,6 +330,127 @@ class _View(QWidget):
             p.drawEllipse(self._hover, rad, rad)
             p.restore()
 
+    def form_outline(self, r):
+        """0.20.6: la forma scelta (Prepara foto → Forma) dentro il riquadro r del ritaglio, come la taglierà
+        photo.shape_mask: così sull'originale si vede che cosa resta (prima solo il rettangolo). None = Rettangolo."""
+        m = self.form
+        if m in photo.FORM_MASKS:
+            return QTransform.fromTranslate(r.left(), r.top()).map(photo.form_path(m, r.width(), r.height()))
+        path = QPainterPath()
+        if m == "oval":
+            path.addEllipse(r)
+        elif m == "rounded":
+            rad = min(r.width(), r.height()) * 0.12
+            path.addRoundedRect(r, rad, rad)
+        else:
+            return None
+        return path
+
+    def _paint_form(self, p, r):
+        path = self.form_outline(r) if r.width() > 2 and r.height() > 2 else None
+        if path is None:
+            return
+        outside = QPainterPath()
+        outside.addRect(r)
+        p.save()
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 255, 255, 110))  # quello che la forma lascia fuori diventa bianco
+        p.drawPath(outside.subtracted(path))
+        p.setBrush(Qt.NoBrush)
+        p.setPen(QPen(QColor(255, 255, 255, 200), 3.0))
+        p.drawPath(path)
+        p.setPen(QPen(QColor(C["accent"]), 1.6))
+        p.drawPath(path)
+        p.restore()
+
+    HANDLE = 7.0  # px: distanza dai lati per prenderli
+
+    def _crop_rect(self):
+        t = self._target()
+        x0, y0, x1, y1 = self.crop or (0.0, 0.0, 1.0, 1.0)
+        return QRectF(t.left() + x0 * t.width(), t.top() + y0 * t.height(), (x1 - x0) * t.width(), (y1 - y0) * t.height())
+
+    def _handle_points(self, r):
+        cx, cy = r.center().x(), r.center().y()
+        return {"lt": QPointF(r.left(), r.top()), "rt": QPointF(r.right(), r.top()), "lb": QPointF(r.left(), r.bottom()),
+                "rb": QPointF(r.right(), r.bottom()), "t": QPointF(cx, r.top()), "b": QPointF(cx, r.bottom()),
+                "l": QPointF(r.left(), cy), "r": QPointF(r.right(), cy)}
+
+    def _paint_handles(self, p, r):
+        p.save()
+        p.setPen(QPen(QColor(C["accent"]), 1.2))
+        p.setBrush(QColor(255, 255, 255))
+        h = 3.5
+        for q in self._handle_points(r).values():
+            p.drawRect(QRectF(q.x() - h, q.y() - h, 2 * h, 2 * h))
+        p.restore()
+
+    def crop_part(self, pos):
+        """0.20.6: che parte del riquadro del ritaglio c'è sotto il mouse: un angolo o un lato ("lt", "r"…) per
+        allargarlo, "move" dentro per spostarlo, None fuori (si disegna un ritaglio nuovo)."""
+        if not self.croppable or self.crop is None or self.hint_mode:
+            return None
+        r = self._crop_rect()
+        k = self.HANDLE
+        x, y = pos.x(), pos.y()
+        if not r.adjusted(-k, -k, k, k).contains(QPointF(x, y)):
+            return None
+        near_l, near_r = abs(x - r.left()) <= k, abs(x - r.right()) <= k
+        near_t, near_b = abs(y - r.top()) <= k, abs(y - r.bottom()) <= k
+        if r.width() < 3 * k:  # riquadro stretto: vince il lato più vicino
+            near_l, near_r = (near_l and x <= r.center().x()), (near_r and x > r.center().x())
+        if r.height() < 3 * k:
+            near_t, near_b = (near_t and y <= r.center().y()), (near_b and y > r.center().y())
+        part = ("l" if near_l else "r" if near_r else "") + ("t" if near_t else "b" if near_b else "")
+        if part:
+            return part
+        full = tuple(self.crop) == (0.0, 0.0, 1.0, 1.0)
+        return None if full else "move"  # foto intera: trascinando dentro si disegna un ritaglio nuovo, come prima
+
+    _CURSORS = {"move": Qt.SizeAllCursor, "l": Qt.SizeHorCursor, "r": Qt.SizeHorCursor, "t": Qt.SizeVerCursor,
+                "b": Qt.SizeVerCursor, "lt": Qt.SizeFDiagCursor, "rb": Qt.SizeFDiagCursor, "rt": Qt.SizeBDiagCursor,
+                "lb": Qt.SizeBDiagCursor}
+
+    MIN_CROP = 0.03  # come il clic senza trascinare: sotto il 3% il ritaglio non ha senso
+
+    def edit_crop(self, part, start, crop0, f, keep_aspect=False):
+        """0.20.6: il ritaglio dopo aver trascinato `part` dal punto `start` a `f` (frazioni). Resta dentro la foto e
+        mai più piccolo di MIN_CROP; Maiusc sugli angoli tiene le proporzioni. -> (x0, y0, x1, y1)."""
+        x0, y0, x1, y1 = crop0
+        dx, dy = f[0] - start[0], f[1] - start[1]
+        m = self.MIN_CROP
+        if part == "move":
+            w, h = x1 - x0, y1 - y0
+            nx = min(max(x0 + dx, 0.0), 1.0 - w)
+            ny = min(max(y0 + dy, 0.0), 1.0 - h)
+            return (nx, ny, nx + w, ny + h)
+        if "l" in part:
+            x0 = min(max(x0 + dx, 0.0), x1 - m)
+        if "r" in part:
+            x1 = max(min(x1 + dx, 1.0), x0 + m)
+        if "t" in part:
+            y0 = min(max(y0 + dy, 0.0), y1 - m)
+        if "b" in part:
+            y1 = max(min(y1 + dy, 1.0), y0 + m)
+        if keep_aspect and len(part) == 2 and self.qimg is not None:
+            iw, ih = self.qimg.width(), self.qimg.height()
+            a0 = (crop0[2] - crop0[0]) * iw / max((crop0[3] - crop0[1]) * ih, 1e-9)  # proporzioni di partenza (pixel)
+            w, h = x1 - x0, y1 - y0
+            if w * iw / max(h * ih, 1e-9) > a0:  # troppo largo: si allarga l'altezza, se c'è posto, o si stringe
+                h = w * iw / a0 / ih
+            else:
+                w = h * ih * a0 / iw
+            # angolo opposto fermo, dentro la foto
+            ax = crop0[2] if "l" in part else crop0[0]
+            ay = crop0[3] if "t" in part else crop0[1]
+            room_x = ax if "l" in part else 1.0 - ax
+            room_y = ay if "t" in part else 1.0 - ay
+            k = min(1.0, room_x / max(w, 1e-9), room_y / max(h, 1e-9))
+            w, h = max(w * k, m), max(h * k, m)
+            x0, x1 = (ax - w, ax) if "l" in part else (ax, ax + w)
+            y0, y1 = (ay - h, ay) if "t" in part else (ay, ay + h)
+        return (x0, y0, x1, y1)
+
     def _frac(self, pos):
         t = self._target()
         return (min(max((pos.x() - t.left()) / max(t.width(), 1), 0.0), 1.0),
@@ -358,6 +484,10 @@ class _View(QWidget):
             self.update()
             return
         if self.croppable and e.button() == Qt.LeftButton:
+            part = self.crop_part(e.position())
+            if part:  # 0.20.6: si sposta o si allarga il ritaglio che c'è
+                self._edit = (part, self._frac(e.position()), tuple(self.crop))
+                return
             self._drag = self._frac(e.position())
 
     def mouseMoveEvent(self, e):
@@ -383,10 +513,20 @@ class _View(QWidget):
                     xs += [round(f[0], 5), round(f[1], 5)]
             self.update()
             return
+        if self._edit is not None:
+            part, start, crop0 = self._edit
+            self.crop = self.edit_crop(part, start, crop0, self._frac(e.position()),
+                                       bool(e.modifiers() & Qt.ShiftModifier))
+            self.update()
+            return
         if self._drag is not None:
             a, b = self._drag, self._frac(e.position())
             self.crop = (min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1]))
             self.update()
+            return
+        if self.croppable and self._pan is None and not self.hint_mode:  # 0.20.6: il cursore dice cosa si prende
+            part = self.crop_part(e.position())
+            self.setCursor(self._CURSORS.get(part, Qt.CrossCursor))
 
     def mouseReleaseEvent(self, e):
         if self._pan is not None:
@@ -402,6 +542,11 @@ class _View(QWidget):
             if self.hint_mode == "rect" and r and (r[2] - r[0] < 0.03 or r[3] - r[1] < 0.03):
                 self.hints["rect"] = None  # clic senza trascinare: niente riquadro
             self.hints_changed.emit()
+            self.update()
+            return
+        if self._edit is not None:
+            self._edit = None
+            self.crop_changed.emit(tuple(self.crop))
             self.update()
             return
         if self._drag is not None:
@@ -761,8 +906,8 @@ class PhotoDialog(QDialog):
 
         right = QVBoxLayout()
         views = QHBoxLayout()
-        self.v_orig = _View(tr("Originale · trascina per ritagliare · rotella per lo zoom, tasto destro per spostarti"),
-                            croppable=True, zoomable=True)
+        self.v_orig = _View(tr("Originale · trascina per ritagliare, poi sposta il riquadro o tira i bordi · rotella "
+                               "per lo zoom, tasto destro per spostarti"), croppable=True, zoomable=True)
         self.v_res = _View(tr("Come verrà incisa · rotella per lo zoom"), zoomable=True)
         views.addWidget(self.v_orig, 1)
         views.addWidget(self.v_res, 1)
@@ -810,6 +955,9 @@ class PhotoDialog(QDialog):
         self.crop = tuple(st.crop)
         self.v_orig.crop = self.crop
         self.v_orig.crop_changed.connect(self._set_crop)
+        self.v_orig.form = self.mask.currentData()  # 0.20.6: la forma si vede anche sull'originale
+        self.mask.currentIndexChanged.connect(lambda _i: (setattr(self.v_orig, "form", self.mask.currentData()),
+                                                          self.v_orig.update()))
         self.v_orig.hints = self.hints
         self.v_orig.auto_rect = self.subj_auto.isChecked()
         self.v_orig.detect = self.subj_detect.isChecked()

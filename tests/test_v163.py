@@ -65,7 +65,9 @@ c.status_time, c.last_reply = 0.0, 0.0
 check("scheda muta dopo la connessione: reset morbido (Ctrl+X) e messaggio", c._wake_if_silent(t0)
       and b"\x18" in c._ser.sent and any("reset" in m for m in msgs), (c._ser.sent, msgs))
 time.sleep(1.7)
-check("…poi richiede di nuovo $I e $$", b"$I\n" in c._ser.sent and b"$$\n" in c._ser.sent, c._ser.sent)
+# 0.20.6: $$ parte dopo la risposta di $I (le letture viaggiano da sole, rapporto FLC-20261117-1408-E933)
+check("…poi richiede di nuovo $I e $$", b"$I\n" in c._ser.sent
+      and (b"$$\n" in c._ser.sent or [x.line for x in c._pending] == ["$$"]), (c._ser.sent, [x.line for x in c._pending]))
 c2, _ = muted("COM5")
 c2.status_time = time.time()
 check("la scheda ha già risposto: nessun reset", not c2._wake_if_silent(t0) and b"\x18" not in c2._ser.sent)

@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.5** — niente più scatti selezionando e spostando tanti tracciati sui PC lenti; il Wi-Fi delle schede Makerbase dice quando il laser non trova la rete; angoli dei rettangoli raccordati verso l'interno, anteprima dell'offset, sfondo del piano con un clic, AppImage che parte anche su openSUSE, i nomi di chi ci ha aiutato sulla schermata di avvio.
+**Versione 0.20.6** — la foto ritagliata con una forma si misura, si allinea e si aggancia sulla sola parte che si vede, con il contorno da tagliare in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri a evolvente (modulo, angolo di pressione, gioco, foro, alleggerimenti); per la xTool M2, che lavora solo con xTool Studio, un progetto `.xs` pronto da aprire là.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -298,9 +298,9 @@ Laser di classe 4, 450 nm. Indossa occhiali protettivi adatti, non lasciare mai 
 
 ## Ringraziamenti
 
-FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah.
+FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter.
 
-Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. Vuoi esserci anche tu? Scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
+Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. Fino alla versione 0.20.6 l'elenco ringrazia anche chi ci ha lasciato il proprio nome in un rapporto all'assistenza. Da qui in poi raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se è il tuo caso, scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
 
 ## Licenza, garanzia, sostegno
 

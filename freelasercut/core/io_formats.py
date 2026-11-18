@@ -477,7 +477,7 @@ def export_svg(shapes, doc, path, bed=None):
                 buf = io.BytesIO()
                 img.save(buf, "PNG")
                 b64 = base64.b64encode(buf.getvalue()).decode()
-                rect = tf.map(leaf.local_path()).boundingRect()
+                rect = tf.map(leaf.photo_path()).boundingRect()  # 0.20.6: i pixel interi (fuori trasparenti)
                 out.append("<image x=\"{0:.3f}\" y=\"{1:.3f}\" width=\"{2:.3f}\" height=\"{3:.3f}\" preserveAspectRatio=\"none\" xlink:href=\"data:image/png;base64,{4}\"/>".format(X(rect.left()), Y(rect.bottom()), rect.width(), rect.height(), b64))
                 continue
             qp = tf.map(leaf.local_path())

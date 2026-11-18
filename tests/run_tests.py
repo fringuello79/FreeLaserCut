@@ -265,7 +265,7 @@ def write_index():
 
 
 # 0.20.0: suite lente (secondi): sui server di GitHub la camera della testa simulata supera i 900 s
-SLOW = {"test_v200_camera_testa.py": 2400}
+SLOW = {"test_v200_camera_testa.py": 2400, "test_v202_camera_testa.py": 2400}  # 0.20.6: casi «grandangolo» e «lente»
 
 
 def parallel_from(argv, env):
@@ -535,6 +535,12 @@ if __name__ == "__main__":
     run_suite("test_v205_scatti_wifi.py", "PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco", "banco")
     run_suite("test_v205_richieste.py", "Angoli del rettangolo raccordati verso l'interno, riga dei Livelli che segue il livello assegnato, anteprima dell'offset sul piano, opzioni dello strumento Forme subito; finestra della camera della testa ridimensionabile, pulsante dello sfondo del piano; Linux: libgthread nell'AppImage e libreria mancante detta all'avvio; ringraziamenti sulla schermata di avvio, in Aiuto e nel rapporto")
     run_suite("test_v205_richieste.py", "Angoli verso l'interno, Livelli, offset, Forme, camera della testa, sfondo del piano e ringraziamenti nell'interfaccia Banco", "banco")
+    run_suite("test_v206_richieste.py", "Foto ritagliata con una forma: misure, maniglie, Allinea e aggancio del lavoro sulla sola parte che si vede, Contorno da tagliare; Prepara foto: forma sull'originale e riquadro del ritaglio che si sposta e si allarga; ingranaggio a evolvente con modulo, angolo di pressione, gioco, foro e alleggerimenti; precisazione dei ringraziamenti")
+    run_suite("test_v206_richieste.py", "Foto ritagliata, Contorno da tagliare, Prepara foto, ingranaggio e ringraziamenti nell'interfaccia Banco", "banco")
+    run_suite("test_v206_xtool_xs.py", "Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori")
+    run_suite("test_v206_xtool_m2.py", "Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area")
+    run_suite("test_v206_rapporti.py", "Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto")
+    run_suite("test_v206_rapporti.py", "Rapporti del 18/11 nell'interfaccia Banco", "banco")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")

@@ -574,6 +574,74 @@ class Editor(QObject):
         self.selection_changed.emit()
         return True
 
+    def cut_outline(self, distance=0.0):
+        """0.20.6 (Evoluzione2): «Contorno da tagliare» di una foto ritagliata con una forma: un tracciato sul
+        contorno della parte che si vede, allargato di `distance` mm (negativo = più stretto), sul livello attivo (se è
+        un livello di disegni) o su quello che la forma aveva prima del ritaglio. Va nel gruppo del ritaglio, così si
+        sposta con la foto; la sagoma resta sul livello strumenti. -> [tracciati creati]."""
+        sel = self.editable()
+        jobs = []  # (gruppo del ritaglio o None, foto, trasformazione della foto sul piano)
+        for s in sel:
+            for leaf, tf in s.leaves():
+                if isinstance(leaf, ImageShape) and leaf.clip:
+                    jobs.append((s if ops.is_clip_group(s) else None, leaf, tf, s))
+        if not jobs:
+            self.message.emit(tr("Contorno da tagliare: seleziona una foto ritagliata con una forma"))
+            return []
+        made = []
+        moved = []
+
+        def pick_layer(grp):
+            lay = self.current_layer
+            if 0 <= lay < TOOL_LAYER and self.doc.layer(lay).mode != "image":
+                return lay
+            if grp is not None:
+                for leaf, _ in grp.leaves():
+                    old = ops.outline_layer(leaf)
+                    if old is not None and 0 <= old < TOOL_LAYER and self.doc.layer(old).mode != "image":
+                        return old
+            return lay if 0 <= lay < TOOL_LAYER else 0  # keep_photos_apart lo sposta se finisce con una foto
+
+        def do():
+            made.clear()
+            batch = []
+            for grp, img, tf, top in jobs:
+                world = ops.cut_outline_path(img, tf, distance)
+                if world.isEmpty():
+                    continue
+                lay = pick_layer(grp)
+                if grp is not None:
+                    inv, ok = grp.tf.inverted()
+                    path = PathShape(inv.map(world) if ok else world, layer=lay)
+                    path.role = ops.CUT_OUTLINE
+                    grp.children.append(path)
+                    grp.invalidate()
+                    batch.append(grp)
+                else:
+                    path = PathShape(world, layer=lay)
+                    path.role = ops.CUT_OUTLINE
+                    self.doc.add(path)
+                    batch.append(path)
+                made.append(path)
+            moved[:] = self.doc.keep_photos_apart(batch, TOOL_LAYER)
+            self.selection = [top for _, _, _, top in jobs]
+        self.run(tr("Contorno da tagliare"), do)
+        self.selection_changed.emit()
+        if not made:
+            self.message.emit(tr("Contorno da tagliare: con questo scostamento non resta nessun contorno"))
+            return []
+        self._tell_moved(moved)
+        order = [cs.index for cs in self.doc.used_layers()]
+        first_cut = min(order.index(p.layer) for p in made if p.layer in order) if order else 0
+        last_img = max((order.index(img.layer) for _, img, _, _ in jobs if img.layer in order), default=-1)
+        if first_cut < last_img:  # il pezzo si staccherebbe prima di essere inciso
+            self.message.emit(tr("Contorno da tagliare: il suo livello viene prima di quello della foto e la taglierebbe "
+                                 "prima di inciderla; spostalo dopo nell'elenco dei livelli"))
+        elif not moved:
+            self.message.emit(tr("Contorno da tagliare sul livello {0}: controlla che sia un taglio (modalità Linea, "
+                                 "potenza e passate)", self.doc.layer(made[0].layer).label()))
+        return list(made)
+
     def convert_to_path(self):
         sel = [s for s in self.editable() if not isinstance(s, (ImageShape, GroupShape, PathShape))]
         if not sel:

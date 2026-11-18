@@ -292,6 +292,18 @@ r = win.start_calibration()
 check("premuto con il laser scollegato: dice di connetterlo (niente parte, la calibrazione di prima resta)",
       r is None and card.cal is None and card.model is not None and "connetti il laser" in card.note.text().lower(),
       card.note.text())
+# 0.20.6 («premo Rifai la calibrazione completa e non succede nulla», Ale 17/11): premuto a mano, il rifiuto arriva
+# con un avviso sopra la vista della testa, non solo in righe che lì non si vedono
+warned = []
+_warning = QMessageBox.warning
+QMessageBox.warning = staticmethod(lambda *a, **k: warned.append(a) or QMessageBox.Ok)
+os.environ.pop("FLC_NO_DIALOGS")
+r = win.start_calibration()
+os.environ["FLC_NO_DIALOGS"] = "1"
+QMessageBox.warning = _warning
+check("0.20.6: premuto a mano con il laser scollegato: un avviso sulla vista della testa dice di connetterlo",
+      r is None and len(warned) == 1 and warned[0][0] is win and "connetti il laser" in warned[0][2].lower(), warned)
+check("0.20.6: da comando (senza domande) nessun avviso che blocca", card.calibrate(ask=False) is None and len(warned) == 1)
 
 # con il laser connesso (simulatore) e una calibrazione già fatta: la finestrella della calibrazione si apre
 w.ctl.connect_port(SIM_PORT)
@@ -314,6 +326,19 @@ r = win.start_calibration()
 check("laser connesso e camera già calibrata: la nuova calibrazione parte (si apre la sua finestrella)",
       seen["dlg"] == 1 and r is None and card.model is not None and card.btn_cal.isEnabled(), seen)
 hcu.HeadCalDialog.exec = orig_exec
+# 0.20.6: con la camera calibrata la vista riscrive la riga «Centro camera…» a ogni fotogramma: un messaggio appena
+# dato deve restare leggibile per la sua durata, poi la riga torna
+win.info_hold = 0.0
+spin(0.4)
+before = win.info.text()
+card._say("messaggio di prova", 3000)
+spin(0.6)
+held = win.info.text()
+win.info_hold = 0.0
+spin(0.4)
+check("0.20.6: un messaggio nella vista della testa non viene cancellato subito dal video; scaduto, la riga torna",
+      before.startswith(tr("Centro camera: X {0:.2f}  Y {1:.2f} mm  ·  laser: X {2:.2f}  Y {3:.2f} mm", 0, 0, 0, 0)[:14])
+      and held == "messaggio di prova" and win.info.text().startswith(before[:14]), (before, held, win.info.text()))
 win.close()
 w.ctl.disconnect_port()
 until(lambda: not w.ctl.connected, 5)
@@ -327,6 +352,7 @@ panel.cal_text.setText("")
 panel.calibrate()
 check("…premuto senza laser: dice di connettere la macchina", "Connetti la macchina" in panel.cal_text.text()
       and panel.autocam is None, panel.cal_text.text())
+spin(1.0)  # 0.20.6: l'elenco delle telecamere si aggiorna da solo dopo la chiusura della vista: prima lo si lascia finire
 panel.combo.setCurrentIndex(0)
 spin(0.1)
 panel.cal_text.setText("")

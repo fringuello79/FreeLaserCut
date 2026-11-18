@@ -845,7 +845,7 @@ def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
         return [], (1.0, 0.0), True
     dark = imaging.to_dark(img)
     step = 25.4 / max(cs.dpi, 10.0)
-    r = tf.map(leaf.local_path()).boundingRect()
+    r = tf.map(leaf.photo_path()).boundingRect()  # 0.20.6: la griglia resta quella della foto intera (stesso G-code)
     x0 = math.floor(r.left() / step) * step + step / 2
     y0 = math.floor(r.top() / step) * step + step / 2
     nx = max(1, int(math.ceil((r.right() - x0) / step)) + 1)

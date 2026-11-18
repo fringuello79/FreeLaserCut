@@ -175,18 +175,46 @@ class HeadModel:
         return self.q + d * (1 + self.k1 * r2 + self.k2 * r2 * r2)
 
     def distort_n(self, u, iters=60):
-        """Inversa di undistort_n. Punti che con questa lente non possono stare nell'immagine: NaN."""
+        """Inversa di undistort_n. Punti che con questa lente non possono stare nell'immagine: NaN.
+
+        0.20.6: la lente è radiale attorno a q, quindi basta trovare il raggio: R = r·(1 + k1·r² + k2·r⁴), cercato per
+        bisezione dove la funzione cresce. Prima si iterava x = q + (u − q)/(1 + …), che con una lente forte (camere
+        molto grandangolari, k1 e k2 positivi oltre 0,3 circa) negli angoli dell'immagine non converge: il modello
+        giusto risultava «non valido» e la calibrazione completa veniva scartata (camera di Ale, 18/11/2026)."""
         u = np.atleast_2d(np.asarray(u, float))
         if not self.k1 and not self.k2:
             return u
-        x = u.copy()
+        k1, k2 = self.k1, self.k2
+        d = u - self.q
+        R = np.hypot(d[:, 0], d[:, 1])
+        # fin dove il raggio cresce: prima radice positiva di 1 + 3·k1·r² + 5·k2·r⁴ (oltre, la lente si ripiega)
+        r_top = 4.0
+        if k2:
+            disc = 9 * k1 * k1 - 20 * k2
+            if disc >= 0:
+                roots = [(-3 * k1 + sg * math.sqrt(disc)) / (10 * k2) for sg in (1.0, -1.0)]
+                pos = [math.sqrt(v) for v in roots if v > 1e-12]
+                if pos:
+                    r_top = min(r_top, min(pos))
+        elif k1 < 0:
+            r_top = min(r_top, math.sqrt(-1.0 / (3 * k1)))
+
+        def h(r):
+            r2 = r * r
+            return r * (1 + k1 * r2 + k2 * r2 * r2)
+
+        lo = np.zeros_like(R)
+        hi = np.full_like(R, r_top)
+        ok = np.isfinite(R) & (R <= h(r_top) + 1e-12)
+        for _ in range(max(iters, 50)):
+            mid = (lo + hi) / 2
+            low = h(mid) < R
+            lo = np.where(low, mid, lo)
+            hi = np.where(low, hi, mid)
+        r = (lo + hi) / 2
         with np.errstate(all="ignore"):
-            for _ in range(iters):
-                d = x - self.q
-                r2 = (d ** 2).sum(axis=1, keepdims=True)
-                den = 1 + self.k1 * r2 + self.k2 * r2 * r2
-                x = self.q + (u - self.q) / np.where(den > 0.2, den, np.nan)
-            bad = ~np.isfinite(x).all(axis=1) | (np.hypot(*(self.undistort_n(x) - u).T) > 0.5 / self.f)
+            x = self.q + d * np.where(R > 1e-15, r / np.where(R > 1e-15, R, 1.0), 1.0)[:, None]
+            bad = ~ok | ~np.isfinite(x).all(axis=1) | (np.hypot(*(self.undistort_n(x) - u).T) > 0.5 / self.f)
         x[bad] = np.nan
         return x
 
@@ -291,6 +319,8 @@ class HeadModel:
         qd = self.quality or {}
         if qd.get("max_mm") is not None:
             txt += " · " + tr("errore massimo {0:.2f} mm", qd["max_mm"])
+        if qd.get("approx"):  # 0.20.6: tenuta perché migliore di niente o di quella di prima, ma non precisa
+            txt += " · " + tr("poco precisa")
         return txt
 
     # ---- file
@@ -901,7 +931,7 @@ class SimHeadCamera(_FrameSource):
 
     def __init__(self, sim, offset=(0.0, 35.0), mm_per_px=0.08, angle=0.0, mirror=False, size=(640, 480), seed=3,
                  board=None, profile=None, lag=0.0, k=0.0, model=None, light=1.0, gradient=0.0, occlude=None,
-                 spots=None, grain=0.0, moves=True, drift=None, corrupt_every=0, dot_r=0.3):
+                 spots=None, grain=0.0, moves=True, drift=None, corrupt_every=0, dot_r=0.3, warp=0.0):
         self.index = "sim-testa"
         self.lag = float(lag)  # come le camere vere: fotogrammi che arrivano in ritardo (secondi)
         self._queue = []
@@ -924,6 +954,8 @@ class SimHeadCamera(_FrameSource):
         self.drift = drift  # (dopo quanti secondi, scala): messa a fuoco automatica che cambia l'inquadratura
         self.corrupt_every = int(corrupt_every)  # un fotogramma rovinato ogni n
         self.dot_r = float(dot_r)  # mm: raggio della bruciatura di ogni punto inciso
+        # 0.20.6: lente che il modello non sa seguire (ondulazione): mm di spostamento al massimo
+        self.warp = float(warp)
         self._n_grab = 0
         self._t0 = time.time()
         self.slip = np.zeros(2)  # passi persi: la testa vera è spostata da dove dice la scheda (mm)
@@ -979,6 +1011,11 @@ class SimHeadCamera(_FrameSource):
                 m.set_thickness(z)
             yy, xx = np.mgrid[0:self.h, 0:self.w].astype(np.float64)
             self._R = m._rel(np.stack([xx.ravel(), yy.ravel()], axis=1))
+            if self.warp:  # ondulazione che nessun modello di lente segue: fino a «warp» mm
+                u = xx.ravel() / self.w
+                v = yy.ravel() / self.h
+                self._R = self._R + self.warp * np.stack([np.sin(5 * u + 1) * np.cos(4 * v),
+                                                          np.cos(5 * u) * np.sin(4 * v + 1)], axis=1)
             self._R_key = key
         return self._R
 

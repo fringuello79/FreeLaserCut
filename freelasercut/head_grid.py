@@ -22,7 +22,9 @@ Poi FreeLaserCut:
 
 Le funzioni di calcolo sono senza interfaccia e senza macchina, così le prove le controllano numericamente.
 """
+import json
 import math
+import os
 import threading
 import time
 
@@ -43,6 +45,7 @@ MIN_DOT_PX = 8.0
 BIG = 2.2  # i tre puntini grandi: 2,2 volte quelli piccoli
 GOOD_P95_PX = 1.5  # buona: il 95% dei punti di controllo entro 1,5 pixel…
 GOOD_MAX_PX = 3.0  # …e nessuno oltre 3 pixel
+USABLE_MAX_MM = 2.0  # 0.20.6: oltre, una calibrazione non si tiene nemmeno come «poco precisa»
 MIN_SEEN = 0.8  # ogni foto deve riconoscere almeno l'80% dei puntini che dovrebbe vedere
 STABLE_WAIT = 10.0  # s fra le due foto del controllo dell'inquadratura
 APPROACH = 1.5  # mm: ogni foto si raggiunge da (−1,5; −1,5) mm, sempre dalla stessa parte (gioco delle cinghie)
@@ -908,6 +911,8 @@ class HeadGridCalibration(hc.HeadCalibration):
                        ~plan.control)
         obs_ctl = _obs([shots[s] for s in use], [matches[s] for s in use], [dets[s] for s in use], X_all,
                        plan.control)
+        rep["obs_fit"], rep["frame_size"] = obs_fit, tuple(size)  # 0.20.6: le misure restano per il rapporto
+        rep["obs_ctl"] = obs_ctl
         if len(obs_ctl["P"]) < 6:
             return None, tr("Calibrazione da rifare: troppo pochi punti di controllo riconosciuti ({0}).",
                             len(obs_ctl["P"]))
@@ -925,6 +930,9 @@ class HeadGridCalibration(hc.HeadCalibration):
             e_ctl, _s = errors_px(p_k, obs_ctl, size)
             fits[kind] = (p_k, e_ctl)
             start = p_k
+        rep["by_kind"] = {k: float(np.sqrt(np.mean(e ** 2))) for k, (_p, e) in fits.items()}
+        rep["params"] = {k: {n: np.asarray(v, float).round(6).tolist() for n, v in p_.items()}
+                         for k, (p_, _e) in fits.items()}
         kind = choose_kind(fits)
         if kind is None:
             return None, tr("Calibrazione da rifare: i puntini non danno un modello della camera credibile. Controlla "
@@ -955,9 +963,27 @@ class HeadGridCalibration(hc.HeadCalibration):
             if flat_trouble(obs_ctl["X"], e_ctl, plan.size):
                 why = " " + tr("Gli errori grandi sono tutti in una zona: il cartone non è piatto. Fermalo con dei pesi "
                                "(fuori dalla griglia) o usa un compensato sottile.")
-            return None, tr("Calibrazione da rifare: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di controllo, "
-                            "troppo per questa camera.", qd["max_mm"], qd["max_px"]) + why + "\n" + \
-                tr("La calibrazione di prima resta com'era.")
+            # 0.20.6 (Ale, 18/11): una calibrazione non precisa ma migliore di quella che c'è si tiene, con l'avviso.
+            # Prima veniva scartata anche quando quella rimasta sbagliava molto di più (lente molto grandangolare:
+            # 1 mm scartato, 2–4 mm tenuti). Si scarta se quella di prima è migliore sugli stessi punti o se è
+            # proprio inservibile.
+            old = self.old_model
+            old_p95 = None
+            if old is not None and tuple(old.frame_size) == tuple(model.frame_size):
+                old_p95 = float(np.percentile(model_errors_px(old, obs_ctl), 95))
+            rep["old_p95_px"] = old_p95
+            if qd["max_mm"] > USABLE_MAX_MM or (old_p95 is not None and old_p95 <= qd["p95_px"]):
+                return None, tr("Calibrazione da rifare: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di "
+                                "controllo, troppo per questa camera.", qd["max_mm"], qd["max_px"]) + why + "\n" + \
+                    tr("La calibrazione di prima resta com'era.")
+            model.quality["approx"] = True
+            msg = tr("Calibrazione tenuta, ma poco precisa: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di "
+                     "controllo, il 95% entro {2:.2f} mm. Vicino ai bordi dell'immagine il disegno sul video può essere "
+                     "spostato di qualche decimo.", qd["max_mm"], qd["max_px"], qd["p95_mm"]) + why
+            if old_p95 is not None:
+                msg += "\n" + tr("È comunque più precisa di quella di prima ({0:.1f} pixel contro {1:.1f} sugli stessi "
+                                 "punti).", qd["p95_px"], old_p95)
+            return model, msg
         msg = tr("Calibrazione completa riuscita: {0}", model.describe())
         msg += "\n" + tr("Verifica su {0} punti di controllo (non usati per il calcolo): errore massimo {1:.2f} mm "
                          "({2:.1f} pixel), il 95% entro {3:.2f} mm.", qd["n_ctrl"], qd["max_mm"], qd["max_px"],
@@ -1060,6 +1086,46 @@ class HeadGridCalibration(hc.HeadCalibration):
         if not self._choice:
             return None, tr("Tengo la calibrazione di prima.")
         return model, msg
+
+
+MEASURES_FILE = "camera-testa-misure.json"
+
+
+def measures_file():
+    return os.path.join(os.path.dirname(hc.head_file()), MEASURES_FILE)
+
+
+def save_measures(report, msg="", kept=False, path=None):
+    """0.20.6: le misure dell'ultima calibrazione completa (riuscita o no) in un file che entra nel rapporto per
+    l'assistenza: dove sono stati visti i puntini, dove era la testa, quanto sbaglia ogni modello. Per capire da
+    lontano una calibrazione che non riesce senza chiedere foto (camera di Ale, 18/11/2026). Mai un errore."""
+    try:
+        def arr(v):
+            return np.asarray(v, float).round(3).tolist()
+
+        d = {"quando": time.strftime("%Y-%m-%d %H:%M:%S"), "tenuta": bool(kept), "messaggio": str(msg or ""),
+             "immagine": list(report.get("frame_size") or ())}
+        for k in ("mm_per_px", "grid_dots", "pitch", "dot", "stable_shift_px", "stable_scale", "return_shift_mm",
+                  "old_p95_px", "new_p95_px", "by_kind", "params", "quality", "seconds"):
+            v = report.get(k)
+            if v is not None:
+                d[k] = v
+        bl = report.get("backlash")
+        if bl is not None:
+            d["backlash"] = [float(bl[0]), float(bl[1])]
+        for name in ("obs_fit", "obs_ctl"):
+            o = report.get(name)
+            if o is not None:
+                d[name] = {"P": arr(o["P"]), "L": arr(o["L"]), "X": arr(o["X"])}
+        text = json.dumps(d, ensure_ascii=False, default=float)
+        path = path or measures_file()
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+        return path
+    except Exception:  # noqa: BLE001 — è un aiuto per l'assistenza: non deve mai fermare la calibrazione
+        return None
 
 
 def _mmss(s):

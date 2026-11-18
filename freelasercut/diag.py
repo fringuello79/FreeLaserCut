@@ -313,6 +313,14 @@ def env_text(win=None, code=""):
         lines.append(f"Simulatore in uso: {'sì' if getattr(ctl, 'port', None) == SIM_PORT else 'no'}")
         lines.append(f"Velocità della porta: {getattr(ctl, 'baud', '?')} · buffer {getattr(ctl, 'rx_buffer', '?')}"
                      f" · buffer grande provato: {getattr(ctl, 'trusted_buffer', False)}")
+        win_fn = getattr(ctl, "window", None)
+        if callable(win_fn):  # 0.20.6: invio a pacchi piccoli in rete e righe arrivate rovinate
+            try:
+                wb, wl = win_fn()
+                lines.append(f"Invio: {wb} byte · {'righe senza limite' if wl is None else f'{wl} righe'} in viaggio"
+                             f" · righe arrivate rovinate: {getattr(ctl, 'garbled_lines', 0)}")
+            except (TypeError, ValueError):
+                pass
         src = getattr(getattr(win, "camera", None), "src", None)
         if src is not None:
             fps = getattr(src, "fps", None)
@@ -467,6 +475,19 @@ def camera_text():
     return ""
 
 
+def head_measures_text():
+    """0.20.6: le misure dell'ultima calibrazione completa della camera della testa (head_grid.save_measures)."""
+    try:
+        from .head_grid import measures_file
+
+        if os.path.exists(measures_file()):
+            with open(measures_file(), encoding="utf-8") as fh:
+                return fh.read()
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
 _ERR_WORDS = ("Error", "Exception", "ERRORE", "Errore", "Traceback")
 
 
@@ -535,6 +556,7 @@ def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=Non
                               ("azioni-recenti.txt", "\n".join(getattr(win, "crumbs", []) or [])),
                               ("foto-selezionata.txt", photo_text(win) if photo else ""),
                               ("calibrazione-camera.json", camera_text()),
+                              ("camera-testa-misure.json", head_measures_text()),
                               ("telecamere.txt", cameras_log_text(win))):
                 if txt and txt.strip():
                     z.writestr(name, sanitize(txt))

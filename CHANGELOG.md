@@ -1,5 +1,59 @@
 # Novità di FreeLaserCut
 
+## 0.20.6 — 18/11/2026
+La foto ritagliata con una forma si comporta come la sola parte che si vede, e si ritaglia anche con il laser in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri.
+
+**Foto ritagliata con una forma: conta solo quello che si vede** (segnalazione di Evoluzione2). Dopo *Disponi → Ritaglia la foto con la forma* le misure, le maniglie e il riquadro restavano quelli della foto intera, e non si capiva se il materiale bastava. Ora per tutto il programma la foto è la sola parte ritagliata: misure L e A, maniglie, *Allinea*, *Ottimizza lo spazio*, la stampa di *Stampa e taglia*. La foto intera resta salvata nel progetto: *Togli il ritaglio* la rimette com'era, anche dopo un mese. Il G-code della foto non cambia di un punto.
+- **Corretto:** con la partenza da *Posizione attuale* o da *Origine utente* il punto di aggancio (centro, angoli) era calcolato sulla foto intera: il cuore finiva qualche millimetro più in là rispetto alla testa. Ora è calcolato sul cuore. Con la partenza assoluta non cambiava niente.
+
+**Contorno da tagliare** (*Disponi*, tasto destro, nel Banco in *Combina*). Seleziona la foto ritagliata e il comando crea la linea da tagliare sul contorno di quello che si vede, sul livello attivo, anche un po' più larga (per esempio 0,1 mm) o più stretta. La linea va nel gruppo con la foto e si sposta con lei. I livelli si fanno nell'ordine dell'elenco: se il taglio verrebbe prima dell'incisione, il programma lo dice. Prima bisognava duplicare la forma e cambiarle livello a mano.
+
+**Prepara foto: la forma si vede sulla foto originale** (segnalazione di Evoluzione2). Scegliendo cuore, stella, nuvola, cerchio, esagono, ovale o angoli arrotondati, sulla foto a sinistra compare la forma dentro il riquadro del ritaglio, con schiarito quello che resterà fuori: così si vede subito se il soggetto ci sta. Il riquadro ora **si sposta** trascinandolo da dentro e **si allarga** tirando gli angoli e i lati (con Maiusc sugli angoli tiene le proporzioni); resta sempre dentro la foto. Trascinando fuori dal riquadro se ne disegna uno nuovo, come prima.
+
+**Ingranaggi con i denti veri.** La forma *Ingranaggio* aveva solo il numero dei denti. Ora i denti hanno il profilo a evolvente, quello delle ruote vere, e nel pannello *Proprietà* ci sono:
+- **denti** (fino a 200) e **modulo**, cioè la grandezza del dente: diametro esterno = modulo × (denti + 2); il pannello mostra anche diametro primitivo, di piede e passo. Due ruote con lo stesso modulo ingranano alla distanza modulo × (denti della prima + denti della seconda) / 2;
+- **angolo di pressione** (20°, lo standard; 14,5° o 25°), **gioco** fra i denti e **raccordo al piede**;
+- **foro** per l'albero, anche **a D** o con la **cava per la linguetta**, che resta della stessa misura anche quando ingrandisci la ruota;
+- **alleggerimenti**: da 3 a 8 finestre fra mozzo e corona.
+Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa i denti veri* passano al profilo nuovo.
+
+**xTool M2: progetto pronto per xTool Studio.** La xTool M2 non è una macchina GRBL e lavora solo con xTool Studio: nessun programma di terzi può mandarle un lavoro, e FreeLaserCut non fa eccezione. Da questa versione però puoi preparare tutto qui: *File → Esporta per xTool Studio (M2)…* salva un progetto `.xs` con il disegno, le foto e, per ogni livello, potenza, velocità e passate già impostate. Lo apri in xTool Studio, controlli e avvii da lì.
+- I livelli diventano le lavorazioni di xTool Studio: Linea → incisione di linea o taglio (lo scegli nella finestra; viene proposto «taglio» per i livelli con più passate, ponticelli o compensazione), Riempimento → incisione, Immagine → foto. I mm/min diventano mm/s, il passo delle righe diventa righe per cm.
+- L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a sinistra del piano; se qualcosa esce, lo dice.
+- Scegli il modulo laser montato (10, 20 o 40 W). Livelli che non escono, livello strumenti e forme nascoste restano fuori.
+- Le foto partono come le inciderebbe FreeLaserCut: luminosità, contrasto, gamma e negativo già applicati. Le retinature che ha anche xTool Studio (Floyd, Jarvis, Stucki, Atkinson, Bayer) le fa lui; soglia e mezzetinte le prepara FreeLaserCut alla finezza del livello e passano punto per punto (modo «passthrough» di xTool Studio 1.10). Il riempimento a contorni resta a contorni.
+- Da sapere: l'aria resta ai valori di xTool Studio e le parti trasparenti delle foto diventano bianche. Il formato è quello di xTool Studio 1.10.15; il collegamento diretto con la macchina non c'è.
+
+**xTool M2, in prova: il lavoro scritto da FreeLaserCut (non ancora attivo per tutti).** Con le funzioni in prova sbloccate, *File → Lavoro per xTool M2 (sperimentale)…* scrive il lavoro nel linguaggio della M2 (un file di testo) e, accanto, la cornice a potenza zero. È una funzione sperimentale e riguarda solo questa macchina: FreeLaserCut non invia il file alla M2 e nessuno l'ha ancora provato su una macchina vera. Serve a chi ci aiuta nelle prove; per lavorare con la M2 resta *Esporta per xTool Studio (M2)*.
+- Linee, tagli (passate e ponticelli), riempimenti a righe e foto; modulo da 10, 20 o 40 W e spessore del materiale per la messa a fuoco.
+- Se il disegno esce dall'area della macchina il lavoro non viene scritto.
+- Non ancora previsti: riempimento a contorni, inclinato o incrociato (escono a righe orizzontali, e te lo dice) e la stampa a inchiostro.
+
+**Camera della testa: «Rifai la calibrazione completa» dice sempre perché non parte.** Premendo il pulsante nella vista della testa, se la calibrazione non poteva partire (laser non connesso, macchina in allarme, un lavoro in corso, cartone che non entrerebbe nell'inquadratura) sembrava non succedere nulla: il motivo finiva in una riga che, con la camera già calibrata, veniva riscritta subito dalle coordinate. Ora compare un avviso sopra la vista, e i messaggi in quella riga restano leggibili per qualche secondo.
+
+**Il punto di riferimento resta quello scelto.** Il quadratino della barra delle misure (punto di riferimento per posizione, scala e rotazione) ora resta l'ultimo scelto anche dopo aver chiuso e riaperto il programma.
+
+**Test materiali: scritte leggibili.**
+- Potenza e velocità delle scritte (numeri di potenza e velocità) si scelgono nella finestra e si ricordano. Prima erano fisse e su un laser poco potente o un materiale scuro venivano troppo leggere.
+- Numeri arrotondati: niente più «33.3333%» o «41.7». Se una colonna è stretta i numeri si rimpiccioliscono o vanno una sì e una no su due righe, invece di sovrapporsi.
+
+**Wi-Fi: invio più prudente.** Con il laser collegato in Wi-Fi, FreeLaserCut manda le righe a pacchetti più piccoli: su alcune macchine (per esempio Atomstack) nei tratti veloci delle righe arrivavano rovinate alla scheda e il lavoro si fermava con «comando non riconosciuto». Se succede comunque, da quel momento manda una riga per volta e l'avviso spiega la causa probabile (Wi-Fi disturbato o disturbi elettrici di pompa e compressore) e cosa provare. Con il cavo USB e con le schede FluidNC e grblHAL non cambia niente.
+
+**Schede che interrompono le risposte lunghe.** Alcune schede (per esempio Creality con firmware «CV50-Pro») interrompono a metà l'elenco delle impostazioni e non mandano la conferma finale. FreeLaserCut credeva la scheda sempre occupata: la calibrazione della camera portava la testa al primo punto e lì si fermava. Ora le letture delle impostazioni viaggiano da sole, se restano senza risposta si chiudono dopo 2 secondi e si rileggono una volta; se la scheda le manda incomplete, il programma lo dice.
+
+**Camera della testa: calibrazione completa con le lenti molto grandangolari.** Con una lente molto grandangolare la calibrazione completa finiva con «errore massimo … troppo per questa camera» e il disegno sul video restava spostato di qualche millimetro. Era un errore di calcolo: negli angoli dell'immagine il conto dal piano ai pixel non tornava, e il modello giusto della lente veniva scartato. Ora torna, e la calibrazione riesce.
+- Se una calibrazione non raggiunge comunque la precisione ma è migliore di quella che c'è, si tiene come «poco precisa», con l'errore misurato; oltre 2 mm non si tiene.
+- La vista della testa dice sempre quale calibrazione è in uso e con che errore.
+- Le misure dell'ultima calibrazione entrano nel rapporto per l'assistenza.
+
+**Nodi: unire e dividere le linee come ci si aspetta.**
+- Con lo strumento Nodi, trascinando l'estremo di una linea sopra l'estremo di un'altra linea le due diventano una linea sola (anche se l'altra non era selezionata). Prima si univano solo due estremi della stessa forma, oppure con il tasto J.
+- Togliendo con **D** un tratto in mezzo a una linea restano due linee separate, non una forma sola in due pezzi che si evidenziava tutta insieme.
+
+**Tasto destro su una foto.** Nel menu del tasto destro, su una foto, ci sono subito *Prepara foto…* e *Vettorizza immagine…*.
+
+**Ringraziamenti.** Grazie a Paolo1968 e DolomiticHunter, che entrano nell'elenco. Fino a questa versione l'elenco ringrazia tutti quelli che ci hanno lasciato il proprio nome in un rapporto all'assistenza. Da qui in poi raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione: scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica. Lo spiegano il rapporto, la targa di *Aiuto → Ringraziamenti*, il sito e l'informativa sulla privacy.
+
 ## 0.20.5 — 17/11/2026
 Niente più scatti quando si selezionano e si spostano tanti tracciati su un PC lento; il Wi-Fi delle schede Makerbase dice la cosa giusta quando il laser non trova la rete; angoli dei rettangoli raccordati verso l'interno, anteprima dell'offset sul piano, finestra della camera della testa che sta in ogni schermo, sfondo del piano che si cambia con un clic, la versione per Linux parte anche su openSUSE, e un grazie a chi ci ha aiutato.
 

@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 192. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (14)
+## Wi-Fi, rete e telefono (15)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -19,6 +19,7 @@ Suite: 192. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
 - `test_v205_scatti_wifi.py`: PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»
 - `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
+- `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto
 
 ## Telecamera e guardia fiamme (14)
 
@@ -62,7 +63,7 @@ Suite: 192. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v160.py` (Banco): Materiali imparati nell'interfaccia Banco
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
 
-## Foto e immagini (19)
+## Foto e immagini (23)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -83,6 +84,10 @@ Suite: 192. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v203_soggetto.py` (Banco): Schizzo del soggetto che parte da vuoto nell'interfaccia Banco
 - `test_v203_ritaglio.py`: Foto ritagliata a forma: cuore, stella, nuvola, cerchio ed esagono in Prepara foto, ritaglio con una forma del disegno, foto ruotata in negativo che non incide fuori
 - `test_v203_ritaglio.py` (Banco): Foto ritagliata a forma nell'interfaccia Banco
+- `test_v206_richieste.py`: Foto ritagliata con una forma: misure, maniglie, Allinea e aggancio del lavoro sulla sola parte che si vede, Contorno da tagliare; Prepara foto: forma sull'originale e riquadro del ritaglio che si sposta e si allarga; ingranaggio a evolvente con modulo, angolo di pressione, gioco, foro e alleggerimenti; precisazione dei ringraziamenti
+- `test_v206_richieste.py` (Banco): Foto ritagliata, Contorno da tagliare, Prepara foto, ingranaggio e ringraziamenti nell'interfaccia Banco
+- `test_v206_xtool_xs.py`: Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori
+- `test_v206_xtool_m2.py`: Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area
 
 ## Lavoro e G-code (25)
 
@@ -184,7 +189,7 @@ Suite: 192. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (26)
+## Interfaccia (27)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -208,6 +213,7 @@ Suite: 192. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_barra.py`: Barra in basso: «File: …» leggibile, posizione e velocità vuote senza spazio, laser collegato senza allargare
 - `test_v202_barra.py` (Banco): Barra in basso leggibile nell'interfaccia Banco
 - `test_v203_misure.py` (Banco): Barra delle misure nell'interfaccia Banco: numeri interi senza allargare la barra
+- `test_v206_rapporti.py` (Banco): Rapporti del 18/11 nell'interfaccia Banco
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco

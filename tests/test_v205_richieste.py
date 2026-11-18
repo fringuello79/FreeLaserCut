@@ -744,8 +744,8 @@ check("G licenza della libreria aggiunta (GLib, LGPL 2.1)", "glib-LGPL-2.1.txt" 
 # ====================================================================== H. ringraziamenti
 print("--- H. ringraziamenti")
 N = len(thanks.NAMES)
-check("H un solo elenco: 12 nomi, nessun doppione, «Roberto C.» senza cognome, Deborah",
-      N == 12 and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
+check("H un solo elenco: 14 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6), nessun doppione, «Roberto C.» senza "
+      "cognome, Deborah", N == 14 and thanks.NAMES[-2:] == ("Paolo1968", "DolomiticHunter") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
       and not any("cappellero" in n.lower() for n in thanks.NAMES) and thanks.NAMES[0] == "Stefano Modena")
 it = thanks.endless()
 seq = [next(it) for _ in range(N * 6)]
@@ -1121,7 +1121,7 @@ check("H sito: gli stessi nomi, tutti e soli", m is not None and [x.strip() for 
 check("H informativa privacy: dice del nome facoltativo e che è l'unica cosa che può diventare pubblica (inglese e italiano)",
       "Name for the acknowledgements" in priv and "Nome per i ringraziamenti" in priv
       and "Nothing else from your report is published" in priv and "Nient'altro del tuo rapporto viene pubblicato" in priv
-      and "16 November 2026" in priv)
+      and any(f"{d} November 2026" in priv for d in (16, 17, 18)))  # 0.20.6: aggiornata il 18/11
 
 # ====================================================================== I. traduzioni
 print("--- I. traduzioni")
@@ -1130,8 +1130,10 @@ NEW = ["Grazie a", "Ringraziamenti", "Nome per i ringraziamenti", "Grazie.", "pi
        "Un valore negativo raccorda l'angolo verso l'interno", "Con questi valori l'offset non produce forme",
        "Positivo: angoli arrotondati. Negativo: angoli raccordati verso l'interno. 0: spigoli vivi",
        "Rettangoli: un valore negativo raccorda gli angoli verso l'interno",
-       "facoltativo: nome o pseudonimo, se vuoi comparire fra i ringraziamenti",
-       "Vuoi esserci anche tu? Scrivi il tuo nome quando mandi un rapporto all'assistenza."]
+       # 0.20.6: testi cambiati (dalla 0.20.6 nell'elenco chi aiuta in modo attivo e con regolarità o con una donazione)
+       "facoltativo: nome o pseudonimo per l'elenco dei ringraziamenti",
+       "Aiuti FreeLaserCut in modo attivo e con regolarità, o con una donazione? Scrivi il tuo nome quando mandi "
+       "un rapporto all'assistenza."]
 for lang in ("en", "es", "fr", "pt"):
     cat = json.load(open(os.path.join(ROOT, "freelasercut", "locale", f"{lang}.json"), encoding="utf-8"))
     miss = [s for s in NEW if not cat.get(s) or cat[s] == s]

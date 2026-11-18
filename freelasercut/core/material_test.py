@@ -102,6 +102,23 @@ def marker_settings(spec):
     return p, s
 
 
+def power_label(p):
+    """0.20.6: potenza scritta sul test (rapporto FLC-20261118-0900-681F: con passi non interi usciva «33.3333%» e i
+    numeri si sovrapponevano). Intera; un decimale solo sotto il 10 % quando serve (2.5%)."""
+    v = round(float(p), 1) if p < 10 else round(float(p))
+    return f"{v:g}%"
+
+
+def speed_label(s_mm_min):
+    """0.20.6: velocità scritta sul test, nell'unità scelta, senza decimali lunghi: intera, un decimale solo sotto
+    10 mm/s («41.7» → «42», «1666.67» → «1667», «7.5» resta)."""
+    from .. import units
+
+    v = units.to_shown(float(s_mm_min))
+    v = round(v, 1) if v < 10 else round(v)
+    return f"{v:g}"
+
+
 def _steps(a, b, n):
     if n <= 1:
         return [a]
@@ -160,8 +177,12 @@ def build(spec: TestSpec, profile):
         lc = CutSettings(mode="line", speed=spec.label_speed, power_max=spec.label_power)
         polys = []
 
-        def put(txt, x, y, size=3.0, rot=0.0, align="center"):
+        def put(txt, x, y, size=3.0, rot=0.0, align="center", room=None):
             p = textmod.text_path(txt, "futural", size, align=align)
+            w_txt = p.boundingRect().width()
+            if room and w_txt > room:  # 0.20.6: numero più largo della colonna: si rimpicciolisce, non si sovrappone
+                size = max(1.2, size * room / w_txt)
+                p = textmod.text_path(txt, "futural", size, align=align)
             tf = QTransform()
             tf.rotate(rot)
             tf = tf * QTransform.fromTranslate(x, y)
@@ -169,10 +190,21 @@ def build(spec: TestSpec, profile):
 
         from .. import units
 
-        for c, s in enumerate(speeds):
-            put(units.fmt(s, unit=False), gx0 + c * pitch + spec.cell / 2, spec.y0 + 1.0, 2.6)
+        # 0.20.6: tutte le velocità alla stessa grandezza, la più grande che entra nella colonna; se verrebbero
+        # troppo piccole per leggerle, una sì e una no si scrivono su una seconda riga (doppio spazio)
+        texts = [speed_label(s) for s in speeds]
+        widest = max(textmod.text_path(t, "futural", 2.6, align="center").boundingRect().width() for t in texts)
+        size = min(2.6, 2.6 * (pitch - 0.8) / max(widest, 1e-6))
+        two_rows = size < 1.8 and len(texts) > 1
+        if two_rows:
+            size = max(1.2, min(2.6, 2.6 * (2 * pitch - 0.8) / max(widest, 1e-6)))
+        right = gx0 + spec.cols * pitch - spec.gap
+        for c, t in enumerate(texts):
+            half = textmod.text_path(t, "futural", size, align="center").boundingRect().width() / 2
+            cx = min(max(gx0 + c * pitch + spec.cell / 2, gx0 + half), right - half)  # mai fuori dal test
+            put(t, cx, spec.y0 + (4.6 if two_rows and c % 2 else 1.0), size)
         for r, p in enumerate(powers):
-            put(f"{p:g}%", spec.x0 + 5.5, gy0 + r * pitch + spec.cell / 2 - 1.3, 2.6, 0, "right")
+            put(power_label(p), spec.x0 + 5.5, gy0 + r * pitch + spec.cell / 2 - 1.3, 2.6, 0, "right", room=7.0)
         put(units.speed_unit() + " →", gx0 + spec.cols * pitch - spec.gap, spec.y0 - 3.5, 2.2, 0, "right")
         if spec.title:
             put(spec.title, gx0, gy0 + spec.rows * pitch + 1.5, 3.5, 0, "left")
