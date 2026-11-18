@@ -177,6 +177,21 @@ def main():
     for d in TRIM_PYSIDE + PYSIDE_TOOLS:
         p = os.path.join(pyside, d)
         shutil.rmtree(p, ignore_errors=True) if os.path.isdir(p) else (os.remove(p) if os.path.exists(p) else None)
+    # Qt per Mac arriva «universale» (Apple Silicon e Intel insieme): si tiene solo il processore di questo pacchetto,
+    # quasi metà del peso
+    if shutil.which("lipo"):
+        thin = 0
+        for d, _dirs, files in os.walk(site):
+            for f in files:
+                path = os.path.join(d, f)
+                if os.path.islink(path):
+                    continue
+                r = subprocess.run(["lipo", "-archs", path], capture_output=True, text=True)
+                archs = r.stdout.split() if r.returncode == 0 else []
+                if len(archs) > 1 and args.arch in archs:
+                    subprocess.check_call(["lipo", path, "-thin", args.arch, "-output", path])
+                    thin += 1
+        print(f"librerie ridotte al solo {args.arch}: {thin}")
     # pip non serve al programma (e non deve cambiare il pacchetto firmato)
     for name in os.listdir(site):
         if name == "pip" or name.startswith("pip-"):

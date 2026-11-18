@@ -265,8 +265,15 @@ class CameraPanel(QWidget):
             self.update_state()
             self.state.setText(tr("Telecamera spenta (scelta tua). Per usarne una premi ⟳ e sceglila."))
             return
+        perm = camera_mod.mac_camera_permission(lambda ok: self.search(manual=True))  # 0.20.8: solo macOS
+        if perm == "asked":
+            self.state.setText(tr("macOS chiede se FreeLaserCut può usare la camera: rispondi «Consenti»"))
+            return
         self._searching = True
         self.state.setText(tr("Cerco le telecamere…"))
+        if perm == "denied":
+            self.state.setText(tr("macOS non lascia usare la camera a FreeLaserCut: Impostazioni di Sistema → Privacy e "
+                                  "sicurezza → Fotocamera. Intanto cerco le camere di rete."))
         skip = set()
         if self.src is not None and isinstance(self.src.index, int) and self.src.index != SIM_CAMERA:
             if manual and getattr(self.src, "black", False):

@@ -3656,5 +3656,7 @@
  "Sta lavorando": "Working",
  "M2: {0}": "M2: {0}",
  "Falcon A1 Pro: stessa famiglia del Falcon A1, area 358 × 268 mm. Collegando la macchina, «Leggi dalla macchina» legge l'area vera dalla scheda. Il modulo a infrarosso da 2 W non è ancora stato provato con FreeLaserCut.": "Falcon A1 Pro: same family as the Falcon A1, area 358 × 268 mm. With the machine connected, «Read from machine» reads the real area from the board. The 2 W infrared module has not been tried with FreeLaserCut yet.",
- "Scia dell'incisione sul piano": "Engraving trail on the bed"
+ "Scia dell'incisione sul piano": "Engraving trail on the bed",
+ "macOS chiede se FreeLaserCut può usare la camera: rispondi «Consenti»": "macOS is asking whether FreeLaserCut may use the camera: answer «Allow»",
+ "macOS non lascia usare la camera a FreeLaserCut: Impostazioni di Sistema → Privacy e sicurezza → Fotocamera. Intanto cerco le camere di rete.": "macOS does not let FreeLaserCut use the camera: System Settings → Privacy & Security → Camera. Meanwhile I look for network cameras."
 }

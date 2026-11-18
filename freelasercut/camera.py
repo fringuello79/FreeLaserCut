@@ -22,6 +22,10 @@ os.environ.setdefault("OPENCV_LOG_LEVEL", "OFF")  # niente messaggi mentre si so
 os.environ.setdefault("OPENCV_VIDEOIO_PRIORITY_OBSENSOR", "0")
 # Media Foundation apre molto più in fretta alcune telecamere senza le trasformazioni hardware
 os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")
+if sys.platform == "darwin":
+    # 0.20.8: su macOS il permesso della camera lo chiede FreeLaserCut dal filo della finestra (mac_camera_permission):
+    # OpenCV, che cerca le camere da un altro filo, non può chiederlo e la camera non partiva mai
+    os.environ.setdefault("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
 import cv2  # noqa: E402
 import numpy as np
 from PySide6.QtCore import QObject, Signal
@@ -214,6 +218,34 @@ def open_capture(index, warm=2.5, first=None, only_first=False, size=None):
     if best is None:
         return None, None, None, True
     return best[1], best[2], best[3], True
+
+
+def mac_camera_permission(then=None):
+    """0.20.8, solo macOS: il permesso di usare le camere, chiesto con Qt dal filo della finestra.
+    -> "granted", "denied", "asked" (macOS mostra la domanda; alla risposta chiama then(concesso)) o "n/a" (non è un
+    Mac, o Qt non lo sa dire: si prova come sempre)."""
+    if sys.platform != "darwin":
+        return "n/a"
+    try:
+        from PySide6.QtCore import QCameraPermission, QCoreApplication, Qt
+    except ImportError:
+        return "n/a"
+    app = QCoreApplication.instance()
+    if app is None:
+        return "n/a"
+    perm = QCameraPermission()
+    st = app.checkPermission(perm)
+    if st == Qt.PermissionStatus.Granted:
+        return "granted"
+    if st == Qt.PermissionStatus.Denied:
+        return "denied"
+
+    def done(*_):
+        if then is not None:
+            then(app.checkPermission(perm) == Qt.PermissionStatus.Granted)
+
+    app.requestPermission(perm, app, done)
+    return "asked"
 
 
 def list_cameras(max_index=6, skip=()):
