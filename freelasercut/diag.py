@@ -313,6 +313,14 @@ def env_text(win=None, code=""):
         lines.append(f"Simulatore in uso: {'sì' if getattr(ctl, 'port', None) == SIM_PORT else 'no'}")
         lines.append(f"Velocità della porta: {getattr(ctl, 'baud', '?')} · buffer {getattr(ctl, 'rx_buffer', '?')}"
                      f" · buffer grande provato: {getattr(ctl, 'trusted_buffer', False)}")
+        win_fn = getattr(ctl, "window", None)
+        if callable(win_fn):  # 0.20.6: invio a pacchi piccoli in rete e righe arrivate rovinate
+            try:
+                wb, wl = win_fn()
+                lines.append(f"Invio: {wb} byte · {'righe senza limite' if wl is None else f'{wl} righe'} in viaggio"
+                             f" · righe arrivate rovinate: {getattr(ctl, 'garbled_lines', 0)}")
+            except (TypeError, ValueError):
+                pass
         src = getattr(getattr(win, "camera", None), "src", None)
         if src is not None:
             fps = getattr(src, "fps", None)

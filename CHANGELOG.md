@@ -37,6 +37,8 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 - Potenza e velocità delle scritte (numeri di potenza e velocità) si scelgono nella finestra e si ricordano. Prima erano fisse e su un laser poco potente o un materiale scuro venivano troppo leggere.
 - Numeri arrotondati: niente più «33.3333%» o «41.7». Se una colonna è stretta i numeri si rimpiccioliscono o vanno una sì e una no su due righe, invece di sovrapporsi.
 
+**Wi-Fi: invio più prudente.** Con il laser collegato in Wi-Fi, FreeLaserCut manda le righe a pacchetti più piccoli: su alcune macchine (per esempio Atomstack) nei tratti veloci delle righe arrivavano rovinate alla scheda e il lavoro si fermava con «comando non riconosciuto». Se succede comunque, da quel momento manda una riga per volta e l'avviso spiega la causa probabile (Wi-Fi disturbato o disturbi elettrici di pompa e compressore) e cosa provare. Con il cavo USB e con le schede FluidNC e grblHAL non cambia niente.
+
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 
 ## 0.20.5 — 17/11/2026

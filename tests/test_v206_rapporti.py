@@ -6,6 +6,10 @@ I  FLC-20261118-1022-7487: il punto di riferimento della barra numerica resta l'
 H  FLC-20261118-0900-681F: test materiali, potenza e velocità delle scritte scelte nella finestra e ricordate, usate
    nel G-code; numeri arrotondati (niente «33.3333%» né «41.7»), in mm/min e in mm/s; numeri troppo larghi per la
    colonna rimpiccioliti invece di sovrapporsi;
+G  FLC-20261118-1316-895B: in Wi-Fi (porta di rete, scheda dietro un modulo) le righe partono a pacchi piccoli (al
+   massimo 80 byte e 4 righe in viaggio); dopo una riga arrivata rovinata (error:1, error:2) una per volta; sul cavo e
+   con FluidNC/grblHAL tutto come prima; riga più lunga del pacco che parte da sola; avviso con la spiegazione;
+   l'informazione nel rapporto;
 T  testi nuovi tradotti in tutte le lingue.
 Uso: python tests/test_v206_rapporti.py [classica|banco]
 """
@@ -41,6 +45,10 @@ from freelasercut.ui.main_window import MainWindow  # noqa: E402
 from freelasercut.ui.panels_design import saved_anchor  # noqa: E402
 
 UI = os.environ["FLC_UI"]
+WIFI_HINT = ("La riga è giusta: è arrivata rovinata alla scheda. Succede con il Wi-Fi disturbato o con disturbi "
+             "elettrici (pompa dell'aria, compressore, aspiratore sulla stessa presa). Da ora FreeLaserCut manda "
+             "una riga per volta, più lentamente. Controlla il pezzo: la riga saltata può aver lasciato un segno "
+             "sbagliato. Se succede ancora, prova con il cavo USB e alimenta pompa e compressore da un'altra presa.")
 results = []
 
 
@@ -140,9 +148,107 @@ dlg3.close()
 units.set_speed_unit("mm/min")
 w.close()
 
+print("--- G. invio prudente in Wi-Fi")
+from freelasercut import diag, grbl  # noqa: E402
+
+
+class FakePort:
+    def __init__(self):
+        self.out = []
+
+    def write(self, data):
+        self.out.append(bytes(data))
+        return len(data)
+
+
+def make_ctl(port):
+    c = grbl.GrblController()
+    c._ser = FakePort()
+    c.port = port
+    return c
+
+
+def inflight(c):
+    return sum(x.length for x in c._inflight), len(c._inflight)
+
+
+job = [f"G1 X{100 + i * 0.123:.3f} Y{50 + i * 0.077:.3f} S{(i * 37) % 1000}" for i in range(60)]
+usb = make_ctl("COM4")
+usb.stream_job(job)
+b_usb, n_usb = inflight(usb)
+check("sul cavo come prima: il buffer pieno (fino a 127 byte)", 100 < b_usb <= grbl.RX_BUFFER and usb.window() == (127, None),
+      (b_usb, n_usb))
+net = make_ctl("tcp://192.168.1.50:8080")
+net.stream_job(job)
+b_net, n_net = inflight(net)
+check("in Wi-Fi: al massimo 80 byte e 4 righe in viaggio", b_net <= grbl.NET_BYTES and n_net <= grbl.NET_LINES
+      and net.window() == (80, 4), (b_net, n_net))
+sent_before = len(net._ser.out)
+net._handle("ok")
+check("a ogni «ok» parte la riga dopo, sempre nel limite", len(net._ser.out) == sent_before + 1
+      and inflight(net)[1] <= grbl.NET_LINES and net.job_acked == 1, (len(net._ser.out), inflight(net)))
+fluid = make_ctl("tcp://192.168.1.60:23")
+fluid.trusted_buffer = True
+fluid.rx_buffer = 255
+fluid.stream_job(job)
+check("FluidNC o grblHAL in rete (parlano direttamente in Wi-Fi): tutto il buffer, come prima",
+      fluid.window() == (255, None) and inflight(fluid)[0] > grbl.NET_BYTES)
+off = make_ctl("tcp://192.168.1.70:23")
+off.net_prudent = False
+check("si può spegnere (per le prove): torna come prima", off.window() == (127, None))
+long_line = "G1 X" + "1" * 90 + " Y2"
+lone = make_ctl("tcp://192.168.1.80:23")
+lone.stream_job([long_line, "G1 X1 Y1"])
+check("una riga più lunga del pacco parte da sola (niente lavoro fermo)", inflight(lone) == (len(long_line) + 1, 1),
+      inflight(lone))
+errs = []
+net.job_error.connect(lambda i, line, code, text: errs.append((i, line, code)))
+net._handle("error:2")
+check("riga arrivata rovinata (error:2): il lavoro va in pausa come prima e da qui si manda una riga per volta",
+      errs and errs[0][2] == 2 and net.net_lines == 1 and net.garbled_lines == 1 and net.window() == (80, 1), errs)
+for _ in range(6):
+    net._handle("ok")
+check("una riga per volta davvero", inflight(net)[1] <= 1, inflight(net))
+usb_errs = []
+usb.job_error.connect(lambda i, line, code, text: usb_errs.append(code))
+usb._handle("error:2")
+check("sul cavo un error:2 non cambia il modo di mandare", usb_errs == [2] and usb.window() == (127, None)
+      and usb.garbled_lines == 0)
+other = make_ctl("tcp://192.168.1.90:23")
+other.stream_job(job)
+other._handle("error:20")
+check("un altro errore (comando non supportato) non è una riga rovinata", other.net_lines == grbl.NET_LINES
+      and other.garbled_lines == 0)
+fresh = make_ctl("tcp://192.168.1.50:8080")
+check("a ogni nuova connessione si riparte da 4 righe", fresh.net_lines == grbl.NET_LINES and fresh.garbled_lines == 0)
+
+
+class W:
+    ctl = net
+
+
+env = diag.env_text(W())
+check("nel rapporto per l'assistenza: come si manda e quante righe sono arrivate rovinate",
+      "Invio: 80 byte · 1 righe in viaggio · righe arrivate rovinate: 1" in env, env)
+w = MainWindow()
+w.ctl.port = "tcp://192.168.1.50:8080"
+shown = []
+_exec = QMessageBox.exec
+QMessageBox.exec = lambda self: shown.append((self.text(), self.informativeText())) or 0
+w.ctl.stop_job = lambda: None
+w.ctl.resume = lambda: None
+w._job_error(214, "X170.854 S0", 2, "numero non valido")
+w.ctl.port = "COM4"
+w._job_error(214, "X170.854 S0", 2, "numero non valido")
+QMessageBox.exec = _exec
+check("in Wi-Fi l'avviso spiega che la riga è arrivata rovinata e cosa fare; sul cavo no",
+      len(shown) == 2 and "rovinata" in shown[0][1] and "presa" in shown[0][1] and shown[1][1] == "", shown)
+w.ctl.port = None
+w.close()
+
 print("--- T. traduzioni")
 keys = ("Scritte", "Potenza delle scritte del test: alzala se vengono troppo leggere",
-        "Velocità delle scritte del test: abbassala se vengono troppo leggere")
+        "Velocità delle scritte del test: abbassala se vengono troppo leggere", WIFI_HINT)
 missing = []
 for lang in ("en", "es", "fr", "pt"):
     cat = json.load(open(os.path.join(ROOT, "freelasercut", "locale", f"{lang}.json"), encoding="utf-8"))

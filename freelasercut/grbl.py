@@ -28,6 +28,12 @@ from . import netport
 
 SIM_PORT = "SIMULATORE"
 RX_BUFFER = 127
+# 0.20.6 (rapporto FLC-20261118-1316-895B, Atomstack in Wi-Fi): sulle porte di rete, con schede che non parlano
+# direttamente in rete (un modulo Wi-Fi gira le righe alla scheda sul filo), le righe si mandano a pacchi più piccoli.
+# Nei tratti veloci il modulo riceveva fino a 127 byte di fila e alcune righe arrivavano rovinate (error:1, error:2).
+NET_BYTES = 80  # byte al massimo in viaggio verso la scheda
+NET_LINES = 4  # righe al massimo in viaggio
+NET_GARBLED = (1, 2)  # errori di una riga arrivata rovinata (lettera mancante, numero storto)
 POINTER_MAX = 20.0  # % massimo del puntino (oltre POINTER_WARN FreeLaserCut avvisa)
 POINTER_WARN = 5.0
 POLL_INTERVAL = 0.2
@@ -233,6 +239,9 @@ class GrblController(QObject):
         self.lost_replies = 0  # 0.18.4: risposte «ok» mai arrivate alla fine dell'ultima verifica o dell'ultimo lavoro
         self.no_g55 = False  # la scheda ha rifiutato G55 (error:20, o un altro errore su quella riga)
         self._check_end_t = 0.0
+        self.net_prudent = True  # 0.20.6: invio a pacchi piccoli sulle porte di rete (vedi NET_BYTES)
+        self.net_lines = NET_LINES  # scende a 1 dopo una riga arrivata rovinata (fino alla prossima connessione)
+        self.garbled_lines = 0  # righe del lavoro arrivate rovinate alla scheda in questa connessione
         self._fire_timer = None
         self.fire_active = False
         self._af = None  # autofocus in corso: {"z": Z del tocco}
@@ -274,6 +283,8 @@ class GrblController(QObject):
         self.check_stalled = False
         self.lost_replies = 0
         self.no_g55 = False
+        self.net_lines = NET_LINES
+        self.garbled_lines = 0
         self.last_reply = time.time()
         self._check = None
         self._clear_queues()
@@ -409,12 +420,24 @@ class GrblController(QObject):
             self._pending.append(_Cmd(line, tag))
         self._pump()
 
+    def window(self):
+        """0.20.6: quanto si manda alla scheda prima delle sue risposte -> (byte, righe; None = senza limite di righe).
+        Sul cavo e con le schede che parlano direttamente in rete (FluidNC, grblHAL): tutto il buffer. Sulle altre
+        porte di rete: pacchi piccoli (NET_BYTES, net_lines)."""
+        if self.net_prudent and netport.is_net(self.port or "") and not self.trusted_buffer:
+            return min(self.rx_buffer, NET_BYTES), self.net_lines
+        return self.rx_buffer, None
+
     def _pump(self):
         with self._pump_lock:
             to_send = []
+            limit, max_lines = self.window()
             with self._lock:
                 used = sum(c.length for c in self._inflight)
-                while self._pending and used + self._pending[0].length <= self.rx_buffer:
+                while self._pending and (used + self._pending[0].length <= limit or (
+                        not self._inflight and limit < self.rx_buffer)):  # riga più lunga del pacco: da sola
+                    if max_lines is not None and len(self._inflight) >= max_lines:
+                        break
                     if self._pending[0].tag == "job_pause":
                         break  # 0.20.2: pausa M0: non parte niente finché la macchina non è ferma e la persona riprende
                     cmd = self._pending.popleft()
@@ -1011,6 +1034,11 @@ class GrblController(QObject):
                     self.g55_refused.emit("error")  # prima dell'arresto, vedi _watch_g55
                     self.stop_job()
                 elif head is not None and head.tag == "job" and self._job_active and self.pause_on_error:
+                    if code in NET_GARBLED and netport.is_net(self.port or ""):
+                        # 0.20.6: la riga era giusta (l'ha scritta FreeLaserCut) ed è arrivata rovinata: da qui in poi
+                        # una riga per volta, più lento ma più sicuro
+                        self.garbled_lines += 1
+                        self.net_lines = 1
                     # sicurezza: alla prima riga rifiutata il lavoro si ferma subito in pausa
                     self.feed_hold()
                     self.job_error.emit(int(head.data), head.line, code, text)

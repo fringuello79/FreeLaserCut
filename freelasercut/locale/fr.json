@@ -3585,5 +3585,6 @@
  "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "remplissage incliné ou croisé pas encore prévu : lignes horizontales",
  "Scritte": "Textes",
  "Potenza delle scritte del test: alzala se vengono troppo leggere": "Puissance des textes du test : augmentez-la s'ils sortent trop clairs",
- "Velocità delle scritte del test: abbassala se vengono troppo leggere": "Vitesse des textes du test : réduisez-la s'ils sortent trop clairs"
+ "Velocità delle scritte del test: abbassala se vengono troppo leggere": "Vitesse des textes du test : réduisez-la s'ils sortent trop clairs",
+ "La riga è giusta: è arrivata rovinata alla scheda. Succede con il Wi-Fi disturbato o con disturbi elettrici (pompa dell'aria, compressore, aspiratore sulla stessa presa). Da ora FreeLaserCut manda una riga per volta, più lentamente. Controlla il pezzo: la riga saltata può aver lasciato un segno sbagliato. Se succede ancora, prova con il cavo USB e alimenta pompa e compressore da un'altra presa.": "La ligne est correcte : elle est arrivée abîmée à la carte. Cela arrive avec un Wi-Fi perturbé ou des parasites électriques (pompe à air, compresseur, extracteur sur la même prise). Désormais FreeLaserCut envoie une ligne à la fois, plus lentement. Vérifiez la pièce : la ligne sautée a pu laisser une mauvaise trace. Si cela se reproduit, essayez le câble USB et alimentez la pompe et le compresseur sur une autre prise."
 }

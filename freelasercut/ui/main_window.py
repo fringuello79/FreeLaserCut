@@ -3659,6 +3659,16 @@ class MainWindow(QMainWindow):
         box.setIcon(QMessageBox.Warning)
         box.setWindowTitle(tr("Lavoro in pausa"))
         box.setText(tr("<b>La scheda ha rifiutato la riga {0}</b>: <code>{1}</code><br>error:{2} — {3}<br><br>Il lavoro è stato messo in pausa per sicurezza.", index + 1, line, code, text))
+        from .. import grbl, netport
+
+        if code in grbl.NET_GARBLED and netport.is_net(self.ctl.port or ""):
+            # 0.20.6 (rapporto FLC-20261118-1316-895B): in Wi-Fi una riga giusta arrivata rovinata alla scheda
+            box.setInformativeText(tr(
+                "La riga è giusta: è arrivata rovinata alla scheda. Succede con il Wi-Fi disturbato o con disturbi "
+                "elettrici (pompa dell'aria, compressore, aspiratore sulla stessa presa). Da ora FreeLaserCut manda "
+                "una riga per volta, più lentamente. Controlla il pezzo: la riga saltata può aver lasciato un segno "
+                "sbagliato. Se succede ancora, prova con il cavo USB e alimenta pompa e compressore da un'altra "
+                "presa."))
         stop = box.addButton(tr("Ferma il lavoro"), QMessageBox.RejectRole)
         box.addButton(tr("Continua comunque"), QMessageBox.AcceptRole)
         box.exec()

@@ -3,7 +3,7 @@
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
 Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (14)
+## Wi-Fi, rete e telefono (15)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -19,6 +19,7 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
 - `test_v205_scatti_wifi.py`: PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»
 - `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
+- `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi
 
 ## Telecamera e guardia fiamme (14)
 
@@ -55,13 +56,12 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_varie.py`: Nesting manuale che sporge dai pannelli, elenco delle scorciatoie, Sculpfun E1 dalla scheda e tabella Sculpfun, Riconosci → Applica che tiene angolo e assi
 - `test_v195_varie.py` (Banco): Nesting manuale e scorciatoie nell'interfaccia Banco
 
-## Materiali (5)
+## Materiali (4)
 
 - `test_v03.py`: Materiali, test materiale, vettorizzazione, testo variabile e curvo
 - `test_v160.py`: Materiali imparati: la curva del tuo legno dalle foto dei test, toni e anteprima
 - `test_v160.py` (Banco): Materiali imparati nell'interfaccia Banco
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
-- `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati
 
 ## Foto e immagini (23)
 

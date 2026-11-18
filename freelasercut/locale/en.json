@@ -3585,5 +3585,6 @@
  "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "angled or cross-hatch fill not supported yet: horizontal lines",
  "Scritte": "Labels",
  "Potenza delle scritte del test: alzala se vengono troppo leggere": "Power of the test labels: raise it if they come out too light",
- "Velocità delle scritte del test: abbassala se vengono troppo leggere": "Speed of the test labels: lower it if they come out too light"
+ "Velocità delle scritte del test: abbassala se vengono troppo leggere": "Speed of the test labels: lower it if they come out too light",
+ "La riga è giusta: è arrivata rovinata alla scheda. Succede con il Wi-Fi disturbato o con disturbi elettrici (pompa dell'aria, compressore, aspiratore sulla stessa presa). Da ora FreeLaserCut manda una riga per volta, più lentamente. Controlla il pezzo: la riga saltata può aver lasciato un segno sbagliato. Se succede ancora, prova con il cavo USB e alimenta pompa e compressore da un'altra presa.": "The line is correct: it reached the board damaged. This happens with a noisy Wi-Fi or with electrical interference (air pump, compressor, extractor on the same socket). From now on FreeLaserCut sends one line at a time, more slowly. Check the piece: the skipped line may have left a wrong mark. If it happens again, try the USB cable and power the pump and compressor from another socket."
 }
