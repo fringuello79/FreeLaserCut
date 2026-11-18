@@ -82,6 +82,12 @@ def glow_limits(optical_power):
 LOST_OK_MAX = 3
 LOST_OK_CHECK_S = 2.0  # in verifica le risposte arrivano in millesimi di secondo
 LOST_OK_JOB_S = 3.0
+# 0.20.6 (rapporto FLC-20261117-1408-E933, Creality con firmware «CV50-Pro»): la scheda interrompe le risposte lunghe
+# ($$ si ferma a $13…$25) e l'«ok» finale non arriva. Prima l'«ok» del comando dopo veniva preso per quello di $$: da lì
+# ogni risposta era sfasata di uno e FreeLaserCut credeva la scheda sempre occupata (la calibrazione della camera
+# aspettava 60 s e si fermava). Ora le letture viaggiano da sole e, senza risposta per un po', si chiudono.
+QUERY_TAGS = ("settings", "info")
+QUERY_LOST_S = 2.0
 from .wifi_setup import mask_line as _mask  # noqa: E402 — 0.18.17: la password del Wi-Fi non esce mai in chiaro
 
 _SETTING_RE = re.compile(r"^\$(\d+)=(.*)$")
@@ -107,9 +113,10 @@ def list_serial_ports():
 
 
 class _Cmd:
-    __slots__ = ("line", "tag", "length", "data")
+    __slots__ = ("line", "tag", "length", "data", "t")
 
     def __init__(self, line, tag=None):
+        self.t = 0.0  # 0.20.6: quando è partita verso la scheda
         self.line = line
         self.tag = tag
         self.length = len(line) + 1
@@ -239,6 +246,8 @@ class GrblController(QObject):
         self.lost_replies = 0  # 0.18.4: risposte «ok» mai arrivate alla fine dell'ultima verifica o dell'ultimo lavoro
         self.no_g55 = False  # la scheda ha rifiutato G55 (error:20, o un altro errore su quella riga)
         self._check_end_t = 0.0
+        self.last_line_t = 0.0  # 0.20.6: ora dell'ultima riga ricevuta che non sia un report di stato
+        self._settings_retry = False  # 0.20.6: $$ rimasto senza risposta già riletto una volta
         self.net_prudent = True  # 0.20.6: invio a pacchi piccoli sulle porte di rete (vedi NET_BYTES)
         self.net_lines = NET_LINES  # scende a 1 dopo una riga arrivata rovinata (fino alla prossima connessione)
         self.garbled_lines = 0  # righe del lavoro arrivate rovinate alla scheda in questa connessione
@@ -285,6 +294,7 @@ class GrblController(QObject):
         self.no_g55 = False
         self.net_lines = NET_LINES
         self.garbled_lines = 0
+        self._settings_retry = False
         self.last_reply = time.time()
         self._check = None
         self._clear_queues()
@@ -438,13 +448,19 @@ class GrblController(QObject):
                         not self._inflight and limit < self.rx_buffer)):  # riga più lunga del pacco: da sola
                     if max_lines is not None and len(self._inflight) >= max_lines:
                         break
+                    # 0.20.6: una lettura ($$, $I) viaggia da sola: niente insieme a lei, lei solo a scheda libera
+                    if self._inflight and (self._pending[0].tag in QUERY_TAGS
+                                           or any(c.tag in QUERY_TAGS for c in self._inflight)):
+                        break
                     if self._pending[0].tag == "job_pause":
                         break  # 0.20.2: pausa M0: non parte niente finché la macchina non è ferma e la persona riprende
                     cmd = self._pending.popleft()
                     self._inflight.append(cmd)
                     used += cmd.length
                     to_send.append(cmd)
+            now = time.time()
             for cmd in to_send:
+                cmd.t = now
                 self._write_raw((cmd.line + "\n").encode())
                 if cmd.tag not in ("job", "joy"):  # 0.19.5: i pezzetti del joystick non riempiono la console
                     self.line_sent.emit(_mask(cmd.line))  # console, registro, comando a distanza: mai la password
@@ -842,6 +858,33 @@ class GrblController(QObject):
             time.sleep(POLL_INTERVAL)
             self._watch_check()
             self._watch_g55()
+            self._watch_query()
+
+    def _watch_query(self):
+        """0.20.6: una lettura ($$, $I) è partita, la scheda non manda più niente da QUERY_LOST_S e l'«ok» non è
+        arrivato: la risposta è stata interrotta. La lettura si chiude; $$ si rilegge una volta, poi si usa quello che
+        è arrivato e lo si dice."""
+        with self._lock:
+            head = self._inflight[0] if self._inflight else None
+            if head is None or head.tag not in QUERY_TAGS or not head.t:
+                return
+            if time.time() - max(head.t, self.last_line_t) < QUERY_LOST_S:
+                return
+            self._inflight.popleft()
+        self.lost_replies += 1
+        if head.tag == "settings" and not self._settings_retry and self.connected:
+            self._settings_retry = True
+            self.message.emit(tr("La scheda ha interrotto l'elenco delle impostazioni ({0} ricevute): lo rileggo",
+                                 len(head.data)))
+            _timer(0.5, self.request_settings).start()
+        elif head.tag == "settings":
+            last = max((int(n) for n in head.data), default=None) if head.data else None
+            self.message.emit(tr("La scheda manda solo una parte delle impostazioni (fino a ${0}): controlla l'area "
+                                 "di lavoro nel profilo della macchina", last if last is not None else "?"))
+            self._finish(head, ok=bool(head.data))
+        else:
+            self._finish(head, ok=True)
+        self._pump()
 
     def _watch_g55(self):
         """0.19.2 (rapporto FLC-20261112-2308-104A, OMTech K40): nel lavoro, dopo le prime conferme, la scheda non
@@ -976,6 +1019,8 @@ class GrblController(QObject):
         self._handle(line)
 
     def _handle(self, line):
+        if not line.startswith("<"):
+            self.last_line_t = time.time()
         if line.startswith("<"):
             st = parse_status(line, self._wco)
             self._wco = st["WCO"]

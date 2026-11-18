@@ -10,6 +10,10 @@ G  FLC-20261118-1316-895B: in Wi-Fi (porta di rete, scheda dietro un modulo) le 
    massimo 80 byte e 4 righe in viaggio); dopo una riga arrivata rovinata (error:1, error:2) una per volta; sul cavo e
    con FluidNC/grblHAL tutto come prima; riga più lunga del pacco che parte da sola; avviso con la spiegazione;
    l'informazione nel rapporto;
+A  FLC-20261117-1408-E933 (Creality con firmware «CV50-Pro»): la scheda interrompe l'elenco delle impostazioni e
+   l'«ok» non arriva; le letture viaggiano da sole, una lettura senza risposta si chiude dopo 2 s, $$ si rilegge una
+   volta, poi si usa quello che è arrivato e lo si dice; i comandi dopo hanno le loro risposte (niente sfasamento) e la
+   scheda non risulta più occupata per sempre;
 T  testi nuovi tradotti in tutte le lingue.
 Uso: python tests/test_v206_rapporti.py [classica|banco]
 """
@@ -245,6 +249,59 @@ check("in Wi-Fi l'avviso spiega che la riga è arrivata rovinata e cosa fare; su
       len(shown) == 2 and "rovinata" in shown[0][1] and "presa" in shown[0][1] and shown[1][1] == "", shown)
 w.ctl.port = None
 w.close()
+
+print("--- A. scheda che interrompe le risposte lunghe")
+import time as _t  # noqa: E402
+
+cr = make_ctl("COM4")
+msgs = []
+cr.message.connect(msgs.append)
+got = {}
+cr.settings_ready.connect(lambda d: got.setdefault("settings", []).append(d))
+cr.request_info()
+cr.request_settings()
+check("$I e $$ non partono insieme: $$ aspetta la risposta di $I",
+      [c.line for c in cr._inflight] == ["$I"] and [c.line for c in cr._pending] == ["$$"])
+for l in ("[VER:1.1f.20220810:]", "[OPT:VHL,127,65536]", "[software versions: CV50-Pro-MASTER-Release V1.0.1]", "ok"):
+    cr._dispatch(l)
+check("arrivato l'«ok» di $I parte $$", [c.line for c in cr._inflight] == ["$$"])
+for l in ("$0=10", "$1=250", "$2=0", "$3=4", "$10=3", "$11=0.010", "$12=0.002", "$13=0", "$"):
+    cr._dispatch(l)
+cr.send_line("$H")
+check("mentre $$ aspetta, il comando dopo non parte (la sua risposta non verrebbe presa per quella di $$)",
+      [c.line for c in cr._inflight] == ["$$"] and [c.line for c in cr._pending] == ["$H"])
+cr._watch_query()
+check("finché la scheda ha parlato da poco la lettura resta aperta", [c.line for c in cr._inflight] == ["$$"])
+cr._inflight[0].t -= 5
+cr.last_line_t -= 5
+cr._watch_query()
+check("dopo 2 s di silenzio senza «ok» la lettura si chiude, lo dice e parte il comando dopo",
+      [c.line for c in cr._inflight] == ["$H"] and msgs and "rileggo" in msgs[-1] and "settings" not in got, msgs)
+cr._dispatch("ok")
+check("l'«ok» che arriva è del comando giusto ($H): nessuno sfasamento", not cr._inflight and not cr.busy)
+_t.sleep(0.8)
+check("$$ si rilegge una volta da solo", [c.line for c in cr._inflight] == ["$$"])
+for l in ("$0=10", "$1=250", "$2=0", "$3=4", "$10=3", "$11=0.010", "$12=0.002", "$13=0", "$20=0", "$21=1", "$22=1", "$2"):
+    cr._dispatch(l)
+cr._inflight[0].t -= 5
+cr.last_line_t -= 5
+cr._watch_query()
+check("di nuovo interrotto: si usa quello che è arrivato e si dice fino a dove",
+      got.get("settings") and got["settings"][-1].get(22) == "1" and "fino a $22" in msgs[-1] and not cr.busy, msgs[-1:])
+cr._dispatch("ok")
+check("un «ok» in ritardo dopo la chiusura non rompe niente", not cr.busy)
+ok_ctl = make_ctl("COM5")
+ok_ctl.request_settings()
+for l in ("$0=10", "$130=400.000", "$131=415.000", "ok"):
+    ok_ctl._dispatch(l)
+ok_ctl._watch_query()
+check("con una scheda normale tutto come prima (niente avvisi, impostazioni complete)",
+      not ok_ctl.busy and ok_ctl.board_settings.get(131) == "415.000" and ok_ctl.lost_replies == 0)
+jobc = make_ctl("COM6")
+jobc.stream_job(job)
+jobc.request_settings()
+check("durante un lavoro una lettura aspetta la fine (le righe del lavoro continuano)",
+      all(c.tag == "job" for c in jobc._inflight) and len(jobc._inflight) > 1)
 
 print("--- T. traduzioni")
 keys = ("Scritte", "Potenza delle scritte del test: alzala se vengono troppo leggere",

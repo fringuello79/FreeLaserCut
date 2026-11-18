@@ -39,6 +39,8 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 
 **Wi-Fi: invio più prudente.** Con il laser collegato in Wi-Fi, FreeLaserCut manda le righe a pacchetti più piccoli: su alcune macchine (per esempio Atomstack) nei tratti veloci delle righe arrivavano rovinate alla scheda e il lavoro si fermava con «comando non riconosciuto». Se succede comunque, da quel momento manda una riga per volta e l'avviso spiega la causa probabile (Wi-Fi disturbato o disturbi elettrici di pompa e compressore) e cosa provare. Con il cavo USB e con le schede FluidNC e grblHAL non cambia niente.
 
+**Schede che interrompono le risposte lunghe.** Alcune schede (per esempio Creality con firmware «CV50-Pro») interrompono a metà l'elenco delle impostazioni e non mandano la conferma finale. FreeLaserCut credeva la scheda sempre occupata: la calibrazione della camera portava la testa al primo punto e lì si fermava. Ora le letture delle impostazioni viaggiano da sole, se restano senza risposta si chiudono dopo 2 secondi e si rileggono una volta; se la scheda le manda incomplete, il programma lo dice.
+
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 
 ## 0.20.5 — 17/11/2026
