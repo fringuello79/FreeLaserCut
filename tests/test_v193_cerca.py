@@ -100,7 +100,10 @@ else:
     eg = box.edit.mapTo(w, QPoint(0, 0))  # l'elenco è un riquadro dentro la finestra: stesse coordinate
     check("l'elenco è attaccato sopra la casella (il suo bordo basso tocca la casella), largo 420 px",
           0 <= eg.y() - (box.y() + box.height()) <= 6 and box.width() == cmd_box.LIST_W, (eg.y(), box.y(), box.height()))
-    check("…allineato alla casella e dentro la finestra", abs(box.x() - eg.x()) <= 2 and
+    # 0.20.7: allineato alla casella; se così uscirebbe dalla finestra (casella vicina al bordo destro, come sul
+    # Windows di GitHub con i caratteri veri) resta attaccato al bordo destro, dentro la finestra
+    clamped = eg.x() + cmd_box.LIST_W > w.width() - 2 and box.x() == w.width() - cmd_box.LIST_W - 2
+    check("…allineato alla casella e dentro la finestra", (abs(box.x() - eg.x()) <= 2 or clamped) and
           box.x() >= 0 and box.x() + box.width() <= w.width() and box.parent() is w,
           (box.x(), eg.x()))
     check("…alto quanto serve alle righe trovate", box.height() == min(len(rows), cmd_box.MAX_ROWS) * cmd_box.ROW_H + 14)
