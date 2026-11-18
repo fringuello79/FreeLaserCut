@@ -20,6 +20,12 @@ Disegni SVG con contorno e riempimento separati da soli, e riempimenti in toni d
 
 **G-code «del piano» (fra le funzioni in prova).** *File → Esegui un file G-code* riconosce un G-code scritto da un programma esterno sul piano di FreeLaserCut (riga `; FreeLaserCut-piano`, coordinate in mm con l'origine in basso a sinistra, potenza da 0 a 1000) e lo adatta al laser del profilo: assi, origine e sistema assoluto come i lavori di FreeLaserCut; potenza riportata ai watt del laser se il file dice per quanti watt è pensata (40 % di 10 W = 10 % di 40 W, mai oltre il 100 %); sopra la velocità massima della macchina rallenta e abbassa la potenza nella stessa proporzione; spostamenti a laser spento fuori dal piano portati sul bordo; una parte da incidere fuori dal piano ferma tutto. Quello che ha fatto è scritto nella richiesta di conferma.
 
+**Scia dell'incisione: si può spegnere** (richiesta di Ale). Durante il lavoro il piano mostra in arancione quello che il laser ha già inciso. Su lavori lunghi (foto, riempimenti grandi) quel disegno che cresce di continuo appesantiva il programma, e si vedeva anche lavorando su un altro piano.
+- *Visualizza → Scia dell'incisione sul piano*: spenta, la scia non si disegna e non si raccoglie (la testa del laser si vede e si muove come sempre); la scelta resta anche al riavvio. Il lavoro non cambia.
+- Accesa, si ridisegna al massimo 4 volte al secondo invece che a ogni aggiornamento della macchina.
+- Mentre il laser incide un piano e tu ne guardi un altro con *Mostra gli altri piani* spento, l'anteprima e la scia del lavoro in corso non si vedono; tornando sul piano del lavoro, o con *Mostra gli altri piani* acceso, si rivedono (con tutto quello inciso nel frattempo).
+- Nuova prova automatica: `tests/test_v207_scia.py` (24 controlli, Classica e Banco; 7 guasti messi apposta, tutti presi).
+
 **Creality Falcon A1 Pro 20W** nell'elenco dei modelli (domanda arrivata su YouTube): area 358 × 268 mm, 600 mm/s; collegando la macchina la scheda si riconosce e l'area vera si legge dalla scheda. Il modulo a infrarosso da 2 W non è ancora provato.
 
 ## 0.20.6 — 18/11/2026

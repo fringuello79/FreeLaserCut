@@ -3655,5 +3655,6 @@
  "{0}: una parte da incidere esce dal piano di questa macchina ({1:g} × {2:g} mm). Il lavoro non parte.": "{0}: part of the engraving goes outside this machine's plane ({1:g} × {2:g} mm). The job does not start.",
  "Sta lavorando": "Working",
  "M2: {0}": "M2: {0}",
- "Falcon A1 Pro: stessa famiglia del Falcon A1, area 358 × 268 mm. Collegando la macchina, «Leggi dalla macchina» legge l'area vera dalla scheda. Il modulo a infrarosso da 2 W non è ancora stato provato con FreeLaserCut.": "Falcon A1 Pro: same family as the Falcon A1, area 358 × 268 mm. With the machine connected, «Read from machine» reads the real area from the board. The 2 W infrared module has not been tried with FreeLaserCut yet."
+ "Falcon A1 Pro: stessa famiglia del Falcon A1, area 358 × 268 mm. Collegando la macchina, «Leggi dalla macchina» legge l'area vera dalla scheda. Il modulo a infrarosso da 2 W non è ancora stato provato con FreeLaserCut.": "Falcon A1 Pro: same family as the Falcon A1, area 358 × 268 mm. With the machine connected, «Read from machine» reads the real area from the board. The 2 W infrared module has not been tried with FreeLaserCut yet.",
+ "Scia dell'incisione sul piano": "Engraving trail on the bed"
 }
