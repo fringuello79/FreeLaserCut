@@ -265,7 +265,7 @@ def write_index():
 
 
 # 0.20.0: suite lente (secondi): sui server di GitHub la camera della testa simulata supera i 900 s
-SLOW = {"test_v200_camera_testa.py": 2400}
+SLOW = {"test_v200_camera_testa.py": 2400, "test_v202_camera_testa.py": 2400}  # 0.20.6: casi «grandangolo» e «lente»
 
 
 def parallel_from(argv, env):
