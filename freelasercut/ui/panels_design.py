@@ -678,6 +678,13 @@ class CutSettingsDialog(QDialog):
         gi = self.grouping.findData(cs.fill_grouping)
         self.grouping.setCurrentIndex(max(gi, 0))
         ff.addRow(tr("Raggruppamento"), self.grouping)
+        # 0.20.7: potenza che segue il grigio delle forme (SVG di Inkscape con riempimenti grigi, come MeerK40t)
+        self.gray_power = QCheckBox(tr("Potenza dal grigio delle forme (nero = massima, bianco = minima)"))
+        self.gray_power.setChecked(bool(getattr(cs, "gray_power", False)))
+        self.gray_power.setToolTip(tr("Per i disegni SVG con riempimenti grigi: ogni forma si incide con la potenza "
+                                      "del suo grigio, fra la Potenza minima e la massima. Il bianco non si incide. "
+                                      "Le forme senza grigio usano la Potenza massima."))
+        ff.addRow("", self.gray_power)
         self.tabs.addTab(ft, tr("Riempimento"))
         # immagine
         it = QWidget()
@@ -806,7 +813,7 @@ class CutSettingsDialog(QDialog):
                     halftone_size=self.hsize.value(),
                     image_start=self.istart.currentData() or "top", burn_curve=self.curve.currentData() or "",
                     pause_before=self.pause.isChecked(), pause_msg=self.pause_msg.text().strip(),
-                    pause_park=self.pause_park.isChecked())
+                    pause_park=self.pause_park.isChecked(), gray_power=self.gray_power.isChecked())
 
 
 # colonne della tabella livelli

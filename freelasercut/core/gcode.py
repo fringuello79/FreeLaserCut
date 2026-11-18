@@ -11,14 +11,14 @@ Da documento + profilo macchina a righe G-code, con:
 """
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QTransform
 
 from . import burn_curve, geom, imaging
-from .document import Document, ImageShape
+from .document import Document, ImageShape, gray_power
 from freelasercut.i18n import tr  # noqa: E402
 
 ANCHOR_NAMES = ["basso-sinistra", "basso-centro", "basso-destra", "centro-sinistra", "centro",
@@ -131,6 +131,7 @@ class LayerStats:
     lines: int = 0
     speed: float = 0.0  # mm/min del livello (limitata al massimo della macchina)
     power: float = 0.0  # potenza massima del livello, %
+    tones: int = 0  # 0.20.7: riempimento con la potenza dal grigio: quanti toni diversi (0 = potenza unica)
 
 
 # ======================================================================= flusso dei comandi (0.17.2)
@@ -425,6 +426,42 @@ def _polys_of(items, tol=geom.FLATTEN_TOL):
             _tick()
         polys.extend(geom.flatten(tf.map(leaf.local_path()), tol))
     return polys
+
+
+def _gray_fill_groups(items, cs):
+    """0.20.7: riempimento con la potenza dal grigio. Ogni forma brucia con la potenza del suo grigio
+    (`document.gray_power`), solo nella parte che si vede: le forme dopo nel disegno stanno sopra e coprono quelle
+    prima (come nel file di Inkscape e in MeerK40t). I fori delle forme seguono la regola pari-dispari, come il
+    riempimento normale. -> [(potenza %, contorni)] con le potenze dalla più alta, toni uguali uniti, bianco escluso."""
+    seq = []
+    for k, (leaf, tf) in enumerate(items):
+        if isinstance(leaf, ImageShape):
+            continue
+        if not k & 15:
+            _tick()
+        seq.append((getattr(leaf, "gray", None), geom.flatten(tf.map(leaf.local_path()), geom.FLATTEN_TOL)))
+    out = {}
+    for gray, seen in gray_regions(seq):
+        pw = round(gray_power(cs, gray), 2)
+        if pw > 0:
+            out.setdefault(pw, []).extend(seen)
+    return sorted(out.items(), key=lambda kv: -kv[0])
+
+
+def gray_regions(seq):
+    """0.20.7: [(grigio, contorni)] in ordine di disegno -> [(grigio, contorni della parte che si vede)], dalla forma
+    più in alto. Usata dal G-code e dall'anteprima sulla tela (ui/fill_preview.tones)."""
+    above = []
+    out = []
+    for gray, polys in reversed(seq):
+        region = geom.union_evenodd([p for p in polys if p.closed and len(p.pts) >= 3])
+        if not region:
+            continue
+        seen = geom.boolean(region, above, "difference") if above else region
+        above = geom.boolean(above + region, [], "union")
+        if seen:
+            out.append((gray, seen))
+    return out
 
 
 def _depths(polys):
@@ -1129,11 +1166,24 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
             else:  # fill
                 if any(not p.closed for p in polys):
                     job.warnings.append(tr("{0}: le linee aperte non si possono riempire e vengono ignorate", cs.label()))
-                grouping = cs.fill_grouping
-                if grouping == "auto":
-                    grouping = _best_grouping(w, polys, cs, bed, opts, profile)
-                for _ in range(max(1, cs.passes)):
-                    _emit_fill(w, polys, cs, bed, opts, grouping)
+                if getattr(cs, "gray_power", False) and any(getattr(l, "gray", None) is not None for l, _ in items):
+                    # 0.20.7: potenza dal grigio di ogni forma (SVG con riempimenti grigi): ogni tono è un
+                    # riempimento a sé con la sua potenza; dove le forme si coprono conta quella sopra
+                    groups = _gray_fill_groups(items, cs)
+                    for pw, gpolys in groups:
+                        cs_g = replace(cs, power_max=pw)
+                        grouping = cs.fill_grouping
+                        if grouping == "auto":
+                            grouping = _best_grouping(w, gpolys, cs_g, bed, opts, profile)
+                        for _ in range(max(1, cs.passes)):
+                            _emit_fill(w, gpolys, cs_g, bed, opts, grouping)
+                    st.tones = len(groups)
+                else:
+                    grouping = cs.fill_grouping
+                    if grouping == "auto":
+                        grouping = _best_grouping(w, polys, cs, bed, opts, profile)
+                    for _ in range(max(1, cs.passes)):
+                        _emit_fill(w, polys, cs, bed, opts, grouping)
         st.cut_mm = w.cut - cut_before
         st.lines = len(w.lines) - n_before
         job.layers.append(st)

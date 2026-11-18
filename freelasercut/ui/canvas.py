@@ -197,6 +197,7 @@ class FillItem(QGraphicsItem):
         super().__init__()
         self.canvas = canvas
         self.regions = []
+        self.tones = []  # 0.20.7: toni dei livelli con la potenza dal grigio [(grigio, percorso)]
         self._key = None
         self.setZValue(-1)
         self.setFlag(QGraphicsItem.ItemHasNoContents, True)  # la disegna WorldItem, come le forme
@@ -207,7 +208,8 @@ class FillItem(QGraphicsItem):
 
     def _layers_key(self):
         cv = self.canvas
-        return (cv.filled_view, tuple(sorted((k, c.mode, c.show, c.fill_grouping) for k, c in cv.editor.doc.layers.items())))
+        return (cv.filled_view, tuple(sorted((k, c.mode, c.show, c.fill_grouping, getattr(c, "gray_power", False))
+                                             for k, c in cv.editor.doc.layers.items())))
 
     def ensure(self):
         """Ricalcola le zone se serve; ritorna le zone [(livello, percorso)]."""
@@ -223,6 +225,7 @@ class FillItem(QGraphicsItem):
                     if it is not None:
                         entries += [(leaf, mapped) for leaf, _tf, mapped in it._leaf_paths()]
             self.regions = fill_preview.regions(entries, cv.editor.doc.layers) if entries else []
+            self.tones = fill_preview.tones(entries, cv.editor.doc.layers) if entries else []
             self._key = key
         return self.regions
 
@@ -248,6 +251,11 @@ class FillItem(QGraphicsItem):
                 fc.setAlpha(70 if (cs is None or cs.output) else 30)
                 painter.setBrush(fc)
                 last = idx
+            painter.drawPath(path)
+        for gray, path in self.tones:  # 0.20.7: sopra la zona del livello, il grigio di ogni forma (più scuro = più potenza)
+            if visible is not None and not geom.rect_overlaps(path.controlPointRect(), visible):
+                continue
+            painter.setBrush(QColor(gray, gray, gray, 170))
             painter.drawPath(path)
         painter.restore()
 

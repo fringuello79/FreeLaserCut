@@ -1,5 +1,16 @@
 # Novità di FreeLaserCut
 
+## 0.20.7 — in lavorazione
+Disegni SVG con contorno e riempimento separati da soli, e riempimenti in toni di grigio che cambiano la potenza, come in MeerK40t.
+
+**SVG con contorno e riempimento, riempimenti grigi** (richiesta di France_o, abituato a Inkscape e MeerK40t). In Inkscape ogni figura può avere un contorno colorato e un riempimento grigio: FreeLaserCut prendeva solo il colore del contorno e ignorava il riempimento. Ora, aprendo o importando un SVG:
+- una figura chiusa con un **riempimento grigio o nero** diventa **due forme**: il contorno resta una linea sul livello del suo colore (un contorno nero va su C01), il riempimento va su **C00** (Riempimento) con il suo grigio. La trasparenza schiarisce il grigio, come su un foglio bianco;
+- su C00 si accende da sola la nuova opzione **«Potenza dal grigio delle forme»** (impostazioni del livello, scheda *Riempimento*): ogni forma si incide con la potenza del suo grigio, **nero = Potenza massima**, grigi in proporzione fino alla **Potenza minima**, il **bianco non si incide**. Dove due forme si coprono conta quella sopra, come nel disegno; i fori restano vuoti;
+- con la *vista riempita* il piano mostra ogni forma con il suo grigio;
+- restano **come prima**: i loghi tutti neri (contorno e riempimento neri: una forma sola su C00), i riempimenti colorati, le linee aperte, i colori uguali a quelli dei livelli (SVG esportati da FreeLaserCut o da LightBurn). Senza l'opzione, o senza forme grigie, il G-code è identico a prima. Se C00 non è in Riempimento l'opzione non si accende da sola.
+- Nuova prova automatica: `tests/test_v207_svg_grigi.py` (43 controlli, Classica e Banco; 6 guasti messi apposta, tutti presi).
+- **Da provare sul programma vero:** il file di Inkscape di France_o (contorni blu e riempimenti grigi), inciso su legno.
+
 ## 0.20.6 — 18/11/2026
 La foto ritagliata con una forma si comporta come la sola parte che si vede, e si ritaglia anche con il laser in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri.
 
