@@ -3582,5 +3582,8 @@
  "Salva il lavoro…": "Guardar el trabajo…",
  "le foto partono sempre dall'alto, a righe orizzontali": "las fotos empiezan siempre desde arriba, en líneas horizontales",
  "riempimento a contorni non ancora previsto: fatto a righe": "relleno por contornos aún no previsto: hecho en líneas",
- "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "relleno inclinado o cruzado aún no previsto: líneas horizontales"
+ "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "relleno inclinado o cruzado aún no previsto: líneas horizontales",
+ "Scritte": "Textos",
+ "Potenza delle scritte del test: alzala se vengono troppo leggere": "Potencia de los textos de la prueba: súbela si salen demasiado claros",
+ "Velocità delle scritte del test: abbassala se vengono troppo leggere": "Velocidad de los textos de la prueba: bájala si salen demasiado claros"
 }

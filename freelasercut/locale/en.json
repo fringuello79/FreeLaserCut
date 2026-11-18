@@ -3582,5 +3582,8 @@
  "Salva il lavoro…": "Save the job…",
  "le foto partono sempre dall'alto, a righe orizzontali": "photos always start from the top, in horizontal lines",
  "riempimento a contorni non ancora previsto: fatto a righe": "offset fill not supported yet: done in lines",
- "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "angled or cross-hatch fill not supported yet: horizontal lines"
+ "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "angled or cross-hatch fill not supported yet: horizontal lines",
+ "Scritte": "Labels",
+ "Potenza delle scritte del test: alzala se vengono troppo leggere": "Power of the test labels: raise it if they come out too light",
+ "Velocità delle scritte del test: abbassala se vengono troppo leggere": "Speed of the test labels: lower it if they come out too light"
 }

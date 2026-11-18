@@ -64,6 +64,24 @@ def arrow_step():
         return 0.1
 
 
+def saved_anchor():
+    """0.20.6: punto di riferimento della barra numerica scelto l'ultima volta (rapporto FLC-20261118-1022-7487:
+    «torna al valore iniziale a ogni avvio»). Di partenza il centro (4); un valore rovinato torna al centro."""
+    from ..settings_store import app_settings
+
+    try:
+        v = int(app_settings().value("num_anchor", 4))
+    except (TypeError, ValueError):
+        return 4
+    return v if 0 <= v <= 8 else 4
+
+
+def save_anchor(v):
+    from ..settings_store import app_settings
+
+    app_settings().setValue("num_anchor", int(v))
+
+
 class NumericBar(QToolBar):
     """Posizione, misure e rotazione della selezione, più i comandi rapidi sulla selezione.
 
@@ -79,9 +97,10 @@ class NumericBar(QToolBar):
         self.setIconSize(QSize(14, 14))
         self.ed = editor
         self.cv = canvas
-        self.anchor = AnchorPicker(4, cell=5, gap=2)
+        self.anchor = AnchorPicker(saved_anchor(), cell=5, gap=2)
         self.anchor.setToolTip(tr("Punto di riferimento per posizione, scala e rotazione"))
         self.anchor.setProperty("help_key", "num:anchor")
+        self.anchor.changed.connect(save_anchor)  # 0.20.6: resta l'ultimo scelto anche dopo il riavvio
         self.anchor.changed.connect(lambda _: self.refresh())
         self.addWidget(self.anchor)
         # 0.20.3: ogni campo è largo quanto serve al numero più lungo che ci si aspetta (NumField.fit_text; «8» = una

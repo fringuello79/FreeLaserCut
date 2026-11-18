@@ -3582,5 +3582,8 @@
  "Salva il lavoro…": "Enregistrer le travail…",
  "le foto partono sempre dall'alto, a righe orizzontali": "les photos partent toujours du haut, en lignes horizontales",
  "riempimento a contorni non ancora previsto: fatto a righe": "remplissage par contours pas encore prévu : fait en lignes",
- "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "remplissage incliné ou croisé pas encore prévu : lignes horizontales"
+ "riempimento inclinato o incrociato non ancora previsto: righe orizzontali": "remplissage incliné ou croisé pas encore prévu : lignes horizontales",
+ "Scritte": "Textes",
+ "Potenza delle scritte del test: alzala se vengono troppo leggere": "Puissance des textes du test : augmentez-la s'ils sortent trop clairs",
+ "Velocità delle scritte del test: abbassala se vengono troppo leggere": "Vitesse des textes du test : réduisez-la s'ils sortent trop clairs"
 }

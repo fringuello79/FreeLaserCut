@@ -31,6 +31,12 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 
 **Camera della testa: «Rifai la calibrazione completa» dice sempre perché non parte.** Premendo il pulsante nella vista della testa, se la calibrazione non poteva partire (laser non connesso, macchina in allarme, un lavoro in corso, cartone che non entrerebbe nell'inquadratura) sembrava non succedere nulla: il motivo finiva in una riga che, con la camera già calibrata, veniva riscritta subito dalle coordinate. Ora compare un avviso sopra la vista, e i messaggi in quella riga restano leggibili per qualche secondo.
 
+**Il punto di riferimento resta quello scelto.** Il quadratino della barra delle misure (punto di riferimento per posizione, scala e rotazione) ora resta l'ultimo scelto anche dopo aver chiuso e riaperto il programma.
+
+**Test materiali: scritte leggibili.**
+- Potenza e velocità delle scritte (numeri di potenza e velocità) si scelgono nella finestra e si ricordano. Prima erano fisse e su un laser poco potente o un materiale scuro venivano troppo leggere.
+- Numeri arrotondati: niente più «33.3333%» o «41.7». Se una colonna è stretta i numeri si rimpiccioliscono o vanno una sì e una no su due righe, invece di sovrapporsi.
+
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 
 ## 0.20.5 — 17/11/2026

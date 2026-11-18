@@ -396,10 +396,11 @@ class _GridPreview(QWidget):
                     p.drawText(rect, Qt.AlignCenter, str(num[(r, c)]))
         p.setPen(QColor(C["muted"]))
         for r in range(rows):
-            p.drawText(QRectF(0, y0 + (rows - 1 - r) * cell, lab - 6, cell), Qt.AlignRight | Qt.AlignVCenter, f"{powers[r]:g}%")
+            p.drawText(QRectF(0, y0 + (rows - 1 - r) * cell, lab - 6, cell), Qt.AlignRight | Qt.AlignVCenter,
+                       mtest.power_label(powers[r]))
         for c in range(cols):
             p.drawText(QRectF(x0 + c * cell - 6, y0 + rows * cell + 2, cell + 12, 16), Qt.AlignCenter,
-                       units.fmt(speeds[c], unit=False))
+                       mtest.speed_label(speeds[c]))
         p.drawText(QRectF(x0, y0 + rows * cell + 16, cols * cell, 16), Qt.AlignRight, units.speed_unit())
         p.end()
 
@@ -436,6 +437,21 @@ class MaterialTestDialog(QDialog):
         self.y0 = _dspin(0, 2000, 20, 1, 5, " mm")
         self.labels = QCheckBox(tr("Etichette (potenza e velocità)"))
         self.labels.setChecked(True)
+        # 0.20.6 (rapporto FLC-20261118-0900-681F): potenza e velocità con cui si incidono le scritte. Prima erano
+        # fisse (25 %, 3000 mm/min) e su un diodo debole o un materiale scuro venivano troppo leggere. Si ricordano.
+        qs = self._qs_of(parent)
+        try:
+            lp = float(qs.value("material_test_label_power", 25.0))
+            ls = float(qs.value("material_test_label_speed", 3000.0))
+        except (TypeError, ValueError):
+            lp, ls = 25.0, 3000.0
+        self.label_power = _dspin(0.5, 100, min(max(lp, 0.5), 100.0), 1, 5, " %")
+        self.label_speed = units.SpeedSpin(10, 36000, min(max(ls, 10.0), 36000.0), 250)
+        self.label_power.setToolTip(tr("Potenza delle scritte del test: alzala se vengono troppo leggere"))
+        self.label_speed.setToolTip(tr("Velocità delle scritte del test: abbassala se vengono troppo leggere"))
+        lr = QHBoxLayout()
+        lr.addWidget(self.label_power)
+        lr.addWidget(self.label_speed)
         self.border = QCheckBox(tr("Ritaglia il test con una cornice"))
         self.markers = QCheckBox(tr("Riferimenti per leggere la foto (4 quadratini agli angoli)"))
         self.markers.setToolTip(tr("Servono per la taratura da foto: FreeLaserCut ritrova la griglia nella foto e "
@@ -475,6 +491,8 @@ class MaterialTestDialog(QDialog):
         f.addRow(tr("Passate"), self.passes)
         f.addRow(tr("Angolo in basso a sinistra"), posr)
         f.addRow("", self.labels)
+        self.label_row = QLabel(tr("Scritte"))
+        f.addRow(self.label_row, lr)
         f.addRow("", self.border)
         f.addRow("", self.markers)
         left.addWidget(section(tr("Griglia")))
@@ -540,6 +558,11 @@ class MaterialTestDialog(QDialog):
             w.valueChanged.connect(self._changed)
         self.mode.currentIndexChanged.connect(self._mode_changed)
         self.labels.toggled.connect(self._changed)
+        self.labels.toggled.connect(self._labels_toggled)
+        for w in (self.label_power, self.label_speed):
+            w.valueChanged.connect(self._changed)
+        self.label_power.valueChanged.connect(lambda v: self._qs().setValue("material_test_label_power", v))
+        self.label_speed.valueChanged.connect(lambda v: self._qs().setValue("material_test_label_speed", v))
         self.border.toggled.connect(self._changed)
         self.markers.toggled.connect(self._changed)
         self.title.textChanged.connect(self._changed)
@@ -563,6 +586,10 @@ class MaterialTestDialog(QDialog):
             self.rows.setValue(3)
             self.cols.setValue(4)
 
+    def _labels_toggled(self, on):
+        for w in (self.label_row, self.label_power, self.label_speed):
+            w.setEnabled(on)
+
     def _mode_changed(self):
         fill = self.mode.currentData() == "fill"
         self.interval.setEnabled(fill)
@@ -581,7 +608,8 @@ class MaterialTestDialog(QDialog):
                               cols=self.cols.value(), cell=self.cell.value(), gap=self.gap.value(),
                               interval=self.interval.value(), passes=self.passes.value(), x0=self.x0.value(),
                               y0=self.y0.value(), labels=self.labels.isChecked(), border=self.border.isChecked(),
-                              title=self.title.text().strip(), markers=self.markers.isChecked())
+                              title=self.title.text().strip(), markers=self.markers.isChecked(),
+                              label_power=self.label_power.value(), label_speed=self.label_speed.value())
 
     def _changed(self, *_):
         s = self.spec()
@@ -622,7 +650,11 @@ class MaterialTestDialog(QDialog):
 
     # ---------------------------------------------------------------- taratura da foto
     def _qs(self):
-        qs = getattr(self.parent(), "qs", None)
+        return self._qs_of(self.parent())
+
+    @staticmethod
+    def _qs_of(parent):
+        qs = getattr(parent, "qs", None)
         return qs if qs is not None else QSettings()
 
     def remember_spec(self):

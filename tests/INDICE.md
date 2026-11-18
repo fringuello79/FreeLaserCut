@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 196. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (14)
 
@@ -55,12 +55,13 @@ Suite: 196. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_varie.py`: Nesting manuale che sporge dai pannelli, elenco delle scorciatoie, Sculpfun E1 dalla scheda e tabella Sculpfun, Riconosci → Applica che tiene angolo e assi
 - `test_v195_varie.py` (Banco): Nesting manuale e scorciatoie nell'interfaccia Banco
 
-## Materiali (4)
+## Materiali (5)
 
 - `test_v03.py`: Materiali, test materiale, vettorizzazione, testo variabile e curvo
 - `test_v160.py`: Materiali imparati: la curva del tuo legno dalle foto dei test, toni e anteprima
 - `test_v160.py` (Banco): Materiali imparati nell'interfaccia Banco
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
+- `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati
 
 ## Foto e immagini (23)
 
@@ -188,7 +189,7 @@ Suite: 196. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (26)
+## Interfaccia (27)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -212,6 +213,7 @@ Suite: 196. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_barra.py`: Barra in basso: «File: …» leggibile, posizione e velocità vuote senza spazio, laser collegato senza allargare
 - `test_v202_barra.py` (Banco): Barra in basso leggibile nell'interfaccia Banco
 - `test_v203_misure.py` (Banco): Barra delle misure nell'interfaccia Banco: numeri interi senza allargare la barra
+- `test_v206_rapporti.py` (Banco): Rapporti del 18/11 nell'interfaccia Banco
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco
