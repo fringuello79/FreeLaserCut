@@ -2676,6 +2676,9 @@ class MainWindow(QMainWindow):
         if not sel:
             return ["paste", "paste_in_place", "-", "undo", "redo", "-", "select_all", "-", "import", "-", "fit"] + head
         keys = ["cut", "copy", "paste", "duplicate", "delete", "-"]
+        if len(sel) == 1 and isinstance(sel[0], ImageShape):
+            # 0.20.6 (Ale, 17/11): tasto destro su una foto: i due comandi che servono subito, senza cercarli nei menu
+            keys += ["photo", "trace", "-"]
         if len(sel) > 1:
             keys.append("group")
         if any(s.kind == "group" for s in sel):

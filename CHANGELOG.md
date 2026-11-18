@@ -50,6 +50,8 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 - Con lo strumento Nodi, trascinando l'estremo di una linea sopra l'estremo di un'altra linea le due diventano una linea sola (anche se l'altra non era selezionata). Prima si univano solo due estremi della stessa forma, oppure con il tasto J.
 - Togliendo con **D** un tratto in mezzo a una linea restano due linee separate, non una forma sola in due pezzi che si evidenziava tutta insieme.
 
+**Tasto destro su una foto.** Nel menu del tasto destro, su una foto, ci sono subito *Prepara foto…* e *Vettorizza immagine…*.
+
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 
 ## 0.20.5 — 17/11/2026

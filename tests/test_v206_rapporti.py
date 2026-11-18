@@ -17,6 +17,8 @@ A  FLC-20261117-1408-E933 (Creality con firmware «CV50-Pro»): la scheda interr
 L  camera della testa con lente molto grandangolare (camera di Ale, 18/11): il conto inverso torna su tutta l'immagine
    anche con una lente forte; con i puntini misurati dalla sua foto il modello completo è valido, viene scelto e sbaglia
    meno di un pixel; la vista dice quale calibrazione è in uso; le misure dell'ultima calibrazione entrano nel rapporto;
+M  tasto destro su una foto (Ale, 17/11): compaiono «Prepara foto» e «Vettorizza immagine»; su altre forme, su più
+   oggetti o sul vuoto il menu resta com'era;
 T  testi nuovi tradotti in tutte le lingue.
 Uso: python tests/test_v206_rapporti.py [classica|banco]
 """
@@ -397,6 +399,34 @@ check("le misure dell'ultima calibrazione si salvano (puntini visti, testa, erro
       and "prova" in data["messaggio"] and "provisional" not in data, list(data))
 check("…ed entrano nel rapporto per l'assistenza", '"obs_fit"' in diag.head_measures_text())
 check("…un guasto nel salvataggio non ferma niente", hg.save_measures(rep, "", path=os.path.join(TMP, "no", "x.json")) is None)
+
+print("--- M. tasto destro su una foto")
+from PIL import Image  # noqa: E402
+
+from freelasercut.core.document import ImageShape, RectShape  # noqa: E402
+
+w = MainWindow()
+ed = w.editor
+ed.doc.images["f"] = Image.new("L", (40, 30), 128)
+img = ImageShape("f", 40, 30, layer=1)
+rect = RectShape(20, 10, layer=1)
+ed.add([img, rect], "prova")
+ed.select([rect])
+base_rect = w.context_menu_keys()
+ed.select([img])
+k_img = w.context_menu_keys()
+check("su una foto: «Prepara foto» e «Vettorizza immagine», subito dopo taglia/copia/incolla",
+      k_img[:9] == ["cut", "copy", "paste", "duplicate", "delete", "-", "photo", "trace", "-"]
+      and w.acts["trace"].isEnabled(), k_img[:10])
+check("…il resto del menu della foto è quello di prima", [k for k in k_img if k not in ("photo", "trace")][6:] ==
+      [k for k in base_rect if k != "simplify"][5:] or set(base_rect) - {"simplify"} <= set(k_img), (k_img, base_rect))
+check("su un rettangolo il menu non cambia", "trace" not in base_rect and "photo" not in base_rect)
+ed.select([img, rect])
+check("su una foto insieme ad altro: niente voci della foto (il comando non potrebbe partire)",
+      "trace" not in w.context_menu_keys())
+ed.select([])
+check("sul vuoto il menu non cambia", "trace" not in w.context_menu_keys() and "paste" in w.context_menu_keys())
+w.close()
 
 print("--- T. traduzioni")
 keys = ("Scritte", "Potenza delle scritte del test: alzala se vengono troppo leggere",

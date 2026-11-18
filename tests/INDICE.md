@@ -19,7 +19,7 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_wifi.py` (Banco): Wi-Fi delle Longer nell'interfaccia Banco
 - `test_v205_scatti_wifi.py`: PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»
 - `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
-- `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa
+- `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto
 
 ## Telecamera e guardia fiamme (14)
 
