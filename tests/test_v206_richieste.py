@@ -571,28 +571,30 @@ a2 = run_dialog("none")
 check("C cuore applicato, poi Rettangolo: sul piano la foto torna senza forma", a1[:5, :5].min() >= 250 and a2.max() <= 45)
 
 # ====================================================================== D. ringraziamenti
-print("--- D. ringraziamenti: chi aiuta con continuità o con un contributo importante")
+print("--- D. ringraziamenti: dalla 0.20.6 chi aiuta in modo attivo e con regolarità, o con una donazione")
 rep = dialogs_report.ReportDialog(w) if hasattr(dialogs_report, "ReportDialog") else None
 if rep is not None:
     note = rep.thanks_note.text()
     check("D rapporto: la nota dice chi entra nell'elenco e non promette più che il nome comparirà",
-          "continuità" in note and "contributo importante" in note and "comparirà" not in note
+          "in modo attivo e con regolarità" in note and "donazione" in note and "comparirà" not in note
           and "freelasercut@gmail.com" in note)
     check("D rapporto: il segnaposto non promette", "se vuoi comparire" not in rep.thanks_name.placeholderText())
     rep.close()
 else:
     check("D finestra del rapporto trovata", False)
 src_thanks = open(os.path.join(ROOT, "freelasercut", "ui", "dialogs_thanks.py"), encoding="utf-8").read()
-check("D targa in Aiuto: stessa precisazione", "con continuità o con un contributo importante" in src_thanks
+check("D targa in Aiuto: stessa precisazione", "in modo attivo e con regolarità, o con una donazione" in src_thanks
       and "Vuoi esserci anche tu" not in src_thanks)
 priv = open(os.path.join(ROOT, "docs", "privacy.html"), encoding="utf-8").read()
 check("D informativa privacy (inglese e italiano): non per ogni rapporto, data aggiornata",
-      "not for every report" in priv and "non per ogni rapporto" in priv and "17 November 2026" in priv)
+      "not for every report" in priv and "non per ogni rapporto" in priv and "18 November 2026" in priv
+      and "donation" in priv and "donazione" in priv)
 site = open(os.path.join(ROOT, "docs", "index.html"), encoding="utf-8").read()
 readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
-check("D sito e README: stessa precisazione", "regularly or with an important contribution" in site
-      and "con continuità o con un contributo importante" in site
-      and "con continuità o con un contributo importante" in readme and "Vuoi esserci anche tu" not in readme)
+check("D sito e README: fino alla 0.20.6 chi ha lasciato un nome, poi chi aiuta con regolarità o con una donazione",
+      "actively and regularly" in site and "in modo attivo e con regolarità" in site
+      and "in modo attivo e con regolarità" in readme and "Fino alla versione 0.20.6" in readme
+      and "Fino alla versione 0.20.6" in site and "Vuoi esserci anche tu" not in readme)
 
 # ====================================================================== E. ingranaggio
 print("--- E. ingranaggio con i parametri veri")

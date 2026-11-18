@@ -3514,7 +3514,6 @@
  "Rettangoli: un valore negativo raccorda gli angoli verso l'interno": "Rectangles: a negative value scoops the corners inwards",
  "Con questi valori l'offset non produce forme": "With these values the offset produces no shapes",
  "20° è lo standard; 14,5° nelle ruote vecchie; 25° denti più robusti": "20° is the standard; 14.5° on old gears; 25° for stronger teeth",
- "Aiuti FreeLaserCut con continuità o con un contributo importante? Scrivi il tuo nome quando mandi un rapporto all'assistenza.": "Do you help FreeLaserCut regularly or with an important contribution? Write your name when you send a report to support.",
  "Alleggerimenti": "Lightening holes",
  "Angolo di pressione": "Pressure angle",
  "Cava larghezza": "Keyway width",
@@ -3541,7 +3540,6 @@
  "Gioco": "Backlash",
  "Grandezza del dente: diametro primitivo = modulo × denti. Due ruote ingranano se hanno lo stesso modulo e lo stesso angolo di pressione": "Tooth size: pitch diameter = module × teeth. Two gears mesh if they have the same module and the same pressure angle",
  "Ingranaggio delle versioni precedenti (denti semplici). Con i denti veri a evolvente puoi scegliere modulo, angolo di pressione, gioco, foro e alleggerimenti.": "Gear from earlier versions (simple teeth). With true involute teeth you can choose module, pressure angle, backlash, hole and lightening holes.",
- "L'elenco dei ringraziamenti raccoglie chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Se scrivi un nome chiedi di farne parte: lo aggiungiamo quando l'aiuto rientra in questi casi. Sarà pubblico solo il nome (nel programma, sul sito e su GitHub); puoi farlo togliere quando vuoi scrivendo a {0}.": "The acknowledgements list gathers those who help FreeLaserCut regularly or with an important contribution (repeated tests, ideas, code, translations, support). By writing a name you ask to be included: we add it when the help falls into these cases. Only the name will be public (in the program, on the website and on GitHub); you can have it removed at any time by writing to {0}.",
  "Modulo": "Module",
  "Originale · trascina per ritagliare, poi sposta il riquadro o tira i bordi · rotella per lo zoom, tasto destro per spostarti": "Original · drag to crop, then move the box or pull its edges · wheel to zoom, right button to pan",
  "Raccordo al piede": "Root fillet",
@@ -3598,5 +3596,7 @@
  "In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm": "In use: full calibration of {0} · largest error {1:.2f} mm",
  "In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm": "In use: full calibration of {0} · not very precise, largest error {1:.2f} mm",
  "Linee unite: ora sono una linea sola": "Lines joined: they are now a single line",
- "Tratto tolto: ora sono due linee separate": "Segment removed: they are now two separate lines"
+ "Tratto tolto: ora sono due linee separate": "Segment removed: they are now two separate lines",
+ "Dalla versione 0.20.6 l'elenco dei ringraziamenti raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se scrivi un nome chiedi di farne parte: lo aggiungiamo quando l'aiuto rientra in questi casi. Sarà pubblico solo il nome (nel programma, sul sito e su GitHub); puoi farlo togliere quando vuoi scrivendo a {0}.": "From version 0.20.6 the acknowledgements list gathers those who help FreeLaserCut actively and regularly (repeated tests, ideas, code, translations) or with a donation. If you write a name you are asking to be included: we add it when the help falls into these cases. Only the name will be public (in the program, on the website and on GitHub); you can have it removed at any time by writing to {0}.",
+ "Aiuti FreeLaserCut in modo attivo e con regolarità, o con una donazione? Scrivi il tuo nome quando mandi un rapporto all'assistenza.": "Do you help FreeLaserCut actively and regularly, or with a donation? Write your name when you send a report to support."
 }

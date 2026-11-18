@@ -1,6 +1,6 @@
 # Novità di FreeLaserCut
 
-## 0.20.6 — 17/11/2026
+## 0.20.6 — 18/11/2026
 La foto ritagliata con una forma si comporta come la sola parte che si vede, e si ritaglia anche con il laser in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri.
 
 **Foto ritagliata con una forma: conta solo quello che si vede** (segnalazione di Evoluzione2). Dopo *Disponi → Ritaglia la foto con la forma* le misure, le maniglie e il riquadro restavano quelli della foto intera, e non si capiva se il materiale bastava. Ora per tutto il programma la foto è la sola parte ritagliata: misure L e A, maniglie, *Allinea*, *Ottimizza lo spazio*, la stampa di *Stampa e taglia*. La foto intera resta salvata nel progetto: *Togli il ritaglio* la rimette com'era, anche dopo un mese. Il G-code della foto non cambia di un punto.
@@ -52,7 +52,7 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 
 **Tasto destro su una foto.** Nel menu del tasto destro, su una foto, ci sono subito *Prepara foto…* e *Vettorizza immagine…*.
 
-**Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
+**Ringraziamenti.** Grazie a Paolo1968 e DolomiticHunter, che entrano nell'elenco. Fino a questa versione l'elenco ringrazia tutti quelli che ci hanno lasciato il proprio nome in un rapporto all'assistenza. Da qui in poi raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione: scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica. Lo spiegano il rapporto, la targa di *Aiuto → Ringraziamenti*, il sito e l'informativa sulla privacy.
 
 ## 0.20.5 — 17/11/2026
 Niente più scatti quando si selezionano e si spostano tanti tracciati su un PC lento; il Wi-Fi delle schede Makerbase dice la cosa giusta quando il laser non trova la rete; angoli dei rettangoli raccordati verso l'interno, anteprima dell'offset sul piano, finestra della camera della testa che sta in ogni schermo, sfondo del piano che si cambia con un clic, la versione per Linux parte anche su openSUSE, e un grazie a chi ci ha aiutato.

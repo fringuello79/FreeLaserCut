@@ -3514,7 +3514,6 @@
  "Rettangoli: un valore negativo raccorda gli angoli verso l'interno": "Retângulos: um valor negativo arredonda os cantos para dentro",
  "Con questi valori l'offset non produce forme": "Com estes valores o offset não produz formas",
  "20° è lo standard; 14,5° nelle ruote vecchie; 25° denti più robusti": "20° é o padrão; 14,5° em engrenagens antigas; 25° dentes mais robustos",
- "Aiuti FreeLaserCut con continuità o con un contributo importante? Scrivi il tuo nome quando mandi un rapporto all'assistenza.": "Ajuda o FreeLaserCut com regularidade ou com uma contribuição importante? Escreva o seu nome quando enviar um relatório ao suporte.",
  "Alleggerimenti": "Aligeiramentos",
  "Angolo di pressione": "Ângulo de pressão",
  "Cava larghezza": "Largura do rasgo",
@@ -3541,7 +3540,6 @@
  "Gioco": "Folga",
  "Grandezza del dente: diametro primitivo = modulo × denti. Due ruote ingranano se hanno lo stesso modulo e lo stesso angolo di pressione": "Tamanho do dente: diâmetro primitivo = módulo × dentes. Duas rodas engrenam se tiverem o mesmo módulo e o mesmo ângulo de pressão",
  "Ingranaggio delle versioni precedenti (denti semplici). Con i denti veri a evolvente puoi scegliere modulo, angolo di pressione, gioco, foro e alleggerimenti.": "Engrenagem de versões anteriores (dentes simples). Com dentes reais em evolvente pode escolher módulo, ângulo de pressão, folga, furo e aligeiramentos.",
- "L'elenco dei ringraziamenti raccoglie chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Se scrivi un nome chiedi di farne parte: lo aggiungiamo quando l'aiuto rientra in questi casi. Sarà pubblico solo il nome (nel programma, sul sito e su GitHub); puoi farlo togliere quando vuoi scrivendo a {0}.": "A lista de agradecimentos reúne quem ajuda o FreeLaserCut com regularidade ou com uma contribuição importante (testes repetidos, ideias, código, traduções, apoio). Ao escrever um nome pede para fazer parte: adicionamo-lo quando a ajuda se enquadra nestes casos. Só o nome será público (no programa, no site e no GitHub); pode pedir para o retirar quando quiser escrevendo para {0}.",
  "Modulo": "Módulo",
  "Originale · trascina per ritagliare, poi sposta il riquadro o tira i bordi · rotella per lo zoom, tasto destro per spostarti": "Original · arraste para recortar, depois mova a moldura ou puxe as bordas · roda para o zoom, botão direito para se deslocar",
  "Raccordo al piede": "Raio do pé",
@@ -3598,5 +3596,7 @@
  "In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm": "Em uso: calibração completa de {0} · erro máximo {1:.2f} mm",
  "In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm": "Em uso: calibração completa de {0} · pouco precisa, erro máximo {1:.2f} mm",
  "Linee unite: ora sono una linea sola": "Linhas unidas: agora são uma só linha",
- "Tratto tolto: ora sono due linee separate": "Troço removido: agora são duas linhas separadas"
+ "Tratto tolto: ora sono due linee separate": "Troço removido: agora são duas linhas separadas",
+ "Dalla versione 0.20.6 l'elenco dei ringraziamenti raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se scrivi un nome chiedi di farne parte: lo aggiungiamo quando l'aiuto rientra in questi casi. Sarà pubblico solo il nome (nel programma, sul sito e su GitHub); puoi farlo togliere quando vuoi scrivendo a {0}.": "A partir da versão 0.20.6 a lista de agradecimentos reúne quem ajuda o FreeLaserCut de forma ativa e com regularidade (testes repetidos, ideias, código, traduções) ou com um donativo. Se escrever um nome pede para fazer parte dela: acrescentamo-lo quando a ajuda se enquadra nestes casos. Só o nome será público (no programa, no site e no GitHub); pode pedir que seja retirado quando quiser escrevendo para {0}.",
+ "Aiuti FreeLaserCut in modo attivo e con regolarità, o con una donazione? Scrivi il tuo nome quando mandi un rapporto all'assistenza.": "Ajuda o FreeLaserCut de forma ativa e com regularidade, ou com um donativo? Escreva o seu nome quando enviar um relatório ao suporte."
 }

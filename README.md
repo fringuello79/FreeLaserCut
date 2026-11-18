@@ -298,9 +298,9 @@ Laser di classe 4, 450 nm. Indossa occhiali protettivi adatti, non lasciare mai 
 
 ## Ringraziamenti
 
-FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah.
+FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter.
 
-Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. L'elenco raccoglie chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Se è il tuo caso, scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
+Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. Fino alla versione 0.20.6 l'elenco ringrazia anche chi ci ha lasciato il proprio nome in un rapporto all'assistenza. Da qui in poi raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se è il tuo caso, scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
 
 ## Licenza, garanzia, sostegno
 

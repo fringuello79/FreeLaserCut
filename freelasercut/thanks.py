@@ -20,6 +20,8 @@ NAMES = (
     "Roberto C.",
     "SpikeTheDragon40k",
     "Deborah",
+    "Paolo1968",  # 0.20.6: rapporto del 18/11
+    "DolomiticHunter",  # 0.20.6: rapporto del 18/11
 )
 
 

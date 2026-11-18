@@ -3514,7 +3514,6 @@
  "Rettangoli: un valore negativo raccorda gli angoli verso l'interno": "Rectángulos: un valor negativo redondea las esquinas hacia dentro",
  "Con questi valori l'offset non produce forme": "Con estos valores el offset no produce formas",
  "20° è lo standard; 14,5° nelle ruote vecchie; 25° denti più robusti": "20° es el estándar; 14,5° en engranajes antiguos; 25° dientes más robustos",
- "Aiuti FreeLaserCut con continuità o con un contributo importante? Scrivi il tuo nome quando mandi un rapporto all'assistenza.": "¿Ayudas a FreeLaserCut con regularidad o con una contribución importante? Escribe tu nombre cuando envíes un informe al soporte.",
  "Alleggerimenti": "Aligeramientos",
  "Angolo di pressione": "Ángulo de presión",
  "Cava larghezza": "Ancho del chavetero",
@@ -3541,7 +3540,6 @@
  "Gioco": "Juego",
  "Grandezza del dente: diametro primitivo = modulo × denti. Due ruote ingranano se hanno lo stesso modulo e lo stesso angolo di pressione": "Tamaño del diente: diámetro primitivo = módulo × dientes. Dos ruedas engranan si tienen el mismo módulo y el mismo ángulo de presión",
  "Ingranaggio delle versioni precedenti (denti semplici). Con i denti veri a evolvente puoi scegliere modulo, angolo di pressione, gioco, foro e alleggerimenti.": "Engranaje de versiones anteriores (dientes simples). Con los dientes reales de evolvente puedes elegir módulo, ángulo de presión, juego, agujero y aligeramientos.",
- "L'elenco dei ringraziamenti raccoglie chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Se scrivi un nome chiedi di farne parte: lo aggiungiamo quando l'aiuto rientra in questi casi. Sarà pubblico solo il nome (nel programma, sul sito e su GitHub); puoi farlo togliere quando vuoi scrivendo a {0}.": "La lista de agradecimientos reúne a quienes ayudan a FreeLaserCut con regularidad o con una contribución importante (pruebas repetidas, ideas, código, traducciones, apoyo). Si escribes un nombre pides formar parte: lo añadimos cuando la ayuda entra en estos casos. Solo el nombre será público (en el programa, en el sitio y en GitHub); puedes hacerlo quitar cuando quieras escribiendo a {0}.",
  "Modulo": "Módulo",
  "Originale · trascina per ritagliare, poi sposta il riquadro o tira i bordi · rotella per lo zoom, tasto destro per spostarti": "Original · arrastra para recortar, luego mueve el recuadro o tira de los bordes · rueda para el zoom, botón derecho para desplazarte",
  "Raccordo al piede": "Redondeo del pie",
@@ -3598,5 +3596,7 @@
  "In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm": "En uso: calibración completa del {0} · error máximo {1:.2f} mm",
  "In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm": "En uso: calibración completa del {0} · poco precisa, error máximo {1:.2f} mm",
  "Linee unite: ora sono una linea sola": "Líneas unidas: ahora son una sola línea",
- "Tratto tolto: ora sono due linee separate": "Tramo eliminado: ahora son dos líneas separadas"
+ "Tratto tolto: ora sono due linee separate": "Tramo eliminado: ahora son dos líneas separadas",
+ "Dalla versione 0.20.6 l'elenco dei ringraziamenti raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se scrivi un nome chiedi di farne parte: lo aggiungiamo quando l'aiuto rientra in questi casi. Sarà pubblico solo il nome (nel programma, sul sito e su GitHub); puoi farlo togliere quando vuoi scrivendo a {0}.": "Desde la versión 0.20.6 la lista de agradecimientos reúne a quienes ayudan a FreeLaserCut de forma activa y con regularidad (pruebas repetidas, ideas, código, traducciones) o con una donación. Si escribes un nombre pides formar parte de ella: lo añadimos cuando la ayuda entra en estos casos. Solo el nombre será público (en el programa, en la web y en GitHub); puedes pedir que se quite cuando quieras escribiendo a {0}.",
+ "Aiuti FreeLaserCut in modo attivo e con regolarità, o con una donazione? Scrivi il tuo nome quando mandi un rapporto all'assistenza.": "¿Ayudas a FreeLaserCut de forma activa y con regularidad, o con una donación? Escribe tu nombre cuando envíes un informe al soporte."
 }
