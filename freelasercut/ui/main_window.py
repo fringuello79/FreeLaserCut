@@ -1217,10 +1217,17 @@ class MainWindow(QMainWindow):
         mono = f"font-family: '{style.MONO_FONT}', Consolas, monospace; font-size: 8.5pt;"
         fm = QFontMetrics(style.mono_font(8.5))
 
+        def own_fm(lab):
+            # 0.20.7: la misura con il carattere con cui la scritta si disegna davvero (quello del suo stile); se il
+            # carattere scelto manca e Qt ne usa un altro, prima la misura e il disegno non coincidevano più e i numeri
+            # che cambiano spostavano il resto della barra (prove su Windows con i caratteri veri, 18/11)
+            lab.ensurePolished()
+            return QFontMetrics(lab.font()) if lab.font().family() else fm
+
         def fixed(sample):  # larghezza fissa: i numeri che cambiano non spostano il resto della barra
             lab = QLabel("")
             lab.setStyleSheet(mono)
-            lab.setFixedWidth(fm.horizontalAdvance(sample) + 14)
+            lab.setFixedWidth(max(fm.horizontalAdvance(sample), own_fm(lab).horizontalAdvance(sample)) + 14)
             lab.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             return lab
 
@@ -1230,6 +1237,7 @@ class MainWindow(QMainWindow):
         def reserved(sample):  # 0.20.2: come fixed(), ma vuota non occupa spazio e, se lo spazio manca, si accorcia
             lab = ShrinkLabel("", reserve=fm.horizontalAdvance(sample) + 14, elide=Qt.ElideRight)
             lab.setStyleSheet(mono)
+            lab._reserve = max(fm.horizontalAdvance(sample), own_fm(lab).horizontalAdvance(sample)) + 14
             lab.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             return lab
 

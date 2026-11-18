@@ -105,14 +105,19 @@ def test_negative_space():
     spin(2.5)
     c.home()
     t = time.time()
-    while "h" not in homed and time.time() - t < 15:
+    while "h" not in homed and time.time() - t < 40:  # 0.20.7: il Mac di GitHub è più lento, 15 s non bastavano
         spin(0.1)
     check("homing in coordinate negative riconosciuto", homed.get("n") is True, str(c.last_status.get("MPos")))
     p = MachineProfile()
     p.negative_space = True
     mx, my = p.to_machine(300, 200)
     c.goto_machine(mx, my, 20000)
-    spin(1.5)
+    t = time.time()  # 0.20.7: aspetta che arrivi (al massimo 15 s), non un tempo fisso
+    while time.time() - t < 15:
+        spin(0.25)
+        bx, by = p.to_bed(*c.last_status["MPos"][:2])
+        if abs(bx - 300) < 0.01 and abs(by - 200) < 0.01 and c.last_status.get("state", "Idle") == "Idle":
+            break
     bx, by = p.to_bed(*c.last_status["MPos"][:2])
     check("vai-qui sul piano con coordinate negative", abs(bx - 300) < 0.01 and abs(by - 200) < 0.01, f"piano {bx:.1f},{by:.1f}")
     c.disconnect_port()
