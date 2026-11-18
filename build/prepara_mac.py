@@ -35,8 +35,11 @@ PY_MINOR = ".".join(PY_VERSION.split(".")[:2])  # 3.14
 ARCH_PBS = {"arm64": "aarch64-apple-darwin", "x86_64": "x86_64-apple-darwin"}
 # OpenCV senza la sua copia di Qt e senza finestre sue (come su Linux): la camera la legge lo stesso
 MAC_PACKAGES = [p.replace("opencv-python==", "opencv-python-headless==") for p in PACKAGES]
+# numba non esiste più per i Mac Intel (dalla 0.63 solo Apple Silicon): lì il programma usa le stesse funzioni in
+# Python puro (più lente su foto grandi e vettorizzazione), come quando numba manca
+NO_INTEL = ("numba==",)
 TRIM_STDLIB = ["test", "idlelib", "tkinter", "turtledemo", "ensurepip", "lib2to3", "pydoc_data"]
-PYSIDE_TOOLS = ["assistant", "designer", "linguist", "lrelease", "lupdate", "qmlformat", "qmllint", "qmlls", "rcc",
+PYSIDE_TOOLS = ["scripts", "assistant", "designer", "linguist", "lrelease", "lupdate", "qmlformat", "qmllint", "qmlls", "rcc",
                 "uic", "balsam", "balsamui", "svgtoqml", "qsb", "Assistant.app", "Designer.app", "Linguist.app"]
 BUNDLE_ID = "io.github.fringuello79.freelasercut"
 MIN_MACOS = "13.0"  # Qt 6.12 (PySide6) chiede macOS 13 Ventura o più recente
@@ -48,11 +51,13 @@ LAUNCHER = r"""#!/bin/sh
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PY="$HERE/FreeLaserCut-python"
+# la cache di numba fuori dal pacchetto (firmato: non va cambiato dopo)
+export NUMBA_CACHE_DIR="$HOME/Library/Caches/FreeLaserCut/numba"
 if [ "$1" = "--mcp-server" ]; then
     shift
-    exec "$PY" -I -m freelasercut.mcp_server "$@"
+    exec "$PY" -I -B -m freelasercut.mcp_server "$@"
 fi
-exec "$PY" -I -m freelasercut "$@"
+exec "$PY" -I -B -m freelasercut "$@"
 """
 
 LEGGIMI = """FreeLaserCut per macOS — ANTEPRIMA
@@ -163,8 +168,9 @@ def main():
         raise SystemExit(f"Questo Mac è {platform.machine()}: per {args.arch} serve un Mac {args.arch} (pip usa il "
                          "Python del pacchetto, che deve poter girare qui).")
     site = os.path.join(stdlib, "site-packages")
+    pkgs = [p for p in MAC_PACKAGES if not (args.arch == "x86_64" and p.startswith(NO_INTEL))]
     subprocess.check_call([py, "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
-                           "--only-binary=:all:", "--upgrade", *MAC_PACKAGES])
+                           "--only-binary=:all:", "--upgrade", *pkgs])
     for d in TRIM_SITE:
         shutil.rmtree(os.path.join(site, d), ignore_errors=True)
     pyside = os.path.join(site, "PySide6")
@@ -186,7 +192,9 @@ def main():
         shutil.copy2(os.path.join(ROOT, f), res)
     shutil.copytree(os.path.join(ROOT, "licenze-terze-parti"), os.path.join(res, "licenze-terze-parti"))
     # .pyc compilati ora: il pacchetto firmato non va più cambiato (Python non deve scriverli dopo)
-    subprocess.check_call([py, "-m", "compileall", "-q", "-j", "0", app_dir, stdlib])
+    subprocess.check_call([py, "-m", "compileall", "-q", "-j", "0", app_dir])  # il programma: deve riuscire tutto
+    # le librerie: qualche file di modello non è Python vero (si compila quello che si può, come fa pip)
+    subprocess.call([py, "-m", "compileall", "-q", "-j", "0", stdlib], stdout=subprocess.DEVNULL)
 
     step("FreeLaserCut.app")
     macos = os.path.join(contents, "MacOS")
