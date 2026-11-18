@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 200. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 202. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (15)
 
@@ -89,7 +89,7 @@ Suite: 200. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v206_xtool_xs.py`: Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori
 - `test_v206_xtool_m2.py`: Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area
 
-## Lavoro e G-code (26)
+## Lavoro e G-code (28)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -116,6 +116,8 @@ Suite: 200. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v203_testo.py` (Banco): Testo: anteprima del carattere e spaziature nell'interfaccia Banco
 - `test_v203_misure.py`: Barra delle misure: caselle X, Y, L, A, R e rotazione larghe quanto serve al numero (la prima cifra non esce più tagliata)
 - `test_v207_svg_grigi.py`: SVG con contorno e riempimento separati da soli; riempimenti in toni di grigio con la potenza dal grigio di ogni forma (nero = massima, bianco = non si incide), forme sopra che coprono quelle sotto, fori vuoti; loghi neri, colori e file di prima come prima; anteprima dei toni; salvataggio; traduzioni
+- `test_v207_xtool_m2_link.py`: xTool M2, collegamento diretto (sperimentale): buste e protocollo, abbinamento con il pulsante e gettone, invio del lavoro e dei parametri come xTool Studio, attesa del pulsante, pausa e annullamento, macchina occupata, testa diversa, file scartato, collegamento perso; finestra di configurazione; G-code del piano adattato al laser
+- `test_v207_xtool_m2_link.py` (Banco): xTool M2, collegamento diretto e G-code del piano nell'interfaccia Banco
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
 ## Macchina, connessione e profili (40)

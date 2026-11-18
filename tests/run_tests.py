@@ -543,6 +543,8 @@ if __name__ == "__main__":
     run_suite("test_v206_rapporti.py", "Rapporti del 18/11 nell'interfaccia Banco", "banco")
     run_suite("test_v207_svg_grigi.py", "SVG con contorno e riempimento separati da soli; riempimenti in toni di grigio con la potenza dal grigio di ogni forma (nero = massima, bianco = non si incide), forme sopra che coprono quelle sotto, fori vuoti; loghi neri, colori e file di prima come prima; anteprima dei toni; salvataggio; traduzioni")
     run_suite("test_v207_svg_grigi.py", "SVG con riempimenti grigi nell'interfaccia Banco", "banco")
+    run_suite("test_v207_xtool_m2_link.py", "xTool M2, collegamento diretto (sperimentale): buste e protocollo, abbinamento con il pulsante e gettone, invio del lavoro e dei parametri come xTool Studio, attesa del pulsante, pausa e annullamento, macchina occupata, testa diversa, file scartato, collegamento perso; finestra di configurazione; G-code del piano adattato al laser")
+    run_suite("test_v207_xtool_m2_link.py", "xTool M2, collegamento diretto e G-code del piano nell'interfaccia Banco", "banco")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")

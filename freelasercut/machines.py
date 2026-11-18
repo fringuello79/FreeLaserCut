@@ -97,6 +97,8 @@ CATALOG = (
     ("Atomstack A5 Pro", "Atomstack", 410, 400, "5–5,5 W", 10000),
     # 0.18.1: area 381 × 305 con X = 381 (la scheda del Falcon A1 risponde $130=381, $131=305); prima era invertita
     ("Creality Falcon A1 10W", "Creality", 381, 305, "10 W", 36000),
+    # 0.20.7: Falcon A1 Pro 20W (domanda da YouTube): area 358 × 268 mm, 600 mm/s, stessa famiglia del Falcon A1
+    ("Creality Falcon A1 Pro 20W", "Creality", 358, 268, "20 W", 36000),
     ("Creality Falcon2 Pro 22W / 40W", "Creality", 400, 415, "22–40 W", 20000),
     ("Creality Falcon2 Pro 60W", "Creality", 400, 400, "60 W", 20000),
     ("Two Trees TTS-10 Pro", "Two Trees", 300, 300, "10 W", 30000),
@@ -216,6 +218,7 @@ SOURCES = {
     "Sculpfun C1 6W": "https://eu.sculpfun.com/products/sculpfun-c1-6w-mini-portable-laser-engraver",
     "Atomstack A5 Pro": "https://atomstack.com/products/refurbished-atomstack-a5-m50-pro-laser-engraver",
     "Creality Falcon A1 10W": "https://www.crealityfalcon.com/products/falcon-a1-10w-enclosed-laser-engraver-and-cutter",
+    "Creality Falcon A1 Pro 20W": "https://www.crealityfalcon.com/products/falcon-a1-pro-20w-dual-laser-engraver",
     "Creality Falcon2 Pro 22W / 40W": "https://crealityfalcon.com/products/falcon2-pro-60w-enclosed-laser-cutter-and-engraver",
     "Creality Falcon2 Pro 60W": "https://crealityfalcon.com/products/falcon2-pro-60w-enclosed-laser-cutter-and-engraver",
     "Two Trees TTS-10 Pro": "https://uk.twotrees3d.com/collections/tts-series/products/tts-10-pro-diode-laser-engraver-twotrees",
@@ -271,6 +274,9 @@ NOTES["Creality Falcon A1 10W"] = tr(
     "La telecamera del Falcon A1 è nel coperchio e passa dallo stesso cavo USB: nel pannello Camera si chiama di "
     "solito «Creality Falcon Camera». Usala con il coperchio chiuso bene (socchiuso cambia l'inquadratura) e con la "
     "luce accesa. Se l'immagine è nera premi ⟳ nel pannello Camera.")
+NOTES["Creality Falcon A1 Pro 20W"] = tr(
+    "Falcon A1 Pro: stessa famiglia del Falcon A1, area 358 × 268 mm. Collegando la macchina, «Leggi dalla macchina» "
+    "legge l'area vera dalla scheda. Il modulo a infrarosso da 2 W non è ancora stato provato con FreeLaserCut.")
 for _n in ("Mecpow X3S 7W", "Mecpow X3S 12W"):
     NOTES[_n] = tr("Con il kit di estensione dell'asse Y (venduto a parte) l'area diventa 360 × 730 mm: collegando la "
                    "macchina e premendo «Leggi dalla macchina», l'area vera si legge dalla scheda.")
@@ -322,7 +328,7 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "Creality CR-Laser Falcon 5W": (0.06, 0.06),
          "Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06), "Sculpfun SF-A9 40W": (0.10, 0.15),
          "Sculpfun iCube Pro Max 10W": (0.08, 0.08), "Sculpfun iCube Ultra 12W": (0.08, 0.08),
-         "Atomstack A5 Pro": (0.08, 0.08), "Creality Falcon A1 10W": (0.06, 0.08),
+         "Atomstack A5 Pro": (0.08, 0.08), "Creality Falcon A1 10W": (0.06, 0.08), "Creality Falcon A1 Pro 20W": (0.08, 0.10),
          "Creality Falcon2 Pro 22W / 40W": (0.08, 0.12), "Creality Falcon2 Pro 60W": (0.08, 0.15),
          "Two Trees TTS-10 Pro": (0.08, 0.08), "Two Trees TTS-20 Pro": (0.13, 0.145),
          "AlgoLaser Alpha 22W": (0.16, 0.14), "AlgoLaser Alpha MK2 20W": (0.16, 0.14),

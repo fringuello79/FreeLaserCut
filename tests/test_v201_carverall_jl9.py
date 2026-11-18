@@ -85,8 +85,11 @@ if old is None:  # copia senza la storia di git: confronto con i valori noti di 
     check("(senza git) le voci vicine restano com'erano",
           next(c for c in machines.CATALOG if c[0] == SWIFT[0]) == (SWIFT[0], "Atomstack", 300, 300, "7 W", 10000))
 else:
+    # voci aggiunte dopo la 0.20.1 (vicino ai modelli della stessa famiglia): fuori dal confronto
+    LATER = {"Creality Falcon A1 Pro 20W"}
+    cat_now = [c for c in machines.CATALOG if c[0] not in LATER]
     check("tutte le voci di prima identiche e nello stesso ordine, più la JL9 in fondo",
-          tuple(machines.CATALOG[:-1]) == tuple(old) and machines.CATALOG[-1][0] == JL9,
+          tuple(cat_now[:-1]) == tuple(old) and cat_now[-1][0] == JL9,
           (len(old), len(machines.CATALOG)))
 
 # ------------------------------------------------------------------ traduzioni

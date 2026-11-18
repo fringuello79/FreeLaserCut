@@ -265,6 +265,10 @@ class MainWindow(QMainWindow):
             "export_m2": A(tr("Lavoro per xTool M2 (sperimentale)…"), self.file_export_m2, None, "gcode",
                            tr("In prova, solo per la xTool M2: scrive il lavoro nel linguaggio della macchina. Non lo "
                               "invia e non è ancora stato provato su una M2 vera")),
+            # 0.20.7, sperimentale: configurazione della M2 e collegamento diretto (abbinamento col pulsante, invio)
+            "m2_link": A(tr("xTool M2: collega e invia (sperimentale)…"), self.m2_link_dialog, None, "connect",
+                         tr("In prova, solo per la xTool M2: configurazione, collegamento in rete con il pulsante della "
+                            "macchina, invio della cornice e del lavoro, pausa e annullamento")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -619,7 +623,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "m2_link", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -1818,6 +1822,20 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(msg, 12000)
         return rep
 
+    def m2_link_dialog(self, *_):
+        """0.20.7, sperimentale: configurazione e collegamento diretto con la xTool M2 (finestra non bloccante)."""
+        from .. import admin
+        from .dialogs_m2link import M2LinkDialog
+
+        if not admin.unlocked(self.qs):
+            return None
+        dlg = getattr(self, "_m2_dialog", None)
+        if dlg is None or not dlg.isVisible():
+            dlg = self._m2_dialog = M2LinkDialog(self)
+        dlg.show()
+        dlg.raise_()
+        return dlg
+
     def file_export_m2(self, *_, path=None, laser_w=None, cut_layers=None, thickness=None):
         """0.20.6, sperimentale: il lavoro per la xTool M2 nel suo linguaggio, più la cornice a potenza zero.
         Non viene inviato alla macchina. -> resoconto di xtool_m2.build, o None se si rinuncia o non si può."""
@@ -2732,6 +2750,7 @@ class MainWindow(QMainWindow):
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
+        self.acts["m2_link"].setVisible(admin.unlocked(self.qs))  # 0.20.7: collegamento diretto con la M2
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 
@@ -3866,6 +3885,13 @@ class MainWindow(QMainWindow):
             return
         with open(path, encoding="utf-8", errors="replace") as fh:
             lines = fh.read().splitlines()
+        from ..core import plane_gcode
+
+        plane_note = ""
+        if plane_gcode.is_plane(lines):  # 0.20.7: G-code «del piano» (da un ponte), funzione in prova
+            lines, plane_note = self._plane_gcode(lines, os.path.basename(path))
+            if lines is None:
+                return None
         pv = gcode_preview.parse(lines, profile=self.profile)
         gcode.unmap_preview(pv, self.profile)  # assi invertiti: piano = origine - uscita; 0.19.3: piano ruotato
         off = self.work_origin_on_bed()
@@ -3873,9 +3899,50 @@ class MainWindow(QMainWindow):
         if not self.ctl.connected:
             self.statusBar().showMessage(tr("Anteprima di {0}: connetti la macchina per eseguirlo", os.path.basename(path)), 6000)
             return
-        r = QMessageBox.question(self, tr("Esegui file G-code"), tr("{0}\n{1} righe · tempo stimato {2}\n\nOcchiali indossati, materiale fissato e a fuoco?\nAvvio?", os.path.basename(path), len(lines), _hms(pv.seconds)))
+        r = QMessageBox.question(self, tr("Esegui file G-code"), tr("{0}\n{1} righe · tempo stimato {2}\n\nOcchiali indossati, materiale fissato e a fuoco?\nAvvio?", os.path.basename(path), len(lines), _hms(pv.seconds))
+                                 + (("\n\n" + plane_note) if plane_note else ""))
         if r == QMessageBox.Yes:
             self._run(lines)
+        return lines
+
+    def _plane_gcode(self, lines, name):
+        """0.20.7, funzioni in prova: un G-code «del piano» diventa il G-code di questa macchina (profilo, sistema
+        assoluto, potenza riportata ai watt del laser). -> (righe, nota da mostrare) o (None, "") se non si può."""
+        from .. import admin
+        from ..core import plane_gcode
+
+        title = tr("Esegui file G-code")
+        if not admin.unlocked(self.qs):
+            QMessageBox.information(self, title, tr("{0} è un G-code «del piano», da adattare al laser: è una funzione "
+                                                    "in prova, non ancora disponibile.", name))
+            return None, ""
+        try:
+            out, rep = plane_gcode.convert(lines, self.profile, no_g55=bool(getattr(self.profile, "no_g55", False)),
+                                           g54_offset=self.ctl.wco)
+        except plane_gcode.OutsideBed:
+            QMessageBox.warning(self, title, tr("{0}: una parte da incidere esce dal piano di questa macchina ({1:g} × "
+                                                "{2:g} mm). Il lavoro non parte.", name, self.profile.bed_x,
+                                                self.profile.bed_y))
+            return None, ""
+        except ValueError:
+            QMessageBox.warning(self, title, tr("{0}: nel file non c'è niente da incidere.", name))
+            return None, ""
+        notes = [tr("G-code del piano, adattato a «{0}».", self.profile.name)]
+        if rep["watts_from"] and rep["watts_to"]:
+            notes.append(tr("Potenze pensate per {0:g} W, riportate ai {1:g} W di questo laser (× {2:.2f}).",
+                            rep["watts_from"], rep["watts_to"], rep["ratio"]))
+        elif rep["watts_from"]:
+            notes.append(tr("Il profilo non dice i watt del laser: potenze lasciate come nel file (pensate per {0:g} "
+                            "W).", rep["watts_from"]))
+        if rep["capped"]:
+            notes.append(tr("{0} tratti oltre la velocità massima della macchina: rallentati, con la potenza "
+                            "abbassata nella stessa proporzione.", rep["capped"]))
+        if rep["s_limited"]:
+            notes.append(tr("{0} tratti chiederebbero più del 100 %: limitati al 100 % (il risultato sarà più "
+                            "chiaro).", rep["s_limited"]))
+        if rep["clamped"]:
+            notes.append(tr("{0} spostamenti a laser spento fuori dal piano: portati sul bordo.", rep["clamped"]))
+        return out, "\n".join(notes)
 
     def show_external_job(self, job):
         """Un lavoro generato fuori dal documento (test materiale): anteprima sul piano e riepilogo."""

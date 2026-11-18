@@ -60,6 +60,13 @@ HELP = {
                   "FreeLaserCut non lo invia alla M2 e nessuno l'ha ancora provato su una macchina vera: serve a chi "
                   "ci aiuta nelle prove. Per lavorare con la M2 usa «Esporta per xTool Studio (M2)». Se il disegno "
                   "esce dall'area della macchina il lavoro non viene scritto."), None),
+    "m2_link": (tr("xTool M2: collegamento diretto (sperimentale)"), tr("Funzione in prova, solo per la xTool M2, "
+                "non ufficiale e non ancora provata su una macchina vera. Nella finestra scrivi l'indirizzo IP della "
+                "M2 e scegli modulo laser e costruttore (o «Automatico»: li dice la macchina). La prima volta la M2 "
+                "chiede di premere il suo pulsante per abbinarsi. Poi puoi inviare la cornice a potenza zero o il "
+                "lavoro: la macchina si mette in attesa e parte solo quando premi il pulsante su di lei. Da qui puoi "
+                "mettere in pausa, riprendere e annullare. «Usa l'area della M2 per il piano» crea il profilo con "
+                "l'area giusta."), None),
     "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
     "run_file": (tr("Esegui un file G-code"), tr("Invia alla macchina un file G-code già pronto, con anteprima e verifica."), None),
