@@ -3655,5 +3655,6 @@
  "{0}: una parte da incidere esce dal piano di questa macchina ({1:g} × {2:g} mm). Il lavoro non parte.": "{0}: uma parte a gravar sai da área desta máquina ({1:g} × {2:g} mm). O trabalho não começa.",
  "Sta lavorando": "A trabalhar",
  "M2: {0}": "M2: {0}",
- "Falcon A1 Pro: stessa famiglia del Falcon A1, area 358 × 268 mm. Collegando la macchina, «Leggi dalla macchina» legge l'area vera dalla scheda. Il modulo a infrarosso da 2 W non è ancora stato provato con FreeLaserCut.": "Falcon A1 Pro: mesma família do Falcon A1, área 358 × 268 mm. Com a máquina ligada, «Ler da máquina» lê a área real da placa. O módulo infravermelho de 2 W ainda não foi testado com o FreeLaserCut."
+ "Falcon A1 Pro: stessa famiglia del Falcon A1, area 358 × 268 mm. Collegando la macchina, «Leggi dalla macchina» legge l'area vera dalla scheda. Il modulo a infrarosso da 2 W non è ancora stato provato con FreeLaserCut.": "Falcon A1 Pro: mesma família do Falcon A1, área 358 × 268 mm. Com a máquina ligada, «Ler da máquina» lê a área real da placa. O módulo infravermelho de 2 W ainda não foi testado com o FreeLaserCut.",
+ "Scia dell'incisione sul piano": "Rasto da gravação na área"
 }

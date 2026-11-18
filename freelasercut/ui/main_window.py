@@ -381,6 +381,8 @@ class MainWindow(QMainWindow):
                           checkable=True),
             "light_bed": A(tr("Piano chiaro"), self._toggle_light_bed, None, checkable=True),
             "dither_prev": A(tr("Mostra il dithering delle immagini"), self._toggle_dither, checkable=True),
+            # 0.20.7: la scia arancione di quello che il laser ha già inciso, durante il lavoro
+            "show_trail": A(tr("Scia dell'incisione sul piano"), self._toggle_trail, None, checkable=True),
             "connect": A(tr("Connetti / disconnetti la macchina"), lambda: self.toggle_connection(), "Ctrl+K", "connect"),
             "home": A(tr("Homing"), self.ctl.home, "Ctrl+H", "home"),
             "unlock_m": A(tr("Sblocca macchina ($X)"), self.ctl.unlock, None, "unlock"),
@@ -525,6 +527,8 @@ class MainWindow(QMainWindow):
         on = lambda key, d: self.qs.value(key, d) in (True, "true")  # noqa: E731
         self.acts["light_bed"].setChecked(on("light_bed", True))
         c.light_bed = self.acts["light_bed"].isChecked()
+        self.acts["show_trail"].setChecked(on("show_trail", True))
+        c.set_trail_shown(self.acts["show_trail"].isChecked())
         self.acts["snap_obj"].setChecked(on("snap_objects", True))
         self.acts["snap_grid"].setChecked(on("snap_grid", False))
         c.snap_objects = self.acts["snap_obj"].isChecked()
@@ -692,7 +696,7 @@ class MainWindow(QMainWindow):
             ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "scan_offset", "autofocus",
             "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
-                                           "snap_grid", "snap_obj", "dither_prev", "-", "clear_mosaic"])
+                                           "snap_grid", "snap_obj", "dither_prev", "show_trail", "-", "clear_mosaic"])
         self.m_view.addSeparator()
         self.m_panels = self.m_view.addMenu(tr("Pannelli"))
         self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
@@ -1289,6 +1293,7 @@ class MainWindow(QMainWindow):
         c.tool_changed.connect(lambda *_: self._update_sel_actions())  # 0.19.6: Allinea sui nodi
         self._plate_views, self._view_uid = {}, self.editor.doc.plate.uid  # 0.19.6: vista di ogni piano
         e.plates_changed.connect(self._plate_view_switch)
+        e.plates_changed.connect(lambda *_: self._update_job_overlay())  # 0.20.7
         c.edit_text.connect(self._edit_text)
         c.goto_requested.connect(self.goto_bed)
         c.context_requested.connect(self.open_context_menu)  # 0.18.6: solo nella classica (vedi open_context_menu)
@@ -1472,6 +1477,21 @@ class MainWindow(QMainWindow):
         self.qs.setValue(attr, on)
         self.statusBar().showMessage((tr("Aggancio agli oggetti ") if attr == "snap_objects" else tr("Aggancio alla griglia "))
                                      + (tr("attivo") if on else tr("disattivato")) + tr("  (Alt lo sospende mentre trascini)"), 3000)
+
+    def _toggle_trail(self, on):
+        """0.20.7: accende o spegne la scia dell'incisione sul piano (resta nelle preferenze)."""
+        self.canvas.set_trail_shown(on)
+        self.qs.setValue("show_trail", bool(on))
+
+    def _update_job_overlay(self):
+        """0.20.7: mentre il laser incide un piano e si guarda un altro piano con «Mostra gli altri piani» spento,
+        anteprima e scia del lavoro in corso non si vedono (tornano tornando sul piano del lavoro, o a lavoro finito).
+        -> True se si vedono."""
+        busy = (self.ctl.job_active or self.ctl.checking) and self._job_plate is not None \
+            and self._job_plate != self.editor.doc.plate.uid
+        shown = not (busy and not self.canvas.show_ghosts)
+        self.canvas.set_job_overlay(shown)
+        return shown
 
     def _toggle_light_bed(self, on):
         self.canvas.light_bed = on
@@ -3601,6 +3621,7 @@ class MainWindow(QMainWindow):
         """plate: uid del piano di lavoro da cui viene il lavoro (None: G-code esterno, prove)."""
         self._job_plate = plate
         self.canvas.clear_trail()
+        self.canvas.set_job_overlay(True)  # 0.20.7: si parte dal piano che si sta guardando
         self.laser.start_progress("job")
         self.ctl.stream_job(lines)
         self.laser.update_running()
@@ -3773,6 +3794,7 @@ class MainWindow(QMainWindow):
         self.laser.update_running()
         plate, self._job_plate = self._job_plate, None
         self.plate_bar.refresh()
+        self._update_job_overlay()  # 0.20.7: lavoro finito, anteprima e scia di nuovo come prima
         if getattr(self, "_g55_stop", False) and not ok:
             self._g55_stop = False
             self._interrupted = None

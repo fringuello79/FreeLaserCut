@@ -305,6 +305,8 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
     def _ghosts_toggled(self, on):
         self.win.canvas.set_ghosts(on)
         self.win.qs.setValue("plates/ghosts", bool(on))
+        if hasattr(self.win, "_update_job_overlay"):  # 0.20.7: anteprima e scia del lavoro di un altro piano
+            self.win._update_job_overlay()
         act = self.win.acts.get("plate_ghosts") if hasattr(self.win, "acts") else None
         if act is not None and act.isChecked() != bool(on):
             act.setChecked(bool(on))

@@ -545,6 +545,8 @@ if __name__ == "__main__":
     run_suite("test_v207_svg_grigi.py", "SVG con riempimenti grigi nell'interfaccia Banco", "banco")
     run_suite("test_v207_xtool_m2_link.py", "xTool M2, collegamento diretto (sperimentale): buste e protocollo, abbinamento con il pulsante e gettone, invio del lavoro e dei parametri come xTool Studio, attesa del pulsante, pausa e annullamento, macchina occupata, testa diversa, file scartato, collegamento perso; finestra di configurazione; G-code del piano adattato al laser")
     run_suite("test_v207_xtool_m2_link.py", "xTool M2, collegamento diretto e G-code del piano nell'interfaccia Banco", "banco")
+    run_suite("test_v207_scia.py", "Scia dell'incisione sul piano: si spegne dal menu Visualizza (ricordato), ridisegno al massimo 4 volte al secondo, nascosta con l'anteprima del lavoro guardando un altro piano senza gli altri piani")
+    run_suite("test_v207_scia.py", "Scia dell'incisione nell'interfaccia Banco", "banco")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")

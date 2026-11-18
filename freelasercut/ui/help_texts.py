@@ -264,6 +264,10 @@ HELP = {
     "snap_obj": (tr("Aggancia agli oggetti"), tr("I punti si attaccano a nodi, centri e punti medi delle altre forme."), None),
     "light_bed": (tr("Piano chiaro"), tr("Sfondo del piano chiaro o scuro."), None),
     "dither_prev": (tr("Mostra il dithering"), tr("Sulla tela le immagini appaiono già retinate come verranno incise."), None),
+    "show_trail": (tr("Scia dell'incisione"), tr("Durante il lavoro il piano mostra in arancione quello che il laser ha "
+                   "già inciso. Spegnila se il programma rallenta su lavori lunghi (foto, riempimenti grandi): il "
+                   "lavoro non cambia. Mentre guardi un altro piano, con «Mostra gli altri piani» spento, l'anteprima "
+                   "e la scia del lavoro in corso non si vedono."), None),
     # ------------------------------------------------------------------ laser
     "connect": (tr("Connetti / disconnetti"), tr("Collega FreeLaserCut al laser sulla porta scelta. Una porta USB la può usare un "
                 "solo programma per volta: chiudi gli altri programmi che la usano."), None),
