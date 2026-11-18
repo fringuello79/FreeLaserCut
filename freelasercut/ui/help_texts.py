@@ -426,7 +426,11 @@ HELP = {
                    [(tr("Ctrl+clic / Maiusc+clic"), tr("aggiunge o toglie un nodo dalla selezione")),
                     (tr("trascina sul vuoto"), tr("seleziona i nodi dentro il rettangolo")),
                     ("Ctrl+A", tr("tutti i nodi")), ("Esc", tr("toglie la selezione dei nodi (di nuovo: torna a Selezione)")),
-                    ("D", tr("elimina i nodi selezionati")), ("C / S", tr("angolo / morbido")), ("B", tr("spezza")),
+                    ("D", tr("elimina i nodi selezionati")),
+                    (tr("D su un tratto"), tr("toglie il tratto: in mezzo a una linea restano due linee separate")),
+                    (tr("trascina un estremo su un altro estremo"), tr("unisce: chiude la linea, o fa una linea sola "
+                                                                       "di due linee diverse")),
+                    ("C / S", tr("angolo / morbido")), ("B", tr("spezza")),
                     ("L", tr("raddrizza")), ("M", tr("nodo nel punto medio")), ("A", tr("arrotonda lo spigolo (raccordo)")),
                     ("J", tr("unisce due estremi selezionati in un punto solo, a metà strada")),
                     (tr("Maiusc+J"), tr("collega due estremi selezionati con un tratto dritto")),

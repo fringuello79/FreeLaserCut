@@ -645,13 +645,74 @@ class NodeTool(Tool):
             if self.sel:
                 self.cur = self.sel[-1][0]
             return
+        joined = False
         if self.drag and self.drag[0] == "node" and self._txn and len(self.sel) <= 1:
             # rilascio di un estremo aperto su un altro estremo della stessa forma: unisce (come prima)
             k = self.drag[1]
-            nodes.join_endpoints(self.items[k].subs, self.cv.px(6))
+            subs = self.items[k].subs
+            before = (len(subs), sum(1 for sp in subs if sp.closed))
+            nodes.join_endpoints(subs, self.cv.px(6))
             self._push([k])
+            if before == (len(subs), sum(1 for sp in subs if sp.closed)):
+                # 0.20.6: …o su un estremo di un'altra linea: le due linee diventano una sola
+                joined = self._join_other_shape(*self.drag[1:])
         self.drag = None
         self._finish()
+        if joined:
+            self.ed.selection_changed.emit()
+            self.cv.status.emit(tr("Linee unite: ora sono una linea sola"))
+
+    def _join_other_shape(self, k, si, ni):
+        """0.20.6 (rapporto FLC-20261117-1900-E1C9: «unendo due estremità mi aspettavo un'unione, invece risultano
+        sempre due linee separate»): l'estremo aperto appena trascinato è stato lasciato sopra un estremo aperto di
+        un'altra forma (selezionata o no, non bloccata, non nascosta): il nodo va esattamente lì e le due forme
+        diventano una, sul livello di quella che si stava modificando. Dentro il passo di modifica già aperto.
+        -> True se ha unito."""
+        it = self.items[k]
+        if not nodes.is_open_end(it.subs, si, ni):
+            return False
+        nd = it.subs[si].nodes[ni]
+        px, py = nd.pt()
+        tol = self.cv.px(6)
+        doc = self.ed.doc
+        best = None
+        for s in doc.shapes:
+            if s is it.shape or s.locked or s.hidden or isinstance(s, (ImageShape, GroupShape)):
+                continue
+            cs = doc.layers.get(s.layer)
+            if cs is not None and not cs.show:
+                continue
+            if not s.bounds().adjusted(-tol, -tol, tol, tol).contains(QPointF(px, py)):
+                continue
+            kk = next((n for n, x in enumerate(self.items) if x.shape is s), None)
+            subs = self.items[kk].subs if kk is not None else nodes.from_path(s.path())
+            for sp in subs:
+                if sp.closed or len(sp.nodes) < 2:
+                    continue
+                for end in (sp.nodes[0], sp.nodes[-1]):
+                    d = math.dist((px, py), end.pt())
+                    if d <= tol and (best is None or d < best[0]):
+                        best = (d, s, kk, end.pt())
+        if best is None:
+            return False
+        _d, other, kk, q = best
+        nd.move(q[0] - px, q[1] - py)
+        if kk is None:
+            self.items.append(_NodeItem(other))
+            kk = len(self.items) - 1
+        self._ensure_path([k, kk])
+        ia, ib = self.items[k], self.items[kk]
+        ia.subs.extend(ib.subs)
+        nodes.join_endpoints(ia.subs, 1e-6)
+        gone = ib.shape
+        doc.shapes.remove(gone)
+        self.ed.selection = [x for x in self.ed.selection if x is not gone]
+        self.items.pop(kk)
+        k = k if k < kk else k - 1
+        self.cur = k
+        self.sel = []
+        self._push([k])
+        return True
 
     def double_click(self, e, p):
         seg = self._hit_seg(p) if self.items else None
@@ -749,7 +810,12 @@ class NodeTool(Tool):
         if self.hover_seg and k == Qt.Key_D:
             kk, si, i, j, t, q = self.hover_seg
             self.cur = kk
-            return self._op(lambda: self._delete_segment(si, i, j), [kk])
+            n_items = len(self.items)
+            done = self._op(lambda: self._delete_segment(si, i, j), [kk])
+            if len(self.items) > n_items:  # 0.20.6: la linea è stata divisa in due linee
+                self.ed.selection_changed.emit()
+                self.cv.status.emit(tr("Tratto tolto: ora sono due linee separate"))
+            return done
         return False
 
     # ---- unione di due nodi (0.19.5)
@@ -886,7 +952,22 @@ class NodeTool(Tool):
             b = nodes.SubPath(sp.nodes[j:], False)
             a.nodes[-1].cout = None
             b.nodes[0].cin = None
-            subs[si:si + 1] = [x for x in (a, b) if len(x.nodes) >= 2]
+            if len(a.nodes) >= 2 and len(b.nodes) >= 2:
+                # 0.20.6 (rapporto FLC-20261117-1900-E1C9: «elimino il pezzo con la D e viene comunque evidenziata
+                # tutta la linea»): tolto un tratto in mezzo, i due pezzi sono due linee separate, non una forma
+                # sola in due pezzi. Il secondo pezzo va in una forma nuova, stesso livello, subito sopra; tutte e
+                # due restano in modifica
+                subs[si:si + 1] = [a]
+                it = self.items[self.cur]
+                new = PathShape(nodes.to_path([b]), layer=it.shape.layer)
+                shapes = self.ed.doc.shapes
+                shapes.insert(shapes.index(it.shape) + 1, new)
+                self.ed.selection.append(new)
+                item = _NodeItem(new)
+                item.began = True
+                self.items.append(item)
+            else:
+                subs[si:si + 1] = [x for x in (a, b) if len(x.nodes) >= 2]
         self.sel = []
 
     def draw(self, p, tf):

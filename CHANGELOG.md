@@ -41,7 +41,14 @@ Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa
 
 **Schede che interrompono le risposte lunghe.** Alcune schede (per esempio Creality con firmware «CV50-Pro») interrompono a metà l'elenco delle impostazioni e non mandano la conferma finale. FreeLaserCut credeva la scheda sempre occupata: la calibrazione della camera portava la testa al primo punto e lì si fermava. Ora le letture delle impostazioni viaggiano da sole, se restano senza risposta si chiudono dopo 2 secondi e si rileggono una volta; se la scheda le manda incomplete, il programma lo dice.
 
-**Camera della testa: si tiene la calibrazione migliore.** Con lenti molto grandangolari la calibrazione completa poteva non arrivare alla precisione richiesta e veniva scartata, anche quando quella rimasta sbagliava di più. Ora, se è migliore di quella che c'è (o non ce n'è una), si tiene come «poco precisa», con l'errore misurato; resta quella di prima se è più precisa sugli stessi punti, e una calibrazione con errori oltre 2 mm non si tiene.
+**Camera della testa: calibrazione completa con le lenti molto grandangolari.** Con una lente molto grandangolare la calibrazione completa finiva con «errore massimo … troppo per questa camera» e il disegno sul video restava spostato di qualche millimetro. Era un errore di calcolo: negli angoli dell'immagine il conto dal piano ai pixel non tornava, e il modello giusto della lente veniva scartato. Ora torna, e la calibrazione riesce.
+- Se una calibrazione non raggiunge comunque la precisione ma è migliore di quella che c'è, si tiene come «poco precisa», con l'errore misurato; oltre 2 mm non si tiene.
+- La vista della testa dice sempre quale calibrazione è in uso e con che errore.
+- Le misure dell'ultima calibrazione entrano nel rapporto per l'assistenza.
+
+**Nodi: unire e dividere le linee come ci si aspetta.**
+- Con lo strumento Nodi, trascinando l'estremo di una linea sopra l'estremo di un'altra linea le due diventano una linea sola (anche se l'altra non era selezionata). Prima si univano solo due estremi della stessa forma, oppure con il tasto J.
+- Togliendo con **D** un tratto in mezzo a una linea restano due linee separate, non una forma sola in due pezzi che si evidenziava tutta insieme.
 
 **Ringraziamenti.** Nel rapporto all'assistenza, nella targa di *Aiuto → Ringraziamenti*, sul sito e nell'informativa sulla privacy ora è spiegato chi entra nell'elenco: chi aiuta FreeLaserCut con continuità o con un contributo importante (prove ripetute, idee, codice, traduzioni, sostegno). Scrivere il nome nel rapporto è una richiesta, non un'iscrizione automatica.
 

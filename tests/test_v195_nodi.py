@@ -4,6 +4,8 @@
 - Si vedono i nodi di tutte le forme selezionate; Ctrl/Maiusc+clic aggiunge o toglie un nodo, il rettangolo sul vuoto
   prende i nodi dentro, Ctrl+A tutti, Esc toglie la scelta (di nuovo: torna a Selezione).
 - Spostamento, elimina, angolo/morbido valgono per tutti i nodi selezionati; le maniglie solo con un nodo.
+- 0.20.6: un estremo lasciato sopra l'estremo di un'altra linea (selezionata o no) le unisce in una; D su un tratto in
+  mezzo a una linea lascia due linee separate.
 - J fonde due estremi aperti in un punto a metà strada, Maiusc+J li collega con un tratto dritto; stessa linea = la
   chiude; due forme = una sola, sul livello del primo nodo selezionato; un solo Annulla per unione.
 Uso: python tests/test_v195_nodi.py [banco]
@@ -366,6 +368,126 @@ check("…e la voce Collega nodi funziona", len(ed.doc.shapes) == 1 and len(pts_
 check("Unisci estremi (Alt+J) resta com'era", w.acts["join"].shortcut().toString() == "Alt+J")
 check("J non è una scorciatoia di un altro comando", not any(a.shortcut().toString() in ("J", "Shift+J")
                                                              for a in w.acts.values()))
+
+# ---------------------------------------------------------------- 0.20.6 (rapporto FLC-20261117-1900-E1C9)
+# un estremo lasciato sopra l'estremo di un'altra linea le unisce; tolto un tratto in mezzo con D restano due linee
+
+
+def edit(first, *others):
+    """Forme sul piano, solo la prima selezionata e in modifica a nodi."""
+    cv.set_tool("select")
+    for x in ed.doc.shapes:  # anche quelle nascoste o bloccate della prova prima
+        x.hidden = x.locked = False
+    ed.select([x for x in ed.doc.shapes])
+    ed.delete() if ed.doc.shapes else None
+    ed.add([first] + list(others), "prova")
+    ed.select([first])
+    cv.set_tool("nodes")
+    spin(0.05)
+    return cv.tool
+
+
+def hover(x, y):
+    _send(QEvent.MouseMove, V(x, y), Qt.NoButton, Qt.NoButton, Qt.NoModifier)
+    spin(0.02)
+
+
+nt = fresh(line((40, 40), (80, 40), layer=1), line((100, 60), (140, 60), layer=1))
+n_undo = len(ed.undo_stack)
+drag(V(80, 40), V(100, 60))
+pp = pts_of(ed.doc.shapes[0])
+check("0.20.6: estremo trascinato sull'estremo di un'altra linea in modifica: una linea sola di 3 nodi",
+      len(ed.doc.shapes) == 1 and len(pp) == 1 and len(pp[0]) == 3 and close(pp[0][1], (100, 60), 0.01)
+      and {pp[0][0], pp[0][2]} == {(40.0, 40.0), (140.0, 60.0)}, pp)
+check("…con un solo Annulla, che rimette le due linee dov'erano", len(ed.undo_stack) == n_undo + 1)
+ed.undo()
+spin()
+check("…Annulla: di nuovo due linee, la prima con l'estremo a 80,40", len(ed.doc.shapes) == 2
+      and pts_of(ed.doc.shapes[0])[0][1] == (80.0, 40.0), [pts_of(x) for x in ed.doc.shapes])
+a_, b_ = line((40, 40), (80, 40), layer=1), line((100, 60), (140, 60), layer=2)
+nt = edit(a_, b_)
+drag(V(80, 40), cv_pt := V(100, 60) + QPoint(3, 2))  # lasciato a 3 pixel dall'estremo, non proprio sopra
+pp = pts_of(ed.doc.shapes[0])
+check("0.20.6: anche se l'altra linea non è selezionata, e il nodo va esattamente sull'estremo",
+      len(ed.doc.shapes) == 1 and len(pp[0]) == 3 and any(close(q, (100, 60), 1e-6) for q in pp[0]), pp)
+check("…la linea unita resta sul livello di quella che si stava modificando, selezionata e ancora in modifica",
+      ed.doc.shapes[0].layer == 1 and ed.selection == [ed.doc.shapes[0]] and len(cv.tool.items) == 1
+      and cv.tool.items[0].shape is ed.doc.shapes[0])
+nt = edit(line((40, 40), (80, 40), layer=1), line((100, 60), (120, 60), (140, 60), layer=1))
+drag(V(80, 40), V(120, 60))
+check("0.20.6: lasciato su un nodo in mezzo all'altra linea (non un estremo): restano due linee",
+      len(ed.doc.shapes) == 2 and len(pts_of(ed.doc.shapes[0])[0]) == 2)
+other = line((100, 60), (140, 60), layer=1)
+other.locked = True
+nt = edit(line((40, 40), (80, 40), layer=1), other)
+drag(V(80, 40), V(100, 60))
+check("0.20.6: l'altra linea è bloccata: non si unisce", len(ed.doc.shapes) == 2)
+other = line((100, 60), (140, 60), layer=1)
+other.hidden = True
+nt = edit(line((40, 40), (80, 40), layer=1), other)
+drag(V(80, 40), V(100, 60))
+check("0.20.6: l'altra linea è nascosta: non si unisce", len(ed.doc.shapes) == 2)
+nt = edit(line((40, 40), (80, 40), layer=1), RectShape(30, 20, layer=1))
+ed.doc.shapes[1].set_transform(QTransform.fromTranslate(100, 60))
+drag(V(80, 40), V(100, 60))
+check("0.20.6: lasciato sull'angolo di una forma chiusa: non si unisce", len(ed.doc.shapes) == 2
+      and isinstance(ed.doc.shapes[1], RectShape))
+nt = edit(line((40, 40), (80, 40), (80, 80), (42, 60), layer=1))
+drag(V(42, 60), V(40, 40))
+sub = N.from_path(ed.doc.shapes[0].path())
+check("0.20.6: chiudere una linea su sé stessa funziona come prima", len(ed.doc.shapes) == 1 and len(sub) == 1
+      and sub[0].closed, [(x.closed, len(x.nodes)) for x in sub])
+c_ = line((200, 40), (240, 40), layer=1)
+nt = edit(line((40, 40), (80, 40), layer=1), line((100, 60), (140, 60), layer=1), c_)
+drag(V(80, 40), V(100, 60))
+check("0.20.6: le linee lontane non vengono toccate", len(ed.doc.shapes) == 2 and c_ in ed.doc.shapes
+      and pts_of(c_) == [[(200.0, 40.0), (240.0, 40.0)]])
+
+# D su un tratto in mezzo: due linee separate
+nt = edit(line((40, 40), (60, 40), (80, 40), (100, 40), layer=3))
+n_undo = len(ed.undo_stack)
+hover(70, 40)
+key(Qt.Key_D)
+got = sorted(pts_of(x)[0] for x in ed.doc.shapes)
+check("0.20.6: D su un tratto in mezzo a una linea: restano due linee separate (due forme)",
+      len(ed.doc.shapes) == 2 and got == [[(40.0, 40.0), (60.0, 40.0)], [(80.0, 40.0), (100.0, 40.0)]], got)
+check("…stesso livello, tutte e due selezionate e in modifica, un solo Annulla",
+      all(x.layer == 3 for x in ed.doc.shapes) and set(ed.selection) == set(ed.doc.shapes)
+      and len(cv.tool.items) == 2 and len(ed.undo_stack) == n_undo + 1)
+cv.set_tool("select")
+spin()
+ed.select([])
+click(V(50, 40))
+check("…con Selezione un clic sul primo pezzo prende solo quello (prima si evidenziava tutta la linea)",
+      len(ed.selection) == 1 and pts_of(ed.selection[0])[0] == [(40.0, 40.0), (60.0, 40.0)],
+      [pts_of(x) for x in ed.selection])
+ed.undo()
+spin()
+check("…Annulla: di nuovo una linea sola di 4 nodi", len(ed.doc.shapes) == 1 and len(pts_of(ed.doc.shapes[0])[0]) == 4)
+nt = edit(line((40, 40), (60, 40), (80, 40), (100, 40), layer=1))
+hover(50, 40)
+key(Qt.Key_D)
+check("0.20.6: D sul primo tratto: la linea si accorcia e resta una", len(ed.doc.shapes) == 1
+      and pts_of(ed.doc.shapes[0]) == [[(60.0, 40.0), (80.0, 40.0), (100.0, 40.0)]], [pts_of(x) for x in ed.doc.shapes])
+nt = edit(line((40, 40), (80, 40), (80, 80), (40, 80), layer=1, closed=True))
+hover(60, 40)
+key(Qt.Key_D)
+sub = N.from_path(ed.doc.shapes[0].path())
+check("0.20.6: D su un lato di una forma chiusa: la apre e resta una forma (come prima)", len(ed.doc.shapes) == 1
+      and len(sub) == 1 and not sub[0].closed and len(sub[0].nodes) == 4, [(x.closed, len(x.nodes)) for x in sub])
+# il caso del rapporto: due nodi inseriti su una linea, tolto il pezzo in mezzo
+nt = edit(line((40, 40), (100, 40), layer=1))
+hover(60, 40)
+key(Qt.Key_I)
+hover(80, 40)
+key(Qt.Key_I)
+hover(70, 40)
+key(Qt.Key_D)
+got = sorted((round(a[0]), round(b[0])) for a, b in (pts_of(x)[0] for x in ed.doc.shapes))
+check("0.20.6: caso del rapporto (due nodi inseriti, D sul pezzo in mezzo): due linee, 40–60 e 80–100", got ==
+      [(40, 60), (80, 100)], got)
+cv.set_tool("select")
+spin()
 
 code_ = 0 if all(results) else 1
 print(f"\n{sum(results)}/{len(results)} superati")

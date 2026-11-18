@@ -14,6 +14,9 @@ A  FLC-20261117-1408-E933 (Creality con firmware «CV50-Pro»): la scheda interr
    l'«ok» non arriva; le letture viaggiano da sole, una lettura senza risposta si chiude dopo 2 s, $$ si rilegge una
    volta, poi si usa quello che è arrivato e lo si dice; i comandi dopo hanno le loro risposte (niente sfasamento) e la
    scheda non risulta più occupata per sempre;
+L  camera della testa con lente molto grandangolare (camera di Ale, 18/11): il conto inverso torna su tutta l'immagine
+   anche con una lente forte; con i puntini misurati dalla sua foto il modello completo è valido, viene scelto e sbaglia
+   meno di un pixel; la vista dice quale calibrazione è in uso; le misure dell'ultima calibrazione entrano nel rapporto;
 T  testi nuovi tradotti in tutte le lingue.
 Uso: python tests/test_v206_rapporti.py [classica|banco]
 """
@@ -303,9 +306,104 @@ jobc.request_settings()
 check("durante un lavoro una lettura aspetta la fine (le righe del lavoro continuano)",
       all(c.tag == "job" for c in jobc._inflight) and len(jobc._inflight) > 1)
 
+print("--- L. camera della testa: lente molto grandangolare")
+import math  # noqa: E402
+
+import numpy as np  # noqa: E402
+
+from freelasercut import head_camera as hc  # noqa: E402
+from freelasercut import head_camera_ui as hcu  # noqa: E402
+from freelasercut import head_grid as hg  # noqa: E402
+
+# puntini della griglia misurati dalla foto di Ale del 18/11 (vista della testa, 644 × 362): x, y in pixel e posto
+# nello schema (colonna, riga) con le righe sfalsate di mezzo passo
+ALE_DOTS = [
+    (320.0, 43.4, 0, -3), (372.4, 43.4, 1, -3), (267.5, 45.4, -1, -3), (422.7, 45.4, 2, -3), (469.5, 48.6, 3, -3),
+    (217.7, 48.7, -2, -3), (171.8, 53.6, -3, -3), (511.6, 53.2, 4, -3), (293.4, 87.0, -1, -2), (347.9, 86.2, 0, -2),
+    (400.9, 86.6, 1, -2), (240.5, 89.0, -2, -2), (450.9, 88.5, 2, -2), (190.9, 92.3, -3, -2), (496.5, 91.2, 3, -2),
+    (536.4, 94.5, 4, -2), (146.6, 96.4, -4, -2), (321.3, 132.5, -1, -1), (376.4, 132.0, 0, -1),
+    (429.0, 132.4, 1, -1), (265.9, 133.7, -2, -1), (477.3, 133.6, 2, -1), (520.9, 134.6, 3, -1),
+    (213.6, 135.2, -3, -1), (557.9, 136.0, 4, -1), (165.9, 137.3, -4, -1), (455.6, 179.1, 1, 0),
+    (502.0, 178.2, 2, 0), (542.4, 177.5, 3, 0), (239.0, 181.4, -3, 0), (404.3, 179.7, 0, 0), (143.0, 182.2, -5, 0),
+    (188.3, 181.8, -4, 0), (559.9, 218.4, 3, 1), (522.7, 221.4, 2, 1), (479.5, 224.1, 1, 1), (430.6, 226.4, 0, 1),
+    (165.7, 227.2, -5, 1), (213.7, 228.3, -4, 1), (266.5, 229.0, -3, 1), (322.1, 228.9, -2, 1),
+    (377.8, 227.9, -1, 1), (540.2, 261.4, 2, 2), (500.0, 266.3, 1, 2), (146.0, 269.4, -6, 2), (454.4, 270.5, 0, 2),
+    (191.0, 272.6, -5, 2), (241.1, 274.8, -4, 2), (403.9, 273.6, -1, 2), (295.0, 276.1, -3, 2),
+    (350.2, 275.6, -2, 2), (553.5, 297.5, 2, 3), (517.0, 304.0, 1, 3), (474.6, 310.3, 0, 3), (171.5, 312.5, -6, 3),
+    (218.3, 316.6, -5, 3), (427.3, 315.2, -1, 3), (376.3, 318.4, -2, 3), (269.3, 319.4, -4, 3),
+    (322.9, 319.9, -3, 3),
+]
+SHOT = (644, 362)
+Pd = np.array([(a, b) for a, b, _i, _j in ALE_DOTS], float)
+Xd = np.array([(i + 0.5 * j, -j * math.sqrt(3) / 2) for _a, _b, i, j in ALE_DOTS], float) * 7.6
+ctl = np.array([(3 * j + 2 * i) % 5 == 0 for _a, _b, i, j in ALE_DOTS])
+
+
+def obs_of(sel):
+    return {"P": Pd[sel], "L": np.zeros((int(sel.sum()), 2)), "X": Xd[sel]}
+
+
+xn = (Pd[~ctl] - np.array(SHOT) / 2) / (math.hypot(*SHOT) / 2)
+Maff = np.linalg.lstsq(np.c_[xn, np.ones(len(xn))], Xd[~ctl], rcond=None)[0]
+par = {"A": Maff[:2].T.copy(), "t": Maff[2].copy(), "g": np.zeros(2), "k1": 0.0, "k2": 0.0, "q": np.zeros(2)}
+fits = {}
+for kind in hg.KINDS:
+    par, _rms = hg.fit(obs_of(~ctl), SHOT, par, kind)
+    e_ctl, _sc = hg.errors_px(par, obs_of(ctl), SHOT)
+    if hg.params_ok(par, SHOT):
+        fits[kind] = (par, e_ctl)
+check("puntini della foto di Ale: lente e modello completo sono validi (prima erano scartati negli angoli)",
+      set(fits) == set(hg.KINDS), sorted(fits))
+best = hg.choose_kind(fits)
+e_best = fits[best][1] * 2  # la schermata è a metà risoluzione: pixel della camera
+check("…viene scelto il modello completo e sui punti di controllo sbaglia meno di 1,5 pixel della camera (limite 3)",
+      best == "full" and e_best.max() < 1.5 and np.percentile(e_best, 95) <= hg.GOOD_P95_PX, (best, e_best.max()))
+check("…il modello a un solo coefficiente, l'unico che restava, sbagliava oltre il limite",
+      (fits["k1"][1] * 2).max() > hg.GOOD_MAX_PX, (fits["k1"][1] * 2).max())
+check("…la lente trovata è forte e positiva (grandangolo)", fits["full"][0]["k1"] > 0.2 and fits["full"][0]["k2"] > 0.2,
+      (fits["full"][0]["k1"], fits["full"][0]["k2"]))
+yy, xx = np.mgrid[0:720:24, 0:1280:24]
+px = np.c_[xx.ravel(), yy.ravel()].astype(float)
+worst = {}
+for k1, k2 in ((0.306, 0.319), (0.6, 0.5), (0.45, 0.0), (-0.18, 0.05), (-0.3, 0.0)):
+    mm = hc.HeadModel(None, None, (1280, 720), k=k1, A=[[60, 0], [0, -60]], t=[5, 35], g=[0.02, 0.03], k2=k2,
+                      q=[-0.012, -0.013])
+    back = mm.bed_to_img(np.zeros(2), mm.img_to_bed(np.zeros(2), px))
+    worst[(k1, k2)] = float(np.abs(back - px).max()) if np.isfinite(back).all() else float("inf")
+check("pixel → piano → pixel torna su tutta l'immagine con lenti deboli, forti, positive e negative",
+      max(worst.values()) < 1e-6, worst)
+fold = hc.HeadModel(None, None, (1280, 720), k=-0.6, A=[[60, 0], [0, -60]], t=[0, 0])
+far = fold.bed_to_img(np.zeros(2), np.array([[500.0, 0.0], [10.0, 5.0]]))
+check("un punto che con quella lente non può stare nell'immagine resta «non visibile», uno vicino sì",
+      not np.isfinite(far[0]).all() and np.isfinite(far[1]).all(), far)
+check("la vista dice quale calibrazione è in uso: nessuna, col puntino, completa, poco precisa",
+      "nessuna" in hcu.calibration_state(None)
+      and "puntino" in hcu.calibration_state(hc.HeadModel([[0.08, 0], [0, -0.08]], [0, 35], (640, 480))))
+mg = hg.params_model(fits["full"][0], SHOT)
+mg.method = "grid"
+mg.quality = {"max_mm": 0.12}
+st_ok = hcu.calibration_state(mg)
+mg.quality = {"max_mm": 0.9, "approx": True}
+st_ap = hcu.calibration_state(mg)
+check("…con l'errore massimo, e «poco precisa» quando lo è", "completa" in st_ok and "0.12" in st_ok
+      and "poco precisa" in st_ap and "0.90" in st_ap, (st_ok, st_ap))
+rep = {"frame_size": SHOT, "obs_fit": obs_of(~ctl), "obs_ctl": obs_of(ctl), "by_kind": {"k1": 2.7, "full": 0.5},
+       "quality": {"model": "full", "max_px": 1.0}, "backlash": (0.02, 0.01), "provisional": object()}
+saved = hg.save_measures(rep, "Calibrazione da rifare: prova", kept=False)
+data = json.load(open(saved, encoding="utf-8")) if saved else {}
+check("le misure dell'ultima calibrazione si salvano (puntini visti, testa, errori per modello), riuscita o no",
+      saved == hg.measures_file() and data.get("tenuta") is False and len(data["obs_ctl"]["P"]) == int(ctl.sum())
+      and len(data["obs_fit"]["X"]) == int((~ctl).sum()) and data["by_kind"]["full"] == 0.5
+      and "prova" in data["messaggio"] and "provisional" not in data, list(data))
+check("…ed entrano nel rapporto per l'assistenza", '"obs_fit"' in diag.head_measures_text())
+check("…un guasto nel salvataggio non ferma niente", hg.save_measures(rep, "", path=os.path.join(TMP, "no", "x.json")) is None)
+
 print("--- T. traduzioni")
 keys = ("Scritte", "Potenza delle scritte del test: alzala se vengono troppo leggere",
-        "Velocità delle scritte del test: abbassala se vengono troppo leggere", WIFI_HINT)
+        "Velocità delle scritte del test: abbassala se vengono troppo leggere", WIFI_HINT,
+        "In uso: nessuna calibrazione", "In uso: calibrazione col puntino del {0}",
+        "In uso: calibrazione completa del {0}", "In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm",
+        "In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm")
 missing = []
 for lang in ("en", "es", "fr", "pt"):
     cat = json.load(open(os.path.join(ROOT, "freelasercut", "locale", f"{lang}.json"), encoding="utf-8"))

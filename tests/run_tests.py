@@ -539,7 +539,7 @@ if __name__ == "__main__":
     run_suite("test_v206_richieste.py", "Foto ritagliata, Contorno da tagliare, Prepara foto, ingranaggio e ringraziamenti nell'interfaccia Banco", "banco")
     run_suite("test_v206_xtool_xs.py", "Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori")
     run_suite("test_v206_xtool_m2.py", "Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area")
-    run_suite("test_v206_rapporti.py", "Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe")
+    run_suite("test_v206_rapporti.py", "Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa")
     run_suite("test_v206_rapporti.py", "Rapporti del 18/11 nell'interfaccia Banco", "banco")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")

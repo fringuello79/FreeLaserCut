@@ -3591,5 +3591,12 @@
  "La scheda manda solo una parte delle impostazioni (fino a ${0}): controlla l'area di lavoro nel profilo della macchina": "A placa só envia uma parte das definições (até ${0}): verifique a área de trabalho no perfil da máquina",
  "Calibrazione tenuta, ma poco precisa: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di controllo, il 95% entro {2:.2f} mm. Vicino ai bordi dell'immagine il disegno sul video può essere spostato di qualche decimo.": "Calibração mantida, mas pouco precisa: erro máximo {0:.2f} mm ({1:.1f} píxeis) nos pontos de controlo, 95% dentro de {2:.2f} mm. Perto das margens da imagem o desenho sobre o vídeo pode ficar desviado alguns décimos.",
  "È comunque più precisa di quella di prima ({0:.1f} pixel contro {1:.1f} sugli stessi punti).": "Mesmo assim é mais precisa do que a anterior ({0:.1f} píxeis contra {1:.1f} nos mesmos pontos).",
- "poco precisa": "pouco precisa"
+ "poco precisa": "pouco precisa",
+ "In uso: nessuna calibrazione": "Em uso: nenhuma calibração",
+ "In uso: calibrazione col puntino del {0}": "Em uso: calibração com o ponto de {0}",
+ "In uso: calibrazione completa del {0}": "Em uso: calibração completa de {0}",
+ "In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm": "Em uso: calibração completa de {0} · erro máximo {1:.2f} mm",
+ "In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm": "Em uso: calibração completa de {0} · pouco precisa, erro máximo {1:.2f} mm",
+ "Linee unite: ora sono una linea sola": "Linhas unidas: agora são uma só linha",
+ "Tratto tolto: ora sono due linee separate": "Troço removido: agora são duas linhas separadas"
 }

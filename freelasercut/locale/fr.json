@@ -3591,5 +3591,12 @@
  "La scheda manda solo una parte delle impostazioni (fino a ${0}): controlla l'area di lavoro nel profilo della macchina": "La carte n'envoie qu'une partie des réglages (jusqu'à ${0}) : vérifiez la zone de travail dans le profil de la machine",
  "Calibrazione tenuta, ma poco precisa: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di controllo, il 95% entro {2:.2f} mm. Vicino ai bordi dell'immagine il disegno sul video può essere spostato di qualche decimo.": "Calibration conservée, mais peu précise : erreur maximale {0:.2f} mm ({1:.1f} pixels) sur les points de contrôle, 95 % dans {2:.2f} mm. Près des bords de l'image, le dessin sur la vidéo peut être décalé de quelques dixièmes.",
  "È comunque più precisa di quella di prima ({0:.1f} pixel contro {1:.1f} sugli stessi punti).": "Elle reste plus précise que la précédente ({0:.1f} pixels contre {1:.1f} sur les mêmes points).",
- "poco precisa": "peu précise"
+ "poco precisa": "peu précise",
+ "In uso: nessuna calibrazione": "Utilisée : aucune calibration",
+ "In uso: calibrazione col puntino del {0}": "Utilisée : calibration au point du {0}",
+ "In uso: calibrazione completa del {0}": "Utilisée : calibration complète du {0}",
+ "In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm": "Utilisée : calibration complète du {0} · erreur maximale {1:.2f} mm",
+ "In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm": "Utilisée : calibration complète du {0} · peu précise, erreur maximale {1:.2f} mm",
+ "Linee unite: ora sono una linea sola": "Lignes réunies : c'est maintenant une seule ligne",
+ "Tratto tolto: ora sono due linee separate": "Segment supprimé : ce sont maintenant deux lignes séparées"
 }

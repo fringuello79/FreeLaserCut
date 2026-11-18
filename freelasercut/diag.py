@@ -475,6 +475,19 @@ def camera_text():
     return ""
 
 
+def head_measures_text():
+    """0.20.6: le misure dell'ultima calibrazione completa della camera della testa (head_grid.save_measures)."""
+    try:
+        from .head_grid import measures_file
+
+        if os.path.exists(measures_file()):
+            with open(measures_file(), encoding="utf-8") as fh:
+                return fh.read()
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
 _ERR_WORDS = ("Error", "Exception", "ERRORE", "Errore", "Traceback")
 
 
@@ -543,6 +556,7 @@ def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=Non
                               ("azioni-recenti.txt", "\n".join(getattr(win, "crumbs", []) or [])),
                               ("foto-selezionata.txt", photo_text(win) if photo else ""),
                               ("calibrazione-camera.json", camera_text()),
+                              ("camera-testa-misure.json", head_measures_text()),
                               ("telecamere.txt", cameras_log_text(win))):
                 if txt and txt.strip():
                     z.writestr(name, sanitize(txt))

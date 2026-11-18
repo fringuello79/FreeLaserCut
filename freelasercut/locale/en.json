@@ -3591,5 +3591,12 @@
  "La scheda manda solo una parte delle impostazioni (fino a ${0}): controlla l'area di lavoro nel profilo della macchina": "The board only sends part of its settings (up to ${0}): check the work area in the machine profile",
  "Calibrazione tenuta, ma poco precisa: errore massimo {0:.2f} mm ({1:.1f} pixel) sui punti di controllo, il 95% entro {2:.2f} mm. Vicino ai bordi dell'immagine il disegno sul video può essere spostato di qualche decimo.": "Calibration kept, but not very precise: largest error {0:.2f} mm ({1:.1f} pixels) on the check points, 95% within {2:.2f} mm. Near the edges of the image the design on the video may be off by a few tenths.",
  "È comunque più precisa di quella di prima ({0:.1f} pixel contro {1:.1f} sugli stessi punti).": "It is still more precise than the previous one ({0:.1f} pixels against {1:.1f} on the same points).",
- "poco precisa": "not very precise"
+ "poco precisa": "not very precise",
+ "In uso: nessuna calibrazione": "In use: no calibration",
+ "In uso: calibrazione col puntino del {0}": "In use: dot calibration of {0}",
+ "In uso: calibrazione completa del {0}": "In use: full calibration of {0}",
+ "In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm": "In use: full calibration of {0} · largest error {1:.2f} mm",
+ "In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm": "In use: full calibration of {0} · not very precise, largest error {1:.2f} mm",
+ "Linee unite: ora sono una linea sola": "Lines joined: they are now a single line",
+ "Tratto tolto: ora sono due linee separate": "Segment removed: they are now two separate lines"
 }

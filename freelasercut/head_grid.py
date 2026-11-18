@@ -22,7 +22,9 @@ Poi FreeLaserCut:
 
 Le funzioni di calcolo sono senza interfaccia e senza macchina, così le prove le controllano numericamente.
 """
+import json
 import math
+import os
 import threading
 import time
 
@@ -909,6 +911,8 @@ class HeadGridCalibration(hc.HeadCalibration):
                        ~plan.control)
         obs_ctl = _obs([shots[s] for s in use], [matches[s] for s in use], [dets[s] for s in use], X_all,
                        plan.control)
+        rep["obs_fit"], rep["frame_size"] = obs_fit, tuple(size)  # 0.20.6: le misure restano per il rapporto
+        rep["obs_ctl"] = obs_ctl
         if len(obs_ctl["P"]) < 6:
             return None, tr("Calibrazione da rifare: troppo pochi punti di controllo riconosciuti ({0}).",
                             len(obs_ctl["P"]))
@@ -926,6 +930,9 @@ class HeadGridCalibration(hc.HeadCalibration):
             e_ctl, _s = errors_px(p_k, obs_ctl, size)
             fits[kind] = (p_k, e_ctl)
             start = p_k
+        rep["by_kind"] = {k: float(np.sqrt(np.mean(e ** 2))) for k, (_p, e) in fits.items()}
+        rep["params"] = {k: {n: np.asarray(v, float).round(6).tolist() for n, v in p_.items()}
+                         for k, (p_, _e) in fits.items()}
         kind = choose_kind(fits)
         if kind is None:
             return None, tr("Calibrazione da rifare: i puntini non danno un modello della camera credibile. Controlla "
@@ -1079,6 +1086,46 @@ class HeadGridCalibration(hc.HeadCalibration):
         if not self._choice:
             return None, tr("Tengo la calibrazione di prima.")
         return model, msg
+
+
+MEASURES_FILE = "camera-testa-misure.json"
+
+
+def measures_file():
+    return os.path.join(os.path.dirname(hc.head_file()), MEASURES_FILE)
+
+
+def save_measures(report, msg="", kept=False, path=None):
+    """0.20.6: le misure dell'ultima calibrazione completa (riuscita o no) in un file che entra nel rapporto per
+    l'assistenza: dove sono stati visti i puntini, dove era la testa, quanto sbaglia ogni modello. Per capire da
+    lontano una calibrazione che non riesce senza chiedere foto (camera di Ale, 18/11/2026). Mai un errore."""
+    try:
+        def arr(v):
+            return np.asarray(v, float).round(3).tolist()
+
+        d = {"quando": time.strftime("%Y-%m-%d %H:%M:%S"), "tenuta": bool(kept), "messaggio": str(msg or ""),
+             "immagine": list(report.get("frame_size") or ())}
+        for k in ("mm_per_px", "grid_dots", "pitch", "dot", "stable_shift_px", "stable_scale", "return_shift_mm",
+                  "old_p95_px", "new_p95_px", "by_kind", "params", "quality", "seconds"):
+            v = report.get(k)
+            if v is not None:
+                d[k] = v
+        bl = report.get("backlash")
+        if bl is not None:
+            d["backlash"] = [float(bl[0]), float(bl[1])]
+        for name in ("obs_fit", "obs_ctl"):
+            o = report.get(name)
+            if o is not None:
+                d[name] = {"P": arr(o["P"]), "L": arr(o["L"]), "X": arr(o["X"])}
+        text = json.dumps(d, ensure_ascii=False, default=float)
+        path = path or measures_file()
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+        return path
+    except Exception:  # noqa: BLE001 — è un aiuto per l'assistenza: non deve mai fermare la calibrazione
+        return None
 
 
 def _mmss(s):

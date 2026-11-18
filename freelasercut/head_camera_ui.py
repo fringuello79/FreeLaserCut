@@ -722,6 +722,8 @@ class HeadCameraCard(QWidget):
         return "move"
 
     def _cal_finished(self, model, msg):
+        if self.cal is not None and getattr(self.cal, "report", None):
+            hg.save_measures(self.cal.report, msg, kept=model is not None)  # 0.20.6: per il rapporto all'assistenza
         self.cal = None
         self.waiting_click = False
         if model is not None:
@@ -889,6 +891,21 @@ class WherePad(QWidget):
     def guess(self):
         """Scostamento indicativo laser → centro camera (mm), o None se non si sa."""
         return hc.guess_from_direction(self.direction, self.cm.value())
+
+
+def calibration_state(model):
+    """0.20.6: una riga che dice quale calibrazione della camera della testa è in uso e quanto è precisa."""
+    if model is None:
+        return tr("In uso: nessuna calibrazione")
+    if model.method != "grid":
+        return tr("In uso: calibrazione col puntino del {0}", model.created)
+    qd = model.quality or {}
+    if qd.get("max_mm") is None:
+        return tr("In uso: calibrazione completa del {0}", model.created)
+    if qd.get("approx"):
+        return tr("In uso: calibrazione completa del {0} · poco precisa, errore massimo {1:.2f} mm", model.created,
+                  qd["max_mm"])
+    return tr("In uso: calibrazione completa del {0} · errore massimo {1:.2f} mm", model.created, qd["max_mm"])
 
 
 class HeadCalDialog(QDialog):
@@ -1420,6 +1437,9 @@ class HeadCameraWindow(QDialog):
         self.bar = QProgressBar()
         self.bar.hide()
         kl.addWidget(self.bar)
+        # 0.20.6: quale calibrazione è in uso si legge sempre, anche quando la riga sotto mostra un altro messaggio
+        self.cal_state = muted("")
+        kl.addWidget(self.cal_state)
         self.cal_text = muted("")
         kl.addWidget(self.cal_text)
         side.addWidget(kc)
@@ -1589,6 +1609,7 @@ class HeadCameraWindow(QDialog):
         if ang is not None:
             parts.append(tr("lato A→B a {0:.2f}°", ang))
         self.board_text.setText("  ·  ".join(parts) if parts else tr("Nessun angolo preso"))
+        self.cal_state.setText(calibration_state(cd.model))
         if cd.model is None and not self.cal_text.text():
             self.cal_text.setText(tr("Non ancora calibrata."))
         elif cd.model is not None and not busy and not self.cal_text.text():
