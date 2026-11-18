@@ -72,7 +72,7 @@ jobs:
   # Le prove automatiche del programma su un Mac (come su Windows e Linux). Per ora solo per informazione.
   prove:
     runs-on: macos-15
-    timeout-minutes: 75
+    timeout-minutes: 170  # 0.20.8: il Mac di GitHub ha 3 processori; con le riprove da sole 75 minuti non bastavano
     continue-on-error: true
     env:
       QT_QPA_PLATFORM: offscreen
