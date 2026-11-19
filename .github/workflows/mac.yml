@@ -95,9 +95,11 @@ jobs:
       - name: Librerie Python
         run: python -m pip install -r requirements.txt
       - name: Indirizzi di prova in più sul Mac
-        # 0.20.8: Linux e Windows rispondono su tutto 127.x.x.x, macOS solo su 127.0.0.1; la prova del Wi-Fi usa
-        # 127.0.5.1 per un laser «in un'altra sottorete»
-        run: sudo ifconfig lo0 alias 127.0.5.1 up
+        # 0.20.8: Linux e Windows rispondono su tutto 127.x.x.x, macOS solo su 127.0.0.1; le prove del Wi-Fi usano
+        # altri indirizzi per laser «in un'altra sottorete» o due laser nella stessa rete
+        run: |
+          for i in $(seq 2 254); do sudo ifconfig lo0 alias 127.0.0.$i up; done
+          sudo ifconfig lo0 alias 127.0.5.1 up
       - name: Prove (solo alcune)
         if: github.event_name == 'workflow_dispatch' && inputs.solo != ''
         env:

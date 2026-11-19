@@ -106,6 +106,11 @@ def info_plist(ver):
         "NSCameraUsageDescription": "FreeLaserCut uses the camera to show the laser bed and to place your designs "
                                     "on the material.",
         "NSLocalNetworkUsageDescription": "FreeLaserCut connects to laser engravers on your local network (Wi-Fi).",
+        # macOS 14 e successivi: anche l'iPhone come camera (Continuità), senza l'avviso nel registro
+        "NSCameraUseContinuityCameraDeviceType": True,
+        # 0.20.8: niente App Nap. Con la finestra coperta o ridotta a icona macOS rallenta i programmi «in pausa»:
+        # durante un lavoro le righe al laser devono continuare ad arrivare in tempo
+        "LSAppNapIsDisabled": True,
         "CFBundleDocumentTypes": [{
             "CFBundleTypeName": "FreeLaserCut project",
             "CFBundleTypeExtensions": ["flcut"],

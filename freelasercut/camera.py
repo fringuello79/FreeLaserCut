@@ -42,9 +42,10 @@ def mac_app_bundle(executable=None):
         return False
 
 
-if sys.platform == "darwin" and mac_app_bundle():
-    # 0.20.8: su macOS il permesso della camera lo chiede FreeLaserCut dal filo della finestra (mac_camera_permission):
-    # OpenCV, che cerca le camere da un altro filo, non può chiederlo e la camera non partiva mai
+if sys.platform == "darwin":
+    # 0.20.8: su macOS il permesso della camera lo chiede FreeLaserCut dal filo della finestra (mac_camera_permission,
+    # solo dal pacchetto .app): OpenCV, che cerca le camere da un altro filo, non può chiederlo (ci prova, non riesce
+    # e la camera non parte); dai sorgenti il permesso è quello già dato al Terminale
     os.environ.setdefault("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
 import cv2  # noqa: E402
 import numpy as np

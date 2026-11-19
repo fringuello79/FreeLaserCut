@@ -45,6 +45,8 @@ check("Info.plist: permessi di camera e rete locale con la loro spiegazione",
 check("Info.plist: macOS 13 o più recente (come Qt 6.12), schermi Retina, progetti .flcut",
       info["LSMinimumSystemVersion"] == "13.0" and info["NSHighResolutionCapable"] is True
       and info["CFBundleDocumentTypes"][0]["CFBundleTypeExtensions"] == ["flcut"])
+check("Info.plist: niente App Nap (con la finestra coperta il lavoro al laser non rallenta)",
+      info.get("LSAppNapIsDisabled") is True)
 check("Info.plist: si scrive come file plist valido", plistlib.loads(plistlib.dumps(info)) == info)
 L = pm.LAUNCHER
 check("avvio: Python isolato (-I), senza scrivere .pyc nel pacchetto (-B), dalla copia in Contents/MacOS",
@@ -135,7 +137,7 @@ try:
     check("…risposta «Non consentire»: lo si sa", got == [True, False])
     check("la richiesta di OpenCV dal suo filo resta spenta sul Mac (la variabile si mette prima di aprire le camere)",
           "OPENCV_AVFOUNDATION_SKIP_AUTH" in open(camera.__file__, encoding="utf-8").read()
-          and 'sys.platform == "darwin" and mac_app_bundle()' in open(camera.__file__, encoding="utf-8").read())
+          and 'if sys.platform == "darwin":\n' in open(camera.__file__, encoding="utf-8").read())
 finally:
     sys.platform = real_platform
     QC.QCoreApplication.instance = real_instance
