@@ -4620,7 +4620,14 @@ class MainWindow(QMainWindow):
         return dlg
 
     def show_about(self):
-        QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", __version__)
+        from .. import __codename__
+
+        name = f"{__version__} «{__codename__}»" if __codename__ else __version__
+        QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", name)
+                          + (tr("<br><br><b>Versione per macOS (anteprima).</b> Stesso codice e stesse prove "
+                                "automatiche della versione per Windows; è la prima per Mac e il collaudo con laser e "
+                                "camera veri lo fa chi la usa. Problemi? <i>Aiuto → Invia un rapporto "
+                                "all'assistenza</i>.") if sys.platform == "darwin" else "")
                           + (tr("<br><br><b>Versione per Linux.</b> Stesso codice e stesse prove automatiche della versione "
                                 "per Windows; il collaudo con laser e camera veri lo fa chi la usa. Problemi? "
                                 "<i>Aiuto → Invia un rapporto all'assistenza</i>.") if _is_linux() else ""))

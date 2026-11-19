@@ -1,7 +1,20 @@
 # Novità di FreeLaserCut
 
-## 0.20.7 — in lavorazione
-Disegni SVG con contorno e riempimento separati da soli, e riempimenti in toni di grigio che cambiano la potenza, come in MeerK40t; la scia dell'incisione che si spegne; la prima versione per Mac (anteprima).
+## 0.20.7 «0.20.VI» — 19/11/2026
+La prima versione per Mac (anteprima, cerchiamo collaudatori); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza, come in MeerK40t; la barra in alto con i comandi che usi di più; la scia dell'incisione che si spegne; ringraziamenti iniziali più fitti. Il nome «0.20.VI» è in onore di GTA VI; il numero della versione resta 0.20.7.
+
+**FreeLaserCut per Mac (anteprima).** Nella stessa pagina delle Release, insieme a Windows e Linux, ci sono due file .dmg: uno per i Mac con Apple Silicon (M1, M2, M3, M4…) e uno per i Mac Intel, da macOS 13 in poi. Si apre il .dmg e si trascina FreeLaserCut in Applicazioni. Il programma non è firmato da Apple: al primo avvio macOS lo blocca, e si sblocca da *Impostazioni di Sistema → Privacy e sicurezza → Apri comunque* (lo spiega il LEGGIMI nel .dmg).
+- È lo stesso programma, con le stesse prove automatiche, fatte anche sui Mac di GitHub; **nessuno l'ha ancora provato con un laser vero**: chi ha un Mac ci aiuta molto provandolo e mandando un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
+- La camera chiede il permesso la prima volta (FreeLaserCut aspetta la risposta e poi riparte da solo); i nomi delle camere si leggono dalla finestra (da un altro filo macOS chiudeva il programma).
+- Con la finestra coperta o ridotta a icona macOS rallenta i programmi «in pausa» (App Nap): per FreeLaserCut è spento, così durante un lavoro i comandi al laser arrivano in tempo.
+- Sui Mac Intel alcune funzioni su foto grandi e vettorizzazione sono più lente (manca una libreria che lì non esiste più).
+- Il primo passaggio del Wi-Fi senza cavo sul Mac non c'è ancora: lo dice la finestra, con il cavo USB o «Trova il laser in rete» per i laser già nella rete di casa.
+- Sul Mac l'aggiornamento si fa a mano: *Aiuto → Cerca aggiornamenti…* dice che c'è una versione nuova e apre il sito, da dove si scarica il .dmg.
+- Nuova prova automatica: `tests/test_v208_mac.py` (Mac simulato dove serve, su qualsiasi sistema).
+
+**Barra in alto personalizzabile** (richiesta di Ale). *Visualizza → Personalizza la barra…*, oppure il tasto destro su una barra: a sinistra cerchi i comandi, con *Aggiungi* o un doppio clic li metti nella barra in alto, dopo quelli di sempre, e con *Su* e *Giù* scegli l'ordine (al massimo 24). La scelta resta ai prossimi avvii. Solo nell'interfaccia classica (il Banco ha le sue isole). Nuova prova automatica: `tests/test_v207_barra.py` (26 controlli; 4 guasti messi apposta, tutti presi).
+
+**Ringraziamenti iniziali più fitti** (richiesta di Ale). Sulla schermata di avvio i nomi sono un po' più piccoli (da 12 a 22 pixel invece che da 15 a 30), sempre di grandezze diverse, e più fitti: 12 righe piene, senza grandi spazi fra un nome e l'altro, come una trama; l'elenco si ripete. L'incisione dura sempre circa 3 secondi. Con caratteri molto larghi o strani la trama si allenta da sola invece di rompersi.
 
 **SVG con contorno e riempimento, riempimenti grigi** (richiesta di France_o, abituato a Inkscape e MeerK40t). In Inkscape ogni figura può avere un contorno colorato e un riempimento grigio: FreeLaserCut prendeva solo il colore del contorno e ignorava il riempimento. Ora, aprendo o importando un SVG:
 - una figura chiusa con un **riempimento grigio o nero** diventa **due forme**: il contorno resta una linea sul livello del suo colore (un contorno nero va su C01), il riempimento va su **C00** (Riempimento) con il suo grigio. La trasparenza schiarisce il grigio, come su un foglio bianco;

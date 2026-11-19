@@ -7,13 +7,13 @@
 > - **Website:** https://fringuello79.github.io/FreeLaserCut/ · **Nesting** (Arrange → Optimize space, Alt+N) · ready-made profiles for Longer, Ortur, xTool, Atomstack, Sculpfun, Creality Falcon, Two Trees, Comgrow and any GRBL laser.
 > - **Two interfaces:** *Workbench* (full-screen bed, command search, radial menu, second-monitor aware) or *Classic* — *Settings → Interface*.
 > - Free (GPL-3.0) laser engraving and cutting software for GRBL machines, native profile for the Longer B1 40W.
-> - Windows installer and **Linux AppImage** in **Releases**. The Linux version is the same program with the same automated tests, but real-machine testing on Linux is done by the people who install it: please report problems with *Help → Send a report to support*. Documentation below is in Italian.
+> - Windows installer, **Linux AppImage** and **macOS .dmg (preview, Apple Silicon and Intel)** in **Releases**. The macOS version is new and not yet tested with a real laser: testers welcome. The Linux version is the same program with the same automated tests, but real-machine testing on Linux is done by the people who install it: please report problems with *Help → Send a report to support*. Documentation below is in Italian.
 
 Software **libero** di incisione e taglio laser per macchine GRBL, con profilo nativo per il **Longer B1 40W**.
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.6** — la foto ritagliata con una forma si misura, si allinea e si aggancia sulla sola parte che si vede, con il contorno da tagliare in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri a evolvente (modulo, angolo di pressione, gioco, foro, alleggerimenti); per la xTool M2, che lavora solo con xTool Studio, un progetto `.xs` pronto da aprire là.
+**Versione 0.20.7 «0.20.VI»** — la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza; la barra in alto con i comandi che usi di più (*Visualizza → Personalizza la barra…*); la scia dell'incisione che si può spegnere; ringraziamenti iniziali più fitti.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -50,6 +50,18 @@ chmod +x FreeLaserCut-*-x86_64.AppImage
 La versione per Linux viene costruita dallo stesso codice di quella per Windows, esce insieme a lei con lo stesso numero di versione e passa le stesse prove automatiche, più una prova di avvio su Ubuntu e su altre distribuzioni (Debian, Fedora, Arch) fatta dai server di GitHub. **Lo sviluppo e le prove con il laser e la camera veri però si fanno su Windows**: su Linux non si possono ripetere a ogni versione, perché distribuzioni, desktop e configurazioni sono troppi. Per questo **il collaudo su Linux lo fa chi installa il programma, sul proprio computer**.
 
 Se qualcosa non va (porta USB, camera, finestre, lavoro sulla macchina, aggiornamento…), segnalalo da **Aiuto → Invia un rapporto all'assistenza**: il rapporto contiene già la distribuzione, il desktop (X11 o Wayland), lo stato delle porte USB e le altre informazioni tecniche, e parte solo con il tuo consenso. Basta raccontare cosa è successo. Ogni rapporto serve a correggere il problema per tutti nelle versioni successive, che escono sempre insieme per Windows e Linux.
+
+## Installazione (macOS, anteprima)
+
+Dalla 0.20.7 nella pagina **Releases** ci sono due file: **`FreeLaserCut-<versione>-macOS-arm64.dmg`** per i Mac con Apple Silicon (M1, M2, M3, M4…) e **`FreeLaserCut-<versione>-macOS-x86_64.dmg`** per i Mac Intel (menu Apple → *Informazioni su questo Mac*: «Chip Apple M…» o «Processore … Intel»). Serve macOS 13 o più recente.
+
+Apri il .dmg e trascina **FreeLaserCut** in **Applicazioni**. Il programma non è firmato da Apple: al primo avvio macOS lo blocca; vai in *Impostazioni di Sistema → Privacy e sicurezza* e premi **Apri comunque** (lo spiega anche il LEGGIMI nel .dmg).
+
+- **Porta USB del laser:** compare come `/dev/cu.usbserial…` o `/dev/cu.usbmodem…`.
+- **Camera:** la prima volta macOS chiede il permesso; se l'hai negato si riattiva da *Impostazioni di Sistema → Privacy e sicurezza → Fotocamera*.
+- **Wi-Fi:** funziona con i laser già nella rete di casa; il primo passaggio senza cavo (il PC che si collega da solo alla rete del laser) sul Mac non c'è ancora.
+- **Aggiornare:** a mano, con il .dmg nuovo (*Aiuto → Cerca aggiornamenti…* dice quando c'è).
+- **Chi la collauda:** è la prima versione per Mac. Passa le stesse prove automatiche, anche sui Mac di GitHub, ma **nessuno l'ha ancora usata con un laser vero**: se hai un Mac e un laser, provala e manda un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
 
 ## Lingua
 
@@ -323,7 +335,9 @@ Serve Python 3.10 o più recente con internet (lo script scarica Python per Wind
 
 **Versione per Linux** (su un Linux x86_64): `python build/prepara_appimage.py` → `build/FreeLaserCut-<versione>-x86_64.AppImage`, con lo stesso Python e le stesse librerie dell'installatore per Windows.
 
-Lo stesso lo fa GitHub da solo con il workflow **Installatori Windows e Linux** (`.github/workflows/installatore.yml`): Actions → Run workflow, oppure pubblicando un tag `vX.Y.Z`. Con il tag costruisce e prova tutte e due le versioni e crea una sola Release con l'installatore, l'AppImage e `SHA256SUMS.txt`; se la parte Linux non passa la prova, la Release esce con la sola versione per Windows.
+**Versione per macOS** (su un Mac, Apple Silicon o Intel): `python build/prepara_mac.py --arch arm64` (o `x86_64`) → `build/FreeLaserCut-<versione>-macOS-<arch>.dmg`, con lo stesso Python e le stesse librerie, firma ad hoc.
+
+Lo stesso lo fa GitHub da solo con il workflow **Installatori Windows, Linux e Mac** (`.github/workflows/installatore.yml`): Actions → Run workflow, oppure pubblicando un tag `vX.Y.Z`. Con il tag costruisce e prova tutte le versioni e crea una sola Release con l'installatore, l'AppImage, i due .dmg e `SHA256SUMS.txt`; se la parte Linux o quella Mac non passa la prova, la Release esce senza (Windows è la versione principale).
 
 **Firma e Microsoft Store**: le strade per togliere l'avviso di SmartScreen sono spiegate in [`build/FIRMA-E-STORE.md`](build/FIRMA-E-STORE.md):
 

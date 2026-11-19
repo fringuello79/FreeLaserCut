@@ -6,7 +6,7 @@
 # (Aiuto → Cerca aggiornamenti…), su Windows come su Linux: le due versioni escono sempre insieme, con lo stesso numero.
 # Se la parte Linux o quella Mac non riesce, la Release esce lo stesso senza (Windows è la principale).
 # Si avvia anche a mano (Actions → Installatori → Run workflow): allora costruisce e prova, senza Release.
-name: Installatori Windows e Linux
+name: Installatori Windows, Linux e Mac
 
 on:
   workflow_dispatch:
@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       ver: ${{ steps.ver.outputs.ver }}
+      name: ${{ steps.ver.outputs.name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,6 +36,9 @@ jobs:
         run: |
           ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")
           echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          # 0.20.7: il nome della versione, se c'è (__codename__), va nel titolo della Release
+          name=$(python -c "import re;m=re.search(r'__codename__ = \"([^\"]*)\"', open('freelasercut/__init__.py', encoding='utf-8').read());print(m.group(1) if m else '')")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
           if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$ver" ]]; then
             echo "::error::Il tag $GITHUB_REF_NAME non corrisponde alla versione del programma ($ver): il tag deve essere v$ver"
             exit 1
@@ -419,6 +423,8 @@ jobs:
           # GitHub ogni tanto risponde con un errore suo (HTTP 500, successo con la 0.13.1) e la Release resta a metà,
           # in bozza: riprovo fino a 3 volte e, se la Release esiste già, carico i file e la pubblico.
           TITLE="FreeLaserCut ${{ needs.build.outputs.ver }}"
+          NAME="${{ needs.build.outputs.name }}"
+          if [ -n "$NAME" ] && [ "$NAME" != "${{ needs.build.outputs.ver }}" ]; then TITLE="FreeLaserCut $NAME (${{ needs.build.outputs.ver }})"; fi
           FILES=(dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt)
           if [ "$LINUX" = "1" ]; then FILES+=(dist/FreeLaserCut-*-x86_64.AppImage); fi
           for arch in $MAC; do FILES+=(dist/FreeLaserCut-*-macOS-$arch.dmg); done
