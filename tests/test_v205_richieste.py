@@ -744,8 +744,8 @@ check("G licenza della libreria aggiunta (GLib, LGPL 2.1)", "glib-LGPL-2.1.txt" 
 # ====================================================================== H. ringraziamenti
 print("--- H. ringraziamenti")
 N = len(thanks.NAMES)
-check("H un solo elenco: 17 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9), nessun doppione, «Roberto C.» senza "
-      "cognome, Deborah", N == 17 and thanks.NAMES[-5:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
+check("H un solo elenco: 18 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1), nessun doppione, «Roberto C.» senza "
+      "cognome, Deborah", N == 18 and thanks.NAMES[-6:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
       and not any("cappellero" in n.lower() for n in thanks.NAMES) and thanks.NAMES[0] == "Stefano Modena")
 it = thanks.endless()
 seq = [next(it) for _ in range(N * 6)]

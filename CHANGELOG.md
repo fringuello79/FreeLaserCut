@@ -1,5 +1,8 @@
 # Novità di FreeLaserCut
 
+## 0.21.1 — in lavorazione
+**Ringraziamenti.** Grazie a Sengir, che con i suoi rapporti sul Falcon A1 ci ha aiutato a trovare il problema dell'homing.
+
 ## 0.21.0 — 19/11/2026
 Le cinque richieste di un utente che lavora con FreeLaserCut su Linux: la testa mossa con la tastiera, la linea tratteggiata, la ripresa del lavoro anche dopo che è mancata la corrente e il nuovo «Parti da qui», il ritaglio dei vettori, la rampa per i timbri in gomma. In più lo Z che scende a ogni passata, Separa che separa anche i tracciati e, fra le funzioni in prova, il collegamento diretto con la xTool M2.
 

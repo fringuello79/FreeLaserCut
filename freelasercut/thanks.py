@@ -25,6 +25,7 @@ NAMES = (
     "Mauro C.",  # 0.20.9: donazione (Ale, 19/11)
     "Gianni",  # 0.20.9: rapporto del 19/11
     "marcello",  # 0.20.9: rapporto del 19/11
+    "Sengir",  # 0.21.1: rapporti sul Falcon A1 (Ale, 19/11)
 )
 
 
