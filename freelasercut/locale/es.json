@@ -3773,5 +3773,17 @@
  "Quasi tutta aria: brucia in un attimo. Non allontanarti nemmeno per scherzo.": "Casi todo aire: se quema en un instante. No te alejes ni en broma.",
  "Cottura rapida (tutta la potenza, righe più larghe)": "Cocción rápida (toda la potencia, líneas más anchas)",
  "Raddoppia l'interlinea e alza la dose della passata: il laser lavora al massimo e il tempo scende a meno della metà. Più colore fuori; se restano strisce, alza la testa di altri 5 mm": "Duplica la interlínea y sube la dosis por pasada: el láser trabaja al máximo y el tiempo baja a menos de la mitad. Más color por fuera; si quedan franjas, sube el cabezal otros 5 mm",
- "Righe a {0:g} mm con la testa alzata di soli {1:g} mm: possono restare strisce. Alzala ad almeno 15 mm.": "Líneas a {0:g} mm con el cabezal subido solo {1:g} mm: pueden quedar franjas. Súbelo al menos 15 mm."
+ "Righe a {0:g} mm con la testa alzata di soli {1:g} mm: possono restare strisce. Alzala ad almeno 15 mm.": "Líneas a {0:g} mm con el cabezal subido solo {1:g} mm: pueden quedar franjas. Súbelo al menos 15 mm.",
+ "Personalizza la barra…": "Personalizar la barra…",
+ "Aggiunge alla barra in alto i comandi che usi di più, nell'ordine che vuoi": "Añade a la barra superior los comandos que más usas, en el orden que quieras",
+ "Personalizza la barra": "Personalizar la barra",
+ "Scegli i comandi che usi di più: compaiono nella barra in alto, dopo quelli di sempre, nell'ordine che vedi a destra. Al massimo {0}.": "Elige los comandos que más usas: aparecen en la barra superior, después de los de siempre, en el orden que ves a la derecha. Como máximo {0}.",
+ "Comandi": "Comandos",
+ "Nella barra": "En la barra",
+ "Aggiungi →": "Añadir →",
+ "← Togli": "← Quitar",
+ "Su": "Subir",
+ "Giù": "Bajar",
+ "Svuota": "Vaciar",
+ "Aggiunge alla barra in alto, dopo i comandi di sempre, quelli che usi di più: a sinistra li cerchi, con «Aggiungi» o un doppio clic li metti nella barra, con «Su» e «Giù» scegli l'ordine. La scelta resta anche ai prossimi avvii. Si apre da Visualizza o con il tasto destro su una barra. Solo nell'interfaccia classica.": "Añade a la barra superior, después de los comandos de siempre, los que más usas: a la izquierda los buscas, con «Añadir» o un doble clic los pones en la barra y con «Subir» y «Bajar» eliges el orden. La elección se mantiene también en los próximos inicios. Se abre desde Ver o con el botón derecho sobre una barra. Solo en la interfaz clásica."
 }

@@ -3773,5 +3773,17 @@
  "Quasi tutta aria: brucia in un attimo. Non allontanarti nemmeno per scherzo.": "Almost all air: it burns in a flash. Don't walk away, not even as a joke.",
  "Cottura rapida (tutta la potenza, righe più larghe)": "Quick cooking (full power, wider lines)",
  "Raddoppia l'interlinea e alza la dose della passata: il laser lavora al massimo e il tempo scende a meno della metà. Più colore fuori; se restano strisce, alza la testa di altri 5 mm": "Doubles the line interval and raises the dose per pass: the laser works flat out and the time drops to less than half. More colour outside; if stripes remain, raise the head another 5 mm",
- "Righe a {0:g} mm con la testa alzata di soli {1:g} mm: possono restare strisce. Alzala ad almeno 15 mm.": "Lines {0:g} mm apart with the head raised only {1:g} mm: stripes may remain. Raise it to at least 15 mm."
+ "Righe a {0:g} mm con la testa alzata di soli {1:g} mm: possono restare strisce. Alzala ad almeno 15 mm.": "Lines {0:g} mm apart with the head raised only {1:g} mm: stripes may remain. Raise it to at least 15 mm.",
+ "Personalizza la barra…": "Customise the toolbar…",
+ "Aggiunge alla barra in alto i comandi che usi di più, nell'ordine che vuoi": "Adds the commands you use most to the top toolbar, in the order you like",
+ "Personalizza la barra": "Customise the toolbar",
+ "Scegli i comandi che usi di più: compaiono nella barra in alto, dopo quelli di sempre, nell'ordine che vedi a destra. Al massimo {0}.": "Choose the commands you use most: they appear in the top toolbar, after the standard ones, in the order shown on the right. Up to {0}.",
+ "Comandi": "Commands",
+ "Nella barra": "In the toolbar",
+ "Aggiungi →": "Add →",
+ "← Togli": "← Remove",
+ "Su": "Up",
+ "Giù": "Down",
+ "Svuota": "Clear",
+ "Aggiunge alla barra in alto, dopo i comandi di sempre, quelli che usi di più: a sinistra li cerchi, con «Aggiungi» o un doppio clic li metti nella barra, con «Su» e «Giù» scegli l'ordine. La scelta resta anche ai prossimi avvii. Si apre da Visualizza o con il tasto destro su una barra. Solo nell'interfaccia classica.": "Adds the commands you use most to the top toolbar, after the standard ones: search them on the left, put them in the toolbar with “Add” or a double click, and choose the order with “Up” and “Down”. The choice is kept for the next starts too. It opens from View or with a right click on a toolbar. Classic interface only."
 }

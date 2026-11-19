@@ -556,6 +556,8 @@ if __name__ == "__main__":
     run_suite("test_v207_piano.py", "G-code «del piano» nell'interfaccia Banco", "banco")
     run_suite("test_v206_cook.py", "Free Laser Cook (in prova): conto dell'energia e delle passate, G-code a testa alzata con pausa per girare, righe della griglia, firma e giro dell'aroma sul legno; ricette incluse, salvate, esportate e importate; finestra dietro il codice con le accortezze da spuntare")
     run_suite("test_v206_cook.py", "Free Laser Cook nell'interfaccia Banco", "banco")
+    run_suite("test_v207_barra.py", "Barra in alto personalizzabile: i comandi che usi di più dopo quelli di sempre, nell'ordine scelto, ricordati; finestra con Cerca, Aggiungi, Togli, Su, Giù, Svuota; tasto destro sulle barre")
+    run_suite("test_v207_barra.py", "Barra personalizzabile: nel Banco la voce non c'è", "banco")
     run_suite("test_v208_mac.py", "Versione per macOS (anteprima): pacchetto con permessi di camera e rete locale, avvio isolato, numba solo su Apple Silicon, permesso della camera chiesto dal filo della finestra, avviso di errore all'avvio")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")

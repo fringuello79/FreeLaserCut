@@ -3773,5 +3773,17 @@
  "Quasi tutta aria: brucia in un attimo. Non allontanarti nemmeno per scherzo.": "Presque que de l'air : il brûle en un instant. Ne vous éloignez pas, même pour rire.",
  "Cottura rapida (tutta la potenza, righe più larghe)": "Cuisson rapide (pleine puissance, lignes plus espacées)",
  "Raddoppia l'interlinea e alza la dose della passata: il laser lavora al massimo e il tempo scende a meno della metà. Più colore fuori; se restano strisce, alza la testa di altri 5 mm": "Double l'interligne et augmente la dose par passe : le laser travaille à fond et le temps tombe à moins de la moitié. Plus de couleur dehors ; s'il reste des bandes, relevez la tête de 5 mm de plus",
- "Righe a {0:g} mm con la testa alzata di soli {1:g} mm: possono restare strisce. Alzala ad almeno 15 mm.": "Lignes à {0:g} mm avec la tête relevée de seulement {1:g} mm : il peut rester des bandes. Relevez-la d'au moins 15 mm."
+ "Righe a {0:g} mm con la testa alzata di soli {1:g} mm: possono restare strisce. Alzala ad almeno 15 mm.": "Lignes à {0:g} mm avec la tête relevée de seulement {1:g} mm : il peut rester des bandes. Relevez-la d'au moins 15 mm.",
+ "Personalizza la barra…": "Personnaliser la barre…",
+ "Aggiunge alla barra in alto i comandi che usi di più, nell'ordine che vuoi": "Ajoute à la barre du haut les commandes que vous utilisez le plus, dans l'ordre que vous voulez",
+ "Personalizza la barra": "Personnaliser la barre",
+ "Scegli i comandi che usi di più: compaiono nella barra in alto, dopo quelli di sempre, nell'ordine che vedi a destra. Al massimo {0}.": "Choisissez les commandes que vous utilisez le plus : elles apparaissent dans la barre du haut, après les commandes habituelles, dans l'ordre affiché à droite. {0} au maximum.",
+ "Comandi": "Commandes",
+ "Nella barra": "Dans la barre",
+ "Aggiungi →": "Ajouter →",
+ "← Togli": "← Retirer",
+ "Su": "Monter",
+ "Giù": "Descendre",
+ "Svuota": "Vider",
+ "Aggiunge alla barra in alto, dopo i comandi di sempre, quelli che usi di più: a sinistra li cerchi, con «Aggiungi» o un doppio clic li metti nella barra, con «Su» e «Giù» scegli l'ordine. La scelta resta anche ai prossimi avvii. Si apre da Visualizza o con il tasto destro su una barra. Solo nell'interfaccia classica.": "Ajoute à la barre du haut, après les commandes habituelles, celles que vous utilisez le plus : cherchez-les à gauche, placez-les dans la barre avec « Ajouter » ou un double clic, et choisissez l'ordre avec « Monter » et « Descendre ». Le choix est conservé aux prochains démarrages. S'ouvre depuis Affichage ou par un clic droit sur une barre. Interface classique uniquement."
 }

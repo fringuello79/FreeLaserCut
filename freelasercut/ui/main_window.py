@@ -218,6 +218,7 @@ class MainWindow(QMainWindow):
             from .banco import Banco
 
             self.banco = Banco(self)
+            self.acts["fav_bar"].setVisible(False)  # 0.20.7: il Banco non ha la barra in alto
         else:
             self._build_classic_palette()
         self.update_rotary_state()
@@ -440,6 +441,8 @@ class MainWindow(QMainWindow):
             "head_cam": A(tr("Vista della testa…"), lambda *_: self.head_camera_window(), None, None,
                           tr("Video della telecamera fissata alla testa, con mirino e righello: porta il laser o la "
                              "camera dove vuoi, prendi gli angoli della tavola, fai la foto del piano a mosaico")),
+            "fav_bar": A(tr("Personalizza la barra…"), lambda *_: self.fav_bar_dialog(), None, None,
+                         tr("Aggiunge alla barra in alto i comandi che usi di più, nell'ordine che vuoi")),
             "clear_mosaic": A(tr("Togli la foto a mosaico dal piano"), lambda *_: self.camera.head.clear_mosaic(), None,
                               None, tr("Toglie da sotto il piano la foto fatta con la camera della testa (si può "
                                        "rifare quando vuoi)")),
@@ -699,6 +702,7 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self.m_panels = self.m_view.addMenu(tr("Pannelli"))
         self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
+        self.m_view.addAction(self.acts["fav_bar"])  # 0.20.7: i comandi che usi di più nella barra in alto
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
@@ -909,17 +913,21 @@ class MainWindow(QMainWindow):
     TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "cook", "print_cut", "-", "variables",
                   "photo", "trace")
 
+    # i comandi della barra in alto, sempre lì (0.20.7: dopo di loro vengono quelli scelti da chi usa il programma)
+    MAIN_BAR = ("new", "open", "save", "-", "import", "-", "undo", "redo", "-", "cut", "copy", "paste", "delete",
+                "-", "group", "ungroup", "weld", "union", "difference", "intersection", "-", "flip_h", "flip_v",
+                "rot_ccw", "rot_cw", "-", "align_left", "align_hcenter", "align_right", "align_top", "align_vcenter",
+                "align_bottom", "dist_h", "dist_v", "nest", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
+                "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "code", "materials", "material_test")
+    FAV_MAX = 24
+
     def _build_toolbars(self):
         a = self.acts
         tb = QToolBar(tr("Principale"))
         tb.setObjectName("main")
         tb.setIconSize(QSize(18, 18))
         tb.setMovable(False)
-        for k in ("new", "open", "save", "-", "import", "-", "undo", "redo", "-", "cut", "copy", "paste", "delete",
-                  "-", "group", "ungroup", "weld", "union", "difference", "intersection", "-", "flip_h", "flip_v",
-                  "rot_ccw", "rot_cw", "-", "align_left", "align_hcenter", "align_right", "align_top", "align_vcenter",
-                  "align_bottom", "dist_h", "dist_v", "nest", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
-                  "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "code", "materials", "material_test"):
+        for k in self.MAIN_BAR:
             if k == "-":
                 tb.addSeparator()
             else:
@@ -927,7 +935,11 @@ class MainWindow(QMainWindow):
         # a destra, nello spazio libero: riconoscimento macchina e guida "?"
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        tb.addWidget(spacer)
+        self.main_bar = tb
+        self._fav_anchor = tb.addWidget(spacer)  # 0.20.7: i comandi scelti vanno subito prima di questo spazio
+        self._fav_sep = None
+        self._fav_acts = []
+        self.apply_fav_bar(self.fav_bar_keys())
         tb.addAction(a["identify"])
         tb.addAction(a["help_mode"])
         hb = tb.widgetForAction(a["help_mode"])
@@ -2792,6 +2804,65 @@ class MainWindow(QMainWindow):
             return True
         QMessageBox.warning(self, tr("Funzioni in prova"), tr("Codice non valido."))
         return False
+
+    # ================================================================ barra personalizzabile (0.20.7)
+    def fav_candidates(self):
+        """I comandi che si possono aggiungere alla barra in alto: quelli con un'icona che non ci sono già."""
+        fixed = set(self.MAIN_BAR) | {"identify", "help_mode", "fav_bar"}
+        return [k for k, act in self.acts.items() if k not in fixed and not act.icon().isNull() and act.text()]
+
+    def clean_fav_keys(self, keys):
+        """Elenco pulito: solo comandi che esistono e si possono aggiungere, senza doppioni, al massimo FAV_MAX."""
+        if isinstance(keys, str):
+            keys = [keys] if keys else []
+        ok, out = set(self.fav_candidates()), []
+        for k in keys or []:
+            if isinstance(k, str) and k in ok and k not in out:
+                out.append(k)
+        return out[:self.FAV_MAX]
+
+    def fav_bar_keys(self):
+        return self.clean_fav_keys(self.qs.value("fav_bar") or [])
+
+    def apply_fav_bar(self, keys):
+        """Mette nella barra in alto i comandi scelti, dopo quelli di sempre e un separatore."""
+        tb = self.main_bar
+        for act in self._fav_acts:
+            tb.removeAction(act)
+        if self._fav_sep is not None:
+            tb.removeAction(self._fav_sep)
+            self._fav_sep = None
+        self._fav_acts = [self.acts[k] for k in self.clean_fav_keys(keys)]
+        if self._fav_acts:
+            self._fav_sep = tb.insertSeparator(self._fav_anchor)
+            for act in self._fav_acts:
+                tb.insertAction(self._fav_anchor, act)
+        return [k for k, v in self.acts.items() if v in self._fav_acts]
+
+    def set_fav_bar(self, keys):
+        """Salva e applica la scelta. -> l'elenco salvato."""
+        keys = self.clean_fav_keys(keys)
+        self.qs.setValue("fav_bar", keys)
+        self.apply_fav_bar(keys)
+        return keys
+
+    def fav_bar_dialog(self):
+        if self.banco is not None:
+            return None
+        from .dialogs_favbar import FavBarDialog
+
+        dlg = FavBarDialog(self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.open()
+        return dlg
+
+    def createPopupMenu(self):
+        """Tasto destro sulle barre: quelle da mostrare o nascondere e, dalla 0.20.7, «Personalizza la barra…»."""
+        m = super().createPopupMenu() or QMenu(self)
+        if self.banco is None:
+            m.addSeparator()
+            m.addAction(self.acts["fav_bar"])
+        return m
 
     # ================================================================ Free Laser Cook (0.20.7, in prova)
     def cook_dialog(self, *_):

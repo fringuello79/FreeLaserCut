@@ -287,6 +287,11 @@ HELP = {
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
         "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
                None),
+    "fav_bar": (tr("Personalizza la barra"), tr(
+        "Aggiunge alla barra in alto, dopo i comandi di sempre, quelli che usi di più: a sinistra li cerchi, con "
+        "«Aggiungi» o un doppio clic li metti nella barra, con «Su» e «Giù» scegli l'ordine. La scelta resta anche ai "
+        "prossimi avvii. Si apre da Visualizza o con il tasto destro su una barra. Solo nell'interfaccia classica."),
+                None),
     "cook": (tr("Free Laser Cook (in prova)"), tr(
         "Cuoce una fettina o una verdura con il laser, per gioco e con le dovute accortezze: il laser non è un "
         "fornello. Scegli la ricetta e la cottura; il programma calcola le passate a testa alzata (fuori fuoco, "
