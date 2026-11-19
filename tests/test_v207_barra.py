@@ -62,6 +62,8 @@ if UI == "banco":
           not w.acts["fav_bar"].isVisible() and w.fav_bar_dialog() is None)
 else:
     base = list(w.MAIN_BAR)
+    check("0.20.8: nella barra del titolo il nome della versione («0.20.VI»)", "FreeLaserCut 0.20.VI" in w.windowTitle(),
+          w.windowTitle())
     check("di partenza la barra in alto è quella di sempre", bar_keys(w) == base, bar_keys(w)[-6:])
     check("la voce è in Visualizza, con la sua scheda nella guida",
           w.acts["fav_bar"] in w.m_view.actions() and "fav_bar" in help_texts.HELP and w.acts["fav_bar"].isVisible())

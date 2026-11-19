@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.20.8 «0.20.VI» — 19/11/2026
+Piccolo aggiornamento della 0.20.7.
+- **«0.20.VI» sulla schermata di avvio e nella barra del titolo** (richiesta di Ale): il nome della versione si vede dove prima c'era il numero. Il numero (0.20.8) resta quello degli aggiornamenti automatici, dei file da scaricare e dei rapporti all'assistenza, e si legge in *Aiuto → Informazioni*.
+- **Mac Intel**: nella 0.20.7 il .dmg per i Mac Intel non era uscito, perché sui server di GitHub il programma che crea l'immagine disco ha risposto «occupato». Ora riprova da solo fino a cinque volte.
+
 ## 0.20.7 «0.20.VI» — 19/11/2026
 La prima versione per Mac (anteprima, cerchiamo collaudatori); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza, come in MeerK40t; la barra in alto con i comandi che usi di più; la scia dell'incisione che si spegne; ringraziamenti iniziali più fitti. Il nome «0.20.VI» è in onore di GTA VI; il numero della versione resta 0.20.7.
 

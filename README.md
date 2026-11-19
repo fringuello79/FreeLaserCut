@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.7 «0.20.VI»** — la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza; la barra in alto con i comandi che usi di più (*Visualizza → Personalizza la barra…*); la scia dell'incisione che si può spegnere; ringraziamenti iniziali più fitti.
+**Versione 0.20.8 «0.20.VI»** — il nome «0.20.VI» sulla schermata di avvio e nella barra del titolo; dalla 0.20.7: la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza; la barra in alto con i comandi che usi di più (*Visualizza → Personalizza la barra…*); la scia dell'incisione che si può spegnere; ringraziamenti iniziali più fitti.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 

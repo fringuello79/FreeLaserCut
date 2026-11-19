@@ -30,7 +30,7 @@ from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QGuiApplication, QImage
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QSplashScreen
 
-from . import __author__, __version__, thanks
+from . import __author__, display_version, thanks
 from freelasercut.i18n import tr  # noqa: E402
 
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -498,7 +498,7 @@ def _version_badge(p):
     num.setWeight(QFont.DemiBold)
     num.setLetterSpacing(QFont.AbsoluteSpacing, 0.6)
     p.setFont(num)
-    text = "v" + __version__
+    text = "v" + display_version()  # 0.20.8: il nome della versione («0.20.VI»), se c'è
     tw = p.fontMetrics().horizontalAdvance(text)
     pill = QRectF(W - 24 - (tw + 22), 262, tw + 22, 22)
     path = QPainterPath()
