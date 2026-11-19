@@ -117,9 +117,9 @@ Suite: 205. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v203_testo.py` (Banco): Testo: anteprima del carattere e spaziature nell'interfaccia Banco
 - `test_v203_misure.py`: Barra delle misure: caselle X, Y, L, A, R e rotazione larghe quanto serve al numero (la prima cifra non esce più tagliata)
 - `test_v207_svg_grigi.py`: SVG con contorno e riempimento separati da soli; riempimenti in toni di grigio con la potenza dal grigio di ogni forma (nero = massima, bianco = non si incide), forme sopra che coprono quelle sotto, fori vuoti; loghi neri, colori e file di prima come prima; anteprima dei toni; salvataggio; traduzioni
-- `test_v207_xtool_m2_link.py`: xTool M2, collegamento diretto (sperimentale): buste e protocollo, abbinamento con il pulsante e gettone, invio del lavoro e dei parametri come xTool Studio, attesa del pulsante, pausa e annullamento, macchina occupata, testa diversa, file scartato, collegamento perso; finestra di configurazione; G-code del piano adattato al laser
-- `test_v207_xtool_m2_link.py` (Banco): xTool M2, collegamento diretto e G-code del piano nell'interfaccia Banco
 - `test_v207_scia.py`: Scia dell'incisione sul piano: si spegne dal menu Visualizza (ricordato), ridisegno al massimo 4 volte al secondo, nascosta con l'anteprima del lavoro guardando un altro piano senza gli altri piani
+- `test_v207_piano.py`: G-code «del piano» di un programma esterno adattato al laser del profilo (watt, velocità massima, assi, G55, fuori dal piano), solo con le funzioni in prova; il collegamento diretto con la M2 non c'è
+- `test_v207_piano.py` (Banco): G-code «del piano» nell'interfaccia Banco
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
 ## Macchina, connessione e profili (40)

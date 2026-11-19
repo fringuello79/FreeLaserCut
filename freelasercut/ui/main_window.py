@@ -265,10 +265,6 @@ class MainWindow(QMainWindow):
             "export_m2": A(tr("Lavoro per xTool M2 (sperimentale)…"), self.file_export_m2, None, "gcode",
                            tr("In prova, solo per la xTool M2: scrive il lavoro nel linguaggio della macchina. Non lo "
                               "invia e non è ancora stato provato su una M2 vera")),
-            # 0.20.7, sperimentale: configurazione della M2 e collegamento diretto (abbinamento col pulsante, invio)
-            "m2_link": A(tr("xTool M2: collega e invia (sperimentale)…"), self.m2_link_dialog, None, "connect",
-                         tr("In prova, solo per la xTool M2: configurazione, collegamento in rete con il pulsante della "
-                            "macchina, invio della cornice e del lavoro, pausa e annullamento")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -627,7 +623,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "m2_link", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -1850,20 +1846,6 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(msg, 12000)
         return rep
 
-    def m2_link_dialog(self, *_):
-        """0.20.7, sperimentale: configurazione e collegamento diretto con la xTool M2 (finestra non bloccante)."""
-        from .. import admin
-        from .dialogs_m2link import M2LinkDialog
-
-        if not admin.unlocked(self.qs):
-            return None
-        dlg = getattr(self, "_m2_dialog", None)
-        if dlg is None or not dlg.isVisible():
-            dlg = self._m2_dialog = M2LinkDialog(self)
-        dlg.show()
-        dlg.raise_()
-        return dlg
-
     def file_export_m2(self, *_, path=None, laser_w=None, cut_layers=None, thickness=None):
         """0.20.6, sperimentale: il lavoro per la xTool M2 nel suo linguaggio, più la cornice a potenza zero.
         Non viene inviato alla macchina. -> resoconto di xtool_m2.build, o None se si rinuncia o non si può."""
@@ -2778,7 +2760,6 @@ class MainWindow(QMainWindow):
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
-        self.acts["m2_link"].setVisible(admin.unlocked(self.qs))  # 0.20.7: collegamento diretto con la M2
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 
