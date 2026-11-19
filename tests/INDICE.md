@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 209. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 210. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (16)
 
@@ -123,7 +123,7 @@ Suite: 209. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v206_cook.py`: Free Laser Cook (in prova): conto dell'energia e delle passate, G-code a testa alzata con pausa per girare, righe della griglia, firma e giro dell'aroma sul legno; ricette incluse, salvate, esportate e importate; finestra dietro il codice con le accortezze da spuntare
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
-## Macchina, connessione e profili (40)
+## Macchina, connessione e profili (41)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -163,6 +163,7 @@ Suite: 209. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_movimento.py`: Scheda Movimento: Puntino e Lucciola al centro delle frecce, joystick virtuale sul simulatore
 - `test_v195_movimento.py` (Banco): Puntino, Lucciola e joystick nell'interfaccia Banco
 - `test_v200_nomi.py`: Nome del progetto dal file importato e file di provenienza delle forme
+- `test_v207_svg_vuoti.py`: SVG con tracciati senza disegno (<path/> senza «d», come nei file di xTool Creative Space): il resto del file si importa; SVG sani byte per byte identici; attributi con «>» o apostrofi non rovinati; da file e .svgz; rettangoli e cerchi con trasformazioni speculari al posto giusto
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 

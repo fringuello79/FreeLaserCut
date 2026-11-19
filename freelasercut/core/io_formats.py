@@ -9,6 +9,7 @@ import base64
 import io
 import math
 import os
+import re
 import uuid
 
 from PySide6.QtCore import QRectF
@@ -51,11 +52,46 @@ def _normalize(shapes):
 
 
 # ======================================================================= SVG
+# 0.20.7: alcuni programmi scrivono tracciati senza disegno, `<path/>` senza l'attributo «d» (visto in un file
+# vero, «Albero Kinder.svg»). La libreria che legge gli SVG si ferma su quell'elemento con «object of type
+# 'NoneType' has no len()» e non si importa niente del file. Prima di leggere si dà a quei tracciati un disegno
+# vuoto (d=""), che poi viene saltato come tutti i tracciati vuoti; un SVG sano non viene toccato.
+_PATH_TAG = re.compile(rb"<(?:[A-Za-z_][\w.-]*:)?path\b(?:\s[^<>]*?)?/?>", re.S)
+_HAS_D = re.compile(rb"\sd\s*=")
+_WHOLE_TAG = re.compile(rb"<(?:[A-Za-z_][\w.-]*:)?path(?:\s+[\w:.-]+\s*=\s*(?:\"[^\"]*\"|'[^']*'))*\s*/?>")
+
+
+def clean_svg_bytes(data):
+    """Rende (byte, quanti tracciati senza disegno sono stati sistemati)."""
+    fixed = 0
+
+    def fix(m):
+        nonlocal fixed
+        tag = m.group(0)
+        # si tocca solo un elemento intero e ben scritto (un «>» dentro un attributo lo taglierebbe a metà)
+        if _HAS_D.search(tag) or not _WHOLE_TAG.fullmatch(tag):
+            return tag
+        fixed += 1
+        end = 2 if tag.endswith(b"/>") else 1
+        return tag[:-end].rstrip() + b' d=""' + tag[-end:]
+
+    out = _PATH_TAG.sub(fix, data)
+    return (out, fixed) if fixed else (data, 0)
+
+
 def import_svg(path_or_bytes, doc):
     import svgelements as se
 
-    src = path_or_bytes if isinstance(path_or_bytes, str) else io.BytesIO(path_or_bytes)
-    svg = se.SVG.parse(src, ppi=96.0, reify=True)
+    if isinstance(path_or_bytes, str):
+        with open(path_or_bytes, "rb") as fh:
+            data = fh.read()
+    else:
+        data = bytes(path_or_bytes)
+    if data[:2] == b"\x1f\x8b":  # .svgz
+        import gzip
+        data = gzip.decompress(data)
+    data, _ = clean_svg_bytes(data)
+    svg = se.SVG.parse(io.BytesIO(data), ppi=96.0, reify=True)
     k = 25.4 / 96.0  # px -> mm
     shapes = []
     grays = set()
@@ -85,6 +121,12 @@ def import_svg(path_or_bytes, doc):
             continue
         try:
             p = se.Path(el)
+            # 0.20.7: rettangoli, cerchi ed ellissi con una trasformazione speculare o inclinata (es. «matrix(-1,0,0,1,…)»,
+            # file di xTool Creative Space) non vengono «assorbiti» dalla lettura: la trasformazione resta a parte e i
+            # punti restano dove sono scritti. Prima finivano nel posto e nella misura sbagliati (cerchio di 175 mm
+            # diventato di 46 mm, nell'angolo); ora si applica sempre ai punti.
+            if not p.transform.is_identity():
+                p = abs(p)
         except Exception:  # noqa: BLE001
             continue
         if len(p) == 0:

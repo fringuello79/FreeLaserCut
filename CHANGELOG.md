@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.20.8 «0.20.VI» — 19/11/2026
+Piccolo aggiornamento della 0.20.7.
+- **«0.20.VI» sulla schermata di avvio e nella barra del titolo** (richiesta di Ale): il nome della versione si vede dove prima c'era il numero. Il numero (0.20.8) resta quello degli aggiornamenti automatici, dei file da scaricare e dei rapporti all'assistenza, e si legge in *Aiuto → Informazioni*.
+- **Mac Intel**: nella 0.20.7 il .dmg per i Mac Intel non era uscito, perché sui server di GitHub il programma che crea l'immagine disco ha risposto «occupato». Ora riprova da solo fino a cinque volte.
+
 ## 0.20.7 «0.20.VI» — 19/11/2026
 La prima versione per Mac (anteprima, cerchiamo collaudatori); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza, come in MeerK40t; la barra in alto con i comandi che usi di più; la scia dell'incisione che si spegne; ringraziamenti iniziali più fitti. Il nome «0.20.VI» è in onore di GTA VI; il numero della versione resta 0.20.7.
 
@@ -35,6 +40,8 @@ La prima versione per Mac (anteprima, cerchiamo collaudatori); disegni SVG con c
 
 **Barra in basso ferma anche su Windows.** Le scritte della posizione della testa e di velocità e potenza tengono una larghezza fissa, così i numeri che cambiano non spostano il resto della barra. La larghezza era misurata con un carattere diverso da quello con cui la scritta si disegna: su alcuni Windows, con numeri più corti, la scritta si stringeva e il resto della barra saltava di lato. Ora si misura con il carattere vero.
 - Le prove automatiche su Windows erano rosse da prima della 0.20.0 per un motivo del server di GitHub (nessun carattere installato nella modalità senza schermo): corretto, e ora sono verdi.
+
+**SVG con tracciati vuoti** (file di xTool Creative Space, segnalato da un utente). Alcuni programmi scrivono nell'SVG dei tracciati senza disegno: FreeLaserCut si fermava con «object of type 'NoneType' has no len()» e non importava niente del file. Ora quei tracciati vuoti si saltano e il resto del disegno si importa; gli SVG normali si leggono esattamente come prima. Nello stesso file c'era un secondo difetto: rettangoli e cerchi disegnati con una trasformazione speculare (comune nei file di xTool) finivano nel posto e nella misura sbagliati (un cerchio di 175 mm diventava di 46 mm, nell'angolo); ora sono dove devono essere, come nei programmi di disegno. Nuova prova automatica: `tests/test_v207_svg_vuoti.py` (27 controlli; 7 guasti messi apposta, tutti presi).
 
 **Creality Falcon A1 Pro 20W** nell'elenco dei modelli (domanda arrivata su YouTube): area 358 × 268 mm, 600 mm/s; collegando la macchina la scheda si riconosce e l'area vera si legge dalla scheda. Il modulo a infrarosso da 2 W non è ancora provato.
 

@@ -255,10 +255,26 @@ def main():
     dmg = os.path.join(BUILD, f"FreeLaserCut-{ver}-macOS-{args.arch}.dmg")
     if os.path.exists(dmg):
         os.remove(dmg)
-    subprocess.check_call(["hdiutil", "create", "-volname", f"FreeLaserCut {ver}", "-srcfolder", stage, "-ov",
-                           "-format", "UDZO", dmg])
+    make_dmg(["hdiutil", "create", "-volname", f"FreeLaserCut {ver}", "-srcfolder", stage, "-ov", "-format", "UDZO",
+              dmg])
     shutil.move(os.path.join(stage, "FreeLaserCut.app"), app)  # resta anche fuori, per la prova di avvio
     step(f"Pronto: {dmg}")
+
+
+def make_dmg(cmd, tries=5, wait=15.0, run=subprocess.call, sleep=None):
+    """0.20.8: hdiutil sui Mac di GitHub a volte risponde «create failed - Resource busy» (con la 0.20.7 il .dmg per
+    Intel non è uscito per questo): si riprova qualche volta, aspettando un po' fra un tentativo e l'altro."""
+    import time
+
+    sleep = sleep or time.sleep
+    for i in range(1, tries + 1):
+        code = run(cmd)
+        if code == 0:
+            return i
+        print(f"hdiutil non è riuscito (codice {code}), tentativo {i} di {tries}", flush=True)
+        if i < tries:
+            sleep(wait * i)
+    raise subprocess.CalledProcessError(code, cmd)
 
 
 if __name__ == "__main__":

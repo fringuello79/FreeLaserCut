@@ -550,6 +550,7 @@ if __name__ == "__main__":
     run_suite("test_v206_rapporti.py", "Rapporti del 18/11 nell'interfaccia Banco", "banco")
     run_suite("test_v207_svg_grigi.py", "SVG con contorno e riempimento separati da soli; riempimenti in toni di grigio con la potenza dal grigio di ogni forma (nero = massima, bianco = non si incide), forme sopra che coprono quelle sotto, fori vuoti; loghi neri, colori e file di prima come prima; anteprima dei toni; salvataggio; traduzioni")
     run_suite("test_v207_svg_grigi.py", "SVG con riempimenti grigi nell'interfaccia Banco", "banco")
+    run_suite("test_v207_svg_vuoti.py", "SVG con tracciati senza disegno (<path/> senza «d», come nei file di xTool Creative Space): il resto del file si importa; SVG sani byte per byte identici; attributi con «>» o apostrofi non rovinati; da file e .svgz; rettangoli e cerchi con trasformazioni speculari al posto giusto")
     run_suite("test_v207_scia.py", "Scia dell'incisione sul piano: si spegne dal menu Visualizza (ricordato), ridisegno al massimo 4 volte al secondo, nascosta con l'anteprima del lavoro guardando un altro piano senza gli altri piani")
     run_suite("test_v207_scia.py", "Scia dell'incisione nell'interfaccia Banco", "banco")
     run_suite("test_v207_piano.py", "G-code «del piano» di un programma esterno adattato al laser del profilo (watt, velocità massima, assi, G55, fuori dal piano), solo con le funzioni in prova; il collegamento diretto con la M2 non c'è")

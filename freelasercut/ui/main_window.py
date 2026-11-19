@@ -1358,7 +1358,9 @@ class MainWindow(QMainWindow):
     def _update_title(self):
         d = self.editor.doc
         name = os.path.basename(d.path) if d.path else d.name
-        self.setWindowTitle(tr("{0}{1} — FreeLaserCut {2}", '● ' if self.editor.dirty else '', name, __version__))
+        from .. import display_version  # 0.20.8: nella barra del titolo il nome della versione («0.20.VI»)
+
+        self.setWindowTitle(tr("{0}{1} — FreeLaserCut {2}", '● ' if self.editor.dirty else '', name, display_version()))
 
     def _update_undo(self):
         e = self.editor

@@ -13,6 +13,7 @@ Uso: python tests/test_v208_mac.py
 """
 import os
 import plistlib
+import subprocess
 import sys
 import tempfile
 
@@ -215,6 +216,22 @@ wf = open(os.path.join(ROOT, ".github", "workflows", "mac.yml"), encoding="utf-8
 check("su GitHub: Apple Silicon e Intel, prova di avvio Cocoa, server per Claude, .dmg da scaricare",
       "macos-15" in wf and "macos-15-intel" in wf and "piattaforma Qt cocoa" in wf and "--mcp-server" in wf
       and "upload-artifact" in wf)
+
+# 0.20.8: hdiutil «Resource busy» sui Mac di GitHub (il .dmg Intel della 0.20.7 non era uscito): si riprova
+codes, waits = iter([1, 1, 0]), []
+check(".dmg: hdiutil che non riesce si riprova (qui al terzo tentativo), aspettando sempre di più",
+      pm.make_dmg(["hdiutil"], run=lambda c: next(codes), sleep=waits.append) == 3 and waits == [15.0, 30.0])
+try:
+    pm.make_dmg(["hdiutil"], tries=2, run=lambda c: 1, sleep=lambda s: None)
+    gave_up = False
+except subprocess.CalledProcessError:
+    gave_up = True
+check("…e dopo l'ultimo tentativo si ferma con l'errore", gave_up)
+from freelasercut import __codename__, __version__, display_version, splash as _splash  # noqa: E402
+
+check("0.20.8: la schermata di avvio e la barra del titolo mostrano il nome della versione («0.20.VI»), "
+      "il numero resta per gli aggiornamenti", display_version() == __codename__ == "0.20.VI" and __version__[0].isdigit()
+      and "display_version()" in open(_splash.__file__, encoding="utf-8").read())
 
 ok = sum(results)
 print(f"\n{ok}/{len(results)} superati", flush=True)
