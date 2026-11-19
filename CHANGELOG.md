@@ -1,7 +1,7 @@
 # Novità di FreeLaserCut
 
 ## 0.20.9 — in lavorazione
-**Ringraziamenti.** Grazie a Mauro, che entra nell'elenco con una donazione.
+**Ringraziamenti.** Grazie a Mauro C., che entra nell'elenco con una donazione, e a Gianni e marcello, che ci hanno aiutato con i loro rapporti.
 
 ## 0.20.8 «0.20.VI» — 19/11/2026
 Piccolo aggiornamento della 0.20.7.

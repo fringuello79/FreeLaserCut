@@ -22,7 +22,9 @@ NAMES = (
     "Deborah",
     "Paolo1968",  # 0.20.6: rapporto del 18/11
     "DolomiticHunter",  # 0.20.6: rapporto del 18/11
-    "Mauro",  # 0.20.9: donazione (Ale, 19/11)
+    "Mauro C.",  # 0.20.9: donazione (Ale, 19/11)
+    "Gianni",  # 0.20.9: rapporto del 19/11
+    "marcello",  # 0.20.9: rapporto del 19/11
 )
 
 
