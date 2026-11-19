@@ -1,5 +1,37 @@
 # Novità di FreeLaserCut
 
+## 0.21.0 — 19/11/2026
+Le cinque richieste di un utente che lavora con FreeLaserCut su Linux: la testa mossa con la tastiera, la linea tratteggiata, la ripresa del lavoro anche dopo che è mancata la corrente e il nuovo «Parti da qui», il ritaglio dei vettori, la rampa per i timbri in gomma. In più lo Z che scende a ogni passata, Separa che separa anche i tracciati e, fra le funzioni in prova, il collegamento diretto con la xTool M2.
+
+**La testa con la tastiera** (per usare anche un tastierino senza fili). *Laser → Muovi la testa con la tastiera*:
+- **Alt+Maiusc+frecce**: la testa si sposta del passo scelto, anche con degli oggetti selezionati (le frecce da sole spostano gli oggetti) e con la finestra *Stampa e taglia* davanti;
+- **Alt+1 … Alt+5**: passo di 0,1 · 1 · 10 · 50 · 100 mm (lo stesso della scheda Movimento, ricordato);
+- **Alt+Maiusc+PagSu / PagGiù**: asse Z su e giù, sui laser con lo Z motorizzato;
+- **Alt+Home**: all'origine di lavoro; restano **Ctrl+H** (homing) e **Ctrl+Maiusc+F** (contorno);
+- in *Stampa e taglia* **Ctrl+1** e **Ctrl+2** prendono le due crocette nel punto della testa (senza crocette sul disegno o con la testa in movimento non prendono niente e lo dicono).
+- Durante il lavoro la tastiera non muove la testa. Tenendo premuto un tasto la testa fa un passo solo. Tutto nell'elenco delle scorciatoie (F1).
+
+**Linea tratteggiata (perforazione)**. Nelle impostazioni dei livelli Linea: *Linea tratteggiata*, con la lunghezza del **tratto acceso** e del **tratto spento**. Il laser taglia a tratti lungo tutta la linea, angoli compresi: pieghe del cartone, talloncini da staccare, linee da rompere a mano. Va insieme ai ponticelli. I progetti senza restano identici.
+
+**Ripresa del lavoro, anche se manca la corrente al PC**. Il lavoro che parte viene salvato sul disco, nella cartella delle impostazioni, e ogni 2 secondi si annota a che riga è arrivata la macchina. Se il PC si spegne di colpo o il programma si chiude a metà, alla riapertura FreeLaserCut lo dice («L'ultimo lavoro non è finito…»); collegato il laser e fatto l'homing, *Riprendi* riparte poco prima del punto in cui si era fermato, come già succedeva staccando il cavo. *Scarta* lo cancella. Finito bene, il file si cancella da solo. Un file cambiato o rovinato non si riprende. Resta tutto sul PC.
+
+**Parti da qui** (nell'anteprima). Porta il cursore del tempo sul punto da cui ripartire (la testa bianca) e premi *Parti da qui…*: dopo la conferma il lavoro parte da lì, con la testa portata sul punto a laser spento e potenza, velocità e aria del momento. Serve dopo un'interruzione, o per rifare solo una parte. Non parte con i lavori che usano la «posizione attuale» (G92) o le coordinate relative, come la ripresa di sempre.
+
+**Ritaglio dei vettori**. Nel menu *Disponi* (nel Banco in *Combina*):
+- **Ritaglia con la forma**: selezioni i disegni e, sopra a tutti, una forma chiusa; resta solo quello che le sta dentro e la forma sparisce. Per adattare un SVG più grande del materiale senza le Forbici.
+- **Ritaglia al piano**: toglie quello che esce dal piano di lavoro (i selezionati, o tutto se non c'è niente selezionato).
+- Sui livelli Linea restano solo i tratti dentro, senza un bordo in più; sui riempimenti le forme restano chiuse e il bordo del ritaglio diventa un loro lato; i buchi restano buchi. Quello che è già tutto dentro resta identico, curve comprese. Le foto non si toccano (per quelle c'è *Ritaglia la foto con la forma*). Un solo Ctrl+Z rimette tutto.
+
+**Rampa nei riempimenti (timbri in gomma)**. Nei livelli Riempimento: *Rampa*, con la **lunghezza della rampa**. Sul bordo della zona incisa la potenza è la Potenza minima e sale fino alla massima a quella distanza dal bordo: intorno alle lettere, che restano in rilievo, il fondo scende a scivolo e le sostiene, come nei timbri veri. Funziona con le righe inclinate e con il tratteggio incrociato. Senza rampa il G-code è identico a prima.
+
+**Z che scende a ogni passata** (rapporto di H, Sculpfun iCube Ultra). Nei livelli Linea: *Abbassa lo Z a ogni passata*, da 0 a 5 mm. Con più passate, dopo ognuna lo Z scende di tanto, a laser spento, così il fuoco segue il taglio dentro il materiale; finito il livello torna dov'era. Solo sui laser con l'asse Z motorizzato: sugli altri non si muove e lo dice. Un lavoro interrotto dopo che lo Z si è abbassato non si riprende a metà (l'altezza non si sa più): si rifà dall'inizio.
+
+**Separa e Scomponi** (segnalazione di Ale). **Separa** (Ctrl+U) ora funziona anche su un tracciato fatto di più figure staccate (risultato di Salda, delle booleane, di Ricalca immagine, un testo, un SVG): una forma per figura, e ogni buco resta con il suo contorno (una «O» resta una «O»). Su una forma bloccata dice che è bloccata. **Scomponi** su un gruppo lascia ogni forma sul suo livello e le foto restano foto (prima finivano tutte sul livello del gruppo e una foto diventava un rettangolo). Tutti e due ci sono anche nel tasto destro, quando servono.
+
+**xTool M2: collegamento diretto (funzione in prova)**. Torna fra le funzioni in prova, visibile solo con il codice: *File → xTool M2: collega e invia (sperimentale)…*. Configurazione (indirizzo IP, modulo, costruttore, spessore), abbinamento con il pulsante della macchina, invio della cornice a potenza zero e del lavoro, che parte solo premendo il pulsante sulla M2; pausa, ripresa, annullamento. Non è ufficiale e non è affiliata a xTool: alla prima connessione chiede il consenso e ricorda che potrebbe avere effetti sulla garanzia. FreeLaserCut si presenta come ospite e non manda dati di account.
+
+**Prove automatiche nuove**: `tests/test_v210_tastiera.py` (23 controlli), `tests/test_v210_disegno.py` (52), `tests/test_v210_ripresa.py` (29), Classica e Banco; `tests/test_v207_xtool_m2_link.py` (82, con il consenso). Guasti messi apposta: 11, tutti presi.
+
 ## 0.20.9 «0.20.VI» — 19/11/2026
 Più laser configurati, ognuno con il suo nome, scelti da una tendina; guide tirate fuori dai righelli; deformazione a 4 e a 16 punti; larghezza delle fessure degli incastri; Prepara foto che ritaglia davvero con la forma; Wi-Fi con i router recenti, porte CH341 su Linux e la testa che non va più a sbattere senza homing.
 

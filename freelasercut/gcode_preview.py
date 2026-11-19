@@ -33,6 +33,7 @@ class Preview:
         self.decimated = False
         self.segs = np.zeros((0, 7))  # tutti i movimenti in ordine: (x0, y0, x1, y1, potenza S, brucia 0/1, feed mm/min)
         self.seg_times = np.zeros(0)  # durata di ogni movimento (s), stessa lunghezza di segs
+        self.seg_line = np.zeros(0, np.int64)  # 0.21.0: riga del G-code di ogni movimento («Parti da qui»)
 
     @property
     def has_bounds(self):
@@ -74,7 +75,7 @@ def shifted(pv, dx, dy):
     import copy
 
     q = copy.copy(pv)
-    q.segs, q.cut, q.travel = pv.segs.copy(), pv.cut.copy(), pv.travel.copy()
+    q.segs, q.cut, q.travel = pv.segs.copy(), pv.cut.copy(), pv.travel.copy()  # seg_line resta in comune
     q.shift(dx, dy)
     return q
 
@@ -90,6 +91,7 @@ def parse(lines, travel_rate=6000.0, profile=None):
         rx = ry = travel_rate
         jd = 0.01
     seg = array("d")  # 7 valori per movimento, vedi Preview.segs
+    seg_line = array("q")  # 0.21.0: riga di ogni movimento
     pv = Preview()
     x = y = 0.0
     absolute = True
@@ -101,7 +103,7 @@ def parse(lines, travel_rate=6000.0, profile=None):
     n_lines = 0
     max_power = 0.0
     fast = _FAST.fullmatch
-    for raw in lines:
+    for li, raw in enumerate(lines):
         m = fast(raw)
         if m is not None:  # corsia veloce: stesso risultato del caso generale, senza dizionari né regex multiple
             n_lines += 1
@@ -122,6 +124,7 @@ def parse(lines, travel_rate=6000.0, profile=None):
                 burning = laser_on and power > 0 and motion != 0
                 seg.extend((x, y, nx, y, power if burning else 0.0, 1.0 if burning else 0.0,
                             (feed if feed > 1.0 else 1.0) if motion != 0 else 0.0))
+                seg_line.append(li)
             x = nx
             continue
         line = raw.split(";")[0]
@@ -178,6 +181,7 @@ def parse(lines, travel_rate=6000.0, profile=None):
         for qx, qy in pts:
             if math.hypot(qx - px, qy - py) > 1e-9:
                 seg.extend((px, py, qx, qy, power if burning else 0.0, 1.0 if burning else 0.0, fv))
+                seg_line.append(li)
             px, py = qx, qy
         x, y = nx, ny
     pv.lines = n_lines
@@ -185,6 +189,7 @@ def parse(lines, travel_rate=6000.0, profile=None):
     S = np.frombuffer(seg, dtype=np.float64).reshape(-1, 7).copy() if len(seg) else np.zeros((0, 7))
     del seg
     pv.segs = S
+    pv.seg_line = np.frombuffer(seg_line, dtype=np.int64).copy() if len(seg_line) else np.zeros(0, np.int64)
     if len(S):
         dx = S[:, 2] - S[:, 0]
         dy = S[:, 3] - S[:, 1]

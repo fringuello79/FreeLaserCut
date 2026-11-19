@@ -9,6 +9,7 @@ Da documento + profilo macchina a righe G-code, con:
   - partenza: coordinate assolute / posizione attuale / origine utente, con ancoraggio a 9 punti;
   - aria per livello (M8/M9), passate, ponticelli (tab), compensazione del kerf.
 """
+import bisect
 import math
 import time
 from dataclasses import dataclass, field, replace
@@ -623,6 +624,44 @@ def _apply_tabs(polys, size, count):
     return out
 
 
+def _apply_perforation(polys, cut, gap):
+    """0.21.0: linea tratteggiata. Ogni tracciato (aperto o chiuso) diventa una fila di tratti lunghi `cut` mm
+    separati da `gap` mm spenti, dall'inizio del tracciato. I tracciati più corti di un tratto restano interi."""
+    if cut <= 0 or gap <= 0:
+        return list(polys)
+    out = []
+    for p in polys:
+        pts = list(p.pts) + ([p.pts[0]] if p.closed and p.pts else [])
+        if len(pts) < 2:
+            out.append(p)
+            continue
+        seg = [math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+        total = sum(seg)
+        if total <= cut + 1e-9:
+            out.append(geom.Poly(pts, False) if p.closed else p)
+            continue
+        cum = [0.0]
+        for L in seg:
+            cum.append(cum[-1] + L)
+
+        def at(dist):
+            i = max(0, min(len(seg) - 1, bisect.bisect_right(cum, dist) - 1))
+            L = seg[i]
+            t = (dist - cum[i]) / L if L else 0.0
+            return (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t), i
+
+        a = 0.0
+        while a < total - 1e-6:
+            b = min(total, a + cut)
+            if b - a > 1e-3:
+                pa, ia = at(a)
+                pb, ib = at(b)
+                part = [pa] + [pts[k] for k in range(ia + 1, ib + 1) if cum[k] < b - 1e-9] + [pb]
+                out.append(geom.Poly(part, False))
+            a = b + gap
+    return out
+
+
 def _scanlines(polys, interval, angle):
     """Riempimento a scansione (pari-dispari). Ritorna [(y, [(xa, xb), ...])] nel sistema ruotato."""
     closed = [p for p in polys if p.closed and len(p.pts) >= 3]
@@ -794,9 +833,82 @@ def _emit_fill(w, polys, cs, bed, opts, grouping):
             clusters = [clusters[i] for i in idx]
         for cluster in clusters:
             lines, rot = _scanlines(cluster, cs.interval, ang)
-            lines = [(y, [(a, b, cs.power_max) for a, b in segs]) for y, segs in lines]
+            if getattr(cs, "ramp", False) and cs.ramp_len > 0 and lines:
+                lines = _ramp_lines(cluster, lines, ang, cs)  # 0.21.0: rampa (timbri in gomma)
+            else:
+                lines = [(y, [(a, b, cs.power_max) for a, b in segs]) for y, segs in lines]
             if lines:
                 _emit_scan(w, lines, rot, cs, bed, opts.raster_gap_g1)
+
+
+RAMP_LEVELS = 24  # gradini di potenza della rampa: abbastanza per una pendenza liscia, pochi comandi in più
+RAMP_MAX_PX = 3000  # lato massimo dell'immagine delle distanze
+
+
+def _ramp_lines(polys, lines, angle, cs):
+    """0.21.0, rampa dei riempimenti (timbri in gomma): la potenza parte dalla Potenza minima sul bordo della zona
+    incisa e sale fino alla massima a `ramp_len` mm dal bordo. Così intorno alle lettere (che restano in rilievo) il
+    fondo scende a scivolo e le sostiene. La distanza dal bordo vera (non solo lungo la riga) si misura su
+    un'immagine della zona, nel sistema ruotato delle righe. -> righe [(y, [(da, a, potenza%)])]."""
+    import cv2
+
+    a = math.radians(angle)
+    ca, sa = math.cos(-a), math.sin(-a)
+    rings = []
+    for p in polys:
+        if p.closed and len(p.pts) >= 3:
+            pts = np.asarray(p.pts, float)
+            rings.append(np.stack([pts[:, 0] * ca - pts[:, 1] * sa, pts[:, 0] * sa + pts[:, 1] * ca], axis=1))
+    lo = np.min([r.min(axis=0) for r in rings], axis=0)
+    hi = np.max([r.max(axis=0) for r in rings], axis=0)
+    ramp = float(cs.ramp_len)
+    res = max(min(cs.interval, ramp / 6.0, 0.1), float(max(hi - lo)) / RAMP_MAX_PX, 0.005)
+    pad = 2
+    ox, oy = lo[0] - pad * res, lo[1] - pad * res
+    W = int(math.ceil((hi[0] - lo[0]) / res)) + 2 * pad + 1
+    H = int(math.ceil((hi[1] - lo[1]) / res)) + 2 * pad + 1
+    mask = np.zeros((H, W), np.uint8)
+    shift = 4  # sottopixel di fillPoly
+    cnt = [np.round(((r - (ox, oy)) / res - 0.5) * (1 << shift)).astype(np.int32) for r in rings]
+    cv2.fillPoly(mask, cnt, 1, lineType=cv2.LINE_8, shift=shift)  # pari-dispari: i fori restano vuoti
+    dist = cv2.distanceTransform(mask, cv2.DIST_L2, 5) * res  # mm dal punto vuoto più vicino
+    pmin, pmax = float(cs.power_min), float(cs.power_max)
+    step = (pmax - pmin) / RAMP_LEVELS
+    out = []
+    for y, segs in lines:
+        r = int(min(H - 1, max(0, round((y - oy) / res - 0.5))))
+        row = dist[r]
+        new = []
+        for xa, xb in segs:
+            c0 = int(math.floor((xa - ox) / res))
+            c1 = int(math.ceil((xb - ox) / res))
+            d = row[max(0, c0):min(W, c1 + 1)]
+            if not len(d):
+                new.append((xa, xb, pmax))
+                continue
+            # distanza anche dai due capi del tratto (il bordo della riga stessa)
+            xs = ox + (np.arange(max(0, c0), max(0, c0) + len(d)) + 0.5) * res
+            d = np.minimum(d, np.minimum(np.abs(xs - xa), np.abs(xb - xs)))
+            k = np.clip(d / ramp, 0.0, 1.0)
+            lev = np.round(k * RAMP_LEVELS).astype(int) if step else np.full(len(k), RAMP_LEVELS)
+            j = 0
+            while j < len(lev):
+                e = j
+                while e + 1 < len(lev) and lev[e + 1] == lev[j]:
+                    e += 1
+                sa_ = xa if j == 0 else float(xs[j] - res / 2)
+                sb_ = xb if e == len(lev) - 1 else float(xs[e] + res / 2)
+                sa_, sb_ = max(sa_, xa), min(sb_, xb)
+                if sb_ - sa_ > 1e-4:
+                    pw = pmin + step * lev[j] if step else pmax
+                    if new and abs(new[-1][1] - sa_) < 1e-9 and abs(new[-1][2] - pw) < 1e-9:
+                        new[-1] = (new[-1][0], sb_, pw)
+                    else:
+                        new.append((sa_, sb_, pw))
+                j = e + 1
+        if new:
+            out.append((y, new))
+    return out
 
 
 def _best_grouping(w, polys, cs, bed, opts, profile):
@@ -1144,12 +1256,38 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
                     polys = geom.offset(closed, cs.kerf / 2.0, "miter") + [p for p in polys if not p.closed]
                 if cs.tabs:
                     polys = _apply_tabs(polys, cs.tab_size, cs.tab_count)
-                for _ in range(max(1, cs.passes)):
+                if getattr(cs, "perforate", False):
+                    polys = _apply_perforation(polys, cs.perf_cut, cs.perf_gap)
+                z_step = float(getattr(cs, "z_step", 0.0) or 0.0)
+                z_on = z_step > 0 and cs.passes > 1 and bool(getattr(profile, "z_motor", False))
+                if z_step > 0 and cs.passes > 1 and not z_on:
+                    job.warnings.append(tr("{0}: lo Z si abbassa a ogni passata solo sui laser con l'asse Z motorizzato "
+                                           "(Laser → profilo): qui resta fermo", cs.label()))
+                z_down = 0.0
+                for k_pass in range(max(1, cs.passes)):
+                    if z_on and k_pass:
+                        # 0.21.0 (rapporto H): fra una passata e l'altra lo Z scende del passo scelto, laser spento
+                        w.raw("M5 S0")
+                        w.s = 0.0
+                        w.raw("G91")
+                        w.raw(f"G0 Z{_fmt(-z_step)}")
+                        w.raw("G90")
+                        w.mode = None  # dopo il G0 il prossimo movimento deve ridire G0 o G1
+                        w.raw(f"{current_cmd} S0")
+                        z_down += z_step
                     ordered = order_polys(polys, cur, opts.inner_first, opts.optimize)
                     _emit_polys(w, ordered, cs)
                     if ordered:
                         last = ordered[-1]
                         cur = last.pts[0] if last.closed else last.pts[-1]
+                if z_down:
+                    w.raw("M5 S0")  # finito il livello lo Z torna dov'era
+                    w.s = 0.0
+                    w.raw("G91")
+                    w.raw(f"G0 Z{_fmt(z_down)}")
+                    w.raw("G90")
+                    w.mode = None
+                    w.raw(f"{current_cmd} S0")
             elif cs.mode == "offset_fill":
                 closed = _orient([p for p in polys if p.closed])
                 rings = []

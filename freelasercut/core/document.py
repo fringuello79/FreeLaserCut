@@ -144,6 +144,12 @@ class CutSettings:
     tabs: bool = False
     tab_size: float = 0.5  # mm di ponticello
     tab_count: int = 4
+    # 0.21.0: linea tratteggiata (perforazione, linee da piegare o da staccare a mano): tratti accesi e spenti
+    perforate: bool = False
+    perf_cut: float = 2.0  # mm di tratto acceso
+    perf_gap: float = 1.0  # mm di tratto spento
+    # 0.21.0 (rapporto H): fra una passata e l'altra lo Z scende di tanto (mm, 0 = fermo); solo con lo Z motorizzato
+    z_step: float = 0.0
     # riempimento
     interval: float = 0.1  # mm fra le righe
     angle: float = 0.0  # gradi
@@ -151,6 +157,9 @@ class CutSettings:
     bidirectional: bool = True
     overscan: float = 2.5  # mm
     fill_grouping: str = "auto"  # auto | together | each
+    # 0.21.0: rampa (timbri in gomma): dal bordo la potenza sale dalla minima alla massima in ramp_len mm
+    ramp: bool = False
+    ramp_len: float = 1.0
     # immagine
     dpi: float = 254.0
     dither: str = "grayscale"
@@ -190,11 +199,24 @@ class CutSettings:
         cs.pause_before = cs.pause_before is True
         cs.pause_park = cs.pause_park is True
         cs.gray_power = cs.gray_power is True
+        cs.perforate = cs.perforate is True
+        cs.ramp = cs.ramp is True
+        cs.z_step = 0.0 if not isinstance(cs.z_step, (int, float)) or isinstance(cs.z_step, bool) \
+            or cs.z_step != cs.z_step else float(min(5.0, max(0.0, cs.z_step)))
+        cs.ramp_len = min(clean_perf(cs.ramp_len, 1.0), 20.0)
+        cs.perf_cut, cs.perf_gap = clean_perf(cs.perf_cut, 2.0), clean_perf(cs.perf_gap, 1.0)
         cs.pause_msg = clean_pause_msg(cs.pause_msg)
         from .halftone import clamp_size
 
         cs.halftone_size = clamp_size(cs.halftone_size)
         return cs
+
+
+def clean_perf(v, default):
+    """0.21.0: lunghezza di un tratto della linea tratteggiata, fra 0,05 e 1000 mm; altro = valore di partenza."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:
+        return default
+    return float(min(1000.0, max(0.05, v)))
 
 
 def clean_gray(v):

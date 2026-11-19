@@ -229,8 +229,9 @@ except subprocess.CalledProcessError:
 check("…e dopo l'ultimo tentativo si ferma con l'errore", gave_up)
 from freelasercut import __codename__, __version__, display_version, splash as _splash  # noqa: E402
 
-check("0.20.8: la schermata di avvio e la barra del titolo mostrano il nome della versione («0.20.VI»), "
-      "il numero resta per gli aggiornamenti", display_version() == __codename__ == "0.20.VI" and __version__[0].isdigit()
+check("0.20.8: la schermata di avvio e la barra del titolo mostrano il nome della versione (0.21.0: nessun nome, "
+      "il numero), il numero resta per gli aggiornamenti", display_version() == (__codename__ or __version__)
+      and __version__[0].isdigit()
       and "display_version()" in open(_splash.__file__, encoding="utf-8").read())
 
 ok = sum(results)

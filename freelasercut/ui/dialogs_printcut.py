@@ -111,6 +111,19 @@ class PrintCutDialog(QDialog):
             self.b_take.append(b)
             self.b_cam.append(bc)
             self.l_take.append(lab)
+        # 0.21.0: le crocette si prendono anche con la tastiera (Ctrl+1, Ctrl+2); la testa si muove con Alt+Maiusc+frecce
+        from PySide6.QtGui import QKeySequence, QShortcut
+
+        self.kb_take = []
+        for i in (1, 2):
+            sc = QShortcut(QKeySequence(f"Ctrl+{i}"), self)
+            sc.activated.connect(lambda i=i: self.kb_take_point(i))
+            self.kb_take.append(sc)
+        kb = QLabel(tr("Con la tastiera: Alt+Maiusc+frecce muovono la testa, Alt+1 … Alt+5 scelgono il passo "
+                       "(0,1 · 1 · 10 · 50 · 100 mm), Ctrl+1 e Ctrl+2 prendono le crocette."))
+        kb.setWordWrap(True)
+        kb.setObjectName("muted")
+        l3.addWidget(kb)
         self.l_cam = QLabel(tr("Con la camera della testa: porta il mirino sul centro della crocetta (Laser → Vista della "
                                "testa…, un clic sul video) e premi «Dal centro camera»."))
         self.l_cam.setWordWrap(True)
@@ -179,9 +192,9 @@ class PrintCutDialog(QDialog):
         why = self.machine_ready()
         moving_ok = self.ctl.connected and not (self.ctl.job_active or self.ctl.checking)
         self.pad.set_connected(moving_ok)
-        for b in self.b_take:
+        for i, b in enumerate(self.b_take, 1):
             b.setEnabled(have and why is None)
-            b.setToolTip(why or "")
+            b.setToolTip(why or tr("Scorciatoia: Ctrl+{0}", i))
         cam_why = self.camera_ready()
         for b in self.b_cam:
             b.setVisible(cam_why != "none")
@@ -328,6 +341,17 @@ class PrintCutDialog(QDialog):
         card_ = self.head_card()
         c = card_.model.center(self.head())
         return self.take(number, pos=(float(c[0]), float(c[1])))
+
+    def kb_take_point(self, number):
+        """0.21.0: Ctrl+1 / Ctrl+2. Vale come il pulsante: senza crocette sul disegno o con la macchina non pronta lo
+        dice e non prende niente."""
+        self.refresh()
+        b = self.b_take[number - 1]
+        if not b.isEnabled():
+            self.say(b.toolTip() if b.toolTip() and "Ctrl+" not in b.toolTip() else tr("Prima metti le due crocette"),
+                     True)
+            return False
+        return self.take(number)
 
     def take(self, number, pos=None):
         """Prende la posizione della testa come centro della crocetta 1 o 2 (pos: solo per le prove)."""

@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QTransform
 from PySide6.QtCore import QMimeData
 
-from ..core import ops
+from ..core import geom, ops
 from ..core.document import Document, GroupShape, ImageShape, PathShape, TextShape, renew_ids, shape_from_dict
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -479,9 +479,18 @@ class Editor(QObject):
         self.replace(sel, g, "Raggruppa")
 
     def ungroup(self):
+        """Separa. Sui gruppi scioglie il gruppo (un livello per volta); 0.21.0: su un tracciato fatto di più figure
+        staccate (Salda, booleane, Ricalca, testo, SVG) dà una forma per figura, ogni buco con il suo contorno."""
         groups = [s for s in self.editable() if isinstance(s, GroupShape)]
-        if not groups:
-            self.message.emit("Nessun gruppo selezionato")
+        paths = [s for s in self.editable() if not isinstance(s, (GroupShape, ImageShape)) and not s.role]
+        split = [(s, ops.separate(s)) for s in paths]
+        split = [(s, parts) for s, parts in split if parts]
+        if not groups and not split:
+            if any(s.locked for s in self.selection):
+                self.message.emit(tr("Separa: la forma è bloccata (tasto destro → Sblocca)"))
+            else:
+                self.message.emit(tr("Niente da separare: seleziona un gruppo o un tracciato fatto di più figure "
+                                     "staccate"))
             return
         kids = []
         self.begin(tr("Separa"))
@@ -490,6 +499,10 @@ class Editor(QObject):
             children = ops.ungroup(g)
             self.doc.shapes[idx:idx + 1] = children
             kids += children
+        for s, parts in split:
+            idx = self.doc.shapes.index(s)
+            self.doc.shapes[idx:idx + 1] = parts
+            kids += parts
         self.selection = kids
         self.commit()
         self.selection_changed.emit()
@@ -678,6 +691,56 @@ class Editor(QObject):
             return
         self.replace(sel, res, names[op])
 
+    # ------------------------------------------------------------------ 0.21.0: ritaglio dei vettori
+    def crop_with_shape(self):
+        """«Ritaglia con la forma»: la forma chiusa più in alto fra quelle selezionate ritaglia le altre e sparisce."""
+        sel = [s for s in self.editable() if not isinstance(s, ImageShape)]
+        if len(sel) < 2:
+            self.message.emit(tr("Ritaglia con la forma: seleziona i disegni da ritagliare e, sopra, la forma chiusa "
+                                 "che fa da ritaglio"))
+            return None
+        order = {s.id: i for i, s in enumerate(self.doc.shapes)}
+        cutter = max(sel, key=lambda s: order.get(s.id, -1))
+        clip = ops.closed_polys([cutter])
+        if not clip:
+            self.message.emit(tr("Ritaglia con la forma: la forma più in alto deve essere chiusa (Modifica → Chiudi "
+                                 "tracciati)"))
+            return None
+        return self._crop([s for s in sel if s is not cutter], clip, tr("Ritaglia con la forma"), remove=[cutter])
+
+    def crop_to_bed(self, bed_w, bed_h):
+        """«Ritaglia al piano»: quello che esce dal piano si toglie (i selezionati, o tutto se non c'è selezione)."""
+        targets = [s for s in (self.editable() or [s for s in self.doc.shapes if not s.locked])
+                   if not isinstance(s, ImageShape)]
+        clip = [geom.Poly([(0.0, 0.0), (float(bed_w), 0.0), (float(bed_w), float(bed_h)), (0.0, float(bed_h))], True)]
+        return self._crop(targets, clip, tr("Ritaglia al piano"))
+
+    def _crop(self, targets, clip, label, remove=()):
+        line_layers = {s.layer for s in targets if self.doc.layer(s.layer).mode == "line"}
+        res = ops.crop(targets, clip, line_layers)
+        changed = [(o, n) for o, n, ch in res if ch]
+        if not changed and not remove:
+            self.message.emit(tr("Niente da ritagliare: è già tutto dentro"))
+            return []
+        new = [n for _o, n in changed if n is not None]
+        kept = [n for o, n, ch in res if not ch]
+
+        def do():
+            for o, n in changed:
+                i = self.doc.shapes.index(o)
+                if n is None:
+                    del self.doc.shapes[i]
+                else:
+                    self.doc.shapes[i] = n
+            if remove:
+                self.doc.remove(list(remove))
+            self.selection = new + kept
+        self.run(label, do)
+        self.selection_changed.emit()
+        gone = sum(1 for _o, n in changed if n is None)
+        self.message.emit(tr("{0}: {1} ritagliati, {2} tolti perché tutti fuori", label, len(new), gone))
+        return new
+
     def weld(self):
         sel = [s for s in self.editable() if not isinstance(s, ImageShape)]
         if len(sel) < 1:
@@ -693,6 +756,21 @@ class Editor(QObject):
         self.begin(tr("Scomponi"))
         for s in list(self.editable()):
             if isinstance(s, ImageShape):
+                continue
+            if isinstance(s, GroupShape):
+                # 0.21.0: dentro un gruppo ogni forma tiene il suo livello e le foto restano foto
+                parts = []
+                for leaf, tf in s.leaves():
+                    if isinstance(leaf, ImageShape):
+                        leaf.tf = tf
+                        leaf.invalidate()
+                        parts.append(leaf)
+                        continue
+                    one = PathShape(tf.map(leaf.local_path()), layer=leaf.layer)
+                    parts += ops.break_apart(one) or [one]
+                idx = self.doc.shapes.index(s)
+                self.doc.shapes[idx:idx + 1] = parts
+                out_all += parts
                 continue
             parts = ops.break_apart(s)
             if parts:

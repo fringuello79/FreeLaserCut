@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.9 «0.20.VI»** — più laser configurati, ognuno con il suo nome, scelti dalla tendina *Laser*; guide tirate fuori dai righelli; deformazione a 4 punti (prospettiva) e a 16 punti (griglia); larghezza delle fessure degli incastri; *Prepara foto* che ritaglia davvero con la forma; Wi-Fi con i router recenti (WPA2/WPA3) e dalla rete propria del laser; porte CH341 su Linux e porta scritta a mano. Dalla 0.20.7: la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi), SVG con contorno e riempimento separati, barra in alto personalizzabile.
+**Versione 0.21.0** — la testa mossa con la tastiera (Alt+Maiusc+frecce, passi con Alt+1…5, crocette di Stampa e taglia con Ctrl+1 e Ctrl+2); linea tratteggiata per pieghe e strappi; ripresa del lavoro anche dopo che è mancata la corrente al PC e *Parti da qui* nell'anteprima; *Ritaglia con la forma* e *Ritaglia al piano* per i vettori; rampa nei riempimenti per i timbri in gomma; Z che scende a ogni passata; Separa anche sui tracciati con più figure. Dalla 0.20.9: più laser configurati, guide, deformazione a 4 e 16 punti. Dalla 0.20.7: la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi).
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 

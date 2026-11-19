@@ -172,7 +172,8 @@ check("impostazioni salvate sulla foto", img.photo and img.photo["mask"] == "ova
 job = w.build_job(); spin(0.1)
 check("la foto preparata si incide", job is not None and len(job.lines) > 1000 and job.bounds is not None, f"{len(job.lines) if job else 0} righe")
 p = os.path.join(TMP, "prova.flcut"); ed.doc.save(p)
-d2 = Document.load(p); im2 = [s for s in d2.shapes if isinstance(s, ImageShape)][0]
+# 0.20.9: con una forma (qui l'ovale) Prepara foto ritaglia la foto, che sta nel gruppo del ritaglio
+d2 = Document.load(p); im2 = [l for s in d2.shapes for l, _ in s.leaves() if isinstance(l, ImageShape)][0]
 check("salvato e riaperto: originale e impostazioni ci sono", im2.source_id in d2.images and im2.image_id in d2.images and im2.photo["mask"] == "oval")
 def setup2(dd):
     seen["crop"] = dd.crop; seen["mask"] = dd.mask.currentData(); seen["w"] = dd.width_mm.value()

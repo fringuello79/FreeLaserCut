@@ -9,7 +9,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QGraphicsPathItem,
     QGraphicsPixmapItem, QGraphicsScene, QGraphicsView, QHBoxLayout, QLabel, QListWidget, QPushButton, QRadioButton,
-    QSlider, QSpinBox, QVBoxLayout, QWidget,
+    QMessageBox, QSlider, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from .. import gcode_preview
@@ -398,6 +398,18 @@ class PreviewDialog(QDialog):
         bottom.addWidget(self.speed)
         bottom.addWidget(self.slider, 1)
         bottom.addWidget(self.time)
+        # 0.21.0: «Parti da qui» — il lavoro parte dal punto del cursore del tempo (dopo un'interruzione, o per rifare
+        # solo una parte). Solo se la finestra è aperta dal programma con un lavoro vero
+        self.start_line = None
+        self.b_from_here = None
+        if (callable(getattr(parent, "start_from_line", None)) and getattr(job, "lines", None)
+                and len(getattr(pv, "seg_line", ())) == n and n):
+            self.b_from_here = QPushButton(style.icon("play"), tr("Parti da qui…"))
+            self.b_from_here.setToolTip(tr("Porta il cursore del tempo al punto da cui ripartire (la testa bianca), "
+                                           "poi premi: il lavoro riparte da lì, con il materiale dov'era. Serve dopo "
+                                           "un'interruzione o per rifare solo una parte"))
+            self.b_from_here.clicked.connect(self._from_here)
+            bottom.addWidget(self.b_from_here)
         v.addLayout(bottom)
         self.cum = np.cumsum(np.asarray(pv.seg_times, float)) if len(pv.seg_times) == n and n else np.zeros(n)
         self._build_paths()
@@ -560,6 +572,23 @@ class PreviewDialog(QDialog):
         self.time.setText(f"{_fmt(t)} / {_fmt(self.pv.seconds)}")
         if real and not self.play.isChecked():
             self._render_real(k)
+
+    def from_here_line(self, k=None):
+        """0.21.0: riga del G-code da cui ripartire con il cursore del tempo in k (il movimento dopo la testa)."""
+        n = len(self.pv.segs)
+        k = self.slider.value() if k is None else int(k)
+        if not n or k >= n:
+            return None
+        return int(self.pv.seg_line[max(0, k)])
+
+    def _from_here(self):
+        line = self.from_here_line()
+        if line is None:
+            QMessageBox.information(self, self.windowTitle(), tr("Il cursore è alla fine del lavoro: portalo indietro, "
+                                                                 "sul punto da cui ripartire."))
+            return
+        self.start_line = line
+        self.accept()
 
     def _mode(self):
         if self.r_real.isChecked():

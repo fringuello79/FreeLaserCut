@@ -172,6 +172,38 @@ def boolean(subject, clip, op):
     return _from_clip(res)
 
 
+def crop_closed(subject, clip):
+    """0.21.0: la parte dei contorni chiusi `subject` (pari-dispari: i fori restano fori) che sta dentro `clip`."""
+    s = _to_clip([p for p in subject if p.closed])
+    c = _to_clip([p for p in clip if p.closed])
+    if not s or not c:
+        return []
+    pc = pyclipper.Pyclipper()
+    pc.AddPaths(s, pyclipper.PT_SUBJECT, True)
+    pc.AddPaths(c, pyclipper.PT_CLIP, True)
+    return _from_clip(pc.Execute(pyclipper.CT_INTERSECTION, pyclipper.PFT_EVENODD, pyclipper.PFT_NONZERO))
+
+
+def crop_open(lines, clip):
+    """0.21.0: i pezzi delle linee (aperte o chiuse, prese come linee) che stanno dentro `clip`, come linee aperte."""
+    c = _to_clip([p for p in clip if p.closed])
+    if not c:
+        return []
+    pc = pyclipper.Pyclipper()
+    n = 0
+    for p in lines:
+        pts = list(p.pts) + ([p.pts[0]] if p.closed and p.pts else [])
+        path = [(int(round(x * CLIP_SCALE)), int(round(y * CLIP_SCALE))) for x, y in pts]
+        if len(path) >= 2:
+            pc.AddPath(path, pyclipper.PT_SUBJECT, False)
+            n += 1
+    if not n:
+        return []
+    pc.AddPaths(c, pyclipper.PT_CLIP, True)
+    tree = pc.Execute2(pyclipper.CT_INTERSECTION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO)
+    return _from_clip(pyclipper.OpenPathsFromPolyTree(tree), closed=False)
+
+
 def union_evenodd(polys):
     """0.20.7: la zona dentro dei contorni chiusi con la regola pari-dispari (un foro dentro una forma resta vuoto
     qualunque sia il verso in cui è disegnato), come contorni puliti."""

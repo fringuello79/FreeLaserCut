@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 223. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -92,7 +92,7 @@ Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v206_xtool_xs.py`: Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori
 - `test_v206_xtool_m2.py`: Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area
 
-## Lavoro e G-code (30)
+## Lavoro e G-code (34)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -123,9 +123,13 @@ Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v207_piano.py`: G-code «del piano» di un programma esterno adattato al laser del profilo (watt, velocità massima, assi, G55, fuori dal piano), solo con le funzioni in prova; il collegamento diretto con la M2 non c'è
 - `test_v207_piano.py` (Banco): G-code «del piano» nell'interfaccia Banco
 - `test_v206_cook.py`: Free Laser Cook (in prova): conto dell'energia e delle passate, G-code a testa alzata con pausa per girare, righe della griglia, firma e giro dell'aroma sul legno; ricette incluse, salvate, esportate e importate; finestra dietro il codice con le accortezze da spuntare
+- `test_v210_tastiera.py`: La testa con la tastiera: Alt+Maiusc+frecce, passi Alt+1…5, Z, origine, anche con oggetti selezionati e in Stampa e taglia (Ctrl+1, Ctrl+2); niente durante il lavoro; tasti tutti diversi
+- `test_v210_disegno.py`: Linea tratteggiata, Ritaglia con la forma e al piano, rampa dei riempimenti (timbri), Z che scende a ogni passata, Separa sui tracciati con più figure e Scomponi sui gruppi
+- `test_v210_disegno.py` (Banco): Tratteggio, ritaglio, rampa, Z per passata, Separa e Scomponi nell'interfaccia Banco
+- `test_v210_ripresa.py`: Lavoro in corso salvato sul disco e ripreso dopo la riapertura del programma, Scarta, file rovinati; Parti da qui nell'anteprima
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
-## Macchina, connessione e profili (42)
+## Macchina, connessione e profili (43)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -167,6 +171,7 @@ Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v200_nomi.py`: Nome del progetto dal file importato e file di provenienza delle forme
 - `test_v207_svg_vuoti.py`: SVG con tracciati senza disegno (<path/> senza «d», come nei file di xTool Creative Space): il resto del file si importa; SVG sani byte per byte identici; attributi con «>» o apostrofi non rovinati; da file e .svgz; rettangoli e cerchi con trasformazioni speculari al posto giusto
 - `test_v209_laser.py`: Più laser configurati, ognuno con il suo nome: tendina nel pannello Laser, nome, laser nuovo da un modello o copia, tolto dall'elenco, porta ricordata per ogni laser, profilo e piano che cambiano
+- `test_v210_tastiera.py` (Banco): La testa con la tastiera nell'interfaccia Banco
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
@@ -200,7 +205,7 @@ Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (34)
+## Interfaccia (35)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -232,6 +237,7 @@ Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v207_barra.py` (Banco): Barra personalizzabile: nel Banco la voce non c'è
 - `test_v209_laser.py` (Banco): Più laser e tendina dei laser nell'interfaccia Banco
 - `test_v209_disegno.py` (Banco): Guide, deformazione e fessure nell'interfaccia Banco
+- `test_v210_ripresa.py` (Banco): Ripresa dal disco e Parti da qui nell'interfaccia Banco
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco
@@ -248,3 +254,7 @@ Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v1816_prove.py`: Prove su GitHub: una volta sola per versione, quattro suite insieme, secondo tentativo da sole
 - `test_v1816_avvio.py`: Guardia d'avvio: gli errori prima della finestra vengono scritti e mostrati, anche senza Qt
 - `test_v190_cpu.py`: Processori vecchi: istruzioni lette all'avvio e librerie compatibili
+
+## Altro (1)
+
+- `test_v207_xtool_m2_link.py`: Collegamento diretto con la xTool M2 (funzione in prova) contro una M2 finta: buste, abbinamento col pulsante, invio, pausa e annullamento, consenso alla prima connessione

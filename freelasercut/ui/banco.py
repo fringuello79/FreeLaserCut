@@ -1140,6 +1140,7 @@ class ContextBar(QFrame):
                                                    a["dist_h"], a["dist_v"], a["dist_hc"], a["dist_vc"], None,
                                                    a["same_w"], a["same_h"], None, a["distance"]]))
         row.addWidget(_menu_button(tr("Combina"), [a["union"], a["difference"], a["intersection"], a["xor"], None,
+                                                   a["crop_shape"], a["crop_bed"], None,  # 0.21.0
                                                    a["photo_clip"], a["photo_unclip"], a["photo_cut_outline"]]))  # 0.20.3
         row.addWidget(_menu_button(tr("Serie"), [a["grid_array"], a["circ_array"], a["along_path"]]))
         self.wide_only = [_act_button(a[k], "bcTool", 18) for k in ("nest", "offset", "to_path")]

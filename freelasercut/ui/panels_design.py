@@ -649,6 +649,30 @@ class CutSettingsDialog(QDialog):
         self.tab_count.setValue(cs.tab_count)
         lf.addRow(tr("Larghezza ponticello"), self.tab_size)
         lf.addRow(tr("Ponticelli per forma"), self.tab_count)
+        # 0.21.0: linea tratteggiata (perforazione)
+        self.perf_on = QCheckBox(tr("Linea tratteggiata (perforazione)"))
+        self.perf_on.setToolTip(tr("Il laser taglia a tratti: un tratto acceso e uno spento, lungo tutta la linea. Per "
+                                   "le pieghe del cartone, i talloncini da staccare, le linee da rompere a mano"))
+        self.perf_on.setChecked(cs.perforate)
+        lf.addRow("", self.perf_on)
+        self.perf_cut = _spin(0.05, 1000, cs.perf_cut, 2, 0.5, " mm")
+        self.perf_cut.setToolTip(tr("Lunghezza di ogni tratto tagliato"))
+        self.perf_gap = _spin(0.05, 1000, cs.perf_gap, 2, 0.5, " mm")
+        self.perf_gap.setToolTip(tr("Lunghezza di ogni tratto lasciato intero fra un taglio e l'altro"))
+        lf.addRow(tr("Tratto acceso"), self.perf_cut)
+        lf.addRow(tr("Tratto spento"), self.perf_gap)
+        for wdg in (self.perf_cut, self.perf_gap):
+            wdg.setEnabled(cs.perforate)
+            self.perf_on.toggled.connect(wdg.setEnabled)
+        # 0.21.0 (rapporto H): lo Z scende fra una passata e l'altra (tagli spessi), solo con lo Z motorizzato
+        self.z_step = _spin(0, 5, getattr(cs, "z_step", 0.0), 2, 0.1, " mm")
+        self.z_step.setSpecialValueText(tr("fermo"))
+        z_ok = bool(getattr(profile, "z_motor", False)) if profile is not None else False
+        self.z_step.setToolTip(tr("Con più passate: dopo ogni passata lo Z scende di tanto, così il fuoco segue il "
+                                  "taglio dentro il materiale. Finito il livello torna dov'era. Solo sui laser con "
+                                  "l'asse Z motorizzato") + ("" if z_ok else "\n" + tr("Questo laser non ha l'asse Z "
+                                                                                       "motorizzato (Laser → profilo)")))
+        lf.addRow(tr("Abbassa lo Z a ogni passata"), self.z_step)
         self.tabs.addTab(lt, tr("Linea"))
         # riempimento
         ft = QWidget()
@@ -685,6 +709,18 @@ class CutSettingsDialog(QDialog):
                                       "del suo grigio, fra la Potenza minima e la massima. Il bianco non si incide. "
                                       "Le forme senza grigio usano la Potenza massima."))
         ff.addRow("", self.gray_power)
+        # 0.21.0: rampa per i timbri in gomma
+        self.ramp_on = QCheckBox(tr("Rampa (timbri in gomma): dal bordo la potenza sale dalla minima alla massima"))
+        self.ramp_on.setToolTip(tr("Vicino al bordo della zona incisa la potenza è la Potenza minima e sale fino alla "
+                                   "massima a questa distanza: intorno alle lettere in rilievo il fondo scende a "
+                                   "scivolo e le sostiene, come nei timbri veri"))
+        self.ramp_on.setChecked(bool(getattr(cs, "ramp", False)))
+        ff.addRow("", self.ramp_on)
+        self.ramp_len = _spin(0.05, 20, getattr(cs, "ramp_len", 1.0), 2, 0.1, " mm")
+        self.ramp_len.setToolTip(tr("Larghezza dello scivolo intorno alle forme: di solito 0,5–2 mm"))
+        self.ramp_len.setEnabled(self.ramp_on.isChecked())
+        self.ramp_on.toggled.connect(self.ramp_len.setEnabled)
+        ff.addRow(tr("Lunghezza della rampa"), self.ramp_len)
         self.tabs.addTab(ft, tr("Riempimento"))
         # immagine
         it = QWidget()
@@ -804,6 +840,8 @@ class CutSettingsDialog(QDialog):
                     power_min=self.pmin.value(), passes=self.passes.value(), air=self.air.isChecked(),
                     output=self.output.isChecked(), constant_power=self.const.isChecked(), kerf=self.kerf.value(),
                     tabs=self.tabs_on.isChecked(), tab_size=self.tab_size.value(), tab_count=self.tab_count.value(),
+                    perforate=self.perf_on.isChecked(), perf_cut=self.perf_cut.value(), perf_gap=self.perf_gap.value(),
+                    ramp=self.ramp_on.isChecked(), ramp_len=self.ramp_len.value(), z_step=self.z_step.value(),
                     interval=self.interval.value(), angle=self.angle.value(), crosshatch=self.cross.isChecked(),
                     bidirectional=(self.bidir_i if img else self.bidir).isChecked(),
                     overscan=(self.overscan_i if img else self.overscan).value(),

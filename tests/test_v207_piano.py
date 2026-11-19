@@ -91,8 +91,8 @@ from freelasercut.ui import help_texts  # noqa: E402
 from freelasercut.ui.main_window import MainWindow  # noqa: E402
 
 w = MainWindow()
-check("il collegamento diretto con la M2 non c'è in questa versione (resta a parte, in attesa di xTool)",
-      "m2_link" not in w.acts and not hasattr(w, "m2_link_dialog") and "m2_link" not in help_texts.HELP)
+check("0.21.0: il collegamento diretto con la M2 c'è ma, senza il codice delle funzioni in prova, non si vede e non si apre",
+      "m2_link" in w.acts and not w.acts["m2_link"].isVisible() and w.m2_link_dialog() is None)
 gpath = os.path.join(TMP, "piano.gcode")
 with open(gpath, "w", encoding="utf-8") as fh:
     fh.write("\n".join(src) + "\n")

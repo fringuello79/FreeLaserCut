@@ -48,6 +48,13 @@ def sections():
                                             "più la allontani dal centro; rilascia per fermarla"), None),
             (tr("Esc sul joystick"), tr("Ferma il joystick"), None),
             (tr("Doppio clic con «Posiziona laser» (Q)"), tr("Porta la testa in quel punto"), None),
+            (tr("Alt+{0}+frecce", sh), tr("Jog della testa del passo scelto, anche con oggetti selezionati e nella "
+                                          "finestra Stampa e taglia"), None),
+            (tr("Alt+{0}+PagSu / PagGiù", sh), tr("Asse Z su / giù (laser con lo Z motorizzato)"), "kb_z_up"),
+            ("Alt+1 … Alt+5", tr("Passo del jog: 0,1 · 1 · 10 · 50 · 100 mm"), None),
+            ("Alt+Home", tr("Testa all'origine di lavoro (X0 Y0)"), "kb_goto0"),
+            ("Ctrl+H", tr("Homing"), "home"),
+            (tr("Ctrl+1 / Ctrl+2 in Stampa e taglia"), tr("Prende la crocetta 1 / 2 nel punto della testa"), None),
         ]),
         (tr("Nodi"), [
             (tr("Clic su un nodo"), tr("Seleziona quel nodo"), None),

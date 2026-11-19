@@ -60,6 +60,27 @@ HELP = {
                   "FreeLaserCut non lo invia alla M2 e nessuno l'ha ancora provato su una macchina vera: serve a chi "
                   "ci aiuta nelle prove. Per lavorare con la M2 usa «Esporta per xTool Studio (M2)». Se il disegno "
                   "esce dall'area della macchina il lavoro non viene scritto."), None),
+    "m2_link": (tr("xTool M2: collegamento diretto (sperimentale)"), tr("Funzione in prova, solo per la xTool M2, "
+                "non ufficiale e non ancora provata su una macchina vera. Nella finestra scrivi l'indirizzo IP della "
+                "M2 e scegli modulo laser e costruttore (o «Automatico»: li dice la macchina). La prima volta la M2 "
+                "chiede di premere il suo pulsante per abbinarsi. Poi puoi inviare la cornice a potenza zero o il "
+                "lavoro: la macchina si mette in attesa e parte solo quando premi il pulsante su di lei. Da qui puoi "
+                "mettere in pausa, riprendere e annullare. «Usa l'area della M2 per il piano» crea il profilo con "
+                "l'area giusta."), None),
+    "kb_left": (tr("Testa a sinistra di un passo"), tr("Muove la testa del laser con la tastiera, del passo scelto nella scheda Movimento (Alt+1 … Alt+5). Funziona anche con oggetti selezionati e con la finestra Stampa e taglia davanti; non durante il lavoro."), None),
+    "kb_right": (tr("Testa a destra di un passo"), tr("Muove la testa del laser con la tastiera, del passo scelto nella scheda Movimento (Alt+1 … Alt+5). Funziona anche con oggetti selezionati e con la finestra Stampa e taglia davanti; non durante il lavoro."), None),
+    "kb_up": (tr("Testa in alto di un passo"), tr("Muove la testa del laser con la tastiera, del passo scelto nella scheda Movimento (Alt+1 … Alt+5). Funziona anche con oggetti selezionati e con la finestra Stampa e taglia davanti; non durante il lavoro."), None),
+    "kb_down": (tr("Testa in basso di un passo"), tr("Muove la testa del laser con la tastiera, del passo scelto nella scheda Movimento (Alt+1 … Alt+5). Funziona anche con oggetti selezionati e con la finestra Stampa e taglia davanti; non durante il lavoro."), None),
+    "kb_z_up": (tr("Asse Z su di un passo"), tr("Alza l'asse Z del passo scelto (al massimo 10 mm), solo sui laser con lo Z motorizzato."), None),
+    "kb_z_down": (tr("Asse Z giù di un passo"), tr("Abbassa l'asse Z del passo scelto (al massimo 10 mm), solo sui laser con lo Z motorizzato."), None),
+    "kb_goto0": (tr("Testa all'origine di lavoro (X0 Y0)"), tr("Porta la testa all'origine di lavoro, come «Vai a X0 Y0» nella scheda Movimento."), None),
+    "kb_step_1": (tr("Passo del jog: {0:g} mm", 0.1), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
+    "kb_step_2": (tr("Passo del jog: {0:g} mm", 1), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
+    "kb_step_3": (tr("Passo del jog: {0:g} mm", 10), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
+    "kb_step_4": (tr("Passo del jog: {0:g} mm", 50), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
+    "kb_step_5": (tr("Passo del jog: {0:g} mm", 100), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
+    "crop_shape": (tr("Ritaglia con la forma"), tr("Seleziona i disegni da ritagliare e, sopra a tutti, una forma chiusa: di ogni disegno resta solo la parte dentro la forma, e la forma sparisce. Sui livelli Linea restano solo i tratti dentro; sui riempimenti le forme restano chiuse e il bordo del ritaglio diventa un loro lato. Le foto non si toccano: per quelle c'è «Ritaglia la foto con la forma». Ctrl+Z rimette tutto com'era."), None),
+    "crop_bed": (tr("Ritaglia al piano"), tr("Toglie le parti dei disegni che escono dal piano di lavoro: quelle selezionate, o tutte se non c'è niente selezionato. Quello che è già tutto dentro resta identico."), None),
     "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
     "run_file": (tr("Esegui un file G-code"), tr("Invia alla macchina un file G-code già pronto, con anteprima e verifica."), None),
@@ -95,7 +116,7 @@ HELP = {
                (tr("Prova foto"), tr("4 quadrati della zona centrale con metodi diversi, per scegliere il migliore"))]),
     "close_paths": (tr("Chiudi tracciati"), tr("Chiude i tracciati i cui estremi sono vicini, entro la tolleranza scelta."), None),
     "join": (tr("Unisci estremi"), tr("Unisce in un solo tracciato i segmenti che si toccano."), None),
-    "break": (tr("Scomponi"), tr("Divide un tracciato nelle sue parti separate."), None),
+    "break": (tr("Scomponi"), tr("Divide un tracciato in tutti i suoi pezzi, anche i buchi dal loro contorno (una «O» diventa due cerchi). Su un gruppo: ogni forma tiene il suo livello e le foto restano foto. Per tenere i buchi con il loro contorno usa Separa."), None),
     "reverse": (tr("Inverti direzione di taglio"), tr("Il laser percorrerà la forma nel verso opposto."), None),
     "duplicates": (tr("Elimina duplicati"), tr("Cancella le forme identiche sovrapposte, che il laser brucerebbe due volte."), None),
     "laser_here": (tr("Porta il laser qui"), tr("Tasto destro sul piano, con la macchina connessa: la testa va nel punto "
@@ -121,7 +142,7 @@ HELP = {
     "unlock": (tr("Sblocca"), tr("Rende di nuovo modificabili le forme bloccate."), None),
     # ------------------------------------------------------------------ disponi
     "group": (tr("Raggruppa"), tr("Unisce la selezione in un gruppo che si sposta come un oggetto solo."), None),
-    "ungroup": (tr("Separa"), tr("Scioglie il gruppo selezionato (un livello di annidamento per volta)."), None),
+    "ungroup": (tr("Separa"), tr("Scioglie il gruppo selezionato (un livello di annidamento per volta). Su un tracciato fatto di più figure staccate (Salda, operazioni booleane, Ricalca immagine, testo, SVG) dà una forma per figura e ogni buco resta con il suo contorno: una «O» resta una «O»."), None),
     "photo_clip": (tr("Ritaglia la foto con la forma"), tr("Seleziona una foto e una forma chiusa che le sta sopra (cuore, "
                    "stella, testo, una forma disegnata a mano): la foto si vede e si incide solo dentro la forma, anche "
                    "con il negativo. La forma resta come contorno sul livello che non si incide e va in un gruppo con la "

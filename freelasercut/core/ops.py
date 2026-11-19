@@ -83,6 +83,103 @@ def boolean(a, b, op):
     return PathShape(geom.polys_to_path(res), layer=a.layer) if res else None
 
 
+def crop(shapes, clip_polys, line_layers=()):
+    """0.21.0, «Ritaglia» dei vettori: di ogni forma resta solo la parte dentro i contorni chiusi `clip_polys`.
+    Le forme sui livelli di `line_layers` (si incidono come linee) restano linee: rimangono solo i tratti dentro,
+    senza aggiungere il bordo del ritaglio. Le altre (riempimenti) restano chiuse: il bordo diventa un loro lato.
+    Le foto non si toccano (per quelle c'è «Ritaglia la foto con la forma»).
+    -> lista di (forma originale, nuova forma o None se è tutta fuori, True se è cambiata)."""
+    out = []
+    lines = set(line_layers)
+    for s in shapes:
+        polys, layer = [], s.layer
+        for leaf, tf in s.leaves():
+            if isinstance(leaf, ImageShape) or leaf.hidden:
+                continue
+            polys += geom.flatten(tf.map(leaf.local_path()), 0.01)
+        if not polys:
+            continue
+        b = geom.path_bounds(geom.polys_to_path(polys))
+        if all(geom.point_in_poly(pt, cp.pts) for cp in clip_polys[:1] for pt in
+               ((b.left(), b.top()), (b.right(), b.top()), (b.right(), b.bottom()), (b.left(), b.bottom()))) \
+                and len(clip_polys) == 1 and _convex(clip_polys[0]):
+            out.append((s, s, False))  # tutta dentro un ritaglio convesso (il piano, un rettangolo): resta com'è
+            continue
+        closed = [p for p in polys if p.closed]
+        opened = [p for p in polys if not p.closed]
+        if layer in lines:
+            res = geom.crop_open(polys, clip_polys)
+        else:
+            res = geom.crop_closed(closed, clip_polys) + geom.crop_open(opened, clip_polys)
+        res = [p for p in res if len(p.pts) >= 2]
+        out.append((s, PathShape(geom.polys_to_path(res), layer=layer) if res else None, True))
+    return out
+
+
+def _convex(poly):
+    pts = poly.pts
+    n = len(pts)
+    if n < 3:
+        return False
+    sign = 0
+    for i in range(n):
+        (x0, y0), (x1, y1), (x2, y2) = pts[i], pts[(i + 1) % n], pts[(i + 2) % n]
+        cr = (x1 - x0) * (y2 - y1) - (y1 - y0) * (x2 - x1)
+        if abs(cr) > 1e-9:
+            if sign and (cr > 0) != (sign > 0):
+                return False
+            sign = 1 if cr > 0 else -1
+    return True
+
+
+def figures(shape):
+    """0.21.0: le figure staccate di un tracciato, ognuna con i suoi buchi (una «O» resta una «O»). Le linee aperte
+    sono figure a sé. -> liste di sottotracciati (con le curve), o None se la figura è una sola."""
+    subs = world_subpaths(shape)
+    if len(subs) <= 1:
+        return None
+    polys = []
+    for sp in subs:
+        fl = geom.flatten(nodes.to_path([sp]), 0.05)
+        polys.append(fl[0] if fl else None)
+    closed = [i for i, (sp, p) in enumerate(zip(subs, polys)) if sp.closed and p is not None and len(p.pts) >= 3]
+
+    def area(i):
+        pts = polys[i].pts
+        return abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]))) / 2
+
+    def inside(i, j):  # la figura i sta dentro la j
+        return i != j and area(i) < area(j) and all(geom.point_in_poly(pt, polys[j].pts) for pt in polys[i].pts[:8])
+
+    parent = {}
+    for i in closed:
+        outer = [j for j in closed if inside(i, j)]
+        depth = len(outer)
+        if depth % 2:  # buco: va con il contorno più piccolo che lo contiene, un livello sopra
+            cand = [j for j in outer if len([k for k in closed if inside(j, k)]) == depth - 1]
+            if cand:
+                parent[i] = min(cand, key=area)
+    groups = {}
+    order = []
+    for i, sp in enumerate(subs):
+        root = parent.get(i, i)
+        if root not in groups:
+            groups[root] = []
+            order.append(root)
+        groups[root].append(sp)
+    if len(order) <= 1:
+        return None
+    return [groups[r] for r in order]
+
+
+def separate(shape):
+    """0.21.0, «Separa» su un tracciato: una forma per ogni figura staccata (buchi compresi). None se è una sola."""
+    figs = figures(shape)
+    if not figs:
+        return None
+    return [from_subpaths(f, shape.layer) for f in figs]
+
+
 def break_apart(shape):
     subs = world_subpaths(shape)
     if len(subs) <= 1:

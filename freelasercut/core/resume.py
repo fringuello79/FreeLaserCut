@@ -54,6 +54,8 @@ def analyse(lines, upto):
                 st["x"] = val if st["abs"] else (st["x"] or 0.0) + val
             elif letter == "Y":
                 st["y"] = val if st["abs"] else (st["y"] or 0.0) + val
+            elif letter == "Z" and not st["abs"]:
+                st["z_rel"] = True  # 0.21.0: lo Z si è mosso a passi (fra le passate)
     return st
 
 
@@ -64,6 +66,9 @@ def can_resume(lines, upto):
                        "Riavvialo dall'inizio oppure usa le coordinate assolute o l'origine utente."))
     if not st["abs"]:
         return False, tr("Il lavoro usa coordinate relative (G91): non si può riprendere in sicurezza.")
+    if st.get("z_rel"):
+        return False, tr("Prima di questo punto il lavoro ha abbassato lo Z fra le passate: dopo un'interruzione "
+                         "l'altezza della testa non si sa più. Riavvialo dall'inizio, con lo Z rimesso a fuoco.")
     return True, ""
 
 

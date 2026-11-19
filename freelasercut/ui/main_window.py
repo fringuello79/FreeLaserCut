@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from .. import __version__, diag as _diag, gcode_preview
 from ..core import gcode, geom, io_formats, materials, ops, resume, variables
-from ..core.document import Document, ImageShape, PathShape, origins, set_origin
+from ..core.document import Document, GroupShape, ImageShape, PathShape, origins, set_origin
 from ..grbl import SIM_PORT, GrblController, list_serial_ports
 from ..grbl_codes import STATE_COLORS
 from ..profile import MachineProfile, config_dir, migrate_qsettings
@@ -122,6 +122,12 @@ def manual_port_problem(port):
     return None
 
 
+# 0.21.0: tasti per muovere la testa (valgono in tutte le finestre del programma, anche Stampa e taglia)
+KB_JOG = {"left": "Alt+Shift+Left", "right": "Alt+Shift+Right", "up": "Alt+Shift+Up", "down": "Alt+Shift+Down",
+          "z_up": "Alt+Shift+PgUp", "z_down": "Alt+Shift+PgDown", "origin": "Alt+Home"}
+KB_STEPS = (0.1, 1.0, 10.0, 50.0, 100.0)  # Alt+1 … Alt+5, gli stessi passi della scheda Movimento
+
+
 class MainWindow(QMainWindow):
     # dopo la connessione: se la scheda non ha ancora risposto, avviso (velocità della porta). 0.17.3: 9 s, perché prima
     # FreeLaserCut prova da solo Ctrl+X (2,5 s) e il riavvio dalla porta USB (4 s, poi 3 s per l'avvio della scheda)
@@ -202,6 +208,7 @@ class MainWindow(QMainWindow):
         self._autosave.timeout.connect(self.autosave)
         self._autosave.start(90_000)
         QTimer.singleShot(400, self._offer_recovery)
+        QTimer.singleShot(600, self._offer_saved_job)  # 0.21.0: lavoro rimasto a metà, salvato sul disco
         QTimer.singleShot(200, self._first_run_notice)
         QTimer.singleShot(2200, self._offer_setup)
         QTimer.singleShot(4000, self.updates.startup)
@@ -288,6 +295,10 @@ class MainWindow(QMainWindow):
             "export_m2": A(tr("Lavoro per xTool M2 (sperimentale)…"), self.file_export_m2, None, "gcode",
                            tr("In prova, solo per la xTool M2: scrive il lavoro nel linguaggio della macchina. Non lo "
                               "invia e non è ancora stato provato su una M2 vera")),
+            # 0.20.7, sperimentale: configurazione della M2 e collegamento diretto (abbinamento col pulsante, invio)
+            "m2_link": A(tr("xTool M2: collega e invia (sperimentale)…"), self.m2_link_dialog, None, "connect",
+                         tr("In prova, solo per la xTool M2: configurazione, collegamento in rete con il pulsante della "
+                            "macchina, invio della cornice e del lavoro, pausa e annullamento")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -357,6 +368,13 @@ class MainWindow(QMainWindow):
             "difference": A(tr("Differenza (la prima meno la seconda)"), lambda: e.boolean("difference"), None, "subtract"),
             "intersection": A(tr("Intersezione"), lambda: e.boolean("intersection"), None, "intersect"),
             "xor": A(tr("Esclusione"), lambda: e.boolean("xor"), None, "exclude"),
+            # 0.21.0 (richiesta di un utente Linux): ritaglio dei vettori, con una forma o con il piano
+            "crop_shape": A(tr("Ritaglia con la forma"), e.crop_with_shape, None, "intersect",
+                            tr("La forma chiusa più in alto fra quelle selezionate ritaglia le altre: resta solo quello "
+                               "che le sta dentro. Le linee restano linee, i riempimenti restano chiusi")),
+            "crop_bed": A(tr("Ritaglia al piano"), lambda: e.crop_to_bed(self.profile.bed_x, self.profile.bed_y), None,
+                          None, tr("Toglie le parti dei disegni che escono dal piano di lavoro (i selezionati, o tutto "
+                                   "se non c'è niente selezionato)")),
             # 0.20.3 (Evoluzione2): la foto si vede e si incide solo dentro una forma del disegno
             "photo_clip": A(tr("Ritaglia la foto con la forma"), e.clip_photo, None, None,
                             tr("Seleziona una foto e una forma chiusa che le sta sopra (cuore, stella, testo…): la foto "
@@ -423,6 +441,17 @@ class MainWindow(QMainWindow):
             "connect": A(tr("Connetti / disconnetti la macchina"), lambda: self.toggle_connection(), "Ctrl+K", "connect"),
             "home": A(tr("Homing"), self.ctl.home, "Ctrl+H", "home"),
             "unlock_m": A(tr("Sblocca macchina ($X)"), self.ctl.unlock, None, "unlock"),
+            # 0.21.0 (richiesta di un utente Linux): la testa si muove con la tastiera anche con oggetti selezionati e
+            # con la finestra Stampa e taglia davanti; passo, Z e origine senza il mouse
+            "kb_left": A(tr("Testa a sinistra di un passo"), lambda: self.kb_jog(-1, 0), KB_JOG["left"]),
+            "kb_right": A(tr("Testa a destra di un passo"), lambda: self.kb_jog(1, 0), KB_JOG["right"]),
+            "kb_up": A(tr("Testa in alto di un passo"), lambda: self.kb_jog(0, 1), KB_JOG["up"]),
+            "kb_down": A(tr("Testa in basso di un passo"), lambda: self.kb_jog(0, -1), KB_JOG["down"]),
+            "kb_z_up": A(tr("Asse Z su di un passo"), lambda: self.kb_jog_z(1), KB_JOG["z_up"]),
+            "kb_z_down": A(tr("Asse Z giù di un passo"), lambda: self.kb_jog_z(-1), KB_JOG["z_down"]),
+            "kb_goto0": A(tr("Testa all'origine di lavoro (X0 Y0)"), lambda: self.kb_goto0(), KB_JOG["origin"]),
+            **{f"kb_step_{i}": A(tr("Passo del jog: {0:g} mm", st), lambda _=False, st=st: self.kb_step(st), f"Alt+{i}")
+               for i, st in enumerate(KB_STEPS, 1)},
             "frame": A(tr("Contorno"), lambda: self.frame_job("box"), "Ctrl+Shift+F", "frame"),
             "verify": A(tr("Verifica il lavoro"), self.verify_job, "Ctrl+Shift+K", "verify"),
             "start": A(tr("Avvia il lavoro"), self.start_job, "Ctrl+Return", "play"),
@@ -672,7 +701,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "m2_link", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -708,7 +737,7 @@ class MainWindow(QMainWindow):
                 act = sub.addAction(n.capitalize())
                 act.triggered.connect(lambda _=False, i=i: self.head_to_selection(i))
 
-        menu(tr("&Disponi"), ["group", "ungroup", "-", "weld", (tr("Operazioni booleane"), ["union", "difference", "intersection", "xor"]),
+        menu(tr("&Disponi"), ["group", "ungroup", "-", "weld", (tr("Operazioni booleane"), ["union", "difference", "intersection", "xor"]), "crop_shape", "crop_bed",
                           "photo_clip", "photo_unclip", "photo_cut_outline",
                           "-", "flip_h", "flip_v", "rot_cw", "rot_ccw", "-",
                           (tr("Allinea"), ["align_left", "align_hcenter", "align_right", "-", "align_top", "align_vcenter",
@@ -750,6 +779,17 @@ class MainWindow(QMainWindow):
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
+        # 0.21.0: la testa con la tastiera, nel menu Laser e attiva in tutte le finestre del programma
+        self.m_kb = QMenu(tr("Muovi la testa con la tastiera"), self)
+        for k in ("kb_left", "kb_right", "kb_up", "kb_down", "-", "kb_z_up", "kb_z_down", "-", "kb_goto0", "-",
+                  "kb_step_1", "kb_step_2", "kb_step_3", "kb_step_4", "kb_step_5"):
+            if k == "-":
+                self.m_kb.addSeparator()
+                continue
+            a[k].setShortcutContext(Qt.ApplicationShortcut)
+            a[k].setAutoRepeat(False)
+            self.m_kb.addAction(a[k])
+        self.m_laser.insertMenu(a["frame"], self.m_kb)
         self._apply_admin()  # 0.17.16: funzioni in prova nascoste finché non si sbloccano
         hm = menu(tr("&Aiuto"), ["help_mode", "-", "youtube", "claude", "-", "shortcuts", "about", "thanks", "send_report", "report",
                                  "linux_info", "linux_desktop", "-", "updates", "update_auto", "update_preview", "-", "support"])
@@ -1456,6 +1496,7 @@ class MainWindow(QMainWindow):
             self.acts[k].setEnabled(n >= (1 if nodes_tool else 2))
         for k in ("union", "difference", "intersection", "xor", "distance"):
             self.acts[k].setEnabled(n == 2)
+        self.acts["crop_shape"].setEnabled(n >= 2)
         for k in ("dist_h", "dist_v", "dist_hc", "dist_vc"):
             self.acts[k].setEnabled(n >= (1 if nodes_tool else 3))
         self.acts["weld"].setEnabled(n >= 1)
@@ -1994,6 +2035,20 @@ class MainWindow(QMainWindow):
                               len(rep["skipped"]))
         self.statusBar().showMessage(msg, 12000)
         return rep
+
+    def m2_link_dialog(self, *_):
+        """0.20.7, sperimentale: configurazione e collegamento diretto con la xTool M2 (finestra non bloccante)."""
+        from .. import admin
+        from .dialogs_m2link import M2LinkDialog
+
+        if not admin.unlocked(self.qs):
+            return None
+        dlg = getattr(self, "_m2_dialog", None)
+        if dlg is None or not dlg.isVisible():
+            dlg = self._m2_dialog = M2LinkDialog(self)
+        dlg.show()
+        dlg.raise_()
+        return dlg
 
     def file_export_m2(self, *_, path=None, laser_w=None, cut_layers=None, thickness=None):
         """0.20.6, sperimentale: il lavoro per la xTool M2 nel suo linguaggio, più la cornice a potenza zero.
@@ -3092,8 +3147,13 @@ class MainWindow(QMainWindow):
             keys += ["photo", "trace", "-"]
         if len(sel) > 1:
             keys.append("group")
-        if any(s.kind == "group" for s in sel):
+        # 0.21.0: Separa anche sui tracciati fatti di più figure staccate; Scomponi anche dal tasto destro
+        multi = [s for s in sel[:50] if not isinstance(s, (ImageShape, GroupShape)) and not s.role
+                 and len(ops.world_subpaths(s)) > 1]
+        if any(s.kind == "group" for s in sel) or multi:
             keys.append("ungroup")
+        if multi or any(s.kind == "group" for s in sel):
+            keys.append("break")
         if keys[-1] != "-":
             keys.append("-")
         keys += ["flip_h", "flip_v", "front", "back", "-"]
@@ -3144,6 +3204,7 @@ class MainWindow(QMainWindow):
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["cook"].setVisible(admin.unlocked(self.qs))  # 0.20.7: Free Laser Cook, in prova
         self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
+        self.acts["m2_link"].setVisible(admin.unlocked(self.qs))  # 0.21.0: collegamento diretto con la M2, in prova
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 
@@ -4081,6 +4142,7 @@ class MainWindow(QMainWindow):
         self.ctl.stream_job(lines)
         self.laser.update_running()
         self.plate_bar.job_started()
+        self._job_save_start(plate)
 
     def verify_job(self):
         if not self.ctl.connected or self.ctl.job_active:
@@ -4250,6 +4312,7 @@ class MainWindow(QMainWindow):
         plate, self._job_plate = self._job_plate, None
         self.plate_bar.refresh()
         self._update_job_overlay()  # 0.20.7: lavoro finito, anteprima e scia di nuovo come prima
+        self._job_save_end(ok)  # 0.21.0
         if getattr(self, "_g55_stop", False) and not ok:
             self._g55_stop = False
             self._interrupted = None
@@ -4262,6 +4325,101 @@ class MainWindow(QMainWindow):
         elif self.ctl.job_lines and 0 < self.ctl.job_acked < len(self.ctl.job_lines):
             self._interrupted = (list(self.ctl.job_lines), self.ctl.job_acked)
             self._interrupted_plate = plate
+
+    # ------------------------------------------------------------- 0.21.0: il lavoro in corso sul disco
+    JOB_SAVE_MS = 2000
+
+    def _job_save_start(self, plate=None):
+        """Il lavoro appena partito va sul disco (G-code e scheda); poi la scheda si aggiorna ogni 2 secondi."""
+        from ..core import job_save
+
+        lines = list(self.ctl.job_lines or [])
+        if not self.ctl.job_active or not lines:
+            return
+        self._job_card = job_save.start(config_dir(), lines, plate=plate, name=self.editor.doc.name or "")
+        t = getattr(self, "_job_save_timer", None)
+        if t is None:
+            t = self._job_save_timer = QTimer(self)
+            t.timeout.connect(self._job_save_tick)
+        t.start(self.JOB_SAVE_MS)
+
+    def _job_save_tick(self):
+        from ..core import job_save
+
+        card = getattr(self, "_job_card", None)
+        if card is None:
+            self._job_save_timer.stop()
+            return
+        acked = int(self.ctl.job_acked or 0)
+        if acked != card.get("acked"):
+            job_save.progress(config_dir(), card, acked)
+        if not self.ctl.job_active:
+            self._job_save_timer.stop()
+
+    def _job_save_end(self, ok):
+        """Finito bene: il lavoro salvato si cancella. Fermato o interrotto: resta, con la riga raggiunta."""
+        from ..core import job_save
+
+        t = getattr(self, "_job_save_timer", None)
+        if t is not None:
+            t.stop()
+        card = getattr(self, "_job_card", None)
+        if ok:
+            job_save.clear(config_dir())
+            self._job_card = None
+        elif card is not None:
+            job_save.progress(config_dir(), card, int(self.ctl.job_acked or 0))
+
+    def _offer_saved_job(self):
+        """All'avvio: un lavoro rimasto a metà (corrente mancata anche al PC, programma chiuso di colpo)."""
+        from ..core import job_save
+
+        got = job_save.load(config_dir())
+        if got is None or self._interrupted:
+            return None
+        lines, at, card = got
+        self._interrupted = (lines, at)
+        plate = card.get("plate")
+        self._interrupted_plate = plate if self.editor.doc.plate_index(plate) is not None else None
+        self._job_card = card
+        when = time.strftime("%d/%m %H:%M", time.localtime(float(card.get("updated") or 0)))
+        self.show_banner(tr("L'ultimo lavoro non è finito ({0}): si è fermato alla riga {1} di {2}. Collega il laser e "
+                            "fai l'homing: poi puoi riprenderlo da dove si era fermato.", when, at, len(lines)), "warn",
+                         [(tr("Scarta"), self._drop_interrupted)])
+        return at
+
+    def start_from_line(self, job, line, plate=None):
+        """0.21.0, «Parti da qui» dell'anteprima: il lavoro parte dalla riga `line` (indice nelle righe del lavoro),
+        con la testa portata lì a laser spento e lo stato del laser ricostruito."""
+        lines = list(getattr(job, "lines", None) or [])
+        if not lines or not 0 <= line < len(lines):
+            return None
+        if not self.ctl.connected:
+            QMessageBox.information(self, tr("Parti da qui"), tr("Collega il laser per far partire il lavoro."))
+            return None
+        if self.ctl.job_active or self.ctl.checking:
+            QMessageBox.information(self, tr("Parti da qui"), tr("C'è già un lavoro in corso."))
+            return None
+        ok, why = resume.can_resume(lines, line)
+        if not ok:
+            QMessageBox.information(self, tr("Parti da qui"), why)
+            return None
+        if self.profile.homing and not self.ctl.homed:
+            QMessageBox.information(self, tr("Parti da qui"), tr("Prima fai l'homing: serve a ritrovare la posizione "
+                                                                 "esatta della testa."))
+            return None
+        done = 100.0 * line / max(1, len(lines))
+        r = QMessageBox.question(self, tr("Parti da qui"), tr(
+            "Il lavoro parte dalla riga {0} di {1} (circa il {2:.0f} %), come dal cursore dell'anteprima.\nIl "
+            "materiale deve essere dove era la prima volta.\n\nOcchiali indossati, aspirazione accesa? Avvio?",
+            line + 1, len(lines), done))
+        if r != QMessageBox.Yes:
+            return None
+        prog = resume.resume_program(lines, line, 0)
+        self.banner.hide()
+        self._interrupted = None
+        self._run(prog, plate)
+        return prog
 
     def resume_job(self):
         if not self._interrupted or not self.ctl.connected:
@@ -4284,11 +4442,63 @@ class MainWindow(QMainWindow):
         self._run(prog, self._interrupted_plate)
 
     def _drop_interrupted(self):
+        from ..core import job_save
+
         self._interrupted = None
         self.banner.hide()
+        job_save.clear(config_dir())  # 0.21.0: scartato anche quello salvato sul disco
+        self._job_card = None
 
     def _toggle_pause(self):
         self.laser.b_pause.toggle()
+
+    # ------------------------------------------------------------- 0.21.0: la testa con la tastiera
+    def _kb_ready(self):
+        """None se la testa si può muovere con la tastiera, altrimenti il motivo (detto nella barra di stato)."""
+        if not self.ctl.connected:
+            return tr("Laser non collegato")
+        if self.ctl.job_active or self.ctl.checking:
+            return tr("Durante il lavoro la testa non si muove con la tastiera")
+        return None
+
+    def kb_jog(self, dx, dy):
+        why = self._kb_ready()
+        if why:
+            self.statusBar().showMessage(why, 3000)
+            return False
+        dlg = getattr(self, "_print_cut_dlg", None)
+        if dlg is not None and dlg.isActiveWindow():
+            dlg.jog(dx, dy)  # il passo scelto nella finestra Stampa e taglia
+            return True
+        s = self.move.step()
+        self.ctl.jog(dx * s, dy * s, self.move.feed.value())
+        return True
+
+    def kb_jog_z(self, sign):
+        why = self._kb_ready()
+        if why is None and not getattr(self.profile, "z_motor", False):
+            why = tr("Questo laser non ha l'asse Z motorizzato (Laser → profilo)")
+        if why:
+            self.statusBar().showMessage(why, 3000)
+            return False
+        self.move._jog_z(sign)
+        return True
+
+    def kb_goto0(self):
+        why = self._kb_ready()
+        if why:
+            self.statusBar().showMessage(why, 3000)
+            return False
+        self.ctl.go_to_origin(self.move.feed.value())
+        return True
+
+    def kb_step(self, st):
+        ok = self.move.pad.set_step(st)
+        dlg = getattr(self, "_print_cut_dlg", None)
+        if dlg is not None:
+            dlg.pad.set_step(st)
+        self.statusBar().showMessage(tr("Passo del jog: {0:g} mm", st), 3000)
+        return ok
 
     def frame_job(self, kind="box", job=None):
         if not self.ctl.connected or self.ctl.job_active:
@@ -4336,7 +4546,11 @@ class MainWindow(QMainWindow):
             pv = job.preview if job.preview is not None else gcode_preview.parse(job.lines, profile=self.profile)
         ox, oy = self._preview_offset(job) if job is self.job else job.out_to_bed
         pv = gcode_preview.shifted(pv, ox, oy)  # anteprima in coordinate piano; l'originale resta per il piano
-        PreviewDialog(pv, job, self.profile, (self.profile.bed_x, self.profile.bed_y), self).exec()
+        dlg = PreviewDialog(pv, job, self.profile, (self.profile.bed_x, self.profile.bed_y), self)
+        dlg.exec()
+        if dlg.start_line is not None:  # 0.21.0: «Parti da qui»
+            plate = None if job is not self.job else self.editor.doc.plate.uid
+            self.start_from_line(job, dlg.start_line, plate)
         # chiusa l'anteprima, il percorso arancione non resta sopra il disegno (con una foto la copriva tutta);
         # riappare quando si avvia il lavoro
         if not (self.ctl.job_active or self.ctl.checking):
