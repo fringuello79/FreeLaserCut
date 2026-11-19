@@ -57,8 +57,11 @@ class SerialSpeedDialog(QDialog):
         src = getattr(win, "port_combo", None)
         if src is not None:
             for i in range(src.count()):
+                if str(src.itemData(i)).startswith("__"):  # 0.20.9: «Scrivi la porta a mano…» non è una porta
+                    continue
                 self.port.addItem(src.itemText(i), src.itemData(i))
-            self.port.setCurrentIndex(src.currentIndex())
+            j = self.port.findData(src.currentData())
+            self.port.setCurrentIndex(j if j >= 0 else 0)
         f.addRow(tr("Porta"), self.port)
         self.speed = QComboBox()
         self.speed.setEditable(True)

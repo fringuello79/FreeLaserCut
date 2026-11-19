@@ -261,7 +261,34 @@ HELP = {
                    "già inciso. Spegnila se il programma rallenta su lavori lunghi (foto, riempimenti grandi): il "
                    "lavoro non cambia. Mentre guardi un altro piano, con «Mostra gli altri piani» spento, l'anteprima "
                    "e la scia del lavoro in corso non si vedono."), None),
+    # ------------------------------------------------------------------ guide, deforma, fessure (0.20.9)
+    "guides_show": (tr("Guide"), tr("Rette di riferimento sul piano, che non si incidono. Trascina dal righello in alto per "
+                    "una guida orizzontale, da quello a sinistra per una verticale. Con la Selezione prendi una guida "
+                    "(fuori dalle forme) e la sposti; riportata sul righello si toglie. Questa voce le mostra o le "
+                    "nasconde; si salvano nel progetto."), None),
+    "guides_snap": (tr("Aggancia alle guide"), tr("Disegnando e spostando, punti, bordi e centri vicini a una guida ci si "
+                    "attaccano. Alt lo sospende mentre trascini."), None),
+    "guides_add": (tr("Guida a misura"), tr("Una guida orizzontale (a una Y) o verticale (a una X) nel punto esatto che "
+                   "scrivi, in mm."), None),
+    "guides_clear": (tr("Togli tutte le guide"), tr("Cancella tutte le guide del progetto. Le forme non cambiano."), None),
+    "deform4": (tr("Deforma in prospettiva"), tr("Quattro maniglie gialle sugli angoli della selezione: trascinale e il "
+                "disegno segue in prospettiva, con le rette che restano rette. Serve per adattare un disegno a un pezzo "
+                "storto o visto di sbieco. Invio o doppio clic applica (un solo Annulla), Esc lascia tutto com'era. Il "
+                "risultato è un tracciato sullo stesso livello; le foto non si deformano."), None),
+    "deform16": (tr("Deforma con la griglia"), tr("Una griglia di 4 × 4 maniglie sopra la selezione: trascinandole il "
+                 "disegno si piega in modo morbido (bandiere, onde, scritte curve). Invio o doppio clic applica, Esc "
+                 "annulla. Il risultato è un tracciato sullo stesso livello; i gruppi restano gruppi."), None),
+    "slots": (tr("Larghezza delle fessure"), tr("Allarga o stringe le fessure degli incastri della selezione, per esempio "
+              "da 3 a 4 mm quando passi a un materiale più spesso. Cambia solo le fessure della misura scritta (entro la "
+              "tolleranza): tacche sul bordo e fori rettangolari, anche disegnati a parte. Il centro resta fermo, la "
+              "profondità non cambia, le linguette non si toccano. Prima di confermare vedi il risultato sul piano."),
+              None),
     # ------------------------------------------------------------------ laser
+    "laser_pick": (tr("Laser in uso"), tr("Se hai più di un laser, ognuno ha il suo nome, la sua area, le sue impostazioni "
+                   "e la porta con cui si collega. Scegli qui con quale lavori: piano e impostazioni cambiano subito e "
+                   "la porta torna quella usata l'ultima volta da quel laser. Con ⋯ gli dai un nome, ne aggiungi uno "
+                   "(copia di quello in uso o un modello pronto) o lo togli dall'elenco. Con un laser collegato, prima "
+                   "si disconnette."), None),
     "connect": (tr("Connetti / disconnetti"), tr("Collega FreeLaserCut al laser sulla porta scelta. Una porta USB la può usare un "
                 "solo programma per volta: chiudi gli altri programmi che la usano."), None),
     "home": (tr("Homing"), tr("La testa va ai finecorsa e azzera la posizione: piano, testa e camera usano le stesse coordinate."), None),

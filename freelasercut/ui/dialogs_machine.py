@@ -230,6 +230,9 @@ class MachineWizard(QDialog):
 
         self.ports = machines.describe_ports() + [machines.PortInfo(p, tr("Wi-Fi (rete)")) for p in
                                                   netport.saved(getattr(self.main, "qs", None))]
+        have = {p.device for p in self.ports}
+        mp = getattr(self.main, "manual_ports", None)  # 0.20.9: porte scritte a mano
+        self.ports += [machines.PortInfo(d, tr("scritta a mano")) for d in (mp() if callable(mp) else []) if d not in have]
         self.table.setRowCount(0)
         sel = 0
         for i, p in enumerate(self.ports + [machines.PortInfo(SIM_PORT, tr("Simulatore (senza macchina)"))]):
@@ -248,7 +251,9 @@ class MachineWizard(QDialog):
         if not any(p.likely for p in self.ports) and _LINUX:
             self.drv_hint.setText(tr("Nessuna porta sembra un laser. Accendi la macchina e collega il cavo USB, poi "
                                      "«Aggiorna»: su Linux i driver dei chip USB (CH340, CP210x, FTDI) sono già nel "
-                                     "sistema e la porta compare come /dev/ttyUSB0 o /dev/ttyACM0."))
+                                     "sistema e la porta compare come /dev/ttyUSB0 o /dev/ttyACM0.") + " " +
+                                  tr("Con il driver del produttore del chip si chiama /dev/ttyCH341USB0: se non "
+                                     "compare, nella tendina delle porte scegli «Scrivi la porta a mano…»."))
         elif not any(p.likely for p in self.ports):
             self.drv_hint.setText(tr("Nessuna porta sembra un laser. Accendi la macchina e collega il cavo USB; se non "
                                   "compare nulla manca il driver del chip USB: «Scarica il driver» (CH340 è il più "

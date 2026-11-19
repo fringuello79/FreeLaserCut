@@ -1003,6 +1003,12 @@ def _from_file(shapes, to_plane):
         s._door_tf = (geom.transform_to_list(s.tf), in_file)
 
 
+def _map_guides(guides, tf):
+    from . import guides as gd
+
+    return gd.transform(guides, lambda x, y: (lambda q: (q.x(), q.y()))(tf.map(QPointF(x, y))))
+
+
 class Plate:
     """Un piano di lavoro del progetto: le sue forme. Macchina, piano e livelli (impostazioni di taglio) sono in
     comune a tutti i piani; ogni piano è un lavoro a sé (si incide il piano attivo)."""
@@ -1026,6 +1032,7 @@ class Document:
         self.name_auto = False
         self.import_order = []  # 0.20.1: i file importati, nell'ordine (nomi come in Shape.origin)
         self.path = None
+        self.guides = []  # 0.20.9: guide del piano [("h", y) | ("v", x)] in mm sul piano come si vede (core/guides.py)
 
     # ---- piani di lavoro
     @property
@@ -1254,11 +1261,15 @@ class Document:
         mostrato cambia orientamento e il disegno resta dov'è sulla macchina)."""
         for s in self.all_shapes():
             s.apply(tf)
+        if self.guides:  # 0.20.9: anche le guide restano dove sono sulla macchina
+            self.guides = _map_guides(self.guides, tf)
 
     def from_frame(self, shapes=None, door=None):
         """Forme lette da un file nelle coordinate della macchina (progetti .lbrn2) → sul piano come si vede."""
         to_plane, _ = plane_transforms(_DOOR if door is None else door)
         _from_file(self.all_shapes() if shapes is None else shapes, to_plane)
+        if shapes is None and to_plane is not None and self.guides:
+            self.guides = _map_guides(self.guides, to_plane)
 
     # ---- file
     def save(self, path):
@@ -1273,6 +1284,9 @@ class Document:
             meta["plates"] = [{"name": p.name, **({"shapes": [_to_file(s, to_frame) for s in p.shapes]} if i else {})}
                               for i, p in enumerate(self.plates)]
             meta["current"] = self.current
+        if self.guides:  # 0.20.9: solo se ci sono (i file senza guide restano come prima)
+            gl = _map_guides(self.guides, to_frame) if to_frame is not None else self.guides
+            meta["guides"] = [[k, p] for k, p in gl]
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr("project.json", json.dumps(meta, indent=1))
             used = {i for s in self.all_shapes() for leaf, _ in s.leaves() if isinstance(leaf, ImageShape)
@@ -1308,6 +1322,9 @@ class Document:
                                         str(p.get("name") or "")))
             cur = meta.get("current", 0)
             doc.current = cur if isinstance(cur, int) and 0 <= cur < len(doc.plates) else 0
+        from . import guides as gd
+
+        doc.guides = gd.clean(meta.get("guides") if isinstance(meta.get("guides"), list) else [])
         doc.from_frame()  # 0.19.3: il file è nelle coordinate della macchina; con il piano ruotato si gira qui
         doc.path = path
         return doc

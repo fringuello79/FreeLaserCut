@@ -100,6 +100,28 @@ class ShrinkLabel(QLabel):
         return QSize(0, super().minimumSizeHint().height())
 
 
+MANUAL_PORT = "__porta_a_mano__"  # voce in fondo alla tendina delle porte (0.20.9)
+
+
+def manual_port_problem(port):
+    """Perché una porta scritta a mano non va (testo), o None. Su Linux deve essere un file in /dev che c'è; su
+    Windows un nome COM; altrove basta che non sia vuota."""
+    port = str(port or "").strip()
+    if not port:
+        return tr("Scrivi il nome della porta.")
+    if len(port) > 120 or "\n" in port:
+        return tr("Il nome della porta non è valido.")
+    if sys.platform.startswith("linux") or sys.platform == "darwin":
+        if not port.startswith("/dev/"):
+            return tr("Su questo sistema la porta comincia con /dev/ (per esempio /dev/ttyCH341USB0).")
+        if not os.path.exists(port):
+            return tr("La porta {0} non c'è: il laser è acceso e collegato?", port)
+        return None
+    if sys.platform == "win32" and not re.match(r"^(\\\\\.\\)?COM\d{1,3}$", port, re.I):
+        return tr("Su Windows la porta si chiama COM seguito da un numero (per esempio COM8).")
+    return None
+
+
 class MainWindow(QMainWindow):
     # dopo la connessione: se la scheda non ha ancora risposto, avviso (velocità della porta). 0.17.3: 9 s, perché prima
     # FreeLaserCut prova da solo Ctrl+X (2,5 s) e il riavvio dalla porta USB (4 s, poi 3 s per l'avvio della scheda)
@@ -297,6 +319,15 @@ class MainWindow(QMainWindow):
             "sel_open_fill": A(tr("Seleziona forme aperte sui riempimenti"), lambda: e.select_open(True)),
             "sel_contained": A(tr("Aggiungi le forme contenute"), e.select_contained),
             "to_path": A(tr("Converti in tracciato"), e.convert_to_path, "Ctrl+Shift+C", "to_path"),
+            # 0.20.9: deformare a 4 o 16 punti, larghezza delle fessure degli incastri
+            "deform4": A(tr("Deforma in prospettiva (4 punti)"), lambda: self.deform("persp"), None, None,
+                         tr("Trascina i quattro angoli: il disegno segue in prospettiva. Invio applica, Esc annulla")),
+            "deform16": A(tr("Deforma con la griglia (16 punti)"), lambda: self.deform("grid"), None, None,
+                          tr("Una griglia di 4 × 4 punti sopra il disegno: trascinandoli il disegno si piega in modo "
+                             "morbido. Invio applica, Esc annulla")),
+            "slots": A(tr("Cambia la larghezza delle fessure…"), lambda: self.slots_dialog(), None, None,
+                       tr("Allarga o stringe gli incastri (per esempio da 3 a 4 mm per un materiale più spesso) "
+                          "lasciando il resto del pezzo com'è")),
             "trace": A(tr("Vettorizza immagine…"), self.trace_dialog, "Alt+T", "trace",
                        tr("Trasforma una foto o un disegno in tracciati (contorno o linea centrale)")),
             "photo": A(tr("Prepara foto…"), self.photo_dialog, "Ctrl+Alt+F", "photo_prep",
@@ -380,6 +411,15 @@ class MainWindow(QMainWindow):
             "dither_prev": A(tr("Mostra il dithering delle immagini"), self._toggle_dither, checkable=True),
             # 0.20.7: la scia arancione di quello che il laser ha già inciso, durante il lavoro
             "show_trail": A(tr("Scia dell'incisione sul piano"), self._toggle_trail, None, checkable=True),
+            # 0.20.9: guide tirate fuori dai righelli
+            "guides_show": A(tr("Guide"), lambda x: self._set_guides_opt("show_guides", x), None, None,
+                             tr("Trascina dal righello in alto o da quello a sinistra per tirare fuori una guida; "
+                                "riportala sul righello per toglierla"), checkable=True),
+            "guides_snap": A(tr("Aggancia alle guide"), lambda x: self._set_guides_opt("snap_guides", x), None, None,
+                             checkable=True),
+            "guides_add": A(tr("Guida a misura…"), lambda: self.add_guide_dialog(), None, None,
+                            tr("Una guida orizzontale o verticale nel punto esatto che scrivi")),
+            "guides_clear": A(tr("Togli tutte le guide"), lambda: self.clear_guides(), None, None),
             "connect": A(tr("Connetti / disconnetti la macchina"), lambda: self.toggle_connection(), "Ctrl+K", "connect"),
             "home": A(tr("Homing"), self.ctl.home, "Ctrl+H", "home"),
             "unlock_m": A(tr("Sblocca macchina ($X)"), self.ctl.unlock, None, "unlock"),
@@ -531,6 +571,9 @@ class MainWindow(QMainWindow):
         c.light_bed = self.acts["light_bed"].isChecked()
         self.acts["show_trail"].setChecked(on("show_trail", True))
         c.set_trail_shown(self.acts["show_trail"].isChecked())
+        for k, attr in (("guides_show", "show_guides"), ("guides_snap", "snap_guides")):
+            self.acts[k].setChecked(on(attr, True))
+            setattr(c, attr, self.acts[k].isChecked())
         self.acts["snap_obj"].setChecked(on("snap_objects", True))
         self.acts["snap_grid"].setChecked(on("snap_grid", False))
         c.snap_objects = self.acts["snap_obj"].isChecked()
@@ -638,7 +681,7 @@ class MainWindow(QMainWindow):
         m_edit = menu(tr("&Modifica"), ["undo", "redo", "-", "cut", "copy", "paste", "paste_in_place", "duplicate", "delete", "-",
                            "select_all", "invert_sel", (tr("Seleziona speciale"), ["sel_open", "sel_open_fill", "sel_contained"]),
                            "-", "to_path", "trace", "close_paths", "join", "break", "reverse", "duplicates", "offset",
-                           "simplify", "-", "lock", "unlock"])
+                           "simplify", (tr("Deforma"), ["deform4", "deform16"]), "slots", "-", "lock", "unlock"])
         m_edit.addSeparator()
         self.m_plates = m_edit.addMenu(tr("Piani di lavoro"))
         for k in ("plate_new", "plate_dup", "-", "plate_next", "plate_prev", "-"):
@@ -698,7 +741,8 @@ class MainWindow(QMainWindow):
             ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "scan_offset", "autofocus",
             "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
-                                           "snap_grid", "snap_obj", "dither_prev", "show_trail", "-", "clear_mosaic"])
+                                           "snap_grid", "snap_obj", "dither_prev", "show_trail", "-", "guides_show",
+                                           "guides_snap", "guides_add", "guides_clear", "-", "clear_mosaic"])
         self.m_view.addSeparator()
         self.m_panels = self.m_view.addMenu(tr("Pannelli"))
         self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
@@ -788,7 +832,8 @@ class MainWindow(QMainWindow):
         # (0.19.2: nella Classica comparivano in due menu)
         if cur == "banco":
             m.addSeparator()
-            for k in ("light_bed", "snap_obj", "snap_grid", "dither_prev"):
+            for k in ("light_bed", "snap_obj", "snap_grid", "dither_prev", "guides_show", "guides_snap", "guides_add",
+                      "guides_clear"):
                 m.addAction(self.acts[k])
 
     def preferences_dialog(self, *_, section=None):
@@ -948,7 +993,9 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, tb)
         # connessione: sempre visibile in cima al pannello Laser (e nella barra di stato)
         self.port_combo = QComboBox()
-        self.port_combo.setToolTip(tr("Porta USB della macchina (★ = probabilmente il laser)"))
+        self.port_combo.setToolTip(tr("Porta USB della macchina (★ = probabilmente il laser). Se la tua non c'è, "
+                                      "in fondo all'elenco: «Scrivi la porta a mano…»"))
+        self.port_combo.activated.connect(self._port_activated)
         rb = QToolButton()
         rb.setIcon(style.icon("refresh"))
         rb.setToolTip(tr("Cerca di nuovo le porte USB"))
@@ -1148,6 +1195,11 @@ class MainWindow(QMainWindow):
         conn.set_optional([self.pill, ib])
         self.connbar = conn
         self.laser.layout().insertWidget(0, conn)
+        # 0.20.9 (Ale, 19/11): sopra la porta, la tendina dei laser configurati (con il menu ⋯ per il nome)
+        from .laser_picker import LaserPicker
+
+        self.laser_pick = LaserPicker(self)
+        self.laser.layout().insertWidget(0, self.laser_pick)
         QTimer.singleShot(0, self._clean_tabbars)
         QTimer.singleShot(250, self._balance_docks)
 
@@ -1307,7 +1359,7 @@ class MainWindow(QMainWindow):
         c.cursor_moved.connect(lambda x, y: self.lbl_cursor.setText(tr("X {0:8.2f}  Y {1:8.2f} mm", x, y)))
         c.zoom_changed.connect(lambda k: self.lbl_zoom.setText(f"{k / 3.78 * 100:5.0f}%"))
         c.status.connect(lambda t: self.statusBar().showMessage(t, 4000))
-        c.tool_changed.connect(lambda n: self.tool_actions[n].setChecked(True))
+        c.tool_changed.connect(lambda n: self.tool_actions[n].setChecked(True) if n in self.tool_actions else None)
         c.tool_changed.connect(self._tool_changed)
         c.tool_changed.connect(lambda *_: self._update_sel_actions())  # 0.19.6: Allinea sui nodi
         self._plate_views, self._view_uid = {}, self.editor.doc.plate.uid  # 0.19.6: vista di ogni piano
@@ -1395,7 +1447,7 @@ class MainWindow(QMainWindow):
         nodes_tool = cv is not None and cv.tool is not None and cv.tool is cv.tools.get("nodes")
         for k in ("cut", "copy", "duplicate", "delete", "to_path", "break", "reverse", "offset", "flip_h", "flip_v",
                   "rot_cw", "rot_ccw", "grid_array", "circ_array", "front", "back", "lock", "unlock", "close_paths", "join",
-                  "simplify"):
+                  "simplify", "deform4", "deform16", "slots"):
             self.acts[k].setEnabled(n >= 1)
         for k in ("group", "same_w", "same_h", "along_path"):
             self.acts[k].setEnabled(n >= 2)
@@ -1498,6 +1550,86 @@ class MainWindow(QMainWindow):
         self.qs.setValue(attr, on)
         self.statusBar().showMessage((tr("Aggancio agli oggetti ") if attr == "snap_objects" else tr("Aggancio alla griglia "))
                                      + (tr("attivo") if on else tr("disattivato")) + tr("  (Alt lo sospende mentre trascini)"), 3000)
+
+    def deform(self, mode):
+        """0.20.9: Deforma la selezione: "persp" = 4 punti (prospettiva), "grid" = 16 punti. -> lo strumento o None."""
+        t = self.canvas.tools["deform"]
+        why = t.start(mode)
+        if why:
+            self.statusBar().showMessage(why, 6000)
+            return None
+        self.statusBar().showMessage(tr("Trascina i punti gialli. Invio (o doppio clic) applica, Esc annulla"), 10000)
+        return t
+
+    def slots_dialog(self, old=None, new=None, tol=0.1):
+        """0.20.9: larghezza delle fessure della selezione. Con old e new dati: subito, senza finestra.
+        -> (fessure cambiate, saltate) o None."""
+        from .dialogs_shapes import SlotsDialog, resize_slots
+
+        sel = [s for s in self.editor.editable() if not isinstance(s, ImageShape)]
+        if not sel:
+            self.statusBar().showMessage(tr("Seleziona prima il pezzo con le fessure"), 5000)
+            return None
+        if old is None or new is None:
+            dlg = SlotsDialog(self, sel)
+            ok = dlg.exec()
+            self.canvas.overlay_paths = []
+            self.canvas.viewport().update()
+            if not ok:
+                return None
+            old, new, tol = dlg.values()
+        res = resize_slots(self.editor, sel, old, new, tol)
+        if res is None:
+            return None
+        done, skipped = res
+        if not done:
+            self.statusBar().showMessage(tr("Nessuna fessura da {0:g} mm (± {1:g}) nella selezione", old, tol), 6000)
+        else:
+            msg = tr("Fessure cambiate da {0:g} a {1:g} mm: {2}", old, new, done)
+            if skipped:
+                msg += " · " + tr("saltate perché troppo vicine: {0}", skipped)
+            self.statusBar().showMessage(msg, 8000)
+        return done, skipped
+
+    def _set_guides_opt(self, attr, on):
+        """0.20.9: guide visibili / aggancio alle guide (restano nelle preferenze)."""
+        setattr(self.canvas, attr, bool(on))
+        self.qs.setValue(attr, bool(on))
+        self.canvas.viewport().update()
+
+    def add_guide_dialog(self, kind=None, pos=None):
+        """Guida nel punto esatto. kind "h"|"v", pos in mm sul piano; senza: lo chiede. -> indice o None."""
+        from ..core import guides as gd
+
+        if kind is None or pos is None:
+            from PySide6.QtWidgets import QInputDialog
+
+            items = [tr("Orizzontale (a una Y)"), tr("Verticale (a una X)")]
+            it, ok = QInputDialog.getItem(self, tr("Guida a misura"), tr("Che guida?"), items, 0, False)
+            if not ok:
+                return None
+            kind = "h" if it == items[0] else "v"
+            c = self.canvas.cursor_bed
+            pos, ok = QInputDialog.getDouble(self, tr("Guida a misura"),
+                                             tr("Posizione (mm)") + (" Y" if kind == "h" else " X"),
+                                             round(c.y() if kind == "h" else c.x(), 1), -gd.LIMIT, gd.LIMIT, 2)
+            if not ok:
+                return None
+        lst, idx = gd.add(self.editor.doc.guides, kind, pos)
+        if idx is None:
+            self.statusBar().showMessage(tr("C'è già una guida lì"), 4000)
+            return None
+        self.acts["guides_show"].setChecked(True)
+        self._set_guides_opt("show_guides", True)
+        self.canvas.set_guides(lst)
+        return idx
+
+    def clear_guides(self):
+        n = len(self.editor.doc.guides)
+        self.canvas.set_guides([])
+        if n:
+            self.statusBar().showMessage(tr("Guide tolte: {0}", n), 4000)
+        return n
 
     def _toggle_trail(self, on):
         """0.20.7: accende o spegne la scia dell'incisione sul piano (resta nelle preferenze)."""
@@ -2132,6 +2264,64 @@ class MainWindow(QMainWindow):
             self.editor.run(tr("Raddrizza la foto"), do)
         return g, imgs[0]
 
+    def _photo_form_clip(self, img, mask):
+        """0.20.9 (Evoluzione2, 19/11): Prepara foto con una forma (cuore, stella, ovale…) fa come «Ritaglia la foto con
+        la forma» della pagina principale: la sagoma della forma ritaglia la foto, così misure, nesting e aggancio
+        seguono il cuore e non il rettangolo, e col tasto destro c'è «Contorno da tagliare». Prima la forma
+        imbiancava solo i pixel fuori e sul piano restava il rettangolo. Dentro l'azione di Prepara foto (un solo
+        Annulla). -> il gruppo del ritaglio, o None se la forma non c'è."""
+        from ..core import photo as photomod, photo_clip
+        from ..core.document import PathShape
+        from .editor import TOOL_LAYER
+
+        local = photomod.outline_local(mask, img.w, img.h)
+        if local is None:
+            return None
+        lay = self.editor.current_layer
+        if not (0 <= lay < TOOL_LAYER) or self.editor.doc.layer(lay).mode == "image":
+            lay = 1  # il livello che il Contorno da tagliare userà, se quello attivo è di foto
+        ps = PathShape(img.tf.map(local), layer=lay)
+        pieces = photo_clip.pieces_from([(ps, ps.tf)], img.tf)
+        if not pieces:
+            return None
+        doc = self.editor.doc
+        idx = doc.shapes.index(img) if img in doc.shapes else len(doc.shapes) - 1
+        doc.shapes.insert(idx + 1, ps)
+        doc.layer(lay)
+        from ..core import ops
+
+        ps.role = ops.CLIP_OUTLINE + str(lay) + ops.FORM_OUTLINE
+        return self.editor.clip_into_group([img, ps], img, [(ps, ps.tf)], pieces)
+
+    def _photo_form_update(self, g, img, mask):
+        """0.20.9: foto già ritagliata con la forma di Prepara foto, riaperta: la sagoma segue la forma nuova; con
+        «nessuna» il ritaglio si toglie e la foto torna sola. Una sagoma disegnata dalla persona non si tocca.
+        -> il gruppo (o la foto, se il gruppo si è sciolto)."""
+        from ..core import ops, photo as photomod, photo_clip
+
+        auto = [c for c in g.children if ops.is_form_outline(c)]
+        if len(auto) != 1:
+            return None
+        leaf = auto[0]
+        local = photomod.outline_local(mask, img.w, img.h)
+        doc = self.editor.doc
+        if local is not None:
+            leaf.set_transform(QTransform())
+            leaf.set_path(img.tf.map(local))
+            img.clip = photo_clip.pieces_from([(leaf, leaf.tf)], img.tf)
+            img.invalidate()
+            g.invalidate()
+            return g
+        img.clip = None
+        img.invalidate()
+        rest = [c for c in g.children if c is not leaf]
+        for c in rest:
+            c.set_transform(c.tf * g.tf)
+        idx = doc.shapes.index(g)
+        doc.shapes[idx:idx + 1] = rest
+        self.editor.selection = [img] if img in rest else rest
+        return img if img in rest else None
+
     def photo_dialog(self):
         """«Prepara foto»: elaborazione della foto, oppure conversione in linee e riempimenti, oppure prova foto."""
         import math
@@ -2199,8 +2389,13 @@ class MainWindow(QMainWindow):
                     c.burn_curve = lay.get("burn_curve", c.burn_curve)
                     if "power_max" in lay:  # potenza consigliata per il materiale imparato
                         c.power_min, c.power_max = lay["power_min"], lay["power_max"]
-                self.editor.run(tr("Prepara foto"), do)
-                self.editor.select([grp[0] if grp is not None else img])
+                    if grp is None and not img.clip:
+                        return self._photo_form_clip(img, st.mask)
+                    if grp is not None:
+                        return self._photo_form_update(grp[0], img, st.mask)
+                    return None
+                made = self.editor.run(tr("Prepara foto"), do)
+                self.editor.select([made if made is not None else grp[0] if grp is not None else img])
                 self.statusBar().showMessage(tr("Foto preparata: {0:.1f} × {1:.1f} mm, {2}", w_mm, h_mm,
                                                 DITHER_LABELS[lay["dither"]]), 6000)
             elif mode == "vector":
@@ -2447,6 +2642,9 @@ class MainWindow(QMainWindow):
 
         ports = [(p.device, p.label(), p.likely) for p in machines.describe_ports()]
         ports += [(p, netport.label(p, self.qs), False) for p in netport.saved(self.qs)]  # laser in Wi-Fi già usati
+        have = {d for d, _l, _k in ports}
+        # 0.20.9 (Gianni, 1D5D): porte scritte a mano, per quelle che il sistema non elenca
+        ports += [(d, tr("{0} (scritta a mano)", d), False) for d in self.manual_ports() if d not in have]
         ports.append((SIM_PORT, tr("Simulatore (senza macchina)"), False))
         for dev, label, likely in ports:
             self.port_combo.addItem(("★  " if likely else "") + label, dev)
@@ -2454,8 +2652,53 @@ class MainWindow(QMainWindow):
                 best = self.port_combo.count() - 1
             elif likely and best is None:
                 best = self.port_combo.count() - 1
+        self.port_combo.addItem(tr("Scrivi la porta a mano…"), MANUAL_PORT)
         if best is not None:
             self.port_combo.setCurrentIndex(best)
+        self._port_idx = self.port_combo.currentIndex()
+
+    def manual_ports(self):
+        raw = self.qs.value("manual_ports", "") or ""
+        if isinstance(raw, (list, tuple)):
+            raw = "\n".join(str(x) for x in raw)
+        return [x for x in str(raw).split("\n") if x.strip()]
+
+    def _port_activated(self, i):
+        if self.port_combo.itemData(i) == MANUAL_PORT:
+            if self.add_manual_port() is None:  # annullato: torna la porta di prima
+                prev = getattr(self, "_port_idx", 0)
+                self.port_combo.setCurrentIndex(prev if 0 <= prev < self.port_combo.count() - 1 else 0)
+        else:
+            self._port_idx = i
+
+    def add_manual_port(self, port=None):
+        """0.20.9: una porta che il sistema non elenca (es. /dev/ttyCH341USB0 con il driver del produttore, o un
+        collegamento particolare), scritta a mano. Si ricorda e resta nell'elenco. -> la porta, o None."""
+        if port is None:
+            from PySide6.QtWidgets import QInputDialog
+
+            hint = "/dev/ttyCH341USB0" if sys.platform.startswith("linux") else "COM8"
+            port, ok = QInputDialog.getText(self, tr("Porta del laser"),
+                                            tr("Scrivi la porta come la chiama il sistema (per esempio {0}):", hint))
+            if not ok:
+                return None
+        port = str(port or "").strip()
+        why = manual_port_problem(port)
+        if why:
+            self.statusBar().showMessage(why, 8000)
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                QMessageBox.warning(self, tr("Porta del laser"), why)
+            return None
+        lst = [p for p in self.manual_ports() if p != port] + [port]
+        self.qs.setValue("manual_ports", "\n".join(lst[-8:]))
+        self.qs.setValue("port", port)
+        self.refresh_ports()
+        i = self.port_combo.findData(port)
+        if i >= 0:
+            self.port_combo.setCurrentIndex(i)
+            self._port_idx = i
+        self.statusBar().showMessage(tr("Porta {0} aggiunta: premi Connetti", port), 6000)
+        return port
 
     def board_backup_dialog(self, *_):
         from .dialogs_backup import BoardBackupDialog
@@ -2507,6 +2750,8 @@ class MainWindow(QMainWindow):
             self.ctl.disconnect_port()
             return
         port = self.port_combo.currentData()
+        if port == MANUAL_PORT:
+            port = self.add_manual_port()
         if not port:
             return
         self.btn_connect.setEnabled(False)
@@ -2539,6 +2784,13 @@ class MainWindow(QMainWindow):
         self.port_combo.setEnabled(not ok)
         self.btn_refresh.setEnabled(not ok)
         self.btn_wifi.setEnabled(not ok)
+        if ok and self.ctl.port and self.ctl.port != SIM_PORT:  # 0.20.9: ogni laser ricorda la sua porta
+            from .. import lasers
+
+            lasers.remember_port(self.qs, self.profile, self.ctl.port)
+        lp = getattr(self, "laser_pick", None)
+        if lp is not None:
+            lp.update_state()
         self.laser.set_connected(ok)
         self.move.set_connected(ok)
         self.machine.set_connected(ok)
@@ -2682,7 +2934,121 @@ class MainWindow(QMainWindow):
         self.on_profile(p)
         self.machine.profile = p
         self.machine.refresh_profile()
+        lp = getattr(self, "laser_pick", None)
+        if lp is not None:
+            lp.refill()
         self.statusBar().showMessage(tr("Profilo macchina: {0}", p.name), 5000)
+
+    # ================================================================ più laser (0.20.9)
+    def switch_laser(self, path):
+        """Passa a un altro laser configurato: profilo, piano e porta usata l'ultima volta da quel laser.
+        Con un laser collegato no (prima si disconnette). -> True se è cambiato."""
+        from .. import lasers
+
+        lp = getattr(self, "laser_pick", None)
+        if self.ctl.connected:
+            self.statusBar().showMessage(tr("Disconnetti il laser collegato prima di passare a un altro"), 6000)
+            if lp is not None:
+                lp.refill()
+            return False
+        try:
+            p = MachineProfile.load(path)
+        except (OSError, ValueError, TypeError) as exc:
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                QMessageBox.warning(self, tr("Laser"), tr("Impossibile leggere il profilo:\n{0}", exc))
+            if lp is not None:
+                lp.refill()
+            return False
+        self.set_active_profile(p)
+        self._profile_bed_fixed()
+        port = lasers.port_for(self.qs, p)
+        i = self.port_combo.findData(port) if port else -1
+        if i >= 0:
+            self.port_combo.setCurrentIndex(i)
+        self.statusBar().showMessage(tr("Laser in uso: {0}", p.name) +
+                                     (tr(" · porta {0}", port) if i >= 0 else ""), 6000)
+        return True
+
+    def rename_laser(self, name=None):
+        """Dà un nome al laser in uso (e sposta il suo file). -> il nome nuovo, o None."""
+        from .. import lasers
+
+        p = self.profile
+        if name is None:
+            from .laser_picker import ask_name
+
+            name = ask_name(self, tr("Nome del laser"), tr("Come vuoi chiamare questo laser?"), p.name)
+            if name is None:
+                return None
+        old_name = p.name
+        try:
+            new_path, old_path = lasers.rename(p, name)
+        except ValueError as exc:
+            self.statusBar().showMessage(str(exc), 6000)
+            return None
+        except OSError as exc:
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                QMessageBox.warning(self, tr("Laser"), tr("Impossibile salvare il profilo:\n{0}", exc))
+            return None
+        lasers.move_port(self.qs, old_path, new_path)
+        self.set_active_profile(p)
+        self.statusBar().showMessage(tr("Il laser «{0}» ora si chiama «{1}»", old_name, p.name), 6000)
+        return p.name
+
+    def add_laser(self, name=None, model=None):
+        """Configura un laser in più e passa a quello. model=None: copia del laser in uso (un secondo laser uguale);
+        altrimenti un modello del catalogo. -> il profilo nuovo, o None."""
+        from .. import lasers
+
+        if self.ctl.connected:
+            self.statusBar().showMessage(tr("Disconnetti il laser collegato prima di passare a un altro"), 6000)
+            return None
+        if name is None:
+            from .laser_picker import AddLaserDialog
+
+            dlg = AddLaserDialog(self)
+            if not dlg.exec():
+                return None
+            name, model = dlg.values()
+        try:
+            p = lasers.create(name, model=model, like=None if model else self.profile)
+        except ValueError as exc:
+            self.statusBar().showMessage(str(exc), 6000)
+            return None
+        except OSError as exc:
+            if not os.environ.get("FLC_NO_DIALOGS"):
+                QMessageBox.warning(self, tr("Laser"), tr("Impossibile salvare il profilo:\n{0}", exc))
+            return None
+        self.set_active_profile(p)
+        self.statusBar().showMessage(tr("Laser «{0}» aggiunto: ora è quello in uso. Collegalo e premi Riconosci "
+                                        "per leggere i valori veri dalla scheda.", p.name), 8000)
+        return p
+
+    def remove_laser(self, confirm=True):
+        """Toglie il laser in uso dall'elenco e passa al primo degli altri. Mai l'ultimo rimasto. -> True se tolto."""
+        from .. import lasers
+
+        if self.ctl.connected:
+            return False
+        cur = self.profile.path()
+        others = [path for _n, path in lasers.saved() if not lasers._same_path(path, cur)]
+        if not others:
+            self.statusBar().showMessage(tr("È l'unico laser configurato: non si può togliere"), 6000)
+            return False
+        if confirm and QMessageBox.question(
+                self, tr("Togli il laser"),
+                tr("Togliere «{0}» dall'elenco dei laser? Le sue impostazioni (area, assi, aria, correzioni) si "
+                   "perdono; i progetti e i materiali restano.", self.profile.name)) != QMessageBox.Yes:
+            return False
+        name = self.profile.name
+        if not self.switch_laser(others[0]):
+            return False
+        if not lasers.remove(cur, self.qs):
+            self.statusBar().showMessage(tr("Impossibile togliere il file del laser «{0}»", name), 6000)
+            return False
+        self.laser_pick.refill()
+        self.statusBar().showMessage(tr("Laser «{0}» tolto dall'elenco", name), 6000)
+        return True
 
     def _connect_menu(self, pos):
         m = QMenu(self)

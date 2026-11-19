@@ -333,7 +333,7 @@ class HeadCameraCard(QWidget):
             bed.set_cam_center(None, None)
 
     # ---------------------------------------------------------------- comandi che muovono la testa
-    def _can_move(self, need_model=True):
+    def _can_move(self, need_model=True, need_home=True):
         if getattr(self.panel, "autocam", None) is not None:
             return tr("Attendi la fine della calibrazione AutoCam")
         if not self.ctl.connected:
@@ -346,7 +346,18 @@ class HeadCameraCard(QWidget):
             return tr("Calibra prima la camera della testa")
         if self.head() is None:
             return tr("Posizione della testa sconosciuta")
+        if need_home and self.needs_homing():
+            return tr("Prima fai l'homing (pulsante Home): senza, FreeLaserCut non sa dove sta davvero la testa e "
+                      "mandandola su un punto potrebbe portarla contro il bordo")
         return None
+
+    def needs_homing(self):
+        """0.20.9 (marcello, D533, Sculpfun S9): «Controlla con un puntino», «Laser qui», «Camera qui»… mandano la
+        testa su un punto preciso del piano. Se la macchina ha l'homing ($22=1) ma non è stato fatto (o un finecorsa
+        l'ha fatto perdere), le coordinate non sono quelle del piano e la testa può andare a sbattere (allarme 1).
+        Le macchine senza homing restano come prima: lì conta dove era la testa all'accensione."""
+        prof = getattr(self.win, "profile", None)
+        return bool(getattr(prof, "homing", False)) and not self.ctl.homed
 
     def _say(self, text, ms=6000):
         try:
@@ -496,7 +507,7 @@ class HeadCameraCard(QWidget):
         if not self.ctl.connected:  # 0.20.3: detto chiaro (il pulsante ora si può sempre premere)
             return self._refuse(tr("Per calibrare connetti il laser: la calibrazione incide una griglia di puntini su "
                                    "un cartone."), ask)
-        why = self._can_move(need_model=False)
+        why = self._can_move(need_model=False, need_home=False)  # l'homing qui lo propone lei, subito sotto
         if why:
             return self._refuse(why, ask)
         if not self.ctl.homed:

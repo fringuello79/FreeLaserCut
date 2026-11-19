@@ -590,7 +590,15 @@ def outline_layer(leaf):
     r = leaf.role or ""
     if not r.startswith(CLIP_OUTLINE):
         return None
-    try:
-        return int(r[len(CLIP_OUTLINE):])
+    try:  # 0.20.9: «clip:<livello>:form» = sagoma messa da Prepara foto con una forma (la si cambia con la forma)
+        return int(r[len(CLIP_OUTLINE):].split(":")[0])
     except ValueError:
         return None
+
+
+FORM_OUTLINE = ":form"
+
+
+def is_form_outline(leaf):
+    """0.20.9: la sagoma l'ha messa Prepara foto (la forma scelta lì), non la persona."""
+    return (leaf.role or "").startswith(CLIP_OUTLINE) and (leaf.role or "").endswith(FORM_OUTLINE)

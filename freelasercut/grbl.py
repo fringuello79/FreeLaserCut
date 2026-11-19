@@ -8,6 +8,7 @@
 - Segnali Qt thread-safe verso l'interfaccia.
 """
 import collections
+import sys
 import re
 import threading
 import time
@@ -107,6 +108,11 @@ def list_serial_ports():
             blob = f"{desc} {p.hwid or ''}".upper()
             likely = any(h in blob for h in _USB_HINTS)
             out.append((p.device, f"{p.device} — {desc}", likely))
+    if sys.platform.startswith("linux"):  # 0.20.9: porte del driver WCH del produttore (/dev/ttyCH341USB0)
+        from . import linux
+
+        have = {t[0] for t in out}
+        out += [(d, f"{d} — CH341", True) for d in linux.vendor_ttys() if d not in have]
     out.sort(key=lambda t: (not t[2], t[0]))
     out.append((SIM_PORT, tr("Simulatore (senza macchina)"), False))
     return out

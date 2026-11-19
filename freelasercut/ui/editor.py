@@ -515,30 +515,38 @@ class Editor(QObject):
         again = len(sel) == 1 and ops.is_clip_group(sel[0])
 
         def do():
-            img.clip = pieces
-            img.invalidate()
             if again:
+                img.clip = pieces
+                img.invalidate()
                 self.selection = [sel[0]]
                 return
-            for leaf, _ in outl:
-                if not leaf.role:
-                    leaf.role = ops.CLIP_OUTLINE + str(leaf.layer)
-                leaf.layer = TOOL_LAYER
-                leaf.invalidate()
-            ids = {s.id for s in sel}
-            order = [s for s in self.doc.shapes if s.id in ids]
-            first = [s for s in order if any(leaf is img for leaf, _ in s.leaves())]
-            kids = first + [s for s in order if s not in first]
-            idx = min(i for i, s in enumerate(self.doc.shapes) if s.id in ids)
-            self.doc.remove(order)
-            g = GroupShape(kids, layer=kids[0].layer)
-            g.role = ops.CLIP_ROLE
-            self.doc.shapes.insert(min(idx, len(self.doc.shapes)), g)
-            self.doc.layer(TOOL_LAYER)
-            self.selection = [g]
+            self.clip_into_group(sel, img, outl, pieces)
         self.run(tr("Ritaglia la foto con la forma"), do)
         self.selection_changed.emit()
         return True
+
+    def clip_into_group(self, sel, img, outl, pieces):
+        """La foto ritagliata con le sagome `outl` e il gruppo del ritaglio (dentro un'azione già aperta: clip_photo e,
+        0.20.9, Prepara foto con una forma). -> il gruppo."""
+        img.clip = pieces
+        img.invalidate()
+        for leaf, _ in outl:
+            if not leaf.role:
+                leaf.role = ops.CLIP_OUTLINE + str(leaf.layer)
+            leaf.layer = TOOL_LAYER
+            leaf.invalidate()
+        ids = {s.id for s in sel}
+        order = [s for s in self.doc.shapes if s.id in ids]
+        first = [s for s in order if any(leaf is img for leaf, _ in s.leaves())]
+        kids = first + [s for s in order if s not in first]
+        idx = min(i for i, s in enumerate(self.doc.shapes) if s.id in ids)
+        self.doc.remove(order)
+        g = GroupShape(kids, layer=kids[0].layer)
+        g.role = ops.CLIP_ROLE
+        self.doc.shapes.insert(min(idx, len(self.doc.shapes)), g)
+        self.doc.layer(TOOL_LAYER)
+        self.selection = [g]
+        return g
 
     def unclip_photo(self):
         """«Togli il ritaglio»: la foto torna intera; il gruppo del ritaglio si separa e la sagoma torna sul suo livello.

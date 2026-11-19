@@ -88,6 +88,14 @@ def cause_text(code):
         "guest": tr("è una rete per gli ospiti: spesso non lascia entrare questi apparecchi"),
         "not_seen": tr("il PC non vede una rete con questo nome: controlla com'è scritto"),
         "name": tr("il nome della rete non è scritto proprio uguale (maiuscole, minuscole e spazi contano)"),
+        # 0.20.9 (Mauro C., Iliadbox): la causa che mancava
+        "wpa_mixed": tr("la rete usa WPA2 e WPA3 insieme: molte schede dei laser lì non entrano; nel router scegli "
+                        "«solo WPA2» per la rete a 2,4 GHz"),
+        "modern_router": tr("il router è di quelli recenti (Wi-Fi 6 o 7, un nome solo per tutte le bande, sicurezza "
+                            "WPA2/WPA3 insieme): molte schede dei laser non ci dialogano anche se tutto sembra giusto. "
+                            "<b>Prova con l'hotspot del telefono</b> (2,4 GHz, WPA2): se così il laser entra, è il "
+                            "router; nelle sue impostazioni fai una rete a 2,4 GHz separata, con un nome suo, solo "
+                            "WPA2, canale 1, 6 o 11"),
     }.get(code, code)
 
 
@@ -104,6 +112,8 @@ def check_text(c):
         "guest": tr("Sembra una rete per gli ospiti: laser e PC devono stare sulla stessa rete di casa."),
         "other_net": tr("Non è la rete a cui è collegato questo PC: laser e PC devono stare sulla stessa rete."),
         "wpa3": tr("Questa rete accetta solo WPA3: molte schede vogliono WPA2 e potrebbero non entrare."),
+        "wpa_mixed": tr("Questa rete usa WPA2 e WPA3 insieme (router recenti): alcune schede dei laser non entrano. Se "
+                        "non va, nel router scegli «solo WPA2» per i 2,4 GHz o prova con l'hotspot del telefono."),
         "open": tr("È una rete aperta, senza password: chiunque nei dintorni potrebbe collegarsi al laser."),
         "special": tr("Nome o password hanno spazi o caratteri particolari ($ ; ( ) [ ], accenti, emoji): alcune schede "
                       "li leggono male."),
@@ -1087,13 +1097,42 @@ class WifiWizard(QDialog):
     def _outcome_not_found(self):
         self._set("not_found")
         self.result = None
-        why = "".join(f"<br>• {cause_text(c)}" for c in ("band5", "name", "weak", "guest"))
+        causes = ["band5", "name", "weak", "guest", "modern_router"]
+        net = self._sent_net()
+        if net is not None and net.security == "mixed":  # 0.20.9: con WPA2/WPA3 insieme è la causa più probabile
+            causes = ["wpa_mixed", "modern_router", "band5", "name", "weak", "guest"]
+        why = "".join(f"<br>• {cause_text(c)}" for c in causes)
         self._page(tr("Il laser non trova la rete «{0}»", self.ssid_sent),
                    tr("La scheda ha tenuto nome e password ed è rimasta impostata sulla rete di casa, ma al riavvio "
                       "non ha trovato «{0}» e in un attimo ha riacceso la sua rete propria (192.168.4.1). Queste "
                       "schede lo fanno senza dire niente quando la rete non si vede da dove sta il laser. Le cause "
                       "più probabili, in ordine:", self.ssid_sent) + why,
-                   [self._close_btn(), ("retry", tr("Correggi e riprova"), self._page_net)])
+                   [self._close_btn(), ("own", tr("Usa la rete del laser"), self._page_own_use),
+                    ("retry", tr("Correggi e riprova"), self._page_net)])
+
+    def _sent_net(self):
+        """La rete dell'elenco con il nome mandato alla scheda (per sapere che sicurezza ha), o None."""
+        for n in getattr(self, "nets", None) or []:
+            if n.ssid == self.ssid_sent:
+                return n
+        return None
+
+    def _page_own_use(self):
+        """0.20.9: senza router. La scheda, se non entra nella rete di casa, riaccende la sua rete: il PC si collega
+        a quella e FreeLaserCut usa il laser all'indirizzo della rete propria (192.168.4.1)."""
+        self._set("own_use")
+        self._page(tr("Usa il laser dalla sua rete"),
+                   tr("Si può lavorare anche senza il router: il laser fa una sua rete Wi-Fi. "
+                      "<br>1. Collega questo PC alla rete del laser (il nome è per esempio <i>MKS_DLC32_…</i>, la "
+                      "password di solito è <b>{0}</b>).<br>2. Premi <b>Collegati al laser</b>.<br>Finché il PC sta su "
+                      "quella rete non ha Internet. Per tornare alla rete di casa basta riscegliere la rete di casa "
+                      "nel PC.", wifi_setup.OWN_NET_PASSWORD),
+                   [self._close_btn(), ("own_connect", tr("Collegati al laser ({0})", wifi_setup.OWN_NET_IP),
+                                        self._own_connect)])
+
+    def _own_connect(self):
+        self.ssid_sent = ""  # il messaggio finale non deve dire «è entrato nella rete di casa»
+        self._check_port(wifi_setup.OWN_NET_IP)
 
     def _outcome_failed(self, off=False):
         self._set("failed")

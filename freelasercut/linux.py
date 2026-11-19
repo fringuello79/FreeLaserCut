@@ -231,15 +231,32 @@ def serial_hint(port, exc, tr=None):
               "computer). Serve una volta sola.", group, cmd)
 
 
-def tty_report():
+# 0.20.9 (Gianni, 1D5D, MecPow X3 Pro su Linux Mint): con il driver del produttore WCH (al posto di quello del
+# kernel) la porta si chiama /dev/ttyCH341USB0, e pyserial non la cerca (guarda solo ttyUSB, ttyACM e poche altre)
+VENDOR_TTY = ("/dev/ttyCH341USB*", "/dev/ttyCH343USB*", "/dev/ttyCH9344USB*", "/dev/ttyWCHUSB*")
+
+
+def vendor_ttys(globber=None):
+    """Porte dei driver WCH del produttore (CH341/CH343/CH9344), in ordine. globber: per le prove."""
+    import glob
+
+    g = globber or glob.glob
+    out = []
+    for pat in VENDOR_TTY:
+        out += g(pat)
+    return sorted(set(out))
+
+
+def tty_report(globber=None):
     """Righe per il rapporto all'assistenza: porte seriali, gruppo e se questo utente le può aprire."""
     import glob
 
+    g = globber or glob.glob
     out = []
-    for dev in sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")):
+    for dev in sorted(g("/dev/ttyUSB*") + g("/dev/ttyACM*")) + vendor_ttys(g):
         ok = os.access(dev, os.R_OK | os.W_OK)
         out.append(f"{dev}: gruppo {tty_group(dev) or '?'} · accesso {'sì' if ok else 'NO'}")
-    return out or ["nessuna (/dev/ttyUSB*, /dev/ttyACM*)"]
+    return out or ["nessuna (/dev/ttyUSB*, /dev/ttyACM*, /dev/ttyCH341USB*)"]
 
 
 def distro(path="/etc/os-release"):

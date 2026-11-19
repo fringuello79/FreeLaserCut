@@ -459,6 +459,7 @@ class Canvas(QGraphicsView):
     status = Signal(str)
     zoom_changed = Signal(float)
     context_requested = Signal(object, object)  # tasto destro senza trascinare: punto nella vista, punto sullo schermo
+    guides_edited = Signal()  # 0.20.9: guide aggiunte, spostate o tolte
     view_changed = Signal()  # zoom, spostamento, misure o colore del piano: le linguette dei piani si riposizionano
 
     def __init__(self, editor, bed=(450.0, 440.0), parent=None):
@@ -513,6 +514,10 @@ class Canvas(QGraphicsView):
         self.light_bed = True  # piano chiaro (come un foglio): i colori dei livelli si leggono meglio
         self.snap_grid = False
         self.snap_objects = True
+        # 0.20.9: guide tirate fuori dai righelli (core/guides.py): si vedono, ci si aggancia
+        self.show_guides = True
+        self.snap_guides = True
+        self._guide_drag = None  # {"kind": "h"|"v", "index": int|None, "pos": mm, "out": bool}
         self.dither_preview = False
         self.show_ghosts = True  # gli oggetti degli altri piani di lavoro, in grigio
         self._ghost_cache = (None, None)
@@ -876,11 +881,21 @@ class Canvas(QGraphicsView):
                     p = QPointF(arr[k, 0], arr[k, 1])
                     self.snap_hint = (p, kinds[k])
                     return p
+        gx_hit = gy_hit = False
+        if self.snap_guides and self.show_guides and self.editor.doc.guides:  # 0.20.9: guide, un asse alla volta
+            from ..core import guides as gd
+
+            x, y, gx_hit, gy_hit = gd.snap_point(bed_pt.x(), bed_pt.y(), self.editor.doc.guides, self.px(9))
+            if gx_hit or gy_hit:
+                bed_pt = QPointF(x, y)
         if self.snap_grid or force_grid:
             g = self.grid_step
-            p = QPointF(round(bed_pt.x() / g) * g, round(bed_pt.y() / g) * g)
-            self.snap_hint = (p, "griglia")
+            p = QPointF(bed_pt.x() if gx_hit else round(bed_pt.x() / g) * g,
+                        bed_pt.y() if gy_hit else round(bed_pt.y() / g) * g)
+            self.snap_hint = (p, "guida" if (gx_hit or gy_hit) else "griglia")
             return p
+        if gx_hit or gy_hit:
+            self.snap_hint = (bed_pt, "guida")
         return bed_pt
 
     def snap_move(self, box, nodes, dx, dy, exclude_ids=frozenset()):
@@ -909,7 +924,138 @@ class Canvas(QGraphicsView):
                           self.px(9), self.grid_step if self.snap_grid else None)
         if r.hint is not None:
             self.snap_hint = (QPointF(*r.hint), r.label)
-        return r.dx, r.dy
+        out_dx, out_dy = r.dx, r.dy
+        if r.how != "punto" and self.snap_guides and self.show_guides and self.editor.doc.guides:
+            # 0.20.9: bordo o centro della selezione su una guida vicina; vince sul lato e sulla griglia di quell'asse
+            from ..core import guides as gd
+
+            fx, fy, lx, ly = gd.snap_box((box.left(), box.top(), box.right(), box.bottom()), dx, dy,
+                                         self.editor.doc.guides, self.px(9))
+            if fx is not None:
+                out_dx = dx + fx
+            if fy is not None:
+                out_dy = dy + fy
+            if fx is not None or fy is not None:
+                c = box.center()
+                self.snap_hint = (QPointF(lx if lx is not None else c.x() + out_dx,
+                                          ly if ly is not None else c.y() + out_dy), "guida")
+        return out_dx, out_dy
+
+    # ================================================================ guide (0.20.9)
+    def in_ruler(self, view_pt):
+        """"h" sul righello in alto, "v" su quello a sinistra, None altrove (anche l'angolino «mm»)."""
+        x, y = view_pt.x(), view_pt.y()
+        if y < RULER and x >= RULER:
+            return "h"
+        if x < RULER and y >= RULER:
+            return "v"
+        return None
+
+    def guide_at(self, view_pt, tol_px=4):
+        """Indice della guida sotto il punto della vista (entro tol_px), o None."""
+        from ..core import guides as gd
+
+        if not self.show_guides or not self.editor.doc.guides:
+            return None
+        b = self.to_bed(view_pt)
+        return gd.nearest(self.editor.doc.guides, b.x(), b.y(), self.px(tol_px))
+
+    def _guide_value(self, view_pt, kind):
+        b = self.to_bed(view_pt)
+        v = b.y() if kind == "h" else b.x()
+        if self.snap_grid:
+            g = self.grid_step
+            return round(v / g) * g
+        step = 0.1 if self.scale_px() >= 2 else 1.0  # da vicino al decimo di mm, da lontano al mm
+        return round(v / step) * step
+
+    def guide_press(self, view_pt):
+        """Clic sinistro: dal righello parte una guida nuova; su una guida (con Selezione, fuori dalle forme) la si
+        prende per spostarla. -> True se il clic è delle guide."""
+        kind = self.in_ruler(view_pt)
+        if kind is not None:
+            self._guide_drag = {"kind": kind, "index": None, "pos": self._guide_value(view_pt, kind), "out": False}
+            self.show_guides = True
+            self.viewport().setCursor(Qt.SplitVCursor if kind == "h" else Qt.SplitHCursor)
+            self.viewport().update()
+            return True
+        if self.tool is not self.tools.get("select"):
+            return False
+        i = self.guide_at(view_pt)
+        if i is None or self.hit_shape(self.to_bed(view_pt)) is not None:
+            return False
+        k, pos = self.editor.doc.guides[i]
+        self._guide_drag = {"kind": k, "index": i, "pos": pos, "out": False}
+        self.viewport().setCursor(Qt.SplitVCursor if k == "h" else Qt.SplitHCursor)
+        return True
+
+    def guide_move(self, view_pt):
+        d = self._guide_drag
+        d["pos"] = self._guide_value(view_pt, d["kind"])
+        d["out"] = self.in_ruler(view_pt) is not None or view_pt.x() < RULER or view_pt.y() < RULER
+        self.viewport().update()
+
+    def guide_release(self, view_pt):
+        """Lasciata sul piano: la guida va lì. Lasciata su un righello: una guida nuova non nasce, una vecchia si
+        toglie. -> la lista delle guide dopo."""
+        from ..core import guides as gd
+
+        d, self._guide_drag = self._guide_drag, None
+        self.viewport().setCursor(self.tool.cursor())
+        doc = self.editor.doc
+        out = self.in_ruler(view_pt) is not None or view_pt.x() < RULER or view_pt.y() < RULER
+        old = list(doc.guides)
+        lst = [g for i, g in enumerate(doc.guides) if i != d["index"]]
+        if not out:
+            lst, _ = gd.add(lst, d["kind"], self._guide_value(view_pt, d["kind"]))
+        doc.guides = gd.clean(lst)
+        if doc.guides != old:
+            self.editor.dirty = True
+            self.guides_edited.emit()
+        self.viewport().update()
+        return doc.guides
+
+    def set_guides(self, lst):
+        from ..core import guides as gd
+
+        new = gd.clean(lst)
+        if new != self.editor.doc.guides:
+            self.editor.doc.guides = new
+            self.editor.dirty = True
+            self.guides_edited.emit()
+        self.viewport().update()
+        return new
+
+    def _draw_guides(self, p, tf):
+        doc = self.editor.doc
+        d = self._guide_drag
+        if not (self.show_guides and doc.guides) and d is None:
+            return
+        W, H = self.viewport().width(), self.viewport().height()
+        col = "#15AABF"
+        lines = [(g, i) for i, g in enumerate(doc.guides)] if self.show_guides else []
+        p.setPen(cpen(col, 1.0, Qt.DashLine, 210))
+        for (k, pos), i in lines:
+            if d is not None and d["index"] == i:
+                continue
+            if k == "h":
+                y = tf.map(QPointF(0, pos)).y()
+                p.drawLine(QPointF(RULER, y), QPointF(W, y))
+            else:
+                x = tf.map(QPointF(pos, 0)).x()
+                p.drawLine(QPointF(x, RULER), QPointF(x, H))
+        if d is not None:
+            p.setPen(cpen("#E8590C" if d["out"] else col, 1.4, Qt.SolidLine))
+            p.setFont(style.ui_font(8))
+            txt = tr("togli") if d["out"] and d["index"] is not None else ("" if d["out"] else f"{d['pos']:g} mm")
+            if d["kind"] == "h":
+                y = tf.map(QPointF(0, d["pos"])).y()
+                p.drawLine(QPointF(RULER, y), QPointF(W, y))
+                p.drawText(QPointF(RULER + 6, y - 4), txt)
+            else:
+                x = tf.map(QPointF(d["pos"], 0)).x()
+                p.drawLine(QPointF(x, RULER), QPointF(x, H))
+                p.drawText(QPointF(x + 4, RULER + 14), txt)
 
     # ================================================================ selezione a colpo
     def hit_shape(self, bed_pt, tol_px=6):
@@ -985,6 +1131,8 @@ class Canvas(QGraphicsView):
             self.viewport().setCursor(Qt.ClosedHandCursor)
             return
         self.setFocus()
+        if e.button() == Qt.LeftButton and self.guide_press(e.position()):
+            return
         # lo strumento va guardato ADESSO: la Linea col tasto destro chiude il tracciato e passa a Selezione
         menu_ok = e.button() == Qt.RightButton and self.tool in (self.tools.get("select"), self.tools.get("nodes"))
         self._rpress = e.position() if menu_ok else None
@@ -1016,6 +1164,9 @@ class Canvas(QGraphicsView):
         bed = self.to_bed(e.position())
         self.cursor_bed = bed
         self.cursor_moved.emit(bed.x(), bed.y())
+        if self._guide_drag is not None:
+            self.guide_move(e.position())
+            return
         self._update_marker_hint(e.position() if e.buttons() == Qt.NoButton and self._pan is None else None)
         if self._pan is not None or e.buttons() != Qt.NoButton:
             self.touch_burst()
@@ -1042,6 +1193,9 @@ class Canvas(QGraphicsView):
 
     def mouseReleaseEvent(self, e):
         self.end_burst()  # ci si è fermati: il piano torna subito quello vero
+        if self._guide_drag is not None and e.button() == Qt.LeftButton:
+            self.guide_release(e.position())
+            return
         if self._pan is not None and e.button() in (Qt.MiddleButton, Qt.LeftButton):
             self._pan = None
             self.viewport().setCursor(Qt.OpenHandCursor if self._space else self.tool.cursor())
@@ -1581,6 +1735,7 @@ class Canvas(QGraphicsView):
             p.drawText(box, Qt.AlignCenter, text)
         if self.plane_rot:
             self._draw_machine_axes(p, tf)
+        self._draw_guides(p, tf)
         self._draw_rulers(p, tf)
         p.restore()
 

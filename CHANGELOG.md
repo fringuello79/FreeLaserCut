@@ -1,5 +1,38 @@
 # Novità di FreeLaserCut
 
+## 0.20.9 «0.20.VI» — 19/11/2026
+Più laser configurati, ognuno con il suo nome, scelti da una tendina; guide tirate fuori dai righelli; deformazione a 4 e a 16 punti; larghezza delle fessure degli incastri; Prepara foto che ritaglia davvero con la forma; Wi-Fi con i router recenti, porte CH341 su Linux e la testa che non va più a sbattere senza homing.
+
+**Ringraziamenti.** Grazie a Mauro C., che entra nell'elenco con una donazione, e a Gianni e marcello, che ci hanno aiutato con i loro rapporti.
+
+**Più laser, scelti da una tendina** (richiesta di Ale e di Enrico). In cima al pannello *Laser* (anche nell'Officina del Banco) c'è la tendina **Laser**: ogni laser configurato ha il suo nome, la sua area, le sue impostazioni e la porta con cui si collega. Scegliendone un altro, piano e impostazioni cambiano subito e la porta torna quella usata l'ultima volta da quel laser; la scelta resta al prossimo avvio.
+- Con il pulsante **⋯** accanto: *Dai un nome a questo laser…* (per esempio «B1 del garage»), *Aggiungi un laser…* (copia di quello in uso, per un secondo laser uguale, oppure un modello pronto) e *Togli questo laser dall'elenco…* (con conferma; l'ultimo non si toglie).
+- Due laser non possono avere lo stesso nome (nemmeno a meno di maiuscole e simboli, che su Windows finirebbero nello stesso file). Cambiando nome il file nuovo si scrive prima di togliere il vecchio: un errore lascia il laser com'era.
+- Con un laser collegato non si cambia laser (prima si disconnette); il nome sì.
+- Nota: le tarature del rilievo su tavola (funzione in prova) sono legate al nome del laser: cambiandolo vanno rifatte.
+- Nuova prova automatica: `tests/test_v209_laser.py` (48 controlli, Classica e Banco; 4 guasti messi apposta, tutti presi).
+
+**Guide** (richiesta di universalcinema-boop su GitHub). Trascinando dal righello in alto nasce una guida orizzontale, da quello a sinistra una verticale, al decimo di millimetro (alla griglia, con l'aggancio alla griglia acceso). Con lo strumento Selezione una guida si prende e si sposta (fuori dalle forme: su una forma il clic resta della Selezione); riportata su un righello si toglie.
+- Disegnando e spostando, punti, bordi e centri si attaccano alle guide vicine; *Visualizza → Aggancia alle guide* lo spegne. *Visualizza → Guide* le nasconde, *Guida a misura…* ne mette una nel punto esatto, *Togli tutte le guide* le cancella.
+- Le guide si salvano nel progetto (anche con il piano ruotato tornano dove erano) e non si incidono. I progetti senza guide restano identici a prima e si aprono anche con le versioni precedenti.
+
+**Deforma: 4 punti e 16 punti** (stessa richiesta). *Modifica → Deforma*:
+- **in prospettiva (4 punti)**: si trascinano i quattro angoli e il disegno segue; le rette restano rette. Per adattare un disegno a un pezzo storto o visto di sbieco;
+- **con la griglia (16 punti)**: una griglia di 4 × 4 punti sopra il disegno; trascinandoli il disegno si piega in modo morbido (bandiere, onde, scritte curve).
+- Mentre si trascina si vede il risultato; Invio o doppio clic applica (un solo Annulla), Esc lascia tutto com'era. Punti che incrociano i lati o schiacciano il contorno: non si applica e lo dice. Il risultato è un tracciato sullo stesso livello; i gruppi restano gruppi. Le foto non si deformano.
+
+**Larghezza delle fessure** (stessa richiesta). *Modifica → Cambia la larghezza delle fessure…*: per esempio da 3 a 4 mm, quando un incastro passa a un compensato più spesso. Cambia solo le fessure di quella misura, entro la tolleranza: tacche sul bordo e fori rettangolari (anche disegnati come forme a sé). Il centro resta dov'è, la profondità non cambia, le linguette della stessa misura non si toccano; due fessure troppo vicine per allargarsi restano come sono e lo dice. Anteprima sul piano prima di confermare.
+- Nuova prova automatica (guide, deformazione, fessure): `tests/test_v209_disegno.py` (69 controlli, Classica e Banco).
+
+**Wi-Fi con i router recenti** (rapporto di Mauro C., MKS DLC32 e Iliadbox). Le reti con sicurezza WPA2 e WPA3 insieme (tipiche dei router Wi-Fi 6 e 7) ora si riconoscono e prima di scrivere c'è un avviso. Se il laser «non trova la rete», fra le cause c'è anche il router recente, con il consiglio di provare l'hotspot del telefono (2,4 GHz, WPA2) e di fare nel router una rete a 2,4 GHz separata solo WPA2. Nuovo pulsante **Usa la rete del laser**: spiega come collegare il PC alla rete propria del laser e lo trova a 192.168.4.1, per lavorare anche senza router.
+
+**Porte CH341 su Linux** (rapporto di Gianni, MecPow X3 Pro su Linux Mint). Con il driver del produttore del chip la porta si chiama `/dev/ttyCH341USB0` e FreeLaserCut non la vedeva: ora compare nell'elenco, nel riconoscimento della macchina e nel rapporto per l'assistenza. In fondo alla tendina delle porte c'è anche **Scrivi la porta a mano…**, per le porte che il sistema non elenca: si controlla, si ricorda e resta nell'elenco.
+
+**Prepara foto con una forma: sul piano c'è la forma, non il rettangolo** (prova di Evoluzione2). Scegliendo una forma in *Prepara foto* (cuore, stella, nuvola, cerchio, esagono, ovale, arrotondata), la foto veniva imbiancata fuori dalla forma ma sul piano restava un rettangolo: misure, nesting e aggancio usavano il rettangolo e col tasto destro non c'era *Contorno da tagliare*. Ora fa come *Ritaglia la foto con la forma* della pagina principale: la sagoma della forma ritaglia la foto (un solo Annulla), l'ingombro è la forma e il contorno da tagliare segue la forma. Riaprendo *Prepara foto* e cambiando forma la sagoma cambia; con «nessuna» il ritaglio si toglie e la foto torna intera. Una sagoma disegnata a mano e usata dalla pagina principale non si tocca.
+
+**Camera della testa: niente movimenti senza homing** (rapporto di marcello, Sculpfun S9). *Controlla con un puntino*, *Laser qui*, *Camera qui* e gli altri comandi che portano la testa su un punto preciso non partono se la macchina ha l'homing ma non è stato fatto: senza, le coordinate non sono quelle del piano e la testa poteva andare a sbattere (allarme 1). Lo dicono, con il pulsante Home da premere. Le macchine senza homing restano come prima.
+- Nuova prova automatica (Wi-Fi, porte, homing, Prepara foto con una forma): `tests/test_v209_rapporti.py` (50 controlli, Classica e Banco).
+
 ## 0.20.8 «0.20.VI» — 19/11/2026
 Piccolo aggiornamento della 0.20.7.
 - **«0.20.VI» sulla schermata di avvio e nella barra del titolo** (richiesta di Ale): il nome della versione si vede dove prima c'era il numero. Il numero (0.20.8) resta quello degli aggiornamenti automatici, dei file da scaricare e dei rapporti all'assistenza, e si legge in *Aiuto → Informazioni*.

@@ -189,6 +189,30 @@ def form_path(mask, w, h):
     return t.map(p)
 
 
+def outline_local(mask, w, h):
+    """0.20.9 (Evoluzione2, 19/11): il contorno della forma di Prepara foto nelle misure locali della foto (mm, 0..w ×
+    0..h, Y in su, come ImageShape e photo_clip), lo stesso che taglia i pixel (shape_mask). None se la forma non
+    ha contorno («nessuna»)."""
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QPainterPath, QTransform
+
+    w, h = float(w), float(h)
+    if w <= 0 or h <= 0:
+        return None
+    if mask in FORM_MASKS:
+        px = form_path(mask, w, h)
+    elif mask == "oval":
+        px = QPainterPath()
+        px.addEllipse(QRectF(0, 0, w, h))
+    elif mask == "rounded":
+        r = min(w, h) * 0.12
+        px = QPainterPath()
+        px.addRoundedRect(QRectF(0, 0, w, h), r, r)
+    else:
+        return None
+    return QTransform(1, 0, 0, -1, 0, h).map(px)  # pixel (Y in giù) → locale (Y in su)
+
+
 def _form_mask(h, w, mask):
     from . import geom
 

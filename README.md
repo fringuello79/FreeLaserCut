@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.20.8 «0.20.VI»** — il nome «0.20.VI» sulla schermata di avvio e nella barra del titolo; dalla 0.20.7: la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza; la barra in alto con i comandi che usi di più (*Visualizza → Personalizza la barra…*); la scia dell'incisione che si può spegnere; ringraziamenti iniziali più fitti.
+**Versione 0.20.9 «0.20.VI»** — più laser configurati, ognuno con il suo nome, scelti dalla tendina *Laser*; guide tirate fuori dai righelli; deformazione a 4 punti (prospettiva) e a 16 punti (griglia); larghezza delle fessure degli incastri; *Prepara foto* che ritaglia davvero con la forma; Wi-Fi con i router recenti (WPA2/WPA3) e dalla rete propria del laser; porte CH341 su Linux e porta scritta a mano. Dalla 0.20.7: la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi), SVG con contorno e riempimento separati, barra in alto personalizzabile.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -310,7 +310,7 @@ Laser di classe 4, 450 nm. Indossa occhiali protettivi adatti, non lasciare mai 
 
 ## Ringraziamenti
 
-FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter.
+FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter, Mauro C., Gianni, marcello.
 
 Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. Fino alla versione 0.20.6 l'elenco ringrazia anche chi ci ha lasciato il proprio nome in un rapporto all'assistenza. Da qui in poi raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se è il tuo caso, scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
 

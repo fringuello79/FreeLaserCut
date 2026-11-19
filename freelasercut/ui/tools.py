@@ -1666,6 +1666,222 @@ class PositionTool(Tool):
             self.cv.goto_requested.emit(q.x(), q.y())
 
 
+# ======================================================================= deforma (0.20.9)
+class DeformTool(Tool):
+    """Deforma la selezione con 4 punti (prospettiva) o con 16 punti (griglia 4 × 4): si trascinano le maniglie,
+    Invio o doppio clic applica, Esc annulla. Il calcolo è in core/warp.py."""
+    name = "deform"
+    label = tr("Deforma")
+    HANDLE_PX = 7
+
+    def __init__(self, cv):
+        super().__init__(cv)
+        self._reset()
+
+    def _reset(self):
+        self.mode = None  # "persp" | "grid"
+        self.sources = []  # forme di partenza (di primo livello)
+        self.box = None  # (x0, y0, x1, y1)
+        self.pts = []  # punti di controllo [[x, y], …]: 4 (angoli, antiorari dal basso a sinistra) o 16 (righe)
+        self.drag = None
+        self._lines = []  # anteprima: [(N×2, chiuso)] appiattiti di partenza
+        self.preview = []  # anteprima deformata: [QPainterPath]
+        self.problem = None
+
+    def cursor(self):
+        return QCursor(Qt.PointingHandCursor)
+
+    def start(self, mode):
+        """Prepara la deformazione della selezione. -> None se va, altrimenti il motivo (testo)."""
+        from ..core import warp
+
+        sel = list(self.ed.editable())
+        if not sel:
+            return tr("Seleziona prima il disegno da deformare")
+        if any(isinstance(leaf, ImageShape) for s in sel for leaf, _ in s.leaves()):
+            return tr("Le foto non si deformano: togli la foto dalla selezione")
+        b = ops.union_bounds(sel)
+        if b.width() < 1e-3 or b.height() < 1e-3:
+            return tr("Il disegno è una linea dritta: non c'è niente da deformare in due direzioni")
+        self._reset()
+        self.mode = "grid" if mode == "grid" else "persp"
+        self.sources = sel
+        self.box = (b.left(), b.top(), b.right(), b.bottom())
+        self.pts = [list(p) for p in (warp.corners(self.box) if self.mode == "persp" else
+                                      [q for row in warp.grid(self.box) for q in row])]
+        step = warp.grid_step(self.box) * 4 if self.mode == "grid" else None
+        self._lines = [warp.polylines(path, warp.PREVIEW_TOL, step) for path in self._world_paths()]
+        self._update_preview()
+        self.cv.set_tool("deform")
+        return None
+
+    def _world_paths(self):
+        out = []
+        for s in self.sources:
+            for leaf, tf in s.leaves():
+                out.append(tf.map(leaf.local_path()))
+        return out
+
+    def fn(self):
+        """La funzione della deformazione attuale, o None (con self.problem) se i punti non vanno."""
+        from ..core import warp
+
+        x0, y0, x1, y1 = self.box
+        if self.mode == "persp":
+            self.problem = warp.quad_problem(self.pts, (x1 - x0) * (y1 - y0))
+            if self.problem:
+                return None
+            try:
+                return warp.perspective_fn(self.box, self.pts)
+            except ValueError:
+                self.problem = "flat"
+                return None
+        self.problem = warp.grid_problem(self.pts)
+        if self.problem:
+            return None
+        return warp.grid_fn(self.box, [self.pts[r * 4:(r + 1) * 4] for r in range(4)])
+
+    def _update_preview(self):
+        import numpy as np
+
+        f = self.fn()
+        self.preview = []
+        if f is None:
+            return
+        for lines in self._lines:
+            for pts, closed in lines:
+                q = f(pts)
+                if not np.all(np.isfinite(q)):
+                    continue
+                pp = QPainterPath(QPointF(float(q[0, 0]), float(q[0, 1])))
+                for x, y in q[1:]:
+                    pp.lineTo(float(x), float(y))
+                if closed:
+                    pp.closeSubpath()
+                self.preview.append(pp)
+
+    def set_point(self, i, x, y):
+        """Sposta il punto di controllo i (per le prove e per i comandi). -> True se la deformazione è valida."""
+        self.pts[i] = [float(x), float(y)]
+        self._update_preview()
+        return self.problem is None
+
+    def apply(self):
+        """Sostituisce la selezione con il disegno deformato (un'azione sola di Annulla). -> le forme nuove o None."""
+        from ..core import warp
+
+        f = self.fn()
+        if f is None:
+            self.cv.status.emit(self.problem_text())
+            return None
+        step = warp.grid_step(self.box) if self.mode == "grid" else None
+        made = []
+        for s in self.sources:
+            leaves = []
+            for leaf, tf in s.leaves():
+                path = warp.apply(tf.map(leaf.local_path()), f, warp.FLAT_TOL, step)
+                if path.isEmpty():
+                    continue
+                ps = PathShape(path, layer=leaf.layer)
+                ps.hidden = leaf.hidden
+                leaves.append(ps)
+            if not leaves:
+                continue
+            made.append(leaves[0] if len(leaves) == 1 and s.kind != "group" else GroupShape(leaves, layer=s.layer))
+        if not made:
+            return None
+        self.ed.replace(self.sources, made, tr("Deforma (4 punti)") if self.mode == "persp" else tr("Deforma (16 punti)"))
+        self._reset()
+        self.cv.set_tool("select")
+        return made
+
+    def problem_text(self):
+        return {"cross": tr("I lati si incrociano o un angolo rientra: sposta i punti in modo che il contorno resti "
+                            "senza nodi"),
+                "flat": tr("Il contorno è troppo schiacciato: allarga i punti")}.get(self.problem, "")
+
+    def deactivate(self):
+        self._reset()
+
+    def _handles_view(self, tf):
+        return [tf.map(QPointF(x, y)) for x, y in self.pts]
+
+    def _hit(self, view_pt, tf):
+        best, idx = None, None
+        for i, h in enumerate(self._handles_view(tf)):
+            d = math.hypot(h.x() - view_pt.x(), h.y() - view_pt.y())
+            if d <= self.HANDLE_PX + 2 and (best is None or d < best):
+                best, idx = d, i
+        return idx
+
+    def press(self, e, p):
+        if not self.pts:
+            return
+        tf = self.cv.bed_to_view_tf()
+        i = self._hit(tf.map(p), tf)
+        if i is not None and e.button() == Qt.LeftButton:
+            self.drag = i
+
+    def move(self, e, p):
+        if self.drag is None:
+            return
+        q = self._snap(e, p, frozenset(s.id for s in self.sources))
+        self.set_point(self.drag, q.x(), q.y())
+
+    def release(self, e, p):
+        if self.drag is not None:
+            self.drag = None
+            if self.problem:
+                self.cv.status.emit(self.problem_text())
+
+    def double_click(self, e, p):
+        if self.pts:
+            self.apply()
+
+    def wants_key(self, e):
+        return e.key() in (Qt.Key_Escape, Qt.Key_Return, Qt.Key_Enter)
+
+    def key(self, e):
+        if e.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self.apply()
+            return True
+        if e.key() == Qt.Key_Escape:
+            self._reset()
+            self.cv.set_tool("select")
+            return True
+        return False
+
+    def draw(self, p, tf):
+        if not self.pts:
+            return
+        ok = self.problem is None
+        p.setBrush(Qt.NoBrush)
+        pen = QPen(QColor(C["accent_hi"] if ok else "#E03131"), 1.4)
+        pen.setCosmetic(True)
+        p.setPen(pen)
+        for pp in self.preview:
+            p.drawPath(tf.map(pp))
+        cage = QPen(QColor("#FFD43B"), 1.0, Qt.DashLine)
+        cage.setCosmetic(True)
+        p.setPen(cage)
+        hv = self._handles_view(tf)
+        if self.mode == "persp":
+            for i in range(4):
+                p.drawLine(hv[i], hv[(i + 1) % 4])
+        else:
+            for r in range(4):
+                for c in range(4):
+                    if c < 3:
+                        p.drawLine(hv[r * 4 + c], hv[r * 4 + c + 1])
+                    if r < 3:
+                        p.drawLine(hv[r * 4 + c], hv[(r + 1) * 4 + c])
+        p.setPen(QPen(QColor("#1C1C1C"), 1))
+        p.setBrush(QColor("#FFD43B"))
+        k = self.HANDLE_PX / 2.0
+        for i, h in enumerate(hv):
+            p.drawRect(QRectF(h.x() - k, h.y() - k, 2 * k, 2 * k))
+
+
 def make_tools(cv):
     return {t.name: t(cv) for t in (SelectTool, NodeTool, TrimTool, PenTool, FreehandTool, RectTool, EllipseTool, PolygonTool, StarTool,
-                                     SpecialTool, TextTool, MeasureTool, PositionTool)}
+                                     SpecialTool, TextTool, MeasureTool, PositionTool, DeformTool)}

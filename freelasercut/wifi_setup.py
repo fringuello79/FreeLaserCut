@@ -290,7 +290,7 @@ class Check:
 def check_network(ssid, password, net=None, pc_ssid=None, family="esp", all_nets=()):
     """Avvisi e blocchi prima di scrivere. net: la rete scelta nell'elenco (Network) se c'è.
     -> [Check]; i codici: ssid_empty ssid_long pwd_short pwd_long enterprise semicolon (bloccano);
-    band5 guest other_net wpa3 open special weak (avvisano)."""
+    band5 guest other_net wpa3 wpa_mixed open special weak (avvisano)."""
     out = []
     ssid, password = str(ssid or ""), str(password or "")
     if not ssid.strip():
@@ -314,6 +314,8 @@ def check_network(ssid, password, net=None, pc_ssid=None, family="esp", all_nets
             out.append(Check("band5"))
         if net.security == "wpa3":
             out.append(Check("wpa3"))
+        if net.security == "mixed":
+            out.append(Check("wpa_mixed"))
         if is_open:
             out.append(Check("open"))
         if net.signal is not None and net.signal < 35:
@@ -334,7 +336,7 @@ def check_network(ssid, password, net=None, pc_ssid=None, family="esp", all_nets
 def likely_causes(ssid, password, net=None, all_nets=(), family="esp"):
     """Perché la scheda non è entrata nella rete: i codici delle cause, dalla più probabile."""
     codes = [c.code for c in check_network(ssid, password, net, None, family, all_nets)]
-    out = [c for c in ("band5", "wpa3", "special", "weak", "guest") if c in codes]
+    out = [c for c in ("band5", "wpa3", "wpa_mixed", "special", "weak", "guest") if c in codes]
     out.insert(1 if out[:1] == ["band5"] else 0, "wrong_password")
     if net is None:
         out.append("not_seen")  # la rete scritta a mano non è fra quelle che il PC vede
@@ -366,7 +368,9 @@ def _security(text):
     if "ENTERPRISE" in up or "802.1X" in up or "AZIENDALE" in up or "EAP" in up:
         return "enterprise"
     if "WPA3" in up or "SAE" in up:
-        return "wpa3" if "WPA2" not in up else "wpa2"
+        # 0.20.9 (Mauro C., DBAF, Iliadbox): WPA2 e WPA3 insieme («transizione», tipico dei router Wi-Fi 6/7) non è
+        # più trattato come WPA2 puro: molte ESP32 dei laser lì non entrano, e si avvisa
+        return "mixed" if ("WPA2" in up or "PSK" in up.replace("WPA3", "")) else "wpa3"
     if "OPEN" in up or "APERT" in up or up.strip() in ("", "--", "NONE", "OWE"):
         return "open"
     return "wpa2"

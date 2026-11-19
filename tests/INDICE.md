@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 210. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 216. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (16)
+## Wi-Fi, rete e telefono (18)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -21,6 +21,8 @@ Suite: 210. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
 - `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto
 - `test_v208_mac.py`: Versione per macOS (anteprima): pacchetto con permessi di camera e rete locale, avvio isolato, numba solo su Apple Silicon, permesso della camera chiesto dal filo della finestra, avviso di errore all'avvio
+- `test_v209_rapporti.py`: Rapporti del 19/11: Wi-Fi con WPA2/WPA3 insieme e router recenti, rete propria del laser; porte CH341 su Linux e porta scritta a mano; camera della testa ferma senza homing; Prepara foto con una forma che ritaglia la foto come dalla pagina principale
+- `test_v209_rapporti.py` (Banco): Wi-Fi dei router recenti, porte a mano e homing della camera della testa nell'interfaccia Banco
 
 ## Telecamera e guardia fiamme (14)
 
@@ -123,7 +125,7 @@ Suite: 210. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v206_cook.py`: Free Laser Cook (in prova): conto dell'energia e delle passate, G-code a testa alzata con pausa per girare, righe della griglia, firma e giro dell'aroma sul legno; ricette incluse, salvate, esportate e importate; finestra dietro il codice con le accortezze da spuntare
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
-## Macchina, connessione e profili (41)
+## Macchina, connessione e profili (42)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -164,10 +166,11 @@ Suite: 210. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_movimento.py` (Banco): Puntino, Lucciola e joystick nell'interfaccia Banco
 - `test_v200_nomi.py`: Nome del progetto dal file importato e file di provenienza delle forme
 - `test_v207_svg_vuoti.py`: SVG con tracciati senza disegno (<path/> senza «d», come nei file di xTool Creative Space): il resto del file si importa; SVG sani byte per byte identici; attributi con «>» o apostrofi non rovinati; da file e .svgz; rettangoli e cerchi con trasformazioni speculari al posto giusto
+- `test_v209_laser.py`: Più laser configurati, ognuno con il suo nome: tendina nel pannello Laser, nome, laser nuovo da un modello o copia, tolto dall'elenco, porta ricordata per ogni laser, profilo e piano che cambiano
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
-## Disegno e modifica (26)
+## Disegno e modifica (27)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -193,10 +196,11 @@ Suite: 210. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v204_piano_veloce.py`: Editor veloce con i disegni complessi: forme e selezione disegnate una volta sola e non a ogni movimento del mouse, clic sui gruppi, tracciati letti in blocco
 - `test_v204_piano_veloce.py` (Banco): Editor veloce con i disegni complessi nell'interfaccia Banco
 - `test_v204_piano_veloce.py` (scala125): Editor veloce con i disegni complessi su uno schermo al 125%
+- `test_v209_disegno.py`: Guide dai righelli (aggancio, salvate nel progetto, piano ruotato), deformazione a 4 punti (prospettiva) e a 16 punti (griglia), larghezza delle fessure degli incastri
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (32)
+## Interfaccia (34)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -226,6 +230,8 @@ Suite: 210. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v206_cook.py` (Banco): Free Laser Cook nell'interfaccia Banco
 - `test_v207_barra.py`: Barra in alto personalizzabile: i comandi che usi di più dopo quelli di sempre, nell'ordine scelto, ricordati; finestra con Cerca, Aggiungi, Togli, Su, Giù, Svuota; tasto destro sulle barre
 - `test_v207_barra.py` (Banco): Barra personalizzabile: nel Banco la voce non c'è
+- `test_v209_laser.py` (Banco): Più laser e tendina dei laser nell'interfaccia Banco
+- `test_v209_disegno.py` (Banco): Guide, deformazione e fessure nell'interfaccia Banco
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco

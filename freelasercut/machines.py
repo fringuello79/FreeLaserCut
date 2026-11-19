@@ -11,6 +11,7 @@ identify() mette insieme gli indizi e propone nome, profilo di partenza e avvisi
 probe() apre la porta, trova la velocità giusta e legge banner, $I e $$ (la porta deve essere libera).
 """
 import math
+import sys
 import re
 import time
 from dataclasses import dataclass, field
@@ -414,8 +415,10 @@ def chip_for(vid, pid):
     return USB_CHIPS.get((vid, pid)) or USB_CHIPS.get((vid, None)) or ("", "")
 
 
-def describe_ports(comports=None):
-    """Porte seriali con chip e driver riconosciuti; le probabili schede laser per prime."""
+def describe_ports(comports=None, extra=None):
+    """Porte seriali con chip e driver riconosciuti; le probabili schede laser per prime.
+    extra: altre porte da aggiungere (0.20.9: su Linux quelle del driver WCH del produttore, /dev/ttyCH341USB*, che
+    pyserial non elenca); di partenza si cercano da sole quando si leggono le porte del sistema."""
     if comports is None:
         try:
             from serial.tools import list_ports
@@ -423,7 +426,12 @@ def describe_ports(comports=None):
             comports = list_ports.comports()
         except ImportError:
             comports = []
+        if extra is None and sys.platform.startswith("linux"):
+            from . import linux
+
+            extra = linux.vendor_ttys()
     out = []
+    seen = set()
     for p in comports:
         vid, pid = getattr(p, "vid", None), getattr(p, "pid", None)
         chip, drv = chip_for(vid, pid)
@@ -436,6 +444,11 @@ def describe_ports(comports=None):
                 vid, pid = int(m.group(1), 16), int(m.group(2), 16)
                 chip, drv = chip_for(vid, pid)
         out.append(PortInfo(p.device, desc, vid, pid, getattr(p, "manufacturer", "") or "", chip, drv, likely))
+        seen.add(p.device)
+    for dev in extra or []:
+        if dev not in seen:
+            seen.add(dev)
+            out.append(PortInfo(dev, tr("CH341 (driver del produttore)"), None, None, "", "CH341", "wch", True))
     out.sort(key=lambda t: (not t.likely, t.device))
     return out
 
