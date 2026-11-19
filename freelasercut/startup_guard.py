@@ -465,6 +465,13 @@ def linux_dialog(text, title="FreeLaserCut", which=None):
     return None
 
 
+def mac_dialog(text, title="FreeLaserCut"):
+    """0.20.8: il comando per un avviso di sistema su macOS senza Qt (osascript, sempre presente)."""
+    def q(t):
+        return '"' + str(t).replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return ["osascript", "-e", f"display alert {q(title)} message {q(text)} as critical"]
+
+
 def error_text(path, detail=""):
     """Il messaggio per chi non vede partire il programma. Testo fisso, in inglese e in italiano."""
     if path:
@@ -544,6 +551,8 @@ def show(text):
         try:
             cmd = linux_dialog(text) if sys.platform.startswith("linux") and (
                 os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")) else None
+            if sys.platform == "darwin":  # 0.20.8: anche su macOS chi apre il programma dal Finder non vede l'uscita
+                cmd = mac_dialog(text)
             if cmd:
                 import subprocess
 

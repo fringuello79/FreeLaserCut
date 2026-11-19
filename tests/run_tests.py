@@ -294,6 +294,8 @@ def _run_one(name, args):
     env["FLC_SETTINGS_INI"] = os.path.join(tempfile.mkdtemp(), "prova.ini")
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
     limit = SLOW.get(name, 900)  # 0.20.0: le calibrazioni simulate della camera della testa sui server di GitHub
+    if sys.platform == "darwin":  # 0.20.8: il Mac di GitHub è una macchina virtuale con 3 processori e senza scheda grafica
+        limit *= 2
     try:
         r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8",
                            errors="replace", env=env, timeout=limit)
@@ -552,6 +554,7 @@ if __name__ == "__main__":
     run_suite("test_v207_xtool_m2_link.py", "xTool M2, collegamento diretto e G-code del piano nell'interfaccia Banco", "banco")
     run_suite("test_v207_scia.py", "Scia dell'incisione sul piano: si spegne dal menu Visualizza (ricordato), ridisegno al massimo 4 volte al secondo, nascosta con l'anteprima del lavoro guardando un altro piano senza gli altri piani")
     run_suite("test_v207_scia.py", "Scia dell'incisione nell'interfaccia Banco", "banco")
+    run_suite("test_v208_mac.py", "Versione per macOS (anteprima): pacchetto con permessi di camera e rete locale, avvio isolato, numba solo su Apple Silicon, permesso della camera chiesto dal filo della finestra, avviso di errore all'avvio")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")

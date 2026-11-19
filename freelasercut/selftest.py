@@ -7,6 +7,7 @@ La usano il workflow di GitHub (su Ubuntu con X11 vero e su altre distribuzioni)
 il testo che stampa si può incollare in una segnalazione.
 """
 import os
+import platform
 import sys
 import tempfile
 import traceback
@@ -43,6 +44,9 @@ def run():
                 m = __import__(mod)
                 say(f"  {mod} {getattr(m, '__version__', '')}".rstrip())
             except Exception as ex:  # noqa: BLE001
+                if mod == "numba" and sys.platform == "darwin" and platform.machine() == "x86_64":
+                    say("  numba: non c'è per i Mac Intel (funzioni in Python puro, più lente)")  # 0.20.8
+                    continue
                 ok = False
                 say(f"  {mod}: NON caricato ({type(ex).__name__}: {ex})")
         from PySide6.QtWidgets import QApplication
@@ -55,6 +59,10 @@ def run():
         w.show()
         app.processEvents()
         say(f"  finestra principale: ok ({w.width()}×{w.height()}, piattaforma Qt {app.platformName()})")
+        if sys.platform == "darwin":  # 0.20.8: il permesso della camera si chiede solo dal pacchetto .app
+            from . import camera as _cam
+
+            say(f"  pacchetto .app con la frase della camera: {'sì' if _cam.mac_app_bundle() else 'no'}")
         if sys.platform == "win32":  # 0.19.3: icona e rilancio dalla barra delle applicazioni
             from . import taskbar
 

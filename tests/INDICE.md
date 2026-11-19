@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 204. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 205. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (15)
+## Wi-Fi, rete e telefono (16)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -20,6 +20,7 @@ Suite: 204. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v205_scatti_wifi.py`: PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»
 - `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
 - `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto
+- `test_v208_mac.py`: Versione per macOS (anteprima): pacchetto con permessi di camera e rete locale, avvio isolato, numba solo su Apple Silicon, permesso della camera chiesto dal filo della finestra, avviso di errore all'avvio
 
 ## Telecamera e guardia fiamme (14)
 
