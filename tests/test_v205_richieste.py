@@ -830,14 +830,37 @@ def full(rows_):
                and abs(r.items[-1][1] + r.items[-1][2] - W_IN) < 0.5)) for r in rows_)
 
 
-check("H schermata di avvio: 9 righe che vanno da un bordo all'altro con il carattere vero",
-      len(rr) == splash.ROWS == 9 and full(rr), str([(r.px, len(r.names()), r.alone) for r in rr]))
+check("H schermata di avvio: 12 righe che vanno da un bordo all'altro con il carattere vero (0.20.7: erano 9)",
+      len(rr) == splash.ROWS == 12 and full(rr), str([(r.px, len(r.names()), r.alone) for r in rr]))
+# 0.20.7 (Ale, 19/11): nomi un po' più piccoli, sempre di grandezze diverse, più fitti (come una trama), ripetuti
+check("H 0.20.7 nomi più piccoli di prima (12-22 pixel invece di 15-30), «Grazie a» al massimo 18",
+      (splash.SIZE_MIN, splash.SIZE_MAX, splash.FIRST_MAX) == (12, 22, 18)
+      and all(splash.SIZE_MIN <= r.px <= splash.SIZE_MAX for r in rr))
+FM_ = __import__("PySide6.QtGui", fromlist=["QFontMetricsF"]).QFontMetricsF
+
+
+def filled(rows_):
+    """Quanta parte di ogni riga (con almeno due nomi) occupano i nomi: il resto sono gli spazi fra loro."""
+    out = []
+    for r in rows_:
+        if len(r.names()) >= 2:
+            fm_ = FM_(r.font())
+            out.append(sum(fm_.horizontalAdvance(t) for t, _x, _w in r.items if t != "·") / W_IN)
+    return out
+
+
+fill_ = filled(rr)
+check("H 0.20.7 righe fitte, senza grandi spazi vuoti fra un nome e l'altro (nomi su almeno l'80% di ogni riga)",
+      fill_ and min(fill_) >= 0.80, [round(f, 2) for f in fill_])
+check("H 0.20.7 le ripetizioni ci sono: l'elenco ricomincia più volte",
+      sum(len(r.names()) for r in rr) >= 2 * len(thanks.NAMES), sum(len(r.names()) for r in rr))
 rn = splash.name_rows(stretch=NORM)
 sizes_ = [r.px for r in rn]
 check("H grandezze irregolari e alternate: almeno quattro grandezze, righe vicine sempre diverse, grandi e piccole",
-      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 3 for i in range(8))
-      and max(sizes_) >= 26 and min(sizes_) <= 18 and all(len(r.names()) >= 2 for r in rn) and full(rn)
-      and splash.repeats_same_size(rn, 4) == 0, str(sizes_))
+      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 2 for i in range(len(sizes_) - 1))
+      and max(sizes_) >= splash.SIZE_MAX - 3 and min(sizes_) <= splash.SIZE_MIN + 4
+      and all(len(r.names()) >= 2 for r in rn) and full(rn)
+      and splash.repeats_same_size(rn, 2) == 0, str(sizes_))  # 0.20.7: grandezze 12-22, ripetute più spesso: ≥ 2 px
 all_names = [n for r in rr for n in r.names()]
 check("H i nomi sono nell'ordine dell'elenco, di seguito, e ricominciano dal primo",
       all_names == seq[:len(all_names)] and len(all_names) > N, str(all_names[:14]))
@@ -852,12 +875,13 @@ check("H tutti i nomi dell'elenco compaiono almeno una volta, Deborah compresa",
 check("H «Grazie a» ha la stessa grandezza del primo nome (è un pezzo solo con lui)",
       rr[0].items[0][0].endswith("\u00a0\u00a0\u00a0" + thanks.NAMES[0]) and rr[0].px <= splash.FIRST_MAX)
 check("H le righe non si sovrappongono e non entrano nella fascia in basso (raggio, versione, messaggio)",
-      all(rr[i].bottom <= rr[i + 1].top + 0.01 for i in range(8)) and rr[-1].bottom <= splash.BAND_TOP and rr[0].top >= 0)
+      all(rr[i].bottom <= rr[i + 1].top + 0.01 for i in range(len(rr) - 1)) and rr[-1].bottom <= splash.BAND_TOP
+      and rr[0].top >= 0)
 check("H più una riga è grande più è tenue", all(a.alpha <= b.alpha for a in rr for b in rr if a.px > b.px))
 for extra in (["Uno"], ["Uno", "Due"], list(thanks.NAMES) + ["Nuovo Nome", "altro-utente-42", "Z"]):
     r_ = splash.name_rows(extra)
     check(f"H con un elenco di {len(extra)} nomi la trama si fa lo stesso (righe dentro i margini e sopra la fascia)",
-          len(r_) == 9 and r_[-1].bottom <= splash.BAND_TOP
+          len(r_) == splash.ROWS and r_[-1].bottom <= splash.BAND_TOP
           and all(not r.items or r.items[-1][1] + r.items[-1][2] <= W_IN + 0.5 or len(r.items) == 1 for r in r_))
 # Ogni sistema ha i suoi caratteri (Windows usa Segoe UI, qui e su GitHub ce ne sono altri) e quanti nomi entrano in
 # una riga cambia: la trama deve restare giusta con qualsiasi carattere. Si prova con i caratteri che ci sono, anche
@@ -881,7 +905,7 @@ splash.FONT_FAMILY = fam0
 check(f"H con qualsiasi carattere ({len(fams)} caratteri, più stretti e più larghi: {n_wide} casi) la trama resta giusta: "
       "righe da bordo a bordo (un nome solo soltanto se due non ci stanno), nomi in ordine, grandezze diverse a ogni "
       "ripetizione", not wide_bad and n_wide >= 14, str(wide_bad[:3]))
-alone_rows = splash.name_rows(stretch=NORM * 1.9)
+alone_rows = splash.name_rows(stretch=NORM * 2.5)  # 0.20.7: con la grandezza minima a 12 pixel serve più largo (prima 1,9)
 check("H carattere larghissimo: i due nomi più lunghi non stanno insieme, ognuno ha la sua riga; il resto è da bordo a bordo",
       any(r.alone for r in alone_rows) and full(alone_rows)
       and [n for r in alone_rows for n in r.names()] == seq[:sum(len(r.names()) for r in alone_rows)],
@@ -903,11 +927,11 @@ for lang in ("it", "en", "es", "fr", "pt"):
 i18n.set_language(lang0)
 check("H «Grazie a» nelle cinque lingue, senza due punti; i nomi non si traducono e cambiano sempre grandezza",
       leads == {"it": "Grazie a", "en": "Thanks to", "es": "Gracias a", "fr": "Merci à", "pt": "Obrigado a"}, str(leads))
-check("H tempi: una riga in 1,6 s, righe sfalsate di 0,17 s, tutto in circa 3 secondi",
-      splash.ROW_S == 1.6 and splash.STAGGER_S == 0.17 and 2.9 <= splash.ENGRAVE_S <= 3.2 and splash.MIN_SHOW_S == 3.0)
+check("H tempi: una riga in 1,6 s, righe sfalsate di 0,115 s (12 righe), tutto in circa 3 secondi",
+      splash.ROW_S == 1.6 and splash.STAGGER_S == 0.115 and 2.9 <= splash.ENGRAVE_S <= 3.2 and splash.MIN_SHOW_S == 3.0)
 check("H avanzamento di una riga: 0 prima di partire, 1 alla fine, sfalsato",
       splash.row_progress(0.0, 0) == 0 and close(splash.row_progress(0.8, 0), 0.5) and splash.row_progress(1.6, 0) == 1
-      and splash.row_progress(0.17 * 8, 8) == 0 and splash.row_progress(9.0, 8) == 1)
+      and splash.row_progress(0.115 * 11, 11) == 0 and splash.row_progress(9.0, 11) == 1)
 RR = splash.name_rows()
 
 
