@@ -1,5 +1,8 @@
 # Novità di FreeLaserCut
 
+## 0.20.9 — in lavorazione
+**Ringraziamenti.** Grazie a Mauro, che entra nell'elenco con una donazione.
+
 ## 0.20.8 «0.20.VI» — 19/11/2026
 Piccolo aggiornamento della 0.20.7.
 - **«0.20.VI» sulla schermata di avvio e nella barra del titolo** (richiesta di Ale): il nome della versione si vede dove prima c'era il numero. Il numero (0.20.8) resta quello degli aggiornamenti automatici, dei file da scaricare e dei rapporti all'assistenza, e si legge in *Aiuto → Informazioni*.
