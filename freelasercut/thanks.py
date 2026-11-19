@@ -62,7 +62,7 @@ def row_width(names, pos, k, measure, lead="", gap=9.0, sep="·"):
 
 # Le passate della ricerca in plan_rows, dalla più esigente alla meno: (quanto devono distare le grandezze di uno
 # stesso nome quando ricompare, quanto devono distare due righe vicine, quanto spazio può restare vuoto in fondo)
-PASSES = ((4, 4, 8), (4, 3, 16), (3, 3, 28), (3, 2, 44), (2, 2, 70), (2, 0, 10 ** 6), (1, 0, 10 ** 6))
+PASSES = ((4, 4, 8), (4, 3, 16), (3, 3, 28), (3, 2, 44), (2, 2, 70), (2, 1, 10 ** 6), (2, 0, 10 ** 6), (1, 0, 10 ** 6))
 
 
 def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2, 3, 4, 5), limit=8000, ok=None,

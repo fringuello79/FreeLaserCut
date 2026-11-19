@@ -839,25 +839,27 @@ check("H 0.20.7 nomi più piccoli di prima (12-22 pixel invece di 15-30), «Graz
 FM_ = __import__("PySide6.QtGui", fromlist=["QFontMetricsF"]).QFontMetricsF
 
 
-def filled(rows_):
-    """Quanta parte di ogni riga (con almeno due nomi) occupano i nomi: il resto sono gli spazi fra loro."""
+def filled(rows_, stretch=1.0):
+    """Quanta parte di ogni riga (con almeno due nomi) occupano i nomi: il resto sono gli spazi fra loro.
+    stretch: lo stesso allargamento delle larghezze usato per costruire le righe."""
     out = []
     for r in rows_:
         if len(r.names()) >= 2:
             fm_ = FM_(r.font())
-            out.append(sum(fm_.horizontalAdvance(t) for t, _x, _w in r.items if t != "·") / W_IN)
+            out.append(stretch * sum(fm_.horizontalAdvance(t) for t, _x, _w in r.items if t != "·") / W_IN)
     return out
 
 
 fill_ = filled(rr)
-check("H 0.20.7 righe fitte, senza grandi spazi vuoti fra un nome e l'altro (nomi su almeno l'80% di ogni riga)",
-      fill_ and min(fill_) >= 0.80, [round(f, 2) for f in fill_])
+check("H 0.20.7 righe fitte, senza grandi spazi vuoti fra un nome e l'altro (nomi su almeno il 75% di ogni riga)",
+      fill_ and min(fill_) >= 0.75, [round(f, 2) for f in fill_])
 check("H 0.20.7 le ripetizioni ci sono: l'elenco ricomincia più volte",
       sum(len(r.names()) for r in rr) >= 2 * len(thanks.NAMES), sum(len(r.names()) for r in rr))
 rn = splash.name_rows(stretch=NORM)
 sizes_ = [r.px for r in rn]
-check("H grandezze irregolari e alternate: almeno quattro grandezze, righe vicine sempre diverse, grandi e piccole",
-      len(set(sizes_)) >= 4 and all(abs(sizes_[i] - sizes_[i + 1]) >= 2 for i in range(len(sizes_) - 1))
+# 0.20.7: conta prima che le righe siano piene (richiesta di Ale): due righe vicine possono avere la stessa grandezza
+check("H grandezze irregolari: almeno quattro grandezze, grandi e piccole, righe piene",
+      len(set(sizes_)) >= 4 and min(filled(rn, NORM)) >= 0.75
       and max(sizes_) >= splash.SIZE_MAX - 3 and min(sizes_) <= splash.SIZE_MIN + 4
       and all(len(r.names()) >= 2 for r in rn) and full(rn)
       and splash.repeats_same_size(rn, 2) == 0, str(sizes_))  # 0.20.7: grandezze 12-22, ripetute più spesso: ≥ 2 px
@@ -899,7 +901,7 @@ for fam in fams:
             if (splash.repeats_same_size(r_) or not full(r_) or r_[-1].bottom > splash.BAND_TOP
                     or any(r.items[i][1] - (r.items[i - 1][1] + r.items[i - 1][2]) < 4.9 for r in r_ for i in range(1, len(r.items), 2))
                     or len({r.px for r in r_}) < 3
-                    or any(abs(a_.px - b_.px) < 2 for a_, b_ in zip(r_, r_[1:]))  # 0.20.7: righe vicine diverse
+                    or min(filled(r_, norm_f * k / 100) or [1.0]) < 0.75  # 0.20.7: righe fitte, qualsiasi carattere
                     or [n for r in r_ for n in r.names()][:len(thanks.NAMES)] != list(thanks.NAMES)):
                 wide_bad.append((fam, k, [(r.px, len(r.names()), r.alone) for r in r_]))
 splash.FONT_FAMILY = fam0
