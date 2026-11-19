@@ -110,6 +110,62 @@ check("programma dai sorgenti o prove (python fuori da un .app): no", not camera
       or ".app" in os.path.realpath(sys.executable))
 check("cartella che non c'è: no, senza errori", not camera.mac_app_bundle("/non/esiste/X.app/Contents/MacOS/x"))
 
+# 0.20.8: QMediaDevices su macOS solo dal filo della finestra (fuori, errore di memoria sul Mac di GitHub)
+import threading  # noqa: E402
+import types  # noqa: E402
+
+calls = []
+
+
+class FakeDev:
+    def __init__(self, n):
+        self.n = n
+
+    def description(self):
+        return self.n
+
+
+class FakeQMD:
+    @staticmethod
+    def videoInputs():
+        calls.append(threading.current_thread() is threading.main_thread())
+        return [FakeDev("FaceTime HD Camera"), FakeDev("Falcon camera")]
+
+
+real_mm = sys.modules.get("PySide6.QtMultimedia")
+real_plat0 = sys.platform
+try:
+    sys.modules["PySide6.QtMultimedia"] = types.SimpleNamespace(QMediaDevices=FakeQMD)
+    sys.platform = "darwin"
+    got = camera.usb_camera_names()
+    check("Mac, filo della finestra: i nomi delle camere si leggono", got == {0: "FaceTime HD Camera", 1: "Falcon camera"}
+          and calls == [True], (got, calls))
+    calls.clear()
+    out = {}
+    th = threading.Thread(target=lambda: out.update(r=camera.usb_camera_names()))
+    th.start()
+    th.join(10)
+    check("Mac, altro filo: QMediaDevices non si tocca (niente chiusura), nessun nome", out.get("r") == {} and calls == [],
+          (out, calls))
+    sys.platform = "linux"
+    calls.clear()
+    out = {}
+    th = threading.Thread(target=lambda: out.update(r=camera.usb_camera_names()))
+    th.start()
+    th.join(10)
+    check("Linux, altro filo: come prima", len(out.get("r") or {}) == 2 and calls == [False], (out, calls))
+finally:
+    sys.platform = real_plat0
+    if real_mm is not None:
+        sys.modules["PySide6.QtMultimedia"] = real_mm
+    else:
+        sys.modules.pop("PySide6.QtMultimedia", None)
+src_panel = open(os.path.join(os.path.dirname(camera.__file__), "camera_panel.py"), encoding="utf-8").read()
+check("pannello Camera: su Mac i nomi si leggono prima di partire con la ricerca e il filo usa quelli",
+      src_panel.index('mac_names = camera_mod.usb_camera_names() if sys.platform == "darwin" else None')
+      < src_panel.index("def work():")
+      and "names = mac_names if mac_names is not None else camera_mod.usb_camera_names()" in src_panel)
+
 real_platform, real_instance = sys.platform, QC.QCoreApplication.instance
 real_bundle = camera.mac_app_bundle
 PS = QC.Qt.PermissionStatus

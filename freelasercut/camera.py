@@ -363,6 +363,11 @@ def usb_camera_names():
     try:
         if sys.platform == "win32":
             names = _mf_names()
+        elif sys.platform == "darwin" and threading.current_thread() is not threading.main_thread():
+            # 0.20.8: su macOS QMediaDevices fuori dal filo della finestra fa chiudere il programma (errore di
+            # memoria, visto sul Mac di GitHub): i nomi si leggono prima, dalla finestra (CameraPanel.search)
+            cam_log("nomi delle telecamere: su macOS si leggono solo dal filo della finestra")
+            return {}
         else:
             from PySide6.QtMultimedia import QMediaDevices
 

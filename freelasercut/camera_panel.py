@@ -1,6 +1,7 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """Pannello Camera: scelta della telecamera, foto sul piano, calibrazione AutoCam."""
 import os
+import sys
 import threading
 import time
 
@@ -287,11 +288,13 @@ class CameraPanel(QWidget):
         laser_port = getattr(self.ctl, "port", None)
         open_net = self.src.index if self.src is not None and is_net(self.src.index) else None
         known = self.net_list()  # QSettings si legge qui, nel thread della finestra
+        # 0.20.8: su macOS i nomi delle camere (QMediaDevices) solo da qui, dal filo della finestra
+        mac_names = camera_mod.usb_camera_names() if sys.platform == "darwin" else None
         self.combo.setEnabled(False)  # niente scelte durante la ricerca: la stessa camera aperta due volte
 
         def work():
             try:
-                names = camera_mod.usb_camera_names()
+                names = mac_names if mac_names is not None else camera_mod.usb_camera_names()
                 camera_mod.NAMES.clear()
                 camera_mod.NAMES.update(names)
             except Exception:  # noqa: BLE001
