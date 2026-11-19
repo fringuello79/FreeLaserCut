@@ -133,7 +133,7 @@ def _svg_fill_gray(el, fill, qp):
     """0.20.7: grigio (0 nero … 255 bianco) del riempimento di una figura chiusa, se il riempimento è grigio o nero.
     Trasparenza del riempimento e dell'oggetto schiariscono il grigio (come su un foglio bianco).
     None = nessun riempimento da incidere a parte: figura aperta, riempimento colorato, o colore uguale a quello di
-    un livello (un SVG esportato da FreeLaserCut o da LightBurn rientra come prima)."""
+    un livello (un SVG esportato da FreeLaserCut o da un altro programma laser rientra come prima)."""
     if fill is None:
         return None
     r, g, b = fill

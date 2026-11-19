@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FreeLaserCut — free laser engraving software</title>
-<meta name="description" content="FreeLaserCut (FLC): free and open-source (GPL-3.0) software to design, nest and send engraving and cutting jobs to GRBL diode lasers. Windows installer and Linux AppImage, 5 languages.">
+<meta name="description" content="FreeLaserCut (FLC): free and open-source (GPL-3.0) software to design, nest and send engraving and cutting jobs to GRBL diode lasers. Windows installer, Linux AppImage and macOS preview, 5 languages.">
 <meta property="og:title" content="FreeLaserCut — free laser engraving software">
 <meta property="og:description" content="Design, nest and engrave with your GRBL diode laser. Free, open source, for Windows and Linux.">
 <meta property="og:image" content="https://fringuello79.github.io/FreeLaserCut/screenshot/banco.png">
@@ -99,6 +99,10 @@ header.open .menu-btn span:nth-child(3){top:20px;transform:rotate(-45deg)}
 .btn-linux small{font-size:12px;font-weight:600;color:var(--muted)}
 .btn-linux .two{display:flex;flex-direction:column;line-height:1.15;text-align:left}
 .linux-note{border-left:3px solid var(--orange);padding:6px 0 6px 12px}
+.btn-mac{background:var(--card);color:var(--text);border-color:rgba(200,205,215,.55)}
+.btn-mac small{font-size:12px;font-weight:600;color:var(--muted)}
+.btn-mac .two{display:flex;flex-direction:column;line-height:1.15;text-align:left}
+.mac-note{border-left:3px solid #c8cdd7;padding:6px 0 6px 12px}
 .btn-learn{background:linear-gradient(135deg,rgba(79,180,255,.16),rgba(139,124,255,.16));color:var(--text);border-color:rgba(79,180,255,.55);box-shadow:0 0 0 0 rgba(79,180,255,0);transition:box-shadow .25s}
 .btn-learn:hover{box-shadow:0 6px 26px rgba(79,180,255,.25)}
 .btn-learn svg{color:var(--blue)}
@@ -209,6 +213,7 @@ footer p{margin:0 0 8px}
         <span class="badge">GPL-3.0</span>
         <span class="badge">Windows 10 / 11</span>
         <span class="badge">Linux · AppImage</span>
+        <span class="badge">macOS 13+ · <span class="en">preview</span><span class="it">anteprima</span></span>
         <span class="badge">GRBL · grblHAL · FluidNC</span>
         <span class="badge">EN · IT · ES · FR · PT</span>
       </div>
@@ -220,6 +225,10 @@ footer p{margin:0 0 8px}
         <a class="btn btn-linux" id="dl-linux" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
           <span class="two"><span class="en">Download for Linux</span><span class="it">Scarica per Linux</span><small><span class="en">AppImage · tested by its users</span><span class="it">AppImage · collaudata da chi la usa</span></small></span>
+        </a>
+        <a class="btn btn-mac" id="dl-mac" href="#mac-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          <span class="two"><span class="en">Download for Mac</span><span class="it">Scarica per Mac</span><small><span class="en">Preview · looking for testers</span><span class="it">Anteprima · cerchiamo collaudatori</span></small></span>
         </a>
         <a class="btn btn-learn" href="costrutto.html">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor"/></svg>
@@ -243,6 +252,20 @@ footer p{margin:0 0 8px}
         <span class="it"><b>Linux</b> (AppImage, 64 bit, Ubuntu 22.04 / Debian 12 / Fedora 35 o più recenti) · versione <b data-cfg-linux="version"></b> · <span data-cfg-linux="size"></span>.
           È lo stesso programma della versione per Windows, esce insieme a lei e passa le stesse prove automatiche. Lo sviluppo e le prove con il laser e la camera veri però si fanno su Windows: <b>il collaudo su Linux lo fa chi lo installa</b>, sul proprio computer. Se qualcosa non va, segnalalo da <i>Aiuto → Invia un rapporto all'assistenza</i>: il rapporto contiene già la distribuzione e le informazioni tecniche, e ogni segnalazione serve a correggere il problema per tutti.</span>
         <br>SHA-256: <code data-cfg-linux="sha256"></code>
+      </p>
+      <p class="dlmeta mac-note" id="mac-note">
+        <span class="en"><b>macOS</b> (13 Ventura or newer) · <b>preview</b> · version <b data-cfg-mac="version"></b>:
+          <a data-mac="arm64" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">Apple Silicon (M1, M2, M3, M4…)</a> <span data-cfg-mac="arm64"></span> ·
+          <a data-mac="x86_64" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">Intel</a> <span data-cfg-mac="x86_64"></span>.
+          Not sure? Apple menu → <i>About This Mac</i>: «Chip Apple M…» means Apple Silicon, «Processor … Intel» means Intel.
+          Open the .dmg and drag FreeLaserCut to Applications. The program is not signed by Apple, so on first start macOS blocks it: go to <i>System Settings → Privacy &amp; Security</i> and click <b>Open Anyway</b> (the READ ME in the .dmg explains it too).
+          This is the <b>first Mac version</b>: it passes the automated tests on Apple's servers, but nobody has used it with a real laser yet. <b>We are looking for testers</b>: if something does not work, report it from <i>Help → Send a report to support</i>. On the Mac you update by hand, with the new .dmg.</span>
+        <span class="it"><b>macOS</b> (13 Ventura o più recenti) · <b>anteprima</b> · versione <b data-cfg-mac="version"></b>:
+          <a data-mac="arm64" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">Apple Silicon (M1, M2, M3, M4…)</a> <span data-cfg-mac="arm64"></span> ·
+          <a data-mac="x86_64" href="https://github.com/fringuello79/FreeLaserCut/releases/latest" target="_blank" rel="noopener">Intel</a> <span data-cfg-mac="x86_64"></span>.
+          Non sai quale? Menu Apple → <i>Informazioni su questo Mac</i>: «Chip Apple M…» vuol dire Apple Silicon, «Processore … Intel» vuol dire Intel.
+          Apri il .dmg e trascina FreeLaserCut in Applicazioni. Il programma non è firmato da Apple, quindi al primo avvio macOS lo blocca: vai in <i>Impostazioni di Sistema → Privacy e sicurezza</i> e premi <b>Apri comunque</b> (lo spiega anche il LEGGIMI nel .dmg).
+          È la <b>prima versione per Mac</b>: passa le prove automatiche sui Mac di GitHub, ma nessuno l'ha ancora usata con un laser vero. <b>Cerchiamo collaudatori</b>: se qualcosa non va, segnalalo da <i>Aiuto → Invia un rapporto all'assistenza</i>. Sul Mac l'aggiornamento si fa a mano, con il .dmg nuovo.</span>
       </p>
     </div>
     <figure class="shot" style="margin:0">
@@ -460,11 +483,13 @@ footer p{margin:0 0 8px}
           <ul class="en"><li>Download <code>FreeLaserCut-<span data-cfg="version"></span>-Setup.exe</code> and open it. It installs for your user only, with no administrator rights, and adds Start menu and desktop shortcuts.</li>
             <li>The installer is not code-signed yet: if Windows shows <i>"Windows protected your PC"</i>, choose <b>More info → Run anyway</b>. You can check the file against the SHA-256 shown above.</li>
             <li>To remove it: Windows Settings → Apps. Your projects and settings stay in <code>%APPDATA%\FreeLaserCut</code>.</li>
-            <li><b>Linux:</b> download <code>FreeLaserCut-<span data-cfg-linux="version"></span>-x86_64.AppImage</code>, make it executable (<code>chmod +x</code>, or right click → Properties → Allow executing as a program) and open it. On first start it offers to add itself to the applications menu. To use the USB port, add your user to the <code>dialout</code> group once (<i>Laser → Detect machine → USB port permission…</i> explains how); Wi-Fi needs nothing. If it does not start, try <code>--appimage-extract-and-run</code>.</li></ul>
+            <li><b>Linux:</b> download <code>FreeLaserCut-<span data-cfg-linux="version"></span>-x86_64.AppImage</code>, make it executable (<code>chmod +x</code>, or right click → Properties → Allow executing as a program) and open it. On first start it offers to add itself to the applications menu. To use the USB port, add your user to the <code>dialout</code> group once (<i>Laser → Detect machine → USB port permission…</i> explains how); Wi-Fi needs nothing. If it does not start, try <code>--appimage-extract-and-run</code>.</li>
+            <li><b>macOS (preview):</b> download the .dmg for your Mac (Apple Silicon or Intel), open it and drag FreeLaserCut to Applications. On first start macOS blocks it because it is not signed by Apple: <i>System Settings → Privacy &amp; Security → Open Anyway</i>. The laser's USB port appears as <code>/dev/cu.usbserial…</code> or <code>/dev/cu.usbmodem…</code>; the camera asks for permission the first time. Wi-Fi works with lasers already on your network (the first step without a cable is not available on the Mac yet).</li></ul>
           <ul class="it"><li>Scarica <code>FreeLaserCut-<span data-cfg="version"></span>-Setup.exe</code> e aprilo. Si installa solo per il tuo utente, senza permessi da amministratore, con i collegamenti nel menu Start e sul desktop.</li>
             <li>L'installatore non è ancora firmato digitalmente: se Windows mostra <i>"PC protetto da Windows"</i> scegli <b>Ulteriori informazioni → Esegui comunque</b>. Puoi confrontare il file con lo SHA-256 indicato sopra.</li>
             <li>Per toglierlo: Impostazioni di Windows → App. Progetti e preferenze restano in <code>%APPDATA%\FreeLaserCut</code>.</li>
-            <li><b>Linux:</b> scarica <code>FreeLaserCut-<span data-cfg-linux="version"></span>-x86_64.AppImage</code>, rendilo eseguibile (<code>chmod +x</code>, oppure tasto destro → Proprietà → Consenti l'esecuzione come programma) e aprilo. Al primo avvio propone di aggiungersi al menu delle applicazioni. Per la porta USB aggiungi una volta il tuo utente al gruppo <code>dialout</code> (lo spiega <i>Laser → Riconosci la macchina → Permesso della porta USB…</i>); il Wi-Fi non chiede niente. Se non parte, prova con <code>--appimage-extract-and-run</code>.</li></ul></article>
+            <li><b>Linux:</b> scarica <code>FreeLaserCut-<span data-cfg-linux="version"></span>-x86_64.AppImage</code>, rendilo eseguibile (<code>chmod +x</code>, oppure tasto destro → Proprietà → Consenti l'esecuzione come programma) e aprilo. Al primo avvio propone di aggiungersi al menu delle applicazioni. Per la porta USB aggiungi una volta il tuo utente al gruppo <code>dialout</code> (lo spiega <i>Laser → Riconosci la macchina → Permesso della porta USB…</i>); il Wi-Fi non chiede niente. Se non parte, prova con <code>--appimage-extract-and-run</code>.</li>
+            <li><b>macOS (anteprima):</b> scarica il .dmg per il tuo Mac (Apple Silicon o Intel), aprilo e trascina FreeLaserCut in Applicazioni. Al primo avvio macOS lo blocca perché non è firmato da Apple: <i>Impostazioni di Sistema → Privacy e sicurezza → Apri comunque</i>. La porta USB del laser compare come <code>/dev/cu.usbserial…</code> o <code>/dev/cu.usbmodem…</code>; la camera chiede il permesso la prima volta. Il Wi-Fi funziona con i laser già nella tua rete (il primo passaggio senza cavo sul Mac non c'è ancora).</li></ul></article>
         <article class="step" id="g2"><h3><span class="num">2</span><span class="en">First start</span><span class="it">Primo avvio</span></h3>
           <ul class="en"><li>Read the safety notice, then choose the interface (<b>Workbench</b> or <b>Classic</b>) and <b>your laser model</b>.</li>
             <li>You can change interface, language and second-monitor behaviour any time from <b>Settings</b> (the ⚙ button in the Workbench).</li></ul>
@@ -546,8 +571,8 @@ footer p{margin:0 0 8px}
         <p class="en">Fill one sheet after another, and share common cut lines between parts.</p><p class="it">Riempire un pannello dopo l'altro e condividere le linee di taglio comuni tra pezzi.</p></div>
       <div class="card"><h3><span class="en">Text on a path, rotary</span><span class="it">Testo su tracciato, rotativo</span><span class="state s-done"><span class="en">Done · 0.9</span><span class="it">Fatto · 0.9</span></span></h3>
         <p class="en">Text that follows any curve, and the rotary attachment for glasses, tumblers and cylinders.</p><p class="it">Testo che segue qualsiasi curva e l'accessorio rotativo per bicchieri, borracce e cilindri.</p></div>
-      <div class="card"><h3><span class="en">Linux package (macOS next)</span><span class="it">Pacchetto Linux (poi macOS)</span><span class="state s-done"><span class="en">Linux done · 0.18.1</span><span class="it">Linux fatto · 0.18.1</span></span></h3>
-        <p class="en">The Linux AppImage comes out with every Windows version; a macOS package is the next step.</p><p class="it">L'AppImage per Linux esce con ogni versione per Windows; il pacchetto per macOS è il passo successivo.</p></div>
+      <div class="card"><h3><span class="en">Linux and macOS packages</span><span class="it">Pacchetti Linux e macOS</span><span class="state s-done"><span class="en">Linux 0.18.1 · Mac preview 0.20.7</span><span class="it">Linux 0.18.1 · Mac anteprima 0.20.7</span></span></h3>
+        <p class="en">The Linux AppImage and, from 0.20.7, the macOS .dmg (preview, Apple Silicon and Intel) come out with every Windows version. Next for the Mac: testers with a real laser, then signing by Apple.</p><p class="it">L'AppImage per Linux e, dalla 0.20.7, il .dmg per macOS (anteprima, Apple Silicon e Intel) escono con ogni versione per Windows. Poi per il Mac: collaudatori con un laser vero, quindi la firma di Apple.</p></div>
       <div class="card"><h3><span class="en">Job log and costs</span><span class="it">Registro lavori e costi</span><span class="state s-idea"><span class="en">Planned</span><span class="it">In programma</span></span></h3>
         <p class="en">History of jobs with time and material used, for small workshops that sell their pieces.</p><p class="it">Storico dei lavori con tempo e materiale usato, per i piccoli laboratori che vendono i propri pezzi.</p></div>
       <div class="card"><h3><span class="en">Shared material library</span><span class="it">Libreria materiali condivisa</span><span class="state s-help"><span class="en">Help wanted</span><span class="it">Cerco aiuto</span></span></h3>
@@ -632,6 +657,21 @@ function showLinux(c, href) {
   if (href) document.getElementById("dl-linux").href = href;
 }
 showLinux({version: "", size: "", sha256: "SHA256SUMS.txt"}, null);
+/* Mac (0.20.7, anteprima): i .dmg della stessa Release, uno per Apple Silicon e uno per Intel. Il pulsante porta alle
+   istruzioni qui sotto (prima bisogna sapere quale dei due serve). Se un .dmg non c'è, il suo collegamento porta alla
+   pagina delle Release. */
+function showMac(ver, dmgs) {
+  const it = document.documentElement.lang === "it";
+  document.querySelectorAll("[data-cfg-mac=version]").forEach(el => { el.textContent = ver || ""; });
+  ["arm64", "x86_64"].forEach(k => {
+    const a = dmgs[k];
+    document.querySelectorAll(`[data-cfg-mac=${k}]`).forEach(el => {
+      el.textContent = a ? "(" + Math.round(a.size / 1048576) + " MB)" : (ver ? (it ? "(non ancora pubblicata)" : "(not yet published)") : "");
+    });
+    if (a) document.querySelectorAll(`a[data-mac=${k}]`).forEach(el => { el.href = a.browser_download_url; });
+  });
+}
+showMac("", {});
 document.querySelectorAll(".drive-link").forEach(a => { a.href = CONFIG.drive; a.target = "_blank"; a.rel = "noopener"; });
 showConfig(CONFIG, CONFIG.drive);  // finché non risponde GitHub (o se non c'è ancora una Release)
 fetch("https://api.github.com/repos/fringuello79/FreeLaserCut/releases/latest", {headers: {Accept: "application/vnd.github+json"}})
@@ -653,6 +693,13 @@ fetch("https://api.github.com/repos/fringuello79/FreeLaserCut/releases/latest", 
       showLinux({version: "—", size: document.documentElement.lang === "it" ? "non ancora pubblicata per questa versione"
                  : "not yet published for this release", sha256: "—"}, null);
     }
+    const dmgs = {};
+    d.assets.forEach(x => {
+      const m = /^freelasercut-[\d.]+-macos-(arm64|x86_64)\.dmg$/i.exec(x.name || "");
+      if (m && String(x.browser_download_url || "").startsWith("https://github.com/fringuello79/FreeLaserCut/releases/download/"))
+        dmgs[m[1].toLowerCase() === "arm64" ? "arm64" : "x86_64"] = x;
+    });
+    showMac(ver, dmgs);
   })
   .catch(() => {});
 
