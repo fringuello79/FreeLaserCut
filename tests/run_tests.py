@@ -294,6 +294,8 @@ def _run_one(name, args):
     env["FLC_SETTINGS_INI"] = os.path.join(tempfile.mkdtemp(), "prova.ini")
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
     limit = SLOW.get(name, 900)  # 0.20.0: le calibrazioni simulate della camera della testa sui server di GitHub
+    if sys.platform == "darwin":  # 0.20.8: il Mac di GitHub è una macchina virtuale con 3 processori e senza scheda grafica
+        limit *= 2
     try:
         r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8",
                            errors="replace", env=env, timeout=limit)
