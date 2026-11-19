@@ -90,10 +90,33 @@ class FakeApp:
         self.fn = fn
 
 
+import plistlib  # noqa: E402
+
+tmp_app = tempfile.mkdtemp()
+macos_dir = os.path.join(tmp_app, "FreeLaserCut.app", "Contents", "MacOS")
+os.makedirs(macos_dir)
+exe = os.path.join(macos_dir, "FreeLaserCut-python")
+open(exe, "w").close()
+plist = os.path.join(tmp_app, "FreeLaserCut.app", "Contents", "Info.plist")
+with open(plist, "wb") as fh:
+    plistlib.dump({"CFBundleName": "FreeLaserCut", "NSCameraUsageDescription": "camera"}, fh)
+check("dentro FreeLaserCut.app con la frase della camera: il permesso si chiede", camera.mac_app_bundle(exe))
+with open(plist, "wb") as fh:
+    plistlib.dump({"CFBundleName": "FreeLaserCut"}, fh)
+check("…senza la frase nell'Info.plist: no (macOS non saprebbe cosa dire)", not camera.mac_app_bundle(exe))
+check("programma dai sorgenti o prove (python fuori da un .app): no", not camera.mac_app_bundle(sys.executable)
+      or ".app" in os.path.realpath(sys.executable))
+check("cartella che non c'è: no, senza errori", not camera.mac_app_bundle("/non/esiste/X.app/Contents/MacOS/x"))
+
 real_platform, real_instance = sys.platform, QC.QCoreApplication.instance
+real_bundle = camera.mac_app_bundle
 PS = QC.Qt.PermissionStatus
 try:
     sys.platform = "darwin"
+    camera.mac_app_bundle = lambda executable=None: False
+    check("Mac fuori dal pacchetto .app: non si chiede niente, si prova come sempre",
+          camera.mac_camera_permission() == "n/a")
+    camera.mac_app_bundle = lambda executable=None: True
     fa = FakeApp(PS.Granted)
     QC.QCoreApplication.instance = staticmethod(lambda: fa)
     check("Mac, permesso già dato: si cerca subito", camera.mac_camera_permission() == "granted" and not fa.asked)
@@ -111,10 +134,12 @@ try:
     fa.fn(None)
     check("…risposta «Non consentire»: lo si sa", got == [True, False])
     check("la richiesta di OpenCV dal suo filo resta spenta sul Mac (la variabile si mette prima di aprire le camere)",
-          "OPENCV_AVFOUNDATION_SKIP_AUTH" in open(camera.__file__, encoding="utf-8").read())
+          "OPENCV_AVFOUNDATION_SKIP_AUTH" in open(camera.__file__, encoding="utf-8").read()
+          and 'sys.platform == "darwin" and mac_app_bundle()' in open(camera.__file__, encoding="utf-8").read())
 finally:
     sys.platform = real_platform
     QC.QCoreApplication.instance = real_instance
+    camera.mac_app_bundle = real_bundle
 
 print("--- avviso di errore all'avvio e prova di avvio")
 from freelasercut import startup_guard  # noqa: E402

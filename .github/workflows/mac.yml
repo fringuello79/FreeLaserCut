@@ -7,6 +7,11 @@ on:
   push:
     branches: ["mac-*"]
   workflow_dispatch:
+    inputs:
+      solo:
+        description: "Solo queste prove (nomi dei file in tests/, separati da spazi; vuoto = tutte)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -53,6 +58,7 @@ jobs:
           build/mac/FreeLaserCut.app/Contents/MacOS/FreeLaserCut --self-test | tee selftest.txt
           grep -q "prova di avvio" selftest.txt
           grep -q "piattaforma Qt cocoa" selftest.txt
+          grep -q "pacchetto .app con la frase della camera: sì" selftest.txt
           grep -q "ESITO: tutto a posto" selftest.txt
       - name: Server per Claude (--mcp-server)
         run: |
@@ -88,5 +94,21 @@ jobs:
           cache: pip
       - name: Librerie Python
         run: python -m pip install -r requirements.txt
+      - name: Indirizzi di prova in più sul Mac
+        # 0.20.8: Linux e Windows rispondono su tutto 127.x.x.x, macOS solo su 127.0.0.1; la prova del Wi-Fi usa
+        # 127.0.5.1 per un laser «in un'altra sottorete»
+        run: sudo ifconfig lo0 alias 127.0.5.1 up
+      - name: Prove (solo alcune)
+        if: github.event_name == 'workflow_dispatch' && inputs.solo != ''
+        env:
+          SOLO: ${{ inputs.solo }}
+        run: |
+          rc=0
+          for t in $SOLO; do
+            echo "=== $t"; python tests/$t || rc=1
+            echo "=== $t banco"; python tests/$t banco || rc=1
+          done
+          exit $rc
       - name: Prove
+        if: github.event_name != 'workflow_dispatch' || inputs.solo == ''
         run: python tests/run_tests.py

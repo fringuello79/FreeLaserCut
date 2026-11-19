@@ -59,6 +59,10 @@ def run():
         w.show()
         app.processEvents()
         say(f"  finestra principale: ok ({w.width()}×{w.height()}, piattaforma Qt {app.platformName()})")
+        if sys.platform == "darwin":  # 0.20.8: il permesso della camera si chiede solo dal pacchetto .app
+            from . import camera as _cam
+
+            say(f"  pacchetto .app con la frase della camera: {'sì' if _cam.mac_app_bundle() else 'no'}")
         if sys.platform == "win32":  # 0.19.3: icona e rilancio dalla barra delle applicazioni
             from . import taskbar
 

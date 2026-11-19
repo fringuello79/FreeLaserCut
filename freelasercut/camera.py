@@ -22,7 +22,27 @@ os.environ.setdefault("OPENCV_LOG_LEVEL", "OFF")  # niente messaggi mentre si so
 os.environ.setdefault("OPENCV_VIDEOIO_PRIORITY_OBSENSOR", "0")
 # Media Foundation apre molto più in fretta alcune telecamere senza le trasformazioni hardware
 os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")
-if sys.platform == "darwin":
+
+
+def mac_app_bundle(executable=None):
+    """0.20.8: True se FreeLaserCut gira dal pacchetto FreeLaserCut.app con la frase della camera nell'Info.plist
+    (NSCameraUsageDescription). Solo così macOS sa a chi chiedere il permesso della camera: dai sorgenti o nelle
+    prove il permesso è del Terminale e Qt non può chiederlo (si prova come sempre, come su Windows e Linux)."""
+    exe = os.path.realpath(executable or sys.executable)
+    marker = ".app" + os.sep + "Contents" + os.sep + "MacOS" + os.sep
+    if marker not in exe:
+        return False
+    plist = os.path.join(exe.split(marker)[0] + ".app", "Contents", "Info.plist")
+    try:
+        import plistlib
+
+        with open(plist, "rb") as fh:
+            return bool(plistlib.load(fh).get("NSCameraUsageDescription"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+if sys.platform == "darwin" and mac_app_bundle():
     # 0.20.8: su macOS il permesso della camera lo chiede FreeLaserCut dal filo della finestra (mac_camera_permission):
     # OpenCV, che cerca le camere da un altro filo, non può chiederlo e la camera non partiva mai
     os.environ.setdefault("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
@@ -224,7 +244,7 @@ def mac_camera_permission(then=None):
     """0.20.8, solo macOS: il permesso di usare le camere, chiesto con Qt dal filo della finestra.
     -> "granted", "denied", "asked" (macOS mostra la domanda; alla risposta chiama then(concesso)) o "n/a" (non è un
     Mac, o Qt non lo sa dire: si prova come sempre)."""
-    if sys.platform != "darwin":
+    if sys.platform != "darwin" or not mac_app_bundle():
         return "n/a"
     try:
         from PySide6.QtCore import QCameraPermission, QCoreApplication, Qt
