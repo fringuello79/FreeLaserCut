@@ -1,11 +1,12 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-# Costruisce le versioni per Windows (installatore) e per Linux (AppImage) sui server di GitHub, partendo dal codice
-# pubblico, le prova (Windows vero; Ubuntu con X11 vero) e, quando si pubblica un tag vX.Y.Z, crea la Release con
-# l'installatore, l'AppImage e un solo SHA256SUMS.txt. È da lì che FreeLaserCut si aggiorna da solo
+# Costruisce le versioni per Windows (installatore), per Linux (AppImage) e per macOS (.dmg, anteprima, dalla 0.20.7)
+# sui server di GitHub, partendo dal codice pubblico, le prova (Windows vero; Ubuntu con X11 vero; Mac con la finestra
+# vera) e, quando si pubblica un tag vX.Y.Z, crea la Release con l'installatore, l'AppImage, i .dmg e un solo
+# SHA256SUMS.txt. È da lì che FreeLaserCut si aggiorna da solo
 # (Aiuto → Cerca aggiornamenti…), su Windows come su Linux: le due versioni escono sempre insieme, con lo stesso numero.
-# Se la parte Linux non riesce, la Release esce lo stesso con la sola versione per Windows (la principale).
+# Se la parte Linux o quella Mac non riesce, la Release esce lo stesso senza (Windows è la principale).
 # Si avvia anche a mano (Actions → Installatori → Run workflow): allora costruisce e prova, senza Release.
-name: Installatori Windows e Linux
+name: Installatori Windows, Linux e Mac
 
 on:
   workflow_dispatch:
@@ -20,6 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       ver: ${{ steps.ver.outputs.ver }}
+      name: ${{ steps.ver.outputs.name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,6 +36,9 @@ jobs:
         run: |
           ver=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('freelasercut/__init__.py', encoding='utf-8').read()).group(1))")
           echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          # 0.20.7: il nome della versione, se c'è (__codename__), va nel titolo della Release
+          name=$(python -c "import re;m=re.search(r'__codename__ = \"([^\"]*)\"', open('freelasercut/__init__.py', encoding='utf-8').read());print(m.group(1) if m else '')")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
           if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$ver" ]]; then
             echo "::error::Il tag $GITHUB_REF_NAME non corrisponde alla versione del programma ($ver): il tag deve essere v$ver"
             exit 1
@@ -268,11 +273,64 @@ jobs:
           APPIMAGE="$PWD/$app" APPDIR="$PWD/squashfs-root" ./squashfs-root/AppRun --self-test | tee selftest.txt
           grep -q "ESITO: tutto a posto" selftest.txt
 
+  # 0.20.7: macOS (anteprima), Apple Silicon e Intel. Stessa costruzione e stesse prove di avvio di mac.yml.
+  # Ogni processore va per conto suo: se uno non riesce, nella Release c'è solo l'altro (o nessun .dmg).
+  build-mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Versione di Python del pacchetto
+        id: py
+        run: echo "rel=$(grep -oE 'PY_RELEASE = "[^"]+' build/prepara_installer.py | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+      - name: Python per macOS dalla cache
+        uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: python-mac-${{ matrix.arch }}-${{ steps.py.outputs.rel }}
+      - name: FreeLaserCut.app e .dmg
+        run: python build/prepara_mac.py --arch ${{ matrix.arch }}
+      - name: Firma (ad hoc) e controlli del pacchetto
+        run: |
+          codesign -dv --verbose=2 build/mac/FreeLaserCut.app 2>&1 | head -20
+          plutil -lint build/mac/FreeLaserCut.app/Contents/Info.plist
+      - name: Prova di avvio (finestra vera, Cocoa)
+        run: |
+          build/mac/FreeLaserCut.app/Contents/MacOS/FreeLaserCut --self-test | tee selftest.txt
+          grep -q "piattaforma Qt cocoa" selftest.txt
+          grep -q "pacchetto .app con la frase della camera: sì" selftest.txt
+          grep -q "ESITO: tutto a posto" selftest.txt
+      - name: Server per Claude (--mcp-server)
+        run: |
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"prova","version":"1"}}}' \
+            | build/mac/FreeLaserCut.app/Contents/MacOS/FreeLaserCut --mcp-server | tee mcp.txt
+          grep -q '"serverInfo"' mcp.txt
+      - name: SHA-256
+        run: cd build && shasum -a 256 FreeLaserCut-*-macOS-${{ matrix.arch }}.dmg | tee SHA256SUMS-macos-${{ matrix.arch }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FreeLaserCut-macOS-${{ matrix.arch }}
+          path: |
+            build/FreeLaserCut-*-macOS-${{ matrix.arch }}.dmg
+            build/SHA256SUMS-macos-${{ matrix.arch }}.txt
+          retention-days: 14
+
   # Solo per i tag vX.Y.Z: Release pubblica con installatore e SHA256SUMS.txt; le note vengono dal CHANGELOG.
   release:
     # Windows è la versione principale: senza la sua prova non esce niente. Linux entra solo se la sua prova è riuscita.
     if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') && needs.prova-windows.result == 'success' }}
-    needs: [build, prova-windows, build-linux, prova-linux]
+    needs: [build, prova-windows, build-linux, prova-linux, build-mac]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -288,7 +346,20 @@ jobs:
         with:
           name: FreeLaserCut-${{ needs.build.outputs.ver }}-Linux
           path: dist-linux
-      - name: Un solo SHA256SUMS.txt per Windows e Linux
+      # 0.20.7: i .dmg dei processori riusciti (quello che manca, manca e basta)
+      - name: Versione per Mac (Apple Silicon)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: FreeLaserCut-macOS-arm64
+          path: dist-mac
+      - name: Versione per Mac (Intel)
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: FreeLaserCut-macOS-x86_64
+          path: dist-mac
+      - name: Un solo SHA256SUMS.txt per Windows, Linux e Mac
         run: |
           if [ -f dist-linux/SHA256SUMS-linux.txt ]; then
             (cd dist-linux && sha256sum -c SHA256SUMS-linux.txt)
@@ -299,6 +370,18 @@ jobs:
             echo "::warning::La versione per Linux non ha passato la prova: la Release esce con la sola versione per Windows"
             echo "LINUX=0" >> "$GITHUB_ENV"
           fi
+          MAC=""
+          for arch in arm64 x86_64; do
+            f="dist-mac/SHA256SUMS-macos-$arch.txt"
+            if [ -f "$f" ] && (cd dist-mac && sha256sum -c "SHA256SUMS-macos-$arch.txt"); then
+              cp dist-mac/FreeLaserCut-*-macOS-$arch.dmg dist/
+              cat "$f" >> dist/SHA256SUMS.txt
+              MAC="$MAC $arch"
+            else
+              echo "::warning::La versione per Mac ($arch) non c'è o non ha passato la prova: la Release esce senza"
+            fi
+          done
+          echo "MAC=$MAC" >> "$GITHUB_ENV"
           cat dist/SHA256SUMS.txt
           (cd dist && sha256sum -c SHA256SUMS.txt)
       - name: Note della versione dal CHANGELOG
@@ -320,6 +403,17 @@ jobs:
                     "programma, con le stesse prove automatiche; lo sviluppo e le prove con laser e camera veri però si "
                     "fanno su Windows, quindi **il collaudo su Linux lo fa chi lo installa**: se qualcosa non va, "
                     "segnalalo da *Aiuto → Invia un rapporto all'assistenza*.")
+          if os.environ.get("MAC", "").strip():
+              arch = os.environ["MAC"].split()
+              names = {"arm64": "Apple Silicon (M1, M2, M3, M4…)", "x86_64": "Intel"}
+              print()
+              print("**macOS (anteprima)**: " + ", ".join(f"`FreeLaserCut-{ver}-macOS-{a}.dmg` per i Mac {names[a]}"
+                                                         for a in arch) + ". Apri il .dmg e trascina FreeLaserCut in "
+                    "Applicazioni. Il programma non è firmato da Apple: al primo avvio macOS lo blocca; vai in "
+                    "*Impostazioni di Sistema → Privacy e sicurezza* e premi **Apri comunque** (lo spiega anche il "
+                    "LEGGIMI nel .dmg). È la prima versione per Mac e nessuno l'ha ancora provata con un laser vero: "
+                    "**cerchiamo chi la collaudi**. Se qualcosa non va, segnalalo da *Aiuto → Invia un rapporto "
+                    "all'assistenza*. Sul Mac l'aggiornamento si fa a mano, con il .dmg nuovo.")
           PY
           cat note.md
       - name: Crea la Release
@@ -329,8 +423,11 @@ jobs:
           # GitHub ogni tanto risponde con un errore suo (HTTP 500, successo con la 0.13.1) e la Release resta a metà,
           # in bozza: riprovo fino a 3 volte e, se la Release esiste già, carico i file e la pubblico.
           TITLE="FreeLaserCut ${{ needs.build.outputs.ver }}"
+          NAME="${{ needs.build.outputs.name }}"
+          if [ -n "$NAME" ] && [ "$NAME" != "${{ needs.build.outputs.ver }}" ]; then TITLE="FreeLaserCut $NAME (${{ needs.build.outputs.ver }})"; fi
           FILES=(dist/FreeLaserCut-*-Setup.exe dist/SHA256SUMS.txt)
           if [ "$LINUX" = "1" ]; then FILES+=(dist/FreeLaserCut-*-x86_64.AppImage); fi
+          for arch in $MAC; do FILES+=(dist/FreeLaserCut-*-macOS-$arch.dmg); done
           for i in 1 2 3; do
             if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
               gh release upload "$GITHUB_REF_NAME" "${FILES[@]}" \

@@ -561,6 +561,14 @@ class WifiWizard(QDialog):
 
     # ---- E2: senza cavo, dalla rete propria del laser
     def _e2(self):
+        if self.sys.platform == "darwin":  # 0.20.7: sul Mac FreeLaserCut non sa ancora cambiare la rete Wi-Fi da solo
+            self._set("E2_mac")
+            return self._page(tr("Sul Mac il primo passaggio senza cavo non c'è ancora"),
+                              tr("Su Windows e Linux FreeLaserCut collega per un minuto il PC alla rete del laser; sul "
+                                 "Mac non lo sa ancora fare. Usa il cavo USB per il primo passaggio, oppure, se il laser "
+                                 "è già nella rete di casa, cercalo in rete."),
+                              [self._close_btn(), ("find", tr("Trova il laser in rete"), self._find),
+                               ("cable", tr("Uso il cavo USB"), self._e1)])
         g = self._set("E2_scan")
         self._page(tr("Cerco la rete del laser…"), tr("Guardo le reti Wi-Fi che questo PC vede."), [], busy=0)
 

@@ -218,6 +218,7 @@ class MainWindow(QMainWindow):
             from .banco import Banco
 
             self.banco = Banco(self)
+            self.acts["fav_bar"].setVisible(False)  # 0.20.7: il Banco non ha la barra in alto
         else:
             self._build_classic_palette()
         self.update_rotary_state()
@@ -377,6 +378,8 @@ class MainWindow(QMainWindow):
                           checkable=True),
             "light_bed": A(tr("Piano chiaro"), self._toggle_light_bed, None, checkable=True),
             "dither_prev": A(tr("Mostra il dithering delle immagini"), self._toggle_dither, checkable=True),
+            # 0.20.7: la scia arancione di quello che il laser ha già inciso, durante il lavoro
+            "show_trail": A(tr("Scia dell'incisione sul piano"), self._toggle_trail, None, checkable=True),
             "connect": A(tr("Connetti / disconnetti la macchina"), lambda: self.toggle_connection(), "Ctrl+K", "connect"),
             "home": A(tr("Homing"), self.ctl.home, "Ctrl+H", "home"),
             "unlock_m": A(tr("Sblocca macchina ($X)"), self.ctl.unlock, None, "unlock"),
@@ -395,6 +398,9 @@ class MainWindow(QMainWindow):
             "relief": A(tr("Rilievo 3D su tavola (in prova)…"), self.relief_dialog, None, "sculpt",
                         tr("Scolpisce la tavola intera a strati, a testa ferma, da un'immagine in grigi o da un modello "
                            "3D, con il test di profondità obbligatorio")),
+            "cook": A(tr("Free Laser Cook (in prova)…"), self.cook_dialog, None, "chef_hat",
+                      tr("Cuoce un alimento a laser sfocato: ricette con dose per passata, passate, giro, griglia, "
+                         "firma e aroma del legno, con le dovute accortezze")),
             "print_cut": A(tr("Stampa e taglia…"), self.print_cut_dialog, None, "frame",
                            tr("Taglia attorno a qualcosa di già stampato: due crocette stampate con il disegno dicono "
                               "al laser dove sta il foglio")),
@@ -435,6 +441,8 @@ class MainWindow(QMainWindow):
             "head_cam": A(tr("Vista della testa…"), lambda *_: self.head_camera_window(), None, None,
                           tr("Video della telecamera fissata alla testa, con mirino e righello: porta il laser o la "
                              "camera dove vuoi, prendi gli angoli della tavola, fai la foto del piano a mosaico")),
+            "fav_bar": A(tr("Personalizza la barra…"), lambda *_: self.fav_bar_dialog(), None, None,
+                         tr("Aggiunge alla barra in alto i comandi che usi di più, nell'ordine che vuoi")),
             "clear_mosaic": A(tr("Togli la foto a mosaico dal piano"), lambda *_: self.camera.head.clear_mosaic(), None,
                               None, tr("Toglie da sotto il piano la foto fatta con la camera della testa (si può "
                                        "rifare quando vuoi)")),
@@ -521,6 +529,8 @@ class MainWindow(QMainWindow):
         on = lambda key, d: self.qs.value(key, d) in (True, "true")  # noqa: E731
         self.acts["light_bed"].setChecked(on("light_bed", True))
         c.light_bed = self.acts["light_bed"].isChecked()
+        self.acts["show_trail"].setChecked(on("show_trail", True))
+        c.set_trail_shown(self.acts["show_trail"].isChecked())
         self.acts["snap_obj"].setChecked(on("snap_objects", True))
         self.acts["snap_grid"].setChecked(on("snap_grid", False))
         c.snap_objects = self.acts["snap_obj"].isChecked()
@@ -688,10 +698,11 @@ class MainWindow(QMainWindow):
             ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "scan_offset", "autofocus",
             "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
-                                           "snap_grid", "snap_obj", "dither_prev", "-", "clear_mosaic"])
+                                           "snap_grid", "snap_obj", "dither_prev", "show_trail", "-", "clear_mosaic"])
         self.m_view.addSeparator()
         self.m_panels = self.m_view.addMenu(tr("Pannelli"))
         self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
+        self.m_view.addAction(self.acts["fav_bar"])  # 0.20.7: i comandi che usi di più nella barra in alto
         self.m_view.addSeparator()
         self._build_language_menu(self.m_view)
         self._build_settings_menu(mb)
@@ -899,8 +910,16 @@ class MainWindow(QMainWindow):
 
     # 0.19.2: gli strumenti che non sono «attrezzi da disegno», nell'ordine del menu Strumenti. Lo stesso elenco fa il
     # menu del pulsante «Strumenti» nella barra di sinistra (MakerHub ha il suo pulsante, subito sotto)
-    TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "print_cut", "-", "variables",
+    TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "cook", "print_cut", "-", "variables",
                   "photo", "trace")
+
+    # i comandi della barra in alto, sempre lì (0.20.7: dopo di loro vengono quelli scelti da chi usa il programma)
+    MAIN_BAR = ("new", "open", "save", "-", "import", "-", "undo", "redo", "-", "cut", "copy", "paste", "delete",
+                "-", "group", "ungroup", "weld", "union", "difference", "intersection", "-", "flip_h", "flip_v",
+                "rot_ccw", "rot_cw", "-", "align_left", "align_hcenter", "align_right", "align_top", "align_vcenter",
+                "align_bottom", "dist_h", "dist_v", "nest", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
+                "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "code", "materials", "material_test")
+    FAV_MAX = 24
 
     def _build_toolbars(self):
         a = self.acts
@@ -908,11 +927,7 @@ class MainWindow(QMainWindow):
         tb.setObjectName("main")
         tb.setIconSize(QSize(18, 18))
         tb.setMovable(False)
-        for k in ("new", "open", "save", "-", "import", "-", "undo", "redo", "-", "cut", "copy", "paste", "delete",
-                  "-", "group", "ungroup", "weld", "union", "difference", "intersection", "-", "flip_h", "flip_v",
-                  "rot_ccw", "rot_cw", "-", "align_left", "align_hcenter", "align_right", "align_top", "align_vcenter",
-                  "align_bottom", "dist_h", "dist_v", "nest", "-", "offset", "grid_array", "circ_array", "-", "zoom_in",
-                  "zoom_out", "fit", "-", "preview", "-", "trace", "exact_shape", "code", "materials", "material_test"):
+        for k in self.MAIN_BAR:
             if k == "-":
                 tb.addSeparator()
             else:
@@ -920,7 +935,11 @@ class MainWindow(QMainWindow):
         # a destra, nello spazio libero: riconoscimento macchina e guida "?"
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        tb.addWidget(spacer)
+        self.main_bar = tb
+        self._fav_anchor = tb.addWidget(spacer)  # 0.20.7: i comandi scelti vanno subito prima di questo spazio
+        self._fav_sep = None
+        self._fav_acts = []
+        self.apply_fav_bar(self.fav_bar_keys())
         tb.addAction(a["identify"])
         tb.addAction(a["help_mode"])
         hb = tb.widgetForAction(a["help_mode"])
@@ -1209,10 +1228,17 @@ class MainWindow(QMainWindow):
         mono = f"font-family: '{style.MONO_FONT}', Consolas, monospace; font-size: 8.5pt;"
         fm = QFontMetrics(style.mono_font(8.5))
 
+        def own_fm(lab):
+            # 0.20.7: la misura con il carattere con cui la scritta si disegna davvero (quello del suo stile); se il
+            # carattere scelto manca e Qt ne usa un altro, prima la misura e il disegno non coincidevano più e i numeri
+            # che cambiano spostavano il resto della barra (prove su Windows con i caratteri veri, 18/11)
+            lab.ensurePolished()
+            return QFontMetrics(lab.font()) if lab.font().family() else fm
+
         def fixed(sample):  # larghezza fissa: i numeri che cambiano non spostano il resto della barra
             lab = QLabel("")
             lab.setStyleSheet(mono)
-            lab.setFixedWidth(fm.horizontalAdvance(sample) + 14)
+            lab.setFixedWidth(max(fm.horizontalAdvance(sample), own_fm(lab).horizontalAdvance(sample)) + 14)
             lab.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             return lab
 
@@ -1222,6 +1248,7 @@ class MainWindow(QMainWindow):
         def reserved(sample):  # 0.20.2: come fixed(), ma vuota non occupa spazio e, se lo spazio manca, si accorcia
             lab = ShrinkLabel("", reserve=fm.horizontalAdvance(sample) + 14, elide=Qt.ElideRight)
             lab.setStyleSheet(mono)
+            lab._reserve = max(fm.horizontalAdvance(sample), own_fm(lab).horizontalAdvance(sample)) + 14
             lab.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             return lab
 
@@ -1285,6 +1312,7 @@ class MainWindow(QMainWindow):
         c.tool_changed.connect(lambda *_: self._update_sel_actions())  # 0.19.6: Allinea sui nodi
         self._plate_views, self._view_uid = {}, self.editor.doc.plate.uid  # 0.19.6: vista di ogni piano
         e.plates_changed.connect(self._plate_view_switch)
+        e.plates_changed.connect(lambda *_: self._update_job_overlay())  # 0.20.7
         c.edit_text.connect(self._edit_text)
         c.goto_requested.connect(self.goto_bed)
         c.context_requested.connect(self.open_context_menu)  # 0.18.6: solo nella classica (vedi open_context_menu)
@@ -1468,6 +1496,21 @@ class MainWindow(QMainWindow):
         self.qs.setValue(attr, on)
         self.statusBar().showMessage((tr("Aggancio agli oggetti ") if attr == "snap_objects" else tr("Aggancio alla griglia "))
                                      + (tr("attivo") if on else tr("disattivato")) + tr("  (Alt lo sospende mentre trascini)"), 3000)
+
+    def _toggle_trail(self, on):
+        """0.20.7: accende o spegne la scia dell'incisione sul piano (resta nelle preferenze)."""
+        self.canvas.set_trail_shown(on)
+        self.qs.setValue("show_trail", bool(on))
+
+    def _update_job_overlay(self):
+        """0.20.7: mentre il laser incide un piano e si guarda un altro piano con «Mostra gli altri piani» spento,
+        anteprima e scia del lavoro in corso non si vedono (tornano tornando sul piano del lavoro, o a lavoro finito).
+        -> True se si vedono."""
+        busy = (self.ctl.job_active or self.ctl.checking) and self._job_plate is not None \
+            and self._job_plate != self.editor.doc.plate.uid
+        shown = not (busy and not self.canvas.show_ghosts)
+        self.canvas.set_job_overlay(shown)
+        return shown
 
     def _toggle_light_bed(self, on):
         self.canvas.light_bed = on
@@ -2731,6 +2774,7 @@ class MainWindow(QMainWindow):
         from .. import admin
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
+        self.acts["cook"].setVisible(admin.unlocked(self.qs))  # 0.20.7: Free Laser Cook, in prova
         self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
@@ -2760,6 +2804,88 @@ class MainWindow(QMainWindow):
             return True
         QMessageBox.warning(self, tr("Funzioni in prova"), tr("Codice non valido."))
         return False
+
+    # ================================================================ barra personalizzabile (0.20.7)
+    def fav_candidates(self):
+        """I comandi che si possono aggiungere alla barra in alto: quelli con un'icona che non ci sono già."""
+        fixed = set(self.MAIN_BAR) | {"identify", "help_mode", "fav_bar"}
+        return [k for k, act in self.acts.items() if k not in fixed and not act.icon().isNull() and act.text()]
+
+    def clean_fav_keys(self, keys):
+        """Elenco pulito: solo comandi che esistono e si possono aggiungere, senza doppioni, al massimo FAV_MAX."""
+        if isinstance(keys, str):
+            keys = [keys] if keys else []
+        ok, out = set(self.fav_candidates()), []
+        for k in keys or []:
+            if isinstance(k, str) and k in ok and k not in out:
+                out.append(k)
+        return out[:self.FAV_MAX]
+
+    def fav_bar_keys(self):
+        return self.clean_fav_keys(self.qs.value("fav_bar") or [])
+
+    def apply_fav_bar(self, keys):
+        """Mette nella barra in alto i comandi scelti, dopo quelli di sempre e un separatore."""
+        tb = self.main_bar
+        for act in self._fav_acts:
+            tb.removeAction(act)
+        if self._fav_sep is not None:
+            tb.removeAction(self._fav_sep)
+            self._fav_sep = None
+        self._fav_acts = [self.acts[k] for k in self.clean_fav_keys(keys)]
+        if self._fav_acts:
+            self._fav_sep = tb.insertSeparator(self._fav_anchor)
+            for act in self._fav_acts:
+                tb.insertAction(self._fav_anchor, act)
+        return [k for k, v in self.acts.items() if v in self._fav_acts]
+
+    def set_fav_bar(self, keys):
+        """Salva e applica la scelta. -> l'elenco salvato."""
+        keys = self.clean_fav_keys(keys)
+        self.qs.setValue("fav_bar", keys)
+        self.apply_fav_bar(keys)
+        return keys
+
+    def fav_bar_dialog(self):
+        if self.banco is not None:
+            return None
+        from .dialogs_favbar import FavBarDialog
+
+        dlg = FavBarDialog(self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.open()
+        return dlg
+
+    def createPopupMenu(self):
+        """Tasto destro sulle barre: quelle da mostrare o nascondere e, dalla 0.20.7, «Personalizza la barra…»."""
+        m = super().createPopupMenu() or QMenu(self)
+        if self.banco is None:
+            m.addSeparator()
+            m.addAction(self.acts["fav_bar"])
+        return m
+
+    # ================================================================ Free Laser Cook (0.20.7, in prova)
+    def cook_dialog(self, *_):
+        """Strumenti → Free Laser Cook (solo con le funzioni in prova sbloccate)."""
+        from .. import admin
+
+        if not admin.unlocked(self.qs):
+            return None
+        if getattr(self, "_cook_dlg", None) is not None:
+            self._cook_dlg.raise_()
+            self._cook_dlg.activateWindow()
+            return self._cook_dlg
+        from .dialogs_cook import CookDialog
+
+        head = self.canvas.head_pos()
+        dlg = CookDialog(self.profile, (head.x(), head.y()) if head is not None else None, self, self.qs)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.action.connect(lambda kind, job: self._test_job_action(kind, job, "free-laser-cook"))
+        dlg.destroyed.connect(lambda *_: setattr(self, "_cook_dlg", None))
+        self._cook_dlg = dlg
+        dlg.show()
+        return dlg
 
     # ================================================================ MakerHub (0.18.14)
     def makerhub_open(self, *_):
@@ -3582,6 +3708,7 @@ class MainWindow(QMainWindow):
         """plate: uid del piano di lavoro da cui viene il lavoro (None: G-code esterno, prove)."""
         self._job_plate = plate
         self.canvas.clear_trail()
+        self.canvas.set_job_overlay(True)  # 0.20.7: si parte dal piano che si sta guardando
         self.laser.start_progress("job")
         self.ctl.stream_job(lines)
         self.laser.update_running()
@@ -3754,6 +3881,7 @@ class MainWindow(QMainWindow):
         self.laser.update_running()
         plate, self._job_plate = self._job_plate, None
         self.plate_bar.refresh()
+        self._update_job_overlay()  # 0.20.7: lavoro finito, anteprima e scia di nuovo come prima
         if getattr(self, "_g55_stop", False) and not ok:
             self._g55_stop = False
             self._interrupted = None
@@ -3866,6 +3994,13 @@ class MainWindow(QMainWindow):
             return
         with open(path, encoding="utf-8", errors="replace") as fh:
             lines = fh.read().splitlines()
+        from ..core import plane_gcode
+
+        plane_note = ""
+        if plane_gcode.is_plane(lines):  # 0.20.7: G-code «del piano» (da un ponte), funzione in prova
+            lines, plane_note = self._plane_gcode(lines, os.path.basename(path))
+            if lines is None:
+                return None
         pv = gcode_preview.parse(lines, profile=self.profile)
         gcode.unmap_preview(pv, self.profile)  # assi invertiti: piano = origine - uscita; 0.19.3: piano ruotato
         off = self.work_origin_on_bed()
@@ -3873,9 +4008,50 @@ class MainWindow(QMainWindow):
         if not self.ctl.connected:
             self.statusBar().showMessage(tr("Anteprima di {0}: connetti la macchina per eseguirlo", os.path.basename(path)), 6000)
             return
-        r = QMessageBox.question(self, tr("Esegui file G-code"), tr("{0}\n{1} righe · tempo stimato {2}\n\nOcchiali indossati, materiale fissato e a fuoco?\nAvvio?", os.path.basename(path), len(lines), _hms(pv.seconds)))
+        r = QMessageBox.question(self, tr("Esegui file G-code"), tr("{0}\n{1} righe · tempo stimato {2}\n\nOcchiali indossati, materiale fissato e a fuoco?\nAvvio?", os.path.basename(path), len(lines), _hms(pv.seconds))
+                                 + (("\n\n" + plane_note) if plane_note else ""))
         if r == QMessageBox.Yes:
             self._run(lines)
+        return lines
+
+    def _plane_gcode(self, lines, name):
+        """0.20.7, funzioni in prova: un G-code «del piano» diventa il G-code di questa macchina (profilo, sistema
+        assoluto, potenza riportata ai watt del laser). -> (righe, nota da mostrare) o (None, "") se non si può."""
+        from .. import admin
+        from ..core import plane_gcode
+
+        title = tr("Esegui file G-code")
+        if not admin.unlocked(self.qs):
+            QMessageBox.information(self, title, tr("{0} è un G-code «del piano», da adattare al laser: è una funzione "
+                                                    "in prova, non ancora disponibile.", name))
+            return None, ""
+        try:
+            out, rep = plane_gcode.convert(lines, self.profile, no_g55=bool(getattr(self.profile, "no_g55", False)),
+                                           g54_offset=self.ctl.wco)
+        except plane_gcode.OutsideBed:
+            QMessageBox.warning(self, title, tr("{0}: una parte da incidere esce dal piano di questa macchina ({1:g} × "
+                                                "{2:g} mm). Il lavoro non parte.", name, self.profile.bed_x,
+                                                self.profile.bed_y))
+            return None, ""
+        except ValueError:
+            QMessageBox.warning(self, title, tr("{0}: nel file non c'è niente da incidere.", name))
+            return None, ""
+        notes = [tr("G-code del piano, adattato a «{0}».", self.profile.name)]
+        if rep["watts_from"] and rep["watts_to"]:
+            notes.append(tr("Potenze pensate per {0:g} W, riportate ai {1:g} W di questo laser (× {2:.2f}).",
+                            rep["watts_from"], rep["watts_to"], rep["ratio"]))
+        elif rep["watts_from"]:
+            notes.append(tr("Il profilo non dice i watt del laser: potenze lasciate come nel file (pensate per {0:g} "
+                            "W).", rep["watts_from"]))
+        if rep["capped"]:
+            notes.append(tr("{0} tratti oltre la velocità massima della macchina: rallentati, con la potenza "
+                            "abbassata nella stessa proporzione.", rep["capped"]))
+        if rep["s_limited"]:
+            notes.append(tr("{0} tratti chiederebbero più del 100 %: limitati al 100 % (il risultato sarà più "
+                            "chiaro).", rep["s_limited"]))
+        if rep["clamped"]:
+            notes.append(tr("{0} spostamenti a laser spento fuori dal piano: portati sul bordo.", rep["clamped"]))
+        return out, "\n".join(notes)
 
     def show_external_job(self, job):
         """Un lavoro generato fuori dal documento (test materiale): anteprima sul piano e riepilogo."""
@@ -4444,7 +4620,14 @@ class MainWindow(QMainWindow):
         return dlg
 
     def show_about(self):
-        QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", __version__)
+        from .. import __codename__
+
+        name = f"{__version__} «{__codename__}»" if __codename__ else __version__
+        QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", name)
+                          + (tr("<br><br><b>Versione per macOS (anteprima).</b> Stesso codice e stesse prove "
+                                "automatiche della versione per Windows; è la prima per Mac e il collaudo con laser e "
+                                "camera veri lo fa chi la usa. Problemi? <i>Aiuto → Invia un rapporto "
+                                "all'assistenza</i>.") if sys.platform == "darwin" else "")
                           + (tr("<br><br><b>Versione per Linux.</b> Stesso codice e stesse prove automatiche della versione "
                                 "per Windows; il collaudo con laser e camera veri lo fa chi la usa. Problemi? "
                                 "<i>Aiuto → Invia un rapporto all'assistenza</i>.") if _is_linux() else ""))

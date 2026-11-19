@@ -40,15 +40,19 @@ W, H = 560, 300
 SIDE = 22.0  # margine ai lati
 BAND_TOP = 249.0  # da qui in giù c'è la fascia in basso: la trama (alone compreso) si ferma prima
 TOP0 = 9.0  # la prima riga
-LEADING = 1.18  # altezza di una riga = grandezza del carattere × questo
-ROWS = 9
+LEADING = 1.12  # altezza di una riga = grandezza del carattere × questo
+ROWS = 12  # 0.20.7 (Ale, 19/11): nomi più piccoli e più fitti, come una trama (prima 9 righe da 15-30 pixel)
 # Le grandezze delle righe (pixel del carattere): irregolari e alternate, una grande dopo una piccola. Quanti nomi
 # mettere in ogni riga e con che grandezza lo decide thanks.plan_rows a ogni avvio, perché dipende dall'elenco e dal
 # carattere del sistema: ogni riga ha almeno due nomi (va sempre da un bordo all'altro), i nomi restano nell'ordine
 # dell'elenco e uno stesso nome, quando ricompare, ha una grandezza diversa. La prima riga non è delle più grandi:
 # deve starci «Grazie a».
-SIZE_MIN, SIZE_MAX = 15, 30
-FIRST_MAX = 24
+SIZE_MIN, SIZE_MAX = 12, 22
+FIRST_MAX = 18
+# 0.20.7: i nomi di una riga ne occupano almeno questa parte (il resto sono gli spazi fra loro). Se con il carattere
+# del sistema non si trova, si prova con la successiva; 0 = senza questa richiesta (come fino alla 0.20.6)
+FILLS = (0.94, 0.88, 0.80, 0)
+COUNTS = (2, 3, 4, 5, 6, 7, 8, 9)  # quanti nomi può avere una riga (le ripetizioni vanno bene: l'elenco ricomincia)
 SIZE_DIFF = 1  # due grandezze dello stesso nome sono sempre diverse (di solito di 3-4 pixel o più)
 WEIGHTS = (600, 400, 300, 600, 600, 300, 600, 400, 300)  # peso del carattere riga per riga
 FONT_FAMILY = "Segoe UI"
@@ -56,7 +60,7 @@ FONT_FAMILY = "Segoe UI"
 
 def row_alpha(px):
     """Opacità dei nomi già incisi: più la riga è grande, più è tenue."""
-    return 0.10 if px >= 27 else 0.13 if px >= 21 else 0.17
+    return 0.10 if px >= 19 else 0.13 if px >= 15 else 0.17
 
 
 COLD_RGB = (150, 180, 255)  # i nomi già incisi: appena visibili
@@ -66,7 +70,7 @@ GLOW = (255, 138, 61)  # alone arancio del testo caldo e del puntino
 TRAIL = 140.0  # quanti pixel dietro al puntino restano caldi
 DOT = 6.0
 ROW_S = 1.6  # una riga si scopre da sinistra a destra in questo tempo
-STAGGER_S = 0.17  # ogni riga parte dopo la precedente
+STAGGER_S = 0.115  # ogni riga parte dopo la precedente (12 righe: tutto in circa 3 secondi, come prima)
 COOL_S = 0.12  # il caldo in fondo alla riga si spegne in questo tempo
 ENGRAVE_S = ROW_S + STAGGER_S * (ROWS - 1) + COOL_S  # tutta l'incisione: circa 3,1 secondi
 MIN_SHOW_S = 3.0  # sui PC veloci la schermata resta almeno così (Ale, 16/11)
@@ -144,8 +148,23 @@ def name_rows(names=None, lead=None, stretch=1.0):
             fits[key] = best
         return fits[key]
 
+    def dense(fill):
+        def ok(r, pos, k, px):
+            """0.20.7: la riga è piena almeno per «fill»: niente grandi spazi fra un nome e l'altro."""
+            weight = WEIGHTS[r % len(WEIGHTS)]
+            return thanks.row_width(names, pos, k, measure(px, weight), lead if r == 0 else "", gap(px)) >= fill * width
+        return ok
+
     room = int((BAND_TOP - 5.0 - TOP0) / LEADING)  # somma massima delle grandezze che sta sopra la fascia in basso
-    plan = thanks.plan_rows(len(names), ROWS, fit, SIZE_MIN, SIZE_MAX, room, FIRST_MAX)
+    plan = None
+    # con caratteri molto larghi o strani una trama così fitta può non esserci: si allenta. Prima conta che le righe
+    # siano piene (la richiesta di Ale), poi che due righe vicine abbiano grandezze ben diverse (PASSES, dentro
+    # plan_rows: da 4 pixel di differenza in giù)
+    for fill in FILLS:
+        plan = thanks.plan_rows(len(names), ROWS, fit, SIZE_MIN, SIZE_MAX, room, FIRST_MAX, counts=COUNTS,
+                                ok=dense(fill) if fill else None, fallback=not fill)
+        if plan:
+            break
     sizes = [px for _k, px in plan]
     items = thanks.place_rows(names, plan, [measure(px, WEIGHTS[r % len(WEIGHTS)]) for r, px in enumerate(sizes)],
                               width, lead=lead)

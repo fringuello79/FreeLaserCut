@@ -105,14 +105,19 @@ def test_negative_space():
     spin(2.5)
     c.home()
     t = time.time()
-    while "h" not in homed and time.time() - t < 15:
+    while "h" not in homed and time.time() - t < 40:  # 0.20.7: il Mac di GitHub è più lento, 15 s non bastavano
         spin(0.1)
     check("homing in coordinate negative riconosciuto", homed.get("n") is True, str(c.last_status.get("MPos")))
     p = MachineProfile()
     p.negative_space = True
     mx, my = p.to_machine(300, 200)
     c.goto_machine(mx, my, 20000)
-    spin(1.5)
+    t = time.time()  # 0.20.7: aspetta che arrivi (al massimo 15 s), non un tempo fisso
+    while time.time() - t < 15:
+        spin(0.25)
+        bx, by = p.to_bed(*c.last_status["MPos"][:2])
+        if abs(bx - 300) < 0.01 and abs(by - 200) < 0.01 and c.last_status.get("state", "Idle") == "Idle":
+            break
     bx, by = p.to_bed(*c.last_status["MPos"][:2])
     check("vai-qui sul piano con coordinate negative", abs(bx - 300) < 0.01 and abs(by - 200) < 0.01, f"piano {bx:.1f},{by:.1f}")
     c.disconnect_port()
@@ -289,6 +294,8 @@ def _run_one(name, args):
     env["FLC_SETTINGS_INI"] = os.path.join(tempfile.mkdtemp(), "prova.ini")
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
     limit = SLOW.get(name, 900)  # 0.20.0: le calibrazioni simulate della camera della testa sui server di GitHub
+    if sys.platform == "darwin":  # 0.20.8: il Mac di GitHub è una macchina virtuale con 3 processori e senza scheda grafica
+        limit *= 2
     try:
         r = subprocess.run([sys.executable, path, *args], capture_output=True, text=True, encoding="utf-8",
                            errors="replace", env=env, timeout=limit)
@@ -541,6 +548,17 @@ if __name__ == "__main__":
     run_suite("test_v206_xtool_m2.py", "Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area")
     run_suite("test_v206_rapporti.py", "Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto")
     run_suite("test_v206_rapporti.py", "Rapporti del 18/11 nell'interfaccia Banco", "banco")
+    run_suite("test_v207_svg_grigi.py", "SVG con contorno e riempimento separati da soli; riempimenti in toni di grigio con la potenza dal grigio di ogni forma (nero = massima, bianco = non si incide), forme sopra che coprono quelle sotto, fori vuoti; loghi neri, colori e file di prima come prima; anteprima dei toni; salvataggio; traduzioni")
+    run_suite("test_v207_svg_grigi.py", "SVG con riempimenti grigi nell'interfaccia Banco", "banco")
+    run_suite("test_v207_scia.py", "Scia dell'incisione sul piano: si spegne dal menu Visualizza (ricordato), ridisegno al massimo 4 volte al secondo, nascosta con l'anteprima del lavoro guardando un altro piano senza gli altri piani")
+    run_suite("test_v207_scia.py", "Scia dell'incisione nell'interfaccia Banco", "banco")
+    run_suite("test_v207_piano.py", "G-code «del piano» di un programma esterno adattato al laser del profilo (watt, velocità massima, assi, G55, fuori dal piano), solo con le funzioni in prova; il collegamento diretto con la M2 non c'è")
+    run_suite("test_v207_piano.py", "G-code «del piano» nell'interfaccia Banco", "banco")
+    run_suite("test_v206_cook.py", "Free Laser Cook (in prova): conto dell'energia e delle passate, G-code a testa alzata con pausa per girare, righe della griglia, firma e giro dell'aroma sul legno; ricette incluse, salvate, esportate e importate; finestra dietro il codice con le accortezze da spuntare")
+    run_suite("test_v206_cook.py", "Free Laser Cook nell'interfaccia Banco", "banco")
+    run_suite("test_v207_barra.py", "Barra in alto personalizzabile: i comandi che usi di più dopo quelli di sempre, nell'ordine scelto, ricordati; finestra con Cerca, Aggiungi, Togli, Su, Giù, Svuota; tasto destro sulle barre")
+    run_suite("test_v207_barra.py", "Barra personalizzabile: nel Banco la voce non c'è", "banco")
+    run_suite("test_v208_mac.py", "Versione per macOS (anteprima): pacchetto con permessi di camera e rete locale, avvio isolato, numba solo su Apple Silicon, permesso della camera chiesto dal filo della finestra, avviso di errore all'avvio")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")

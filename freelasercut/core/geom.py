@@ -172,6 +172,17 @@ def boolean(subject, clip, op):
     return _from_clip(res)
 
 
+def union_evenodd(polys):
+    """0.20.7: la zona dentro dei contorni chiusi con la regola pari-dispari (un foro dentro una forma resta vuoto
+    qualunque sia il verso in cui è disegnato), come contorni puliti."""
+    s = _to_clip([p for p in polys if p.closed])
+    if not s:
+        return []
+    pc = pyclipper.Pyclipper()
+    pc.AddPaths(s, pyclipper.PT_SUBJECT, True)
+    return _from_clip(pc.Execute(pyclipper.CT_UNION, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD))
+
+
 def union_all(polys):
     return boolean(polys, [], "union") if polys else []
 

@@ -257,6 +257,10 @@ HELP = {
     "snap_obj": (tr("Aggancia agli oggetti"), tr("I punti si attaccano a nodi, centri e punti medi delle altre forme."), None),
     "light_bed": (tr("Piano chiaro"), tr("Sfondo del piano chiaro o scuro."), None),
     "dither_prev": (tr("Mostra il dithering"), tr("Sulla tela le immagini appaiono già retinate come verranno incise."), None),
+    "show_trail": (tr("Scia dell'incisione"), tr("Durante il lavoro il piano mostra in arancione quello che il laser ha "
+                   "già inciso. Spegnila se il programma rallenta su lavori lunghi (foto, riempimenti grandi): il "
+                   "lavoro non cambia. Mentre guardi un altro piano, con «Mostra gli altri piani» spento, l'anteprima "
+                   "e la scia del lavoro in corso non si vedono."), None),
     # ------------------------------------------------------------------ laser
     "connect": (tr("Connetti / disconnetti"), tr("Collega FreeLaserCut al laser sulla porta scelta. Una porta USB la può usare un "
                 "solo programma per volta: chiudi gli altri programmi che la usano."), None),
@@ -283,6 +287,18 @@ HELP = {
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
         "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
                None),
+    "fav_bar": (tr("Personalizza la barra"), tr(
+        "Aggiunge alla barra in alto, dopo i comandi di sempre, quelli che usi di più: a sinistra li cerchi, con "
+        "«Aggiungi» o un doppio clic li metti nella barra, con «Su» e «Giù» scegli l'ordine. La scelta resta anche ai "
+        "prossimi avvii. Si apre da Visualizza o con il tasto destro su una barra. Solo nell'interfaccia classica."),
+                None),
+    "cook": (tr("Free Laser Cook (in prova)"), tr(
+        "Cuoce una fettina o una verdura con il laser, per gioco e con le dovute accortezze: il laser non è un "
+        "fornello. Scegli la ricetta e la cottura; il programma calcola le passate a testa alzata (fuori fuoco, "
+        "veloci e ripetute), la pausa per girare il cibo, le righe della griglia, la firma e, con il cibo su una "
+        "tavoletta di legno massello, il giro che lo profuma di fumo. Le ricette si salvano, si esportano e si "
+        "importano. Prima di accendere si spuntano le accortezze; quando è cotto lo dice il termometro a sonda."),
+             None),
     "makerhub_site": (tr("Strumenti MakerHub"), tr(
         "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account), dove scegli uno "
         "dei loro strumenti per il laser: Dima Lab (dime per posizionare gli oggetti), Forma Lab (scatole, espositori, "

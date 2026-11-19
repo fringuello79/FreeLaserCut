@@ -201,6 +201,17 @@ um.mode = "manual"
 d = um.release_dialog(newer)
 labels = [b.text() for b in d.findChildren(QDialogButtonBox)[0].buttons()]
 check("copia dal codice sorgente: rimanda al sito", any("sito" in t for t in labels) and not any("Scarica" in t for t in labels), str(labels))
+_plat = sys.platform
+sys.platform = "darwin"  # 0.20.7: Mac (anteprima)
+try:
+    d = um.release_dialog(newer)
+finally:
+    sys.platform = _plat
+labels = [b.text() for b in d.findChildren(QDialogButtonBox)[0].buttons()]
+txt = " ".join(l.text() for l in d.findChildren(QLabel))
+check("Mac: dice di scaricare il nuovo .dmg e trascinarlo in Applicazioni, con «Apri il sito», senza installare da solo",
+      ".dmg" in txt and "Applicazioni" in txt and "installatore per Windows" not in txt
+      and any("sito" in t for t in labels) and not any("Scarica" in t for t in labels), (txt[:200], labels))
 um.mode = "installer"
 
 w.ctl._check = {"total": 1, "done": 0, "errors": [], "exiting": False}

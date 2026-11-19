@@ -58,6 +58,7 @@ def import_svg(path_or_bytes, doc):
     svg = se.SVG.parse(src, ppi=96.0, reify=True)
     k = 25.4 / 96.0  # px -> mm
     shapes = []
+    grays = set()
     for el in svg.elements():
         if isinstance(el, se.Image):
             try:
@@ -91,15 +92,80 @@ def import_svg(path_or_bytes, doc):
         qp = _svgpath_to_qpath(p, k)
         if qp.isEmpty():
             continue
-        color = None
-        for attr in ("stroke", "fill"):
-            c = getattr(el, attr, None)
-            if c is not None and c.value is not None and getattr(c, "alpha", 255) > 0:
-                color = (c.red, c.green, c.blue)
-                break
-        shapes.append(PathShape(qp, layer=nearest_layer(color)))
+        stroke, fill = _svg_color(el, "stroke"), _svg_color(el, "fill")
+        gray = _svg_fill_gray(el, fill, qp)
+        color = stroke or fill
+        if gray is not None and gray == 0 and stroke is not None and nearest_layer(stroke) == FILL_LAYER:
+            gray = None  # nero pieno con il contorno nero (un logo tutto nero): una forma sola su C00, come prima
+        if gray is None:  # come prima: un colore solo (il contorno se c'è, se no il riempimento)
+            shapes.append(PathShape(qp, layer=nearest_layer(color)))
+            continue
+        # 0.20.7: riempimento grigio (o nero) di una figura chiusa, come in MeerK40t: il riempimento va sul livello
+        # C00 (Riempimento) con il suo grigio, il contorno (se c'è) resta una linea sul livello del suo colore
+        if stroke is not None:
+            line_layer = nearest_layer(stroke)
+            if line_layer == FILL_LAYER:  # contorno nero: non può stare sul livello del riempimento
+                line_layer = LINE_LAYER_FOR_BLACK
+            shapes.append(PathShape(qp, layer=line_layer))
+        f = PathShape(qp, layer=FILL_LAYER)
+        f.gray = gray
+        shapes.append(f)
+        grays.add(gray)
+    _gray_layer_setup(doc, grays)
     shapes = _normalize(shapes)
     return [GroupShape(shapes)] if len(shapes) > 1 else shapes
+
+
+FILL_LAYER = 0  # 0.20.7: dove vanno i riempimenti grigi degli SVG (C00, Riempimento di partenza)
+LINE_LAYER_FOR_BLACK = 1  # e il contorno nero di una figura con riempimento grigio (C01, Linea di partenza)
+GRAY_SPREAD = 16  # differenza massima fra rosso, verde e blu perché un colore conti come grigio
+
+
+def _svg_color(el, attr):
+    """Colore (r, g, b) del contorno o del riempimento, None se manca o è trasparente."""
+    c = getattr(el, attr, None)
+    if c is not None and c.value is not None and getattr(c, "alpha", 255) > 0:
+        return (c.red, c.green, c.blue)
+    return None
+
+
+def _svg_fill_gray(el, fill, qp):
+    """0.20.7: grigio (0 nero … 255 bianco) del riempimento di una figura chiusa, se il riempimento è grigio o nero.
+    Trasparenza del riempimento e dell'oggetto schiariscono il grigio (come su un foglio bianco).
+    None = nessun riempimento da incidere a parte: figura aperta, riempimento colorato, o colore uguale a quello di
+    un livello (un SVG esportato da FreeLaserCut o da un altro programma laser rientra come prima)."""
+    if fill is None:
+        return None
+    r, g, b = fill
+    if max(fill) - min(fill) > GRAY_SPREAD:
+        return None
+    hexc = "#{:02X}{:02X}{:02X}".format(r, g, b)
+    if hexc in LAYER_COLORS[1:]:
+        return None
+    if not any(p.closed for p in geom.flatten(qp, 0.1)):
+        return None  # una linea aperta ha il riempimento nero di partenza dell'SVG: non è un riempimento vero
+    c = el.fill
+    a = getattr(c, "alpha", 255) / 255.0
+    try:
+        op = float(el.values.get("opacity", 1.0))
+    except (TypeError, ValueError):
+        op = 1.0
+    a *= min(1.0, max(0.0, op))
+    if a <= 0:
+        return None
+    lum = 0.299 * r + 0.587 * g + 0.114 * b
+    return int(round(255.0 - (255.0 - lum) * a))
+
+
+def _gray_layer_setup(doc, grays):
+    """0.20.7: se il file ha riempimenti con grigi diversi dal nero, sul livello dei riempimenti si accende
+    «Potenza dal grigio» (solo se il livello è in Riempimento: una scelta diversa dell'utente non si tocca).
+    Senza, un riempimento bianco verrebbe inciso alla potenza massima."""
+    if doc is None or not any(g > 0 for g in grays):
+        return
+    cs = doc.layer(FILL_LAYER)
+    if cs.mode == "fill":
+        cs.gray_power = True
 
 
 def _svgpath_to_qpath(p, k):

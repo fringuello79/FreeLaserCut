@@ -321,6 +321,7 @@ def on_corner():
     return abs(g.left() - c.x()) <= 1.5 and abs(g.bottom() + 1 - c.y()) <= 2.5, (g.left(), g.bottom(), c.x(), c.y())
 
 
+until(lambda: on_corner()[0], 5)  # 0.20.8: sul Mac di GitHub (lento) la finestra finisce di sistemarsi dopo 0,3 s
 ok, info = on_corner()
 check("linguetta «Piano 1» e + attaccate in alto a sinistra al bordo del piano", bar.isVisible() and bar.tabs.count() == 1
       and bar.tabs.tabText(0) == "Piano 1" and bar.add_btn.isVisible() and not bar.ghosts.isVisible() and ok, info)

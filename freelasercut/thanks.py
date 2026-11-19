@@ -62,10 +62,11 @@ def row_width(names, pos, k, measure, lead="", gap=9.0, sep="·"):
 
 # Le passate della ricerca in plan_rows, dalla più esigente alla meno: (quanto devono distare le grandezze di uno
 # stesso nome quando ricompare, quanto devono distare due righe vicine, quanto spazio può restare vuoto in fondo)
-PASSES = ((4, 4, 8), (4, 3, 16), (3, 3, 28), (3, 2, 44), (2, 2, 70), (2, 0, 10 ** 6), (1, 0, 10 ** 6))
+PASSES = ((4, 4, 8), (4, 3, 16), (3, 3, 28), (3, 2, 44), (2, 2, 70), (2, 1, 10 ** 6), (2, 0, 10 ** 6), (1, 0, 10 ** 6))
 
 
-def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2, 3, 4, 5), limit=8000):
+def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2, 3, 4, 5), limit=8000, ok=None,
+              fallback=True, passes=PASSES):
     """Decide, riga per riga, QUANTI nomi mettere e con che GRANDEZZA (Ale, 16/11: grandezze irregolari, alternate,
     lo stesso nome quando ricompare ha una grandezza diversa, nomi sempre nell'ordine dell'elenco).
     Ogni riga ha almeno due nomi, così va sempre da un bordo all'altro; la sua grandezza è al massimo quella a cui
@@ -78,6 +79,9 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
     spazio in altezza); first_max: grandezza massima della prima riga.
     Cerca in ordine, alternando righe grandi e piccole, con le richieste di PASSES via via meno esigenti; se
     nemmeno l'ultima riesce (non dovrebbe succedere), due nomi per riga alla grandezza che ci sta.
+    ok(riga, posizione, k, grandezza) (0.20.7, facoltativo): False se la riga così resta troppo vuota (trama fitta,
+    senza grandi spazi fra i nomi); vale per le righe con almeno due nomi. fallback=False: None invece dell'ultima
+    risorsa, così chi chiama può riprovare con richieste meno severe.
     -> [(quanti nomi, grandezza), …], una voce per riga."""
     if n <= 0:
         return [(0, size_min)] * rows
@@ -119,6 +123,8 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
                     nodes[0] += 1
                     if nodes[0] > limit:
                         return True
+                    if ok is not None and k > 1 and not ok(r, pos, k, px):
+                        continue
                     idx = [(pos + j) % n for j in range(k)]
                     if any(abs(last.get(i, -10 ** 6) - px) < min_diff for i in idx):
                         continue
@@ -134,10 +140,12 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
         rec(0, 0, [], {}, 0)
         return list(found) or None
 
-    for min_diff, step, slack in PASSES:
+    for min_diff, step, slack in passes:
         got = search(min_diff, step, slack)
         if got:
             return got
+    if not fallback:
+        return None
     out, pos = [], 0  # ultima risorsa: due nomi per riga (uno, se nemmeno due ci stanno), alla grandezza che ci sta
     for r in range(rows):
         k = 1 if alone(r, pos) else next((k for k in counts if top_size(r, pos, k) >= size_min), 1)

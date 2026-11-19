@@ -22,6 +22,31 @@ os.environ.setdefault("OPENCV_LOG_LEVEL", "OFF")  # niente messaggi mentre si so
 os.environ.setdefault("OPENCV_VIDEOIO_PRIORITY_OBSENSOR", "0")
 # Media Foundation apre molto più in fretta alcune telecamere senza le trasformazioni hardware
 os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")
+
+
+def mac_app_bundle(executable=None):
+    """0.20.8: True se FreeLaserCut gira dal pacchetto FreeLaserCut.app con la frase della camera nell'Info.plist
+    (NSCameraUsageDescription). Solo così macOS sa a chi chiedere il permesso della camera: dai sorgenti o nelle
+    prove il permesso è del Terminale e Qt non può chiederlo (si prova come sempre, come su Windows e Linux)."""
+    exe = os.path.realpath(executable or sys.executable)
+    marker = ".app" + os.sep + "Contents" + os.sep + "MacOS" + os.sep
+    if marker not in exe:
+        return False
+    plist = os.path.join(exe.split(marker)[0] + ".app", "Contents", "Info.plist")
+    try:
+        import plistlib
+
+        with open(plist, "rb") as fh:
+            return bool(plistlib.load(fh).get("NSCameraUsageDescription"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+if sys.platform == "darwin":
+    # 0.20.8: su macOS il permesso della camera lo chiede FreeLaserCut dal filo della finestra (mac_camera_permission,
+    # solo dal pacchetto .app): OpenCV, che cerca le camere da un altro filo, non può chiederlo (ci prova, non riesce
+    # e la camera non parte); dai sorgenti il permesso è quello già dato al Terminale
+    os.environ.setdefault("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
 import cv2  # noqa: E402
 import numpy as np
 from PySide6.QtCore import QObject, Signal
@@ -216,6 +241,34 @@ def open_capture(index, warm=2.5, first=None, only_first=False, size=None):
     return best[1], best[2], best[3], True
 
 
+def mac_camera_permission(then=None):
+    """0.20.8, solo macOS: il permesso di usare le camere, chiesto con Qt dal filo della finestra.
+    -> "granted", "denied", "asked" (macOS mostra la domanda; alla risposta chiama then(concesso)) o "n/a" (non è un
+    Mac, o Qt non lo sa dire: si prova come sempre)."""
+    if sys.platform != "darwin" or not mac_app_bundle():
+        return "n/a"
+    try:
+        from PySide6.QtCore import QCameraPermission, QCoreApplication, Qt
+    except ImportError:
+        return "n/a"
+    app = QCoreApplication.instance()
+    if app is None:
+        return "n/a"
+    perm = QCameraPermission()
+    st = app.checkPermission(perm)
+    if st == Qt.PermissionStatus.Granted:
+        return "granted"
+    if st == Qt.PermissionStatus.Denied:
+        return "denied"
+
+    def done(*_):
+        if then is not None:
+            then(app.checkPermission(perm) == Qt.PermissionStatus.Granted)
+
+    app.requestPermission(perm, app, done)
+    return "asked"
+
+
 def list_cameras(max_index=6, skip=()):
     """[(indice, etichetta, (w, h), miniatura_bgr)] delle camere che danno immagini.
     `skip`: indici già aperti da FreeLaserCut (non vanno riaperti)."""
@@ -310,6 +363,11 @@ def usb_camera_names():
     try:
         if sys.platform == "win32":
             names = _mf_names()
+        elif sys.platform == "darwin" and threading.current_thread() is not threading.main_thread():
+            # 0.20.8: su macOS QMediaDevices fuori dal filo della finestra fa chiudere il programma (errore di
+            # memoria, visto sul Mac di GitHub): i nomi si leggono prima, dalla finestra (CameraPanel.search)
+            cam_log("nomi delle telecamere: su macOS si leggono solo dal filo della finestra")
+            return {}
         else:
             from PySide6.QtMultimedia import QMediaDevices
 

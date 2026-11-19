@@ -6,7 +6,10 @@ import os as _os
 _os.environ.setdefault("OPENCV_LOG_LEVEL", "OFF")
 _os.environ.setdefault("OPENCV_VIDEOIO_PRIORITY_OBSENSOR", "0")
 
-__version__ = "0.20.6"
+__version__ = "0.20.7"
+# nome della versione (0.20.7: «0.20.VI», scelto da Ale in onore di GTA VI). Il numero vero, quello degli
+# aggiornamenti e dei file, resta __version__: un nome con lettere non si confronta con le versioni di prima
+__codename__ = "0.20.VI"
 __author__ = "fringuello79"
 __license__ = "GPL-3.0-or-later"
 

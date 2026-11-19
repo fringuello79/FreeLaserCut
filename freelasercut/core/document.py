@@ -165,6 +165,9 @@ class CutSettings:
     pause_before: bool = False
     pause_msg: str = ""  # messaggio facoltativo («Gira il pezzo»)
     pause_park: bool = False  # durante la pausa la testa va da parte (angolo dell'homing): piano libero
+    # 0.20.7: riempimento con la potenza che segue il grigio di ogni forma (SVG con riempimenti grigi, come MeerK40t):
+    # nero = Potenza massima, bianco = Potenza minima; le forme senza grigio usano la Potenza massima
+    gray_power: bool = False
 
     @property
     def color(self):
@@ -186,11 +189,30 @@ class CutSettings:
             cs.burn_curve = ""
         cs.pause_before = cs.pause_before is True
         cs.pause_park = cs.pause_park is True
+        cs.gray_power = cs.gray_power is True
         cs.pause_msg = clean_pause_msg(cs.pause_msg)
         from .halftone import clamp_size
 
         cs.halftone_size = clamp_size(cs.halftone_size)
         return cs
+
+
+def clean_gray(v):
+    """0.20.7: grigio di una forma, intero fra 0 (nero) e 255 (bianco); qualunque altra cosa = nessun grigio."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v:
+        return None
+    return int(min(255, max(0, round(v))))
+
+
+def gray_power(cs, gray):
+    """0.20.7: potenza (%) di una forma con il grigio `gray` su un livello con «Potenza dal grigio»:
+    nero = Potenza massima, quasi bianco = Potenza minima, in mezzo in proporzione; bianco pieno = non si incide
+    (come le foto in scala di grigi). Senza grigio: Potenza massima."""
+    if gray is None:
+        return cs.power_max
+    if gray >= 255:
+        return 0.0
+    return cs.power_min + (cs.power_max - cs.power_min) * (1.0 - gray / 255.0)
 
 
 def clean_pause_msg(text):
@@ -220,6 +242,7 @@ class Shape:
         self.hidden = False
         self.role = ""  # 0.18.5: compito speciale della forma («pc1» / «pc2» = crocette di Stampa e taglia)
         self.origin = ""  # 0.20.0: nome del file da cui è stata importata (vuoto = disegnata qui)
+        self.gray = None  # 0.20.7: grigio del riempimento letto dal file (0 = nero … 255 = bianco), None = nessuno
         self._cache = None
 
     # geometria
@@ -273,6 +296,8 @@ class Shape:
             d["role"] = self.role
         if self.origin:  # 0.20.0: file di provenienza, solo se c'è
             d["origin"] = self.origin
+        if self.gray is not None:  # 0.20.7: solo se c'è
+            d["gray"] = self.gray
         return d
 
     def _load_common(self, d):
@@ -285,6 +310,7 @@ class Shape:
         self.role = role if isinstance(role, str) else ""
         origin = d.get("origin", "")
         self.origin = origin if isinstance(origin, str) else ""
+        self.gray = clean_gray(d.get("gray"))
 
     def clone(self, new_id=True):
         c = shape_from_dict(self.to_dict(), getattr(self, "_doc_images", None))

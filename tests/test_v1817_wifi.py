@@ -896,6 +896,12 @@ ctl.connect_port = real_connect
 SimSerial.preset = None
 dw.list_serial_ports = lambda: [(SIM_PORT, "sim", False)]
 
+d = wizard(Pc(platform="darwin"))  # 0.20.7: Mac
+d.press("nocable")
+check("Mac, senza cavo: si dice che lì il passaggio senza cavo non c'è, con «Uso il cavo USB» e «Trova il laser in rete»,"
+      " senza toccare la rete del Mac", to_state(d, "E2_mac") and d.has("cable") and d.has("find") and "Mac" in d.title.text()
+      and not d.pc.calls, (d.state, d.pc.calls))
+d.accept()
 d = wizard(Pc(wifi=False))
 d.press("nocable")
 check("senza cavo, ma il PC non ha il Wi-Fi (è in rete col cavo): si dice subito, con «Uso il cavo USB» e «Trova il laser in rete»",

@@ -118,14 +118,17 @@ check("nesting manuale: compare la finestrella con le istruzioni e la spunta del
 check("una seconda richiesta non ne apre un'altra", w.nest_dialog(mode="manual") is panel)
 for p in TRAP[:3]:
     click(p)
+# 0.20.7: il clic sul piano cade sul pixel più vicino: la tolleranza è mezzo pixel allo zoom di adesso (almeno 0,3 mm).
+# Sul Windows di GitHub, con i caratteri veri, il piano del Banco è più piccolo e mezzo pixel supera 0,3 mm.
+TOL = max(0.3, 0.5 / cv.scale_px() + 0.02)
 check("tre clic: tre punti, e ora l'area si può chiudere", len(panel.tool.pts) == 3 and panel.b_done.isEnabled()
-      and all(abs(a - b) < 0.3 for q, t in zip(panel.tool.pts, TRAP) for a, b in zip(q, t)), panel.tool.pts)
+      and all(abs(a - b) < TOL for q, t in zip(panel.tool.pts, TRAP) for a, b in zip(q, t)), (panel.tool.pts, TOL))
 click((150, 180))  # punto sbagliato
 check("quarto punto messo nel posto sbagliato", len(panel.tool.pts) == 4)
 click((150, 180))
 check("clic sullo stesso punto: lo toglie", len(panel.tool.pts) == 3 and "tolto" in panel.info.text(), panel.info.text())
 click(TRAP[3])
-check("…e si rimette dove serve", len(panel.tool.pts) == 4 and abs(panel.tool.pts[3][0] - 70) < 0.3)
+check("…e si rimette dove serve", len(panel.tool.pts) == 4 and abs(panel.tool.pts[3][0] - 70) < TOL)
 click((300, 300))
 key(Qt.Key_Backspace)
 check("Backspace toglie l'ultimo punto", len(panel.tool.pts) == 4)

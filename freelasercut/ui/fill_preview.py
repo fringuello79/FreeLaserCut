@@ -76,6 +76,27 @@ def regions(entries, layers):
     return out
 
 
+def tones(entries, layers):
+    """0.20.7: livelli Riempimento con «Potenza dal grigio delle forme»: la parte che si vede di ogni forma con il suo
+    grigio, come la incide il G-code (gcode.gray_regions). -> [(grigio 0-255, QPainterPath)], da disegnare sopra le
+    zone del livello. Le forme senza grigio sono nere (potenza massima)."""
+    by_layer = {}
+    for leaf, mapped in entries:
+        if leaf.hidden or isinstance(leaf, ImageShape) or leaf.layer >= 30:
+            continue
+        cs = layers.get(leaf.layer)
+        if cs is None or not cs.show or cs.mode != "fill" or not getattr(cs, "gray_power", False):
+            continue
+        by_layer.setdefault(leaf.layer, []).append((getattr(leaf, "gray", None), _closed_only(mapped)))
+    out = []
+    for seq in by_layer.values():
+        if not any(g is not None for g, _ in seq):
+            continue  # nessuna forma con un grigio: il livello si incide come sempre
+        for gray, polys in gcode.gray_regions(seq):
+            out.append((0 if gray is None else gray, _poly_path(polys, Qt.WindingFill)))
+    return out
+
+
 def _has_open(path):
     """True se il percorso ha un sottopercorso aperto (linea, arco aperto).
     0.20.4: si guardano il primo e l'ultimo punto di ogni sottopercorso (li dà Qt), non tutti gli elementi."""

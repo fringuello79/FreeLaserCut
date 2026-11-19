@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 209. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (15)
+## Wi-Fi, rete e telefono (16)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -20,6 +20,7 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v205_scatti_wifi.py`: PC lenti: misure della selezione, istantanee per Annulla e punti dell'aggancio senza fermare la finestra, scatti dei trascinamenti nel rapporto; Wi-Fi delle Makerbase: «Il laser non trova la rete»
 - `test_v205_scatti_wifi.py` (Banco): PC lenti e Wi-Fi delle Makerbase nell'interfaccia Banco
 - `test_v206_rapporti.py`: Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto
+- `test_v208_mac.py`: Versione per macOS (anteprima): pacchetto con permessi di camera e rete locale, avvio isolato, numba solo su Apple Silicon, permesso della camera chiesto dal filo della finestra, avviso di errore all'avvio
 
 ## Telecamera e guardia fiamme (14)
 
@@ -89,7 +90,7 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v206_xtool_xs.py`: Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori
 - `test_v206_xtool_m2.py`: Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area
 
-## Lavoro e G-code (25)
+## Lavoro e G-code (30)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -115,6 +116,11 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v203_testo.py`: Testo: anteprima del carattere sul testo vero scorrendo l'elenco, spaziatura delle lettere senza salti e delle righe
 - `test_v203_testo.py` (Banco): Testo: anteprima del carattere e spaziature nell'interfaccia Banco
 - `test_v203_misure.py`: Barra delle misure: caselle X, Y, L, A, R e rotazione larghe quanto serve al numero (la prima cifra non esce più tagliata)
+- `test_v207_svg_grigi.py`: SVG con contorno e riempimento separati da soli; riempimenti in toni di grigio con la potenza dal grigio di ogni forma (nero = massima, bianco = non si incide), forme sopra che coprono quelle sotto, fori vuoti; loghi neri, colori e file di prima come prima; anteprima dei toni; salvataggio; traduzioni
+- `test_v207_scia.py`: Scia dell'incisione sul piano: si spegne dal menu Visualizza (ricordato), ridisegno al massimo 4 volte al secondo, nascosta con l'anteprima del lavoro guardando un altro piano senza gli altri piani
+- `test_v207_piano.py`: G-code «del piano» di un programma esterno adattato al laser del profilo (watt, velocità massima, assi, G55, fuori dal piano), solo con le funzioni in prova; il collegamento diretto con la M2 non c'è
+- `test_v207_piano.py` (Banco): G-code «del piano» nell'interfaccia Banco
+- `test_v206_cook.py`: Free Laser Cook (in prova): conto dell'energia e delle passate, G-code a testa alzata con pausa per girare, righe della griglia, firma e giro dell'aroma sul legno; ricette incluse, salvate, esportate e importate; finestra dietro il codice con le accortezze da spuntare
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
 ## Macchina, connessione e profili (40)
@@ -189,7 +195,7 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (27)
+## Interfaccia (32)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -214,6 +220,11 @@ Suite: 198. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_barra.py` (Banco): Barra in basso leggibile nell'interfaccia Banco
 - `test_v203_misure.py` (Banco): Barra delle misure nell'interfaccia Banco: numeri interi senza allargare la barra
 - `test_v206_rapporti.py` (Banco): Rapporti del 18/11 nell'interfaccia Banco
+- `test_v207_svg_grigi.py` (Banco): SVG con riempimenti grigi nell'interfaccia Banco
+- `test_v207_scia.py` (Banco): Scia dell'incisione nell'interfaccia Banco
+- `test_v206_cook.py` (Banco): Free Laser Cook nell'interfaccia Banco
+- `test_v207_barra.py`: Barra in alto personalizzabile: i comandi che usi di più dopo quelli di sempre, nell'ordine scelto, ricordati; finestra con Cerca, Aggiungi, Togli, Su, Giù, Svuota; tasto destro sulle barre
+- `test_v207_barra.py` (Banco): Barra personalizzabile: nel Banco la voce non c'è
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco

@@ -1,5 +1,43 @@
 # Novità di FreeLaserCut
 
+## 0.20.7 «0.20.VI» — 19/11/2026
+La prima versione per Mac (anteprima, cerchiamo collaudatori); disegni SVG con contorno e riempimento separati da soli e riempimenti in toni di grigio che cambiano la potenza, come in MeerK40t; la barra in alto con i comandi che usi di più; la scia dell'incisione che si spegne; ringraziamenti iniziali più fitti. Il nome «0.20.VI» è in onore di GTA VI; il numero della versione resta 0.20.7.
+
+**FreeLaserCut per Mac (anteprima).** Nella stessa pagina delle Release, insieme a Windows e Linux, ci sono due file .dmg: uno per i Mac con Apple Silicon (M1, M2, M3, M4…) e uno per i Mac Intel, da macOS 13 in poi. Si apre il .dmg e si trascina FreeLaserCut in Applicazioni. Il programma non è firmato da Apple: al primo avvio macOS lo blocca, e si sblocca da *Impostazioni di Sistema → Privacy e sicurezza → Apri comunque* (lo spiega il LEGGIMI nel .dmg).
+- È lo stesso programma, con le stesse prove automatiche, fatte anche sui Mac di GitHub; **nessuno l'ha ancora provato con un laser vero**: chi ha un Mac ci aiuta molto provandolo e mandando un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
+- La camera chiede il permesso la prima volta (FreeLaserCut aspetta la risposta e poi riparte da solo); i nomi delle camere si leggono dalla finestra (da un altro filo macOS chiudeva il programma).
+- Con la finestra coperta o ridotta a icona macOS rallenta i programmi «in pausa» (App Nap): per FreeLaserCut è spento, così durante un lavoro i comandi al laser arrivano in tempo.
+- Sui Mac Intel alcune funzioni su foto grandi e vettorizzazione sono più lente (manca una libreria che lì non esiste più).
+- Il primo passaggio del Wi-Fi senza cavo sul Mac non c'è ancora: lo dice la finestra, con il cavo USB o «Trova il laser in rete» per i laser già nella rete di casa.
+- Sul Mac l'aggiornamento si fa a mano: *Aiuto → Cerca aggiornamenti…* dice che c'è una versione nuova e apre il sito, da dove si scarica il .dmg.
+- Nuova prova automatica: `tests/test_v208_mac.py` (Mac simulato dove serve, su qualsiasi sistema).
+
+**Barra in alto personalizzabile** (richiesta di Ale). *Visualizza → Personalizza la barra…*, oppure il tasto destro su una barra: a sinistra cerchi i comandi, con *Aggiungi* o un doppio clic li metti nella barra in alto, dopo quelli di sempre, e con *Su* e *Giù* scegli l'ordine (al massimo 24). La scelta resta ai prossimi avvii. Solo nell'interfaccia classica (il Banco ha le sue isole). Nuova prova automatica: `tests/test_v207_barra.py` (26 controlli; 4 guasti messi apposta, tutti presi).
+
+**Ringraziamenti iniziali più fitti** (richiesta di Ale). Sulla schermata di avvio i nomi sono un po' più piccoli (da 12 a 22 pixel invece che da 15 a 30), sempre di grandezze diverse, e più fitti: 12 righe piene, senza grandi spazi fra un nome e l'altro, come una trama; l'elenco si ripete. L'incisione dura sempre circa 3 secondi. Con caratteri molto larghi o strani la trama si allenta da sola invece di rompersi.
+
+**SVG con contorno e riempimento, riempimenti grigi** (richiesta di France_o, abituato a Inkscape e MeerK40t). In Inkscape ogni figura può avere un contorno colorato e un riempimento grigio: FreeLaserCut prendeva solo il colore del contorno e ignorava il riempimento. Ora, aprendo o importando un SVG:
+- una figura chiusa con un **riempimento grigio o nero** diventa **due forme**: il contorno resta una linea sul livello del suo colore (un contorno nero va su C01), il riempimento va su **C00** (Riempimento) con il suo grigio. La trasparenza schiarisce il grigio, come su un foglio bianco;
+- su C00 si accende da sola la nuova opzione **«Potenza dal grigio delle forme»** (impostazioni del livello, scheda *Riempimento*): ogni forma si incide con la potenza del suo grigio, **nero = Potenza massima**, grigi in proporzione fino alla **Potenza minima**, il **bianco non si incide**. Dove due forme si coprono conta quella sopra, come nel disegno; i fori restano vuoti;
+- con la *vista riempita* il piano mostra ogni forma con il suo grigio;
+- restano **come prima**: i loghi tutti neri (contorno e riempimento neri: una forma sola su C00), i riempimenti colorati, le linee aperte, i colori uguali a quelli dei livelli (SVG esportati da FreeLaserCut o da altri programmi laser). Senza l'opzione, o senza forme grigie, il G-code è identico a prima. Se C00 non è in Riempimento l'opzione non si accende da sola.
+- Nuova prova automatica: `tests/test_v207_svg_grigi.py` (43 controlli, Classica e Banco; 6 guasti messi apposta, tutti presi).
+- **Da provare sul programma vero:** il file di Inkscape di France_o (contorni blu e riempimenti grigi), inciso su legno.
+
+**G-code «del piano» (fra le funzioni in prova).** *File → Esegui un file G-code* riconosce un G-code scritto da un programma esterno sul piano di FreeLaserCut (riga `; FreeLaserCut-piano`, coordinate in mm con l'origine in basso a sinistra, potenza da 0 a 1000) e lo adatta al laser del profilo: assi, origine e sistema assoluto come i lavori di FreeLaserCut; potenza riportata ai watt del laser se il file dice per quanti watt è pensata (40 % di 10 W = 10 % di 40 W, mai oltre il 100 %); sopra la velocità massima della macchina rallenta e abbassa la potenza nella stessa proporzione; spostamenti a laser spento fuori dal piano portati sul bordo; una parte da incidere fuori dal piano ferma tutto. Quello che ha fatto è scritto nella richiesta di conferma.
+- Prova automatica: `tests/test_v207_piano.py` (19 controlli, Classica e Banco).
+
+**Scia dell'incisione: si può spegnere** (richiesta di Ale). Durante il lavoro il piano mostra in arancione quello che il laser ha già inciso. Su lavori lunghi (foto, riempimenti grandi) quel disegno che cresce di continuo appesantiva il programma, e si vedeva anche lavorando su un altro piano.
+- *Visualizza → Scia dell'incisione sul piano*: spenta, la scia non si disegna e non si raccoglie (la testa del laser si vede e si muove come sempre); la scelta resta anche al riavvio. Il lavoro non cambia.
+- Accesa, si ridisegna al massimo 4 volte al secondo invece che a ogni aggiornamento della macchina.
+- Mentre il laser incide un piano e tu ne guardi un altro con *Mostra gli altri piani* spento, l'anteprima e la scia del lavoro in corso non si vedono; tornando sul piano del lavoro, o con *Mostra gli altri piani* acceso, si rivedono (con tutto quello inciso nel frattempo).
+- Nuova prova automatica: `tests/test_v207_scia.py` (24 controlli, Classica e Banco; 7 guasti messi apposta, tutti presi).
+
+**Barra in basso ferma anche su Windows.** Le scritte della posizione della testa e di velocità e potenza tengono una larghezza fissa, così i numeri che cambiano non spostano il resto della barra. La larghezza era misurata con un carattere diverso da quello con cui la scritta si disegna: su alcuni Windows, con numeri più corti, la scritta si stringeva e il resto della barra saltava di lato. Ora si misura con il carattere vero.
+- Le prove automatiche su Windows erano rosse da prima della 0.20.0 per un motivo del server di GitHub (nessun carattere installato nella modalità senza schermo): corretto, e ora sono verdi.
+
+**Creality Falcon A1 Pro 20W** nell'elenco dei modelli (domanda arrivata su YouTube): area 358 × 268 mm, 600 mm/s; collegando la macchina la scheda si riconosce e l'area vera si legge dalla scheda. Il modulo a infrarosso da 2 W non è ancora provato.
+
 ## 0.20.6 — 18/11/2026
 La foto ritagliata con una forma si comporta come la sola parte che si vede, e si ritaglia anche con il laser in un comando; in Prepara foto la forma si vede sull'originale e il riquadro del ritaglio si sposta e si allarga; ingranaggi con i denti veri.
 

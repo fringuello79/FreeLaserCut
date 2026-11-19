@@ -197,6 +197,7 @@ class FillItem(QGraphicsItem):
         super().__init__()
         self.canvas = canvas
         self.regions = []
+        self.tones = []  # 0.20.7: toni dei livelli con la potenza dal grigio [(grigio, percorso)]
         self._key = None
         self.setZValue(-1)
         self.setFlag(QGraphicsItem.ItemHasNoContents, True)  # la disegna WorldItem, come le forme
@@ -207,7 +208,8 @@ class FillItem(QGraphicsItem):
 
     def _layers_key(self):
         cv = self.canvas
-        return (cv.filled_view, tuple(sorted((k, c.mode, c.show, c.fill_grouping) for k, c in cv.editor.doc.layers.items())))
+        return (cv.filled_view, tuple(sorted((k, c.mode, c.show, c.fill_grouping, getattr(c, "gray_power", False))
+                                             for k, c in cv.editor.doc.layers.items())))
 
     def ensure(self):
         """Ricalcola le zone se serve; ritorna le zone [(livello, percorso)]."""
@@ -223,6 +225,7 @@ class FillItem(QGraphicsItem):
                     if it is not None:
                         entries += [(leaf, mapped) for leaf, _tf, mapped in it._leaf_paths()]
             self.regions = fill_preview.regions(entries, cv.editor.doc.layers) if entries else []
+            self.tones = fill_preview.tones(entries, cv.editor.doc.layers) if entries else []
             self._key = key
         return self.regions
 
@@ -248,6 +251,11 @@ class FillItem(QGraphicsItem):
                 fc.setAlpha(70 if (cs is None or cs.output) else 30)
                 painter.setBrush(fc)
                 last = idx
+            painter.drawPath(path)
+        for gray, path in self.tones:  # 0.20.7: sopra la zona del livello, il grigio di ogni forma (più scuro = più potenza)
+            if visible is not None and not geom.rect_overlaps(path.controlPointRect(), visible):
+                continue
+            painter.setBrush(QColor(gray, gray, gray, 170))
             painter.drawPath(path)
         painter.restore()
 
@@ -541,6 +549,17 @@ class Canvas(QGraphicsView):
         self._trail_item.setZValue(900)
         self.scene().addItem(self._trail_item)
         self._last_burn = None
+        # 0.20.7 (Ale, 18/11): la scia dell'incisione si può spegnere (su lavori lunghi il tracciato che cresce a ogni
+        # stato appesantiva il programma) e si ridisegna al massimo 4 volte al secondo invece che a ogni stato
+        self.show_trail = True
+        self._trail_dirty = False
+        self._trail_timer = QTimer(self)
+        self._trail_timer.setSingleShot(True)
+        self._trail_timer.setInterval(250)
+        self._trail_timer.timeout.connect(self._flush_trail)
+        # 0.20.7: anteprima e scia del lavoro in corso nascoste quando si guarda un altro piano con «Mostra gli altri
+        # piani» spento (prima si vedevano lo stesso)
+        self._job_overlay = True
         self._preview_items = []
         self._img_cache = {}
         # sfondo (piano + griglia) e righelli: cambiano solo con zoom, spostamento, dimensioni e opzioni di vista,
@@ -1691,13 +1710,15 @@ class Canvas(QGraphicsView):
         burning = state == "Run" and power > 0
         self._head.set_active(burning)
         new = QPointF(x, -y)
-        if burning:
+        if burning and self.show_trail:
             if self._last_burn is None:
                 self._trail_path.moveTo(new)
             else:
                 self._trail_path.lineTo(new)
             self._last_burn = new
-            self._trail_item.setPath(self._trail_path)
+            self._trail_dirty = True
+            if not self._trail_timer.isActive():
+                self._trail_timer.start()
         else:
             self._last_burn = None
         self._head.setPos(new)
@@ -1826,7 +1847,31 @@ class Canvas(QGraphicsView):
     def clear_trail(self):
         self._trail_path = QPainterPath()
         self._last_burn = None
+        self._trail_dirty = False
+        self._trail_timer.stop()
         self._trail_item.setPath(self._trail_path)
+
+    def _flush_trail(self):
+        if self._trail_dirty:
+            self._trail_dirty = False
+            self._trail_item.setPath(self._trail_path)
+
+    def set_trail_shown(self, on):
+        """0.20.7: scia dell'incisione accesa o spenta. Spenta non si disegna e non si raccoglie (niente lavoro)."""
+        self.show_trail = bool(on)
+        if not self.show_trail:
+            self.clear_trail()
+        self._trail_item.setVisible(self.show_trail and self._job_overlay)
+
+    def set_job_overlay(self, on):
+        """0.20.7: anteprima e scia del lavoro visibili (False mentre si guarda un altro piano senza gli altri piani)."""
+        self._job_overlay = bool(on)
+        self._trail_item.setVisible(self.show_trail and self._job_overlay)
+        for it in self._preview_items:
+            it.setVisible(self._job_overlay)
+
+    def job_overlay_shown(self):
+        return self._job_overlay
 
     def hide_head(self):
         self._head.setVisible(False)
@@ -1877,6 +1922,7 @@ class Canvas(QGraphicsView):
         c.setPen(cpen("#FF8A3D", 1.2, alpha=220))
         for it in (t, c):
             it.setZValue(800)
+            it.setVisible(self._job_overlay)
             self.scene().addItem(it)
         self._preview_items = [t, c]
         self.set_preview_offset(offset)
@@ -1900,6 +1946,7 @@ class Canvas(QGraphicsView):
         it.setScale(w / nx)
         it.setData(0, (x0, y0 + h))  # angolo in alto a sinistra in coordinate piano (prima dello spostamento)
         it.setZValue(800)
+        it.setVisible(self._job_overlay)
         self.scene().addItem(it)
         self._preview_items = [it]
         self.set_preview_offset(offset)

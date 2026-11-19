@@ -2,6 +2,7 @@
 """Aggiornamento dal programma, parte visibile: permesso al primo avvio, controllo una volta al giorno,
 Aiuto → Cerca aggiornamenti…, finestra con le novità, scaricamento con avanzamento e installazione."""
 import os
+import sys
 import threading
 import time
 
@@ -203,6 +204,12 @@ class UpdateManager(QObject):
             go.clicked.connect(lambda: (setattr(d, "choice", "install"), d.accept()))
         elif self.mode == "store":
             info = QLabel(tr("Questa copia di FreeLaserCut viene dal Microsoft Store: l'aggiornamento arriva dallo Store."))
+        elif sys.platform == "darwin":  # 0.20.7: Mac (anteprima): il .dmg nuovo si installa a mano
+            info = QLabel(tr("Sul Mac l'aggiornamento si fa a mano: scarica il nuovo .dmg dal sito, aprilo e trascina "
+                             "FreeLaserCut in Applicazioni al posto di quello vecchio. Progetti, profili e materiali "
+                             "restano."))
+            site = bb.addButton(tr("Apri il sito"), QDialogButtonBox.ActionRole)
+            site.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(updater.SITE)))
         else:
             info = QLabel(tr("Questa copia non è stata installata con l'installatore per Windows né con l'AppImage per "
                              "Linux: scarica la nuova versione dal sito (oppure aggiorna con git)."))
