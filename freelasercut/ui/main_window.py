@@ -397,6 +397,9 @@ class MainWindow(QMainWindow):
             "relief": A(tr("Rilievo 3D su tavola (in prova)…"), self.relief_dialog, None, "sculpt",
                         tr("Scolpisce la tavola intera a strati, a testa ferma, da un'immagine in grigi o da un modello "
                            "3D, con il test di profondità obbligatorio")),
+            "cook": A(tr("Free Laser Cook (in prova)…"), self.cook_dialog, None, "chef_hat",
+                      tr("Cuoce un alimento a laser sfocato: ricette con dose per passata, passate, giro, griglia, "
+                         "firma e aroma del legno, con le dovute accortezze")),
             "print_cut": A(tr("Stampa e taglia…"), self.print_cut_dialog, None, "frame",
                            tr("Taglia attorno a qualcosa di già stampato: due crocette stampate con il disegno dicono "
                               "al laser dove sta il foglio")),
@@ -903,7 +906,7 @@ class MainWindow(QMainWindow):
 
     # 0.19.2: gli strumenti che non sono «attrezzi da disegno», nell'ordine del menu Strumenti. Lo stesso elenco fa il
     # menu del pulsante «Strumenti» nella barra di sinistra (MakerHub ha il suo pulsante, subito sotto)
-    TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "print_cut", "-", "variables",
+    TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "cook", "print_cut", "-", "variables",
                   "photo", "trace")
 
     def _build_toolbars(self):
@@ -2759,6 +2762,7 @@ class MainWindow(QMainWindow):
         from .. import admin
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
+        self.acts["cook"].setVisible(admin.unlocked(self.qs))  # 0.20.7: Free Laser Cook, in prova
         self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
@@ -2788,6 +2792,29 @@ class MainWindow(QMainWindow):
             return True
         QMessageBox.warning(self, tr("Funzioni in prova"), tr("Codice non valido."))
         return False
+
+    # ================================================================ Free Laser Cook (0.20.7, in prova)
+    def cook_dialog(self, *_):
+        """Strumenti → Free Laser Cook (solo con le funzioni in prova sbloccate)."""
+        from .. import admin
+
+        if not admin.unlocked(self.qs):
+            return None
+        if getattr(self, "_cook_dlg", None) is not None:
+            self._cook_dlg.raise_()
+            self._cook_dlg.activateWindow()
+            return self._cook_dlg
+        from .dialogs_cook import CookDialog
+
+        head = self.canvas.head_pos()
+        dlg = CookDialog(self.profile, (head.x(), head.y()) if head is not None else None, self, self.qs)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.action.connect(lambda kind, job: self._test_job_action(kind, job, "free-laser-cook"))
+        dlg.destroyed.connect(lambda *_: setattr(self, "_cook_dlg", None))
+        self._cook_dlg = dlg
+        dlg.show()
+        return dlg
 
     # ================================================================ MakerHub (0.18.14)
     def makerhub_open(self, *_):

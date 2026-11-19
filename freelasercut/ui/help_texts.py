@@ -287,6 +287,13 @@ HELP = {
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "
         "di gradini da misurare col calibro. Profondità al massimo 5 mm e sempre 2 mm sotto lo spessore della tavola."),
                None),
+    "cook": (tr("Free Laser Cook (in prova)"), tr(
+        "Cuoce una fettina o una verdura con il laser, per gioco e con le dovute accortezze: il laser non è un "
+        "fornello. Scegli la ricetta e la cottura; il programma calcola le passate a testa alzata (fuori fuoco, "
+        "veloci e ripetute), la pausa per girare il cibo, le righe della griglia, la firma e, con il cibo su una "
+        "tavoletta di legno massello, il giro che lo profuma di fumo. Le ricette si salvano, si esportano e si "
+        "importano. Prima di accendere si spuntano le accortezze; quando è cotto lo dice il termometro a sonda."),
+             None),
     "makerhub_site": (tr("Strumenti MakerHub"), tr(
         "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account), dove scegli uno "
         "dei loro strumenti per il laser: Dima Lab (dime per posizionare gli oggetti), Forma Lab (scatole, espositori, "
