@@ -66,7 +66,7 @@ PASSES = ((4, 4, 8), (4, 3, 16), (3, 3, 28), (3, 2, 44), (2, 2, 70), (2, 0, 10 *
 
 
 def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2, 3, 4, 5), limit=8000, ok=None,
-              fallback=True):
+              fallback=True, passes=PASSES):
     """Decide, riga per riga, QUANTI nomi mettere e con che GRANDEZZA (Ale, 16/11: grandezze irregolari, alternate,
     lo stesso nome quando ricompare ha una grandezza diversa, nomi sempre nell'ordine dell'elenco).
     Ogni riga ha almeno due nomi, così va sempre da un bordo all'altro; la sua grandezza è al massimo quella a cui
@@ -140,7 +140,7 @@ def plan_rows(n, rows, fit, size_min, size_max, total_max, first_max, counts=(2,
         rec(0, 0, [], {}, 0)
         return list(found) or None
 
-    for min_diff, step, slack in PASSES:
+    for min_diff, step, slack in passes:
         got = search(min_diff, step, slack)
         if got:
             return got

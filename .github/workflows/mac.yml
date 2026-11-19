@@ -107,8 +107,9 @@ jobs:
         run: |
           rc=0
           for t in $SOLO; do
-            echo "=== $t"; python tests/$t || rc=1
-            echo "=== $t banco"; python tests/$t banco || rc=1
+            # preferenze pulite per ogni prova, come in run_tests.py (sul Mac starebbero in comune in ~/Library)
+            echo "=== $t"; FLC_SETTINGS_INI="$(mktemp -d)/prova.ini" python tests/$t || rc=1
+            echo "=== $t banco"; FLC_SETTINGS_INI="$(mktemp -d)/prova.ini" python tests/$t banco || rc=1
           done
           exit $rc
       - name: Prove

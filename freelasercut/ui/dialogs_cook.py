@@ -297,7 +297,11 @@ class CookDialog(QDialog):
         self.reload(str(self.qs.value("cook/recipe", "") or "manzo_fettina"))
         sb = scroll.verticalScrollBar().sizeHint().width()
         scroll.setMinimumWidth(host.minimumSizeHint().width() + sb + 2 * scroll.frameWidth() + 4)
-        self.resize(max(1120, scroll.minimumWidth() + 480), 800)
+        want_w, want_h = max(1120, scroll.minimumWidth() + 480), 800
+        scr = self.screen().availableGeometry() if self.screen() is not None else None
+        if scr is not None:  # 0.20.7: mai più grande dello schermo (sul Mac i caratteri sono più larghi)
+            want_w, want_h = min(want_w, scr.width()), min(want_h, scr.height())
+        self.resize(want_w, want_h)
 
     # ------------------------------------------------------------------ ricette
     def _start_watts(self):

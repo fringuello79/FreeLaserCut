@@ -899,6 +899,7 @@ for fam in fams:
             if (splash.repeats_same_size(r_) or not full(r_) or r_[-1].bottom > splash.BAND_TOP
                     or any(r.items[i][1] - (r.items[i - 1][1] + r.items[i - 1][2]) < 4.9 for r in r_ for i in range(1, len(r.items), 2))
                     or len({r.px for r in r_}) < 3
+                    or any(abs(a_.px - b_.px) < 2 for a_, b_ in zip(r_, r_[1:]))  # 0.20.7: righe vicine diverse
                     or [n for r in r_ for n in r.names()][:len(thanks.NAMES)] != list(thanks.NAMES)):
                 wide_bad.append((fam, k, [(r.px, len(r.names()), r.alone) for r in r_]))
 splash.FONT_FAMILY = fam0

@@ -157,9 +157,16 @@ def name_rows(names=None, lead=None, stretch=1.0):
 
     room = int((BAND_TOP - 5.0 - TOP0) / LEADING)  # somma massima delle grandezze che sta sopra la fascia in basso
     plan = None
-    for fill in FILLS:  # con caratteri molto larghi o strani una trama così fitta può non esserci: si allenta
-        plan = thanks.plan_rows(len(names), ROWS, fit, SIZE_MIN, SIZE_MAX, room, FIRST_MAX, counts=COUNTS,
-                                ok=dense(fill) if fill else None, fallback=not fill)
+    # con caratteri molto larghi o strani una trama così fitta può non esserci: si allenta, prima la pienezza delle
+    # righe (FILLS) tenendo diverse le grandezze di due righe vicine, poi anche quella (tutte le PASSES)
+    strict = tuple(p_ for p_ in thanks.PASSES if p_[1] >= 2)
+    for passes in (strict, thanks.PASSES):
+        for fill in FILLS:
+            last = passes is thanks.PASSES and not fill
+            plan = thanks.plan_rows(len(names), ROWS, fit, SIZE_MIN, SIZE_MAX, room, FIRST_MAX, counts=COUNTS,
+                                    ok=dense(fill) if fill else None, fallback=last, passes=passes)
+            if plan:
+                break
         if plan:
             break
     sizes = [px for _k, px in plan]
