@@ -4000,5 +4000,12 @@
  "Posizione della testa non ancora nota: aspetta un attimo o fai l'homing": "Position de la tête pas encore connue : attends un instant ou fais le homing",
  "Sistemato: lo 0 è {0}. Se vuoi, controllalo con la prova delle frecce (Impostazioni → Configurazione guidata della macchina).": "Corrigé : le 0 est {0}. Si tu veux, vérifie-le avec le test des flèches (Paramètres → Configuration guidée de la machine).",
  "<b>Scegli un angolo</b> (o «Non lo so») per andare avanti.": "<b>Choisis un coin</b> (ou « Je ne sais pas ») pour continuer.",
- "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "La tête est dans le coin du homing : d'ici cette flèche la pousserait contre la fin de course, donc je ne l'envoie pas et elle ne compte pas comme test. Utilise d'abord la flèche opposée."
+ "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "La tête est dans le coin du homing : d'ici cette flèche la pousserait contre la fin de course, donc je ne l'envoie pas et elle ne compte pas comme test. Utilise d'abord la flèche opposée.",
+ "Acceso «Potenza dal grigio» sul livello: ogni forma si incide con la potenza del suo grigio": "« Puissance selon le gris » activée sur le calque : chaque forme est gravée avec la puissance de son gris",
+ "Grigio": "Gris",
+ "Grigio del riempimento: 0% = nero (Potenza massima), 100% = bianco (non si incide), in mezzo la potenza va in proporzione fino alla Potenza minima. «nessuno» = Potenza massima. Vale con «Potenza dal grigio» acceso nelle impostazioni del livello (si accende da solo).": "Gris du remplissage : 0 % = noir (Puissance max), 100 % = blanc (non gravé), entre les deux la puissance va proportionnellement jusqu'à la Puissance min. « aucun » = Puissance max. Valable avec « Puissance selon le gris » activée dans les réglages du calque (elle s'active toute seule).",
+ "Grigio della forma": "Gris de la forme",
+ "diversi": "différents",
+ "non si incide": "pas gravé",
+ "potenza {0:.0f}%": "puissance {0:.0f} %"
 }

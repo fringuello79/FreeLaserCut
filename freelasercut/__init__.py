@@ -6,9 +6,9 @@ import os as _os
 _os.environ.setdefault("OPENCV_LOG_LEVEL", "OFF")
 _os.environ.setdefault("OPENCV_VIDEOIO_PRIORITY_OBSENSOR", "0")
 
-__version__ = "0.21.0"
-# nome della versione (0.20.7, 0.20.8 e 0.20.9: «0.20.VI», scelto da Ale in onore di GTA VI; 0.21.0: nessun nome, si
-# vede il numero). Si vede sulla schermata di avvio
+__version__ = "0.21.1"
+# nome della versione (0.20.7, 0.20.8 e 0.20.9: «0.20.VI», scelto da Ale in onore di GTA VI; 0.21.0 e 0.21.1: nessun
+# nome, si vede il numero). Si vede sulla schermata di avvio
 # e nella barra del titolo. Il numero vero, quello degli aggiornamenti, dei file e dei rapporti, resta __version__:
 # un nome con lettere non si confronta con le versioni di prima
 __codename__ = ""

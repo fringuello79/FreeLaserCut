@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 229. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -94,7 +94,7 @@ Suite: 229. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v211_foto.py`: Prepara foto anche sulla foto ritagliata con una forma: menu in alto, tasto destro e pannello Proprietà
 - `test_v211_foto.py` (Banco): Prepara foto sulla foto ritagliata nell'interfaccia Banco
 
-## Lavoro e G-code (34)
+## Lavoro e G-code (35)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -129,6 +129,7 @@ Suite: 229. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v210_disegno.py`: Linea tratteggiata, Ritaglia con la forma e al piano, rampa dei riempimenti (timbri), Z che scende a ogni passata, Separa sui tracciati con più figure e Scomponi sui gruppi
 - `test_v210_disegno.py` (Banco): Tratteggio, ritaglio, rampa, Z per passata, Separa e Scomponi nell'interfaccia Banco
 - `test_v210_ripresa.py`: Lavoro in corso salvato sul disco e ripreso dopo la riapertura del programma, Scarta, file rovinati; Parti da qui nell'anteprima
+- `test_v211_grigio.py`: Grigio delle forme scelto nel pannello Proprietà: riga Grigio, tono e potenza, più forme insieme, gruppi, Annulla, G-code e salvataggio
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
 ## Macchina, connessione e profili (46)
@@ -180,7 +181,7 @@ Suite: 229. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
-## Disegno e modifica (27)
+## Disegno e modifica (28)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -207,6 +208,7 @@ Suite: 229. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v204_piano_veloce.py` (Banco): Editor veloce con i disegni complessi nell'interfaccia Banco
 - `test_v204_piano_veloce.py` (scala125): Editor veloce con i disegni complessi su uno schermo al 125%
 - `test_v209_disegno.py`: Guide dai righelli (aggancio, salvate nel progetto, piano ruotato), deformazione a 4 punti (prospettiva) e a 16 punti (griglia), larghezza delle fessure degli incastri
+- `test_v211_grigio.py` (Banco): Grigio delle forme nell'interfaccia Banco
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 

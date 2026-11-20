@@ -1424,6 +1424,7 @@ class PropertiesPanel(QScrollArea):
             lab = QLabel(tr("Perimetro totale {0:.1f} mm · area {1:.1f} mm²\n{2} chiuse · {3} aperte · {4} nodi", inf['perimeter'], inf['area'], inf['closed'], inf['open'], inf['nodes']))
             lab.setObjectName("muted")
             self.lay.addWidget(lab)
+            self._gray_row(self.ed.selection)  # 0.21.1: il grigio anche su più forme insieme
             return
         if getattr(self.cv.tool, "name", "") == "special":
             self._special_tool()
@@ -2014,7 +2015,60 @@ class PropertiesPanel(QScrollArea):
             pb.clicked.connect(self.photo_requested.emit)
             self.lay.addWidget(pb)
 
+    # ---- 0.21.1 (France_o): il grigio di una forma, scelto qui dentro (prima arrivava solo dai file SVG)
+    def _gray_row(self, shapes):
+        """Riga «Grigio» per le forme su un livello in Riempimento: 0% nero … 100% bianco, con il tono e la potenza che
+        ne viene. Il primo grigio dato acceso anche «Potenza dal grigio» sul livello."""
+        targets = self.ed.gray_targets(shapes)
+        if not targets:
+            return
+        f = self._form()
+        vals = {t.gray for t in targets}
+        spin = QSpinBox()
+        spin.setRange(-1, 100)
+        spin.setSuffix(" %")
+        spin.setSpecialValueText(tr("diversi") if len(vals) > 1 else tr("nessuno"))
+        one = next(iter(vals)) if len(vals) == 1 else None
+        spin.setValue(-1 if one is None else (one * 100 + 127) // 255)  # 0–255 → 0–100%, arrotondato
+        spin.setToolTip(tr("Grigio del riempimento: 0% = nero (Potenza massima), 100% = bianco (non si incide), in mezzo "
+                           "la potenza va in proporzione fino alla Potenza minima. «nessuno» = Potenza massima. Vale con "
+                           "«Potenza dal grigio» acceso nelle impostazioni del livello (si accende da solo)."))
+        swatch = QLabel()
+        swatch.setFixedSize(18, 18)
+        info = QLabel()
+        info.setObjectName("muted")
+        self.gray_spin = spin
+
+        def show(v):
+            g = None if v < 0 else (v * 255 + 50) // 100  # 0–100% → 0–255, 50% = 128
+            col = "transparent" if g is None else f"rgb({g},{g},{g})"
+            swatch.setStyleSheet(f"background:{col}; border:1px solid {C['border']}; border-radius:3px;")
+            cs = self.ed.doc.layers.get(targets[0].layer)
+            if cs is None or (v < 0 and len(vals) > 1):  # forme con grigi diversi: nessuna potenza sola da dire
+                info.setText("")
+                return
+            from ..core.document import gray_power
+
+            pw = gray_power(cs, g)  # senza grigio: Potenza massima
+            info.setText(tr("potenza {0:.0f}%", pw) if pw > 0 else tr("non si incide"))
+
+        def changed(v):
+            show(v)
+            if not self._typing.isActive():
+                self.ed.begin(tr("Grigio della forma"))
+            turned = self.ed.apply_gray(None if v < 0 else (v * 255 + 50) // 100, targets)
+            if turned:
+                self.ed.message.emit(tr("Acceso «Potenza dal grigio» sul livello: ogni forma si incide con la potenza "
+                                        "del suo grigio"))
+            self.ed.preview_changed()
+            self._typing.start()
+
+        show(spin.value())
+        spin.valueChanged.connect(changed)
+        f.addRow(tr("Grigio"), row(spin, swatch, info))
+
     def _common(self, s):
+        self._gray_row([s])
         self.lay.addWidget(hline())
         inf = ops.info([s])
         b = s.bounds()

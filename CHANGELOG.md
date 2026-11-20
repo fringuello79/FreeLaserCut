@@ -1,7 +1,7 @@
 # Novità di FreeLaserCut
 
-## 0.21.1 — in lavorazione
-L'angolo dello 0 che non si perde più (Creality Falcon A1 e tutte le macchine con l'homing in un angolo diverso da davanti a sinistra), il joystick che segue la mano senza ritardo, la freccia «Continuo» che non resta più muta al bordo.
+## 0.21.1 — 20/11/2026
+L'angolo dello 0 che non si perde più (Creality Falcon A1 e tutte le macchine con l'homing in un angolo diverso da davanti a sinistra), il joystick che segue la mano senza ritardo, il grigio delle forme scelto dentro FreeLaserCut, *Prepara foto* anche sulla foto ritagliata, la freccia «Continuo» che non resta più muta al bordo.
 
 **Angolo dello 0 e assi sempre d'accordo** (rapporti di Sengir sul Falcon A1). Nella configurazione guidata si sceglie l'angolo dove va la testa con l'homing; poi la prova delle frecce dice il verso degli assi. Se le due cose non andavano d'accordo vinceva in silenzio la prova delle frecce: lo 0, il pallino verde e il ritorno a fine lavoro finivano nell'angolo sbagliato, e sul Falcon A1 la freccia «su» mandava la testa verso il davanti. Ora:
 - **se il profilo dice due cose diverse**, al collegamento (e dopo l'homing) compare un avviso, una volta sola, che chiede dove va la testa quando fai l'homing: un clic sulla risposta sistema gli assi e il profilo;
@@ -16,7 +16,11 @@ L'angolo dello 0 che non si perde più (Creality Falcon A1 e tutte le macchine c
 
 **Prepara foto anche sulla foto ritagliata con una forma** (France_o: «quando ritagli una foto, poi non si può più entrare nel menù prepara foto»). La foto ritagliata con *Ritaglia la foto con la forma* è un gruppo (la foto e la sua sagoma): *Prepara foto* la riconosceva solo dal menu in alto. Ora c'è anche nel menu del tasto destro e, con un pulsante, nel pannello *Proprietà*, senza doverla prima separare.
 
-Nuove prove automatiche: `tests/test_v211_foto.py` (10 controlli), `tests/test_v211_falcon.py` (59 controlli) e `tests/test_v211_joystick.py` (37 controlli, con una scheda finta a tempo finto con code da 15, 63 e 127 posti e con il simulatore che ora può mettere i jog in coda come le schede vere), Classica e Banco; 15 guasti messi apposta, tutti presi.
+**Il grigio delle forme si sceglie dentro FreeLaserCut** (domanda di France_o). Dalla 0.20.7 i riempimenti grigi degli SVG si incidono con la potenza del loro grigio (nero = Potenza massima, il bianco non si incide), ma il grigio arrivava solo dal file. Ora nel pannello *Proprietà* di una forma su un livello in Riempimento c'è la riga **Grigio**: da 0% (nero) a 100% (bianco), con il tono accanto e la potenza che ne viene; «nessuno» = Potenza massima. Vale anche per più forme selezionate insieme (se hanno grigi diversi dice «diversi») e per le forme dentro i gruppi. Il primo grigio dato accende da solo «Potenza dal grigio» nelle impostazioni del livello. Più scatti di fila sono un solo passo di Annulla.
+
+**Prove su Windows di nuovo verdi.** Dalla 0.20.9 sei controlli sulle porte di Linux scritte a mano (/dev/ttyCH341USB0) giravano anche sui server Windows di GitHub, dove /dev non c'è, e le davano rosse: ora su Windows si prova la porta COM.
+
+Nuove prove automatiche: `tests/test_v211_grigio.py` (24 controlli), `tests/test_v211_foto.py` (10 controlli), `tests/test_v211_falcon.py` (61 controlli) e `tests/test_v211_joystick.py` (37 controlli, con una scheda finta a tempo finto con code da 15, 63 e 127 posti e con il simulatore che ora può mettere i jog in coda come le schede vere), Classica e Banco; 23 guasti messi apposta, tutti presi.
 
 **Ringraziamenti.** Grazie a Sengir, che con i suoi rapporti sul Falcon A1 ci ha aiutato a trovare il problema dell'homing.
 

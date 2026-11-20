@@ -576,6 +576,8 @@ if __name__ == "__main__":
     run_suite("test_v211_joystick.py", "Joystick pronto e fedele nell'interfaccia Banco", "banco")
     run_suite("test_v211_falcon.py", "Angolo dello 0 e assi che non si contraddicono più (Falcon A1 del rapporto 2E95): avviso con correzione, configurazione guidata, catalogo, prova delle frecce dall'angolo dell'homing, simulatore; freccia «Continuo» mai muta al bordo")
     run_suite("test_v211_falcon.py", "Angolo dello 0, assi e freccia «Continuo» nell'interfaccia Banco", "banco")
+    run_suite("test_v211_grigio.py", "Grigio delle forme scelto nel pannello Proprietà: riga Grigio, tono e potenza, più forme insieme, gruppi, Annulla, G-code e salvataggio")
+    run_suite("test_v211_grigio.py", "Grigio delle forme nell'interfaccia Banco", "banco")
     run_suite("test_v211_foto.py", "Prepara foto anche sulla foto ritagliata con una forma: menu in alto, tasto destro e pannello Proprietà")
     run_suite("test_v211_foto.py", "Prepara foto sulla foto ritagliata nell'interfaccia Banco", "banco")
     run_suite("test_v207_xtool_m2_link.py", "Collegamento diretto con la xTool M2 (funzione in prova) contro una M2 finta: buste, abbinamento col pulsante, invio, pausa e annullamento, consenso alla prima connessione")

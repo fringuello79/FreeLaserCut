@@ -970,6 +970,43 @@ class Editor(QObject):
         copies = ops.copy_along_path(objs, path, count, rotate_copies)
         self.add(copies, tr("Copia lungo tracciato"))
 
+    # ================================================================ 0.21.1: grigio delle forme (France_o)
+    def gray_targets(self, shapes=None):
+        """Le forme a cui si può dare un grigio: forme vere (non foto, non sagome) su un livello in Riempimento, anche
+        dentro i gruppi. -> lista di forme (vuota se nella selezione non ce n'è)."""
+        out = []
+        for s in (self.selection if shapes is None else shapes):
+            for leaf, _ in s.leaves():
+                if isinstance(leaf, ImageShape) or leaf.role or leaf.hidden:
+                    continue
+                cs = self.doc.layers.get(leaf.layer)
+                if cs is not None and cs.mode == "fill":
+                    out.append(leaf)
+        return out
+
+    def apply_gray(self, gray, shapes=None):
+        """Dà il grigio `gray` (0 nero … 255 bianco, None = nessuno) alle forme e accende «Potenza dal grigio» sui loro
+        livelli (come fa l'importazione degli SVG). Senza registrare: va fra begin() e commit(), oppure con set_gray.
+        -> i livelli su cui «Potenza dal grigio» si è acceso ora."""
+        from ..core.document import clean_gray
+
+        g = clean_gray(gray)
+        turned = []
+        for leaf in self.gray_targets(shapes):
+            leaf.gray = g
+            leaf.invalidate()
+            cs = self.doc.layers.get(leaf.layer)
+            if g is not None and cs is not None and not getattr(cs, "gray_power", False):
+                cs.gray_power = True
+                turned.append(leaf.layer)
+        return turned
+
+    def set_gray(self, gray, shapes=None):
+        """Come apply_gray, in un solo passo di Annulla. -> i livelli su cui «Potenza dal grigio» si è acceso."""
+        if not self.gray_targets(shapes):
+            return []
+        return self.run(tr("Grigio della forma"), self.apply_gray, gray, shapes)
+
     def lock(self, locked=True):
         if not self.selection:
             return

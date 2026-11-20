@@ -4000,5 +4000,12 @@
  "Posizione della testa non ancora nota: aspetta un attimo o fai l'homing": "Head position not known yet: wait a moment or home the machine",
  "Sistemato: lo 0 è {0}. Se vuoi, controllalo con la prova delle frecce (Impostazioni → Configurazione guidata della macchina).": "Fixed: zero is {0}. If you like, check it with the arrow test (Settings → Machine setup wizard).",
  "<b>Scegli un angolo</b> (o «Non lo so») per andare avanti.": "<b>Choose a corner</b> (or “I don't know”) to go on.",
- "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "The head is in the homing corner: from here this arrow would push it against the limit switch, so I don't send it and it doesn't count as a test. Use the opposite arrow first."
+ "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "The head is in the homing corner: from here this arrow would push it against the limit switch, so I don't send it and it doesn't count as a test. Use the opposite arrow first.",
+ "Acceso «Potenza dal grigio» sul livello: ogni forma si incide con la potenza del suo grigio": "“Power from the shapes' gray” turned on for the layer: each shape is engraved with the power of its gray",
+ "Grigio": "Gray",
+ "Grigio del riempimento: 0% = nero (Potenza massima), 100% = bianco (non si incide), in mezzo la potenza va in proporzione fino alla Potenza minima. «nessuno» = Potenza massima. Vale con «Potenza dal grigio» acceso nelle impostazioni del livello (si accende da solo).": "Fill gray: 0% = black (Max power), 100% = white (not engraved), in between the power goes proportionally down to Min power. “none” = Max power. It works with “Power from the shapes' gray” on in the layer settings (it turns on by itself).",
+ "Grigio della forma": "Shape gray",
+ "diversi": "mixed",
+ "non si incide": "not engraved",
+ "potenza {0:.0f}%": "power {0:.0f}%"
 }
