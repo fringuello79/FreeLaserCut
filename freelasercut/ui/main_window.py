@@ -3197,6 +3197,10 @@ class MainWindow(QMainWindow):
         if len(sel) == 1 and isinstance(sel[0], ImageShape):
             # 0.20.6 (Ale, 17/11): tasto destro su una foto: i due comandi che servono subito, senza cercarli nei menu
             keys += ["photo", "trace", "-"]
+        elif self._clip_group_photo_ok(sel):
+            # 0.21.1 (France_o): anche sulla foto ritagliata con una forma, che è un gruppo; prima Prepara foto c'era solo
+            # nel menu in alto, e sembrava sparito
+            keys += ["photo", "-"]
         if len(sel) > 1:
             keys.append("group")
         # 0.21.0: Separa anche sui tracciati fatti di più figure staccate; Scomponi anche dal tasto destro

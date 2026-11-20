@@ -14,7 +14,9 @@ L'angolo dello 0 che non si perde più (Creality Falcon A1 e tutte le macchine c
 
 **Freccia «Continuo» al bordo** (Giuseppe su GitHub: «se imposto continuo il tasto di sinistra non funziona»). Con «Continuo» la testa va fino al bordo del piano; se era già sul bordo, la freccia non faceva niente e non lo diceva. Ora lo dice sotto le frecce («Già al bordo sinistro…»), e in diagonale lungo un bordo si muove l'altro asse invece di restare ferma.
 
-Nuove prove automatiche: `tests/test_v211_falcon.py` (59 controlli) e `tests/test_v211_joystick.py` (37 controlli, con una scheda finta a tempo finto con code da 15, 63 e 127 posti e con il simulatore che ora può mettere i jog in coda come le schede vere), Classica e Banco; 15 guasti messi apposta, tutti presi.
+**Prepara foto anche sulla foto ritagliata con una forma** (France_o: «quando ritagli una foto, poi non si può più entrare nel menù prepara foto»). La foto ritagliata con *Ritaglia la foto con la forma* è un gruppo (la foto e la sua sagoma): *Prepara foto* la riconosceva solo dal menu in alto. Ora c'è anche nel menu del tasto destro e, con un pulsante, nel pannello *Proprietà*, senza doverla prima separare.
+
+Nuove prove automatiche: `tests/test_v211_foto.py` (10 controlli), `tests/test_v211_falcon.py` (59 controlli) e `tests/test_v211_joystick.py` (37 controlli, con una scheda finta a tempo finto con code da 15, 63 e 127 posti e con il simulatore che ora può mettere i jog in coda come le schede vere), Classica e Banco; 15 guasti messi apposta, tutti presi.
 
 **Ringraziamenti.** Grazie a Sengir, che con i suoi rapporti sul Falcon A1 ci ha aiutato a trovare il problema dell'homing.
 

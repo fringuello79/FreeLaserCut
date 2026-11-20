@@ -2005,6 +2005,14 @@ class PropertiesPanel(QScrollArea):
 
     def _generic(self, s):
         self.lay.addWidget(section(s.describe()))
+        if ops.is_clip_group(s) and sum(isinstance(c, ImageShape) for c in s.children) == 1:
+            # 0.21.1 (France_o): la foto ritagliata con una forma è un gruppo (foto + sagoma): da qui si riprepara la foto
+            # come dal menu in alto, senza doverla prima «separare»
+            pb = QPushButton(style.icon("photo_prep"), tr("Prepara foto…"))
+            pb.setToolTip(tr("Ritaglio, regolazioni, sfondo, forma e metodo di incisione con l'anteprima dei punti veri; "
+                             "oppure la foto diventa linee e riempimenti  Ctrl+Alt+F"))
+            pb.clicked.connect(self.photo_requested.emit)
+            self.lay.addWidget(pb)
 
     def _common(self, s):
         self.lay.addWidget(hline())
