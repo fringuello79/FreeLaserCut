@@ -198,15 +198,17 @@ check("…senza doppioni se il sistema la elenca già", [p.device for p in ports
 real_vt = linux.vendor_ttys
 linux.vendor_ttys = lambda globber=None: ["/dev/ttyCH341USB0"]
 real_plat = sys.platform
-check("elenco del controllo (Wi-Fi guidato) con la CH341 su Linux", sys.platform.startswith("linux")
-      and any(p == "/dev/ttyCH341USB0" and k for p, _l, k in grbl.list_serial_ports()))
+# 0.21.1: le prove con le porte di Linux (/dev/…) si fanno solo dove /dev c'è; su Windows (GitHub) erano rosse
+LINUX = sys.platform.startswith("linux")
+if LINUX:
+    check("elenco del controllo (Wi-Fi guidato) con la CH341 su Linux",
+          any(p == "/dev/ttyCH341USB0" and k for p, _l, k in grbl.list_serial_ports()))
 linux.vendor_ttys = real_vt
 check("porta vuota rifiutata", mw.manual_port_problem("  ") is not None)
-check("porta fuori da /dev rifiutata (Linux)", mw.manual_port_problem("COM8") is not None)
-check("porta in /dev che non c'è rifiutata", mw.manual_port_problem("/dev/ttyNONCE99") is not None)
-dev = os.path.join(TMP, "finta")
-open(dev, "w").close()
-check("porta in /dev che c'è accettata", mw.manual_port_problem("/dev/null") is None)
+if LINUX:
+    check("porta fuori da /dev rifiutata (Linux)", mw.manual_port_problem("COM8") is not None)
+    check("porta in /dev che non c'è rifiutata", mw.manual_port_problem("/dev/ttyNONCE99") is not None)
+    check("porta in /dev che c'è accettata", mw.manual_port_problem("/dev/null") is None)
 mw.sys.platform = "win32"
 check("Windows: COM8 e \\\\.\\COM12 sì, «porta» no", mw.manual_port_problem("COM8") is None
       and mw.manual_port_problem("\\\\.\\COM12") is None and mw.manual_port_problem("porta") is not None)
@@ -214,19 +216,19 @@ mw.sys.platform = real_plat
 w.refresh_ports()
 check("in fondo alla tendina delle porte: «Scrivi la porta a mano…»",
       w.port_combo.itemData(w.port_combo.count() - 1) == mw.MANUAL_PORT)
-check("porta a mano aggiunta: nell'elenco e scelta", w.add_manual_port("/dev/null") == "/dev/null"
-      and w.port_combo.currentData() == "/dev/null" and "/dev/null" in w.manual_ports())
+GOOD, BAD = ("/dev/null", "/dev/ttyNONCE99") if LINUX or sys.platform == "darwin" else ("COM250", "porta")
+check("porta a mano aggiunta: nell'elenco e scelta", w.add_manual_port(GOOD) == GOOD
+      and w.port_combo.currentData() == GOOD and GOOD in w.manual_ports())
 w.refresh_ports()
-check("…ricordata (resta dopo «Aggiorna»)", w.port_combo.findData("/dev/null") >= 0)
-check("porta sbagliata: non aggiunta", w.add_manual_port("/dev/ttyNONCE99") is None
-      and "/dev/ttyNONCE99" not in w.manual_ports())
+check("…ricordata (resta dopo «Aggiorna»)", w.port_combo.findData(GOOD) >= 0)
+check("porta sbagliata: non aggiunta", w.add_manual_port(BAD) is None and BAD not in w.manual_ports())
 from freelasercut.ui.dialogs_serial import SerialSpeedDialog  # noqa: E402
 
 try:
     sd = SerialSpeedDialog(w)
     vals = [sd.port.itemData(i) for i in range(sd.port.count())]
     check("finestra della velocità: «Scrivi la porta a mano…» non è una porta", mw.MANUAL_PORT not in vals
-          and "/dev/null" in vals)
+          and GOOD in vals)
     sd.close()
 except TypeError as exc:
     check("finestra della velocità", False, exc)
