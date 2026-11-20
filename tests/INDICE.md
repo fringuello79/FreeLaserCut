@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 223. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 227. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -129,7 +129,7 @@ Suite: 223. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v210_ripresa.py`: Lavoro in corso salvato sul disco e ripreso dopo la riapertura del programma, Scarta, file rovinati; Parti da qui nell'anteprima
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
-## Macchina, connessione e profili (43)
+## Macchina, connessione e profili (46)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -172,6 +172,9 @@ Suite: 223. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v207_svg_vuoti.py`: SVG con tracciati senza disegno (<path/> senza «d», come nei file di xTool Creative Space): il resto del file si importa; SVG sani byte per byte identici; attributi con «>» o apostrofi non rovinati; da file e .svgz; rettangoli e cerchi con trasformazioni speculari al posto giusto
 - `test_v209_laser.py`: Più laser configurati, ognuno con il suo nome: tendina nel pannello Laser, nome, laser nuovo da un modello o copia, tolto dall'elenco, porta ricordata per ogni laser, profilo e piano che cambiano
 - `test_v210_tastiera.py` (Banco): La testa con la tastiera nell'interfaccia Banco
+- `test_v211_joystick.py`: Joystick pronto e fedele: pezzetti al ritmo del tempo vero, la testa gira subito anche con code da 15, 63 e 127 posti, velocità vera, bordo, rilascio, simulatore con i jog in coda come le schede vere
+- `test_v211_falcon.py`: Angolo dello 0 e assi che non si contraddicono più (Falcon A1 del rapporto 2E95): avviso con correzione, configurazione guidata, catalogo, prova delle frecce dall'angolo dell'homing, simulatore; freccia «Continuo» mai muta al bordo
+- `test_v211_falcon.py` (Banco): Angolo dello 0, assi e freccia «Continuo» nell'interfaccia Banco
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
@@ -205,7 +208,7 @@ Suite: 223. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (35)
+## Interfaccia (36)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -238,6 +241,7 @@ Suite: 223. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v209_laser.py` (Banco): Più laser e tendina dei laser nell'interfaccia Banco
 - `test_v209_disegno.py` (Banco): Guide, deformazione e fessure nell'interfaccia Banco
 - `test_v210_ripresa.py` (Banco): Ripresa dal disco e Parti da qui nell'interfaccia Banco
+- `test_v211_joystick.py` (Banco): Joystick pronto e fedele nell'interfaccia Banco
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco

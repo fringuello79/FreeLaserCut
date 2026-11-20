@@ -3988,5 +3988,17 @@
  "Passo del jog: 0,1 · 1 · 10 · 50 · 100 mm": "Pas du jog : 0,1 · 1 · 10 · 50 · 100 mm",
  "Ctrl+1 / Ctrl+2 in Stampa e taglia": "Ctrl+1 / Ctrl+2 dans Imprimer et découper",
  "Prende la crocetta 1 / 2 nel punto della testa": "Prend la croix 1 / 2 à la position de la tête",
- "{0} W": "{0} W"
+ "{0} W": "{0} W",
+ "destro": "droit",
+ "sinistro": "gauche",
+ "Il profilo «{0}» dice due cose diverse: nella configurazione hai scelto lo 0 {1}, ma gli assi lo mettono {2}. Per questo testa, pallino verde e fine lavoro possono finire nell'angolo sbagliato. Dove va la testa quando fai l'homing?": "Le profil « {0} » dit deux choses différentes : dans la configuration tu as choisi le 0 {1}, mais les axes le placent {2}. C'est pourquoi la tête, le point vert et le retour en fin de travail peuvent finir dans le mauvais coin. Où va la tête quand tu fais le homing ?",
+ "La testa è nell'angolo dell'homing: comincia da {0}, che la allontanano.": "La tête est dans le coin du homing : commence par {0}, qui l'éloignent.",
+ "Sei collegato al <b>simulatore</b>: le sue frecce non dicono niente degli assi del tuo laser, quindi la prova qui non si fa. Collega il laser vero e riapri <i>Impostazioni → Configurazione guidata della macchina</i>. Intanto FreeLaserCut usa l'angolo che hai scelto.": "Tu es connecté au <b>simulateur</b> : ses flèches ne disent rien des axes de ton laser, donc le test ne se fait pas ici. Connecte le vrai laser et rouvre <i>Paramètres → Configuration guidée de la machine</i>. En attendant FreeLaserCut utilise le coin que tu as choisi.",
+ "<b>Attenzione:</b> hai scelto lo 0 {0}, ma con la prova delle frecce risulta {1}. Se con l'homing la testa va {0}, torna indietro e rifai la prova delle frecce; con «Fine» vale quello delle frecce.": "<b>Attention :</b> tu as choisi le 0 {0}, mais le test des flèches donne {1}. Si au homing la tête va {0}, reviens en arrière et refais le test des flèches ; avec « Terminer » c'est celui des flèches qui compte.",
+ "<b>Attenzione:</b> avevi scelto lo 0 <b>{0}</b>, ma gli assi provati con le frecce lo mettono <b>{1}</b>. Clicca l'angolo dove va davvero la testa quando fai l'homing: gli assi lo seguiranno e li ricontrolli con la prova delle frecce.": "<b>Attention :</b> tu avais choisi le 0 <b>{0}</b>, mais les axes testés avec les flèches le placent <b>{1}</b>. Clique le coin où va vraiment la tête quand tu fais le homing : les axes le suivront et tu les revérifies avec le test des flèches.",
+ "Già al bordo {0}: con «Continuo» non va più in là": "Déjà au bord {0} : avec « Continu » elle ne va pas plus loin",
+ "Posizione della testa non ancora nota: aspetta un attimo o fai l'homing": "Position de la tête pas encore connue : attends un instant ou fais le homing",
+ "Sistemato: lo 0 è {0}. Se vuoi, controllalo con la prova delle frecce (Impostazioni → Configurazione guidata della macchina).": "Corrigé : le 0 est {0}. Si tu veux, vérifie-le avec le test des flèches (Paramètres → Configuration guidée de la machine).",
+ "<b>Scegli un angolo</b> (o «Non lo so») per andare avanti.": "<b>Choisis un coin</b> (ou « Je ne sais pas ») pour continuer.",
+ "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "La tête est dans le coin du homing : d'ici cette flèche la pousserait contre la fin de course, donc je ne l'envoie pas et elle ne compte pas comme test. Utilise d'abord la flèche opposée."
 }

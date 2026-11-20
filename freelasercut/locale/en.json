@@ -3988,5 +3988,17 @@
  "Passo del jog: 0,1 · 1 · 10 · 50 · 100 mm": "Jog step: 0.1 · 1 · 10 · 50 · 100 mm",
  "Ctrl+1 / Ctrl+2 in Stampa e taglia": "Ctrl+1 / Ctrl+2 in Print and cut",
  "Prende la crocetta 1 / 2 nel punto della testa": "Takes mark 1 / 2 at the head position",
- "{0} W": "{0} W"
+ "{0} W": "{0} W",
+ "destro": "right",
+ "sinistro": "left",
+ "Il profilo «{0}» dice due cose diverse: nella configurazione hai scelto lo 0 {1}, ma gli assi lo mettono {2}. Per questo testa, pallino verde e fine lavoro possono finire nell'angolo sbagliato. Dove va la testa quando fai l'homing?": "The profile “{0}” says two different things: in the setup you chose zero {1}, but the axes put it {2}. Because of this the head, the green dot and the end-of-job return can end up in the wrong corner. Where does the head go when you home?",
+ "La testa è nell'angolo dell'homing: comincia da {0}, che la allontanano.": "The head is in the homing corner: start with {0}, which move it away.",
+ "Sei collegato al <b>simulatore</b>: le sue frecce non dicono niente degli assi del tuo laser, quindi la prova qui non si fa. Collega il laser vero e riapri <i>Impostazioni → Configurazione guidata della macchina</i>. Intanto FreeLaserCut usa l'angolo che hai scelto.": "You are connected to the <b>simulator</b>: its arrows tell nothing about your laser's axes, so the test is not done here. Connect the real laser and reopen <i>Settings → Machine setup wizard</i>. Meanwhile FreeLaserCut uses the corner you chose.",
+ "<b>Attenzione:</b> hai scelto lo 0 {0}, ma con la prova delle frecce risulta {1}. Se con l'homing la testa va {0}, torna indietro e rifai la prova delle frecce; con «Fine» vale quello delle frecce.": "<b>Warning:</b> you chose zero {0}, but the arrow test gives {1}. If the head goes {0} when homing, go back and redo the arrow test; with “Finish” the arrow test wins.",
+ "<b>Attenzione:</b> avevi scelto lo 0 <b>{0}</b>, ma gli assi provati con le frecce lo mettono <b>{1}</b>. Clicca l'angolo dove va davvero la testa quando fai l'homing: gli assi lo seguiranno e li ricontrolli con la prova delle frecce.": "<b>Warning:</b> you had chosen zero <b>{0}</b>, but the axes tested with the arrows put it <b>{1}</b>. Click the corner where the head really goes when you home: the axes will follow it and you check them again with the arrow test.",
+ "Già al bordo {0}: con «Continuo» non va più in là": "Already at the {0} edge: with “Continuous” it can't go further",
+ "Posizione della testa non ancora nota: aspetta un attimo o fai l'homing": "Head position not known yet: wait a moment or home the machine",
+ "Sistemato: lo 0 è {0}. Se vuoi, controllalo con la prova delle frecce (Impostazioni → Configurazione guidata della macchina).": "Fixed: zero is {0}. If you like, check it with the arrow test (Settings → Machine setup wizard).",
+ "<b>Scegli un angolo</b> (o «Non lo so») per andare avanti.": "<b>Choose a corner</b> (or “I don't know”) to go on.",
+ "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "The head is in the homing corner: from here this arrow would push it against the limit switch, so I don't send it and it doesn't count as a test. Use the opposite arrow first."
 }

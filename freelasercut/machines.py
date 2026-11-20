@@ -349,6 +349,10 @@ _P3_SCAN = [[6000.0, 0.14], [12000.0, 0.16], [18000.0, 0.12], [24000.0, 0.12], [
             [42000.0, 0.16], [48000.0, 0.16]]
 SCAN = {n: _P3_SCAN for n in ("Acmer P3 24W", "Acmer P3 48W", "Acmer P3 2W IR", "Acmer P3 2-in-1 (diodo + IR)")}
 ACCEL = {n: 3000.0 for n in SCAN}  # mm/s² dai profili ufficiali Acmer
+# 0.21.1 (rapporto 2E95 di Sengir, Falcon A1 10W con firmware CV40 V1.0.6): l'homing porta la testa dietro a sinistra,
+# dopo l'homing la posizione è 0,0 e l'asse Y cresce verso il davanti ($23=3, coordinate positive). Con l'angolo nel
+# catalogo il profilo parte già giusto (Y invertito), invece di far scoprire l'angolo a ogni utente.
+CORNER = {"Creality Falcon A1 10W": "bl"}
 ACCEL.update({n: 3000.0 for n in _P2})
 ACCEL.update({n: 1000.0 for n in E1})  # $120/$121 di fabbrica (tabella di diode-laser-wiki.com, vedi CATALOG)
 # famiglie in cui la scheda è la stessa e cambia solo il modulo laser montato, che dalla scheda non si legge: quando
@@ -376,11 +380,15 @@ def preset_profile(name):
     for n, vendor, bx, by, power, rate in CATALOG:
         if n == name:
             sx, sy = SPOTS.get(n, (0.08, 0.10))
-            return MachineProfile(name=n, model=n, source=tr("valori di targa"), bed_x=float(bx), bed_y=float(by),
-                                  optical_power=power, max_rate_x=float(rate), max_rate_y=float(rate),
-                                  accel_x=ACCEL.get(n, 1500.0), accel_y=ACCEL.get(n, 1500.0), spot_x_mm=sx,
-                                  spot_y_mm=sy, rx_buffer=128, no_g55=n in NO_G55, baud=BAUD.get(n, 115200),
-                                  air_on=AIR_ON.get(n, "M8"), scan_offsets=[list(x) for x in SCAN.get(n, [])])
+            p = MachineProfile(name=n, model=n, source=tr("valori di targa"), bed_x=float(bx), bed_y=float(by),
+                               optical_power=power, max_rate_x=float(rate), max_rate_y=float(rate),
+                               accel_x=ACCEL.get(n, 1500.0), accel_y=ACCEL.get(n, 1500.0), spot_x_mm=sx,
+                               spot_y_mm=sy, rx_buffer=128, no_g55=n in NO_G55, baud=BAUD.get(n, 115200),
+                               air_on=AIR_ON.get(n, "M8"), scan_offsets=[list(x) for x in SCAN.get(n, [])])
+            if n in CORNER:  # assi non provati: seguono l'angolo, e l'homing li ricalcola se le coordinate sono negative
+                p.origin_corner = CORNER[n]
+                p.invert_x, p.invert_y = MachineProfile.corner_inversion(CORNER[n], None)
+            return p
     return MachineProfile(name=tr("Laser GRBL"), model=tr("Laser GRBL"), source=tr("valori di targa"), bed_x=400.0,
                           bed_y=400.0, optical_power="", max_rate_x=10000.0, max_rate_y=10000.0, accel_x=1000.0,
                           accel_y=1000.0, spot_x_mm=0.10, spot_y_mm=0.10)

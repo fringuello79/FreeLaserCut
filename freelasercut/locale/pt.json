@@ -3988,5 +3988,17 @@
  "Passo del jog: 0,1 · 1 · 10 · 50 · 100 mm": "Passo do jog: 0,1 · 1 · 10 · 50 · 100 mm",
  "Ctrl+1 / Ctrl+2 in Stampa e taglia": "Ctrl+1 / Ctrl+2 em Imprimir e cortar",
  "Prende la crocetta 1 / 2 nel punto della testa": "Toma a cruz 1 / 2 na posição da cabeça",
- "{0} W": "{0} W"
+ "{0} W": "{0} W",
+ "destro": "direito",
+ "sinistro": "esquerdo",
+ "Il profilo «{0}» dice due cose diverse: nella configurazione hai scelto lo 0 {1}, ma gli assi lo mettono {2}. Per questo testa, pallino verde e fine lavoro possono finire nell'angolo sbagliato. Dove va la testa quando fai l'homing?": "O perfil «{0}» diz duas coisas diferentes: na configuração escolheste o 0 {1}, mas os eixos põem-no {2}. Por isso a cabeça, o ponto verde e o fim do trabalho podem acabar no canto errado. Para onde vai a cabeça quando fazes o homing?",
+ "La testa è nell'angolo dell'homing: comincia da {0}, che la allontanano.": "A cabeça está no canto do homing: começa por {0}, que a afastam.",
+ "Sei collegato al <b>simulatore</b>: le sue frecce non dicono niente degli assi del tuo laser, quindi la prova qui non si fa. Collega il laser vero e riapri <i>Impostazioni → Configurazione guidata della macchina</i>. Intanto FreeLaserCut usa l'angolo che hai scelto.": "Estás ligado ao <b>simulador</b>: as suas setas não dizem nada dos eixos do teu laser, por isso o teste não se faz aqui. Liga o laser verdadeiro e volta a abrir <i>Definições → Configuração guiada da máquina</i>. Entretanto o FreeLaserCut usa o canto que escolheste.",
+ "<b>Attenzione:</b> hai scelto lo 0 {0}, ma con la prova delle frecce risulta {1}. Se con l'homing la testa va {0}, torna indietro e rifai la prova delle frecce; con «Fine» vale quello delle frecce.": "<b>Atenção:</b> escolheste o 0 {0}, mas com o teste das setas resulta {1}. Se com o homing a cabeça vai {0}, volta atrás e repete o teste das setas; com «Fim» vale o das setas.",
+ "<b>Attenzione:</b> avevi scelto lo 0 <b>{0}</b>, ma gli assi provati con le frecce lo mettono <b>{1}</b>. Clicca l'angolo dove va davvero la testa quando fai l'homing: gli assi lo seguiranno e li ricontrolli con la prova delle frecce.": "<b>Atenção:</b> tinhas escolhido o 0 <b>{0}</b>, mas os eixos testados com as setas põem-no <b>{1}</b>. Clica no canto para onde vai mesmo a cabeça quando fazes o homing: os eixos vão segui-lo e voltas a verificá-los com o teste das setas.",
+ "Già al bordo {0}: con «Continuo» non va più in là": "Já no limite {0}: com «Contínuo» não vai mais além",
+ "Posizione della testa non ancora nota: aspetta un attimo o fai l'homing": "Posição da cabeça ainda desconhecida: espera um momento ou faz o homing",
+ "Sistemato: lo 0 è {0}. Se vuoi, controllalo con la prova delle frecce (Impostazioni → Configurazione guidata della macchina).": "Corrigido: o 0 está {0}. Se quiseres, verifica-o com o teste das setas (Definições → Configuração guiada da máquina).",
+ "<b>Scegli un angolo</b> (o «Non lo so») per andare avanti.": "<b>Escolhe um canto</b> (ou «Não sei») para continuar.",
+ "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "A cabeça está no canto do homing: daqui esta seta empurrá-la-ia contra o fim de curso, por isso não a envio e não vale como teste. Usa primeiro a seta oposta."
 }

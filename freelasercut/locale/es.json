@@ -3988,5 +3988,17 @@
  "Passo del jog: 0,1 · 1 · 10 · 50 · 100 mm": "Paso del jog: 0,1 · 1 · 10 · 50 · 100 mm",
  "Ctrl+1 / Ctrl+2 in Stampa e taglia": "Ctrl+1 / Ctrl+2 en Imprimir y cortar",
  "Prende la crocetta 1 / 2 nel punto della testa": "Toma la cruz 1 / 2 en la posición del cabezal",
- "{0} W": "{0} W"
+ "{0} W": "{0} W",
+ "destro": "derecho",
+ "sinistro": "izquierdo",
+ "Il profilo «{0}» dice due cose diverse: nella configurazione hai scelto lo 0 {1}, ma gli assi lo mettono {2}. Per questo testa, pallino verde e fine lavoro possono finire nell'angolo sbagliato. Dove va la testa quando fai l'homing?": "El perfil «{0}» dice dos cosas distintas: en la configuración elegiste el 0 {1}, pero los ejes lo ponen {2}. Por eso el cabezal, el punto verde y el final del trabajo pueden acabar en la esquina equivocada. ¿Adónde va el cabezal cuando haces el homing?",
+ "La testa è nell'angolo dell'homing: comincia da {0}, che la allontanano.": "El cabezal está en la esquina del homing: empieza por {0}, que lo alejan.",
+ "Sei collegato al <b>simulatore</b>: le sue frecce non dicono niente degli assi del tuo laser, quindi la prova qui non si fa. Collega il laser vero e riapri <i>Impostazioni → Configurazione guidata della macchina</i>. Intanto FreeLaserCut usa l'angolo che hai scelto.": "Estás conectado al <b>simulador</b>: sus flechas no dicen nada de los ejes de tu láser, así que la prueba no se hace aquí. Conecta el láser real y vuelve a abrir <i>Ajustes → Configuración guiada de la máquina</i>. Mientras tanto FreeLaserCut usa la esquina que elegiste.",
+ "<b>Attenzione:</b> hai scelto lo 0 {0}, ma con la prova delle frecce risulta {1}. Se con l'homing la testa va {0}, torna indietro e rifai la prova delle frecce; con «Fine» vale quello delle frecce.": "<b>Atención:</b> elegiste el 0 {0}, pero con la prueba de las flechas resulta {1}. Si con el homing el cabezal va {0}, vuelve atrás y repite la prueba de las flechas; con «Fin» vale la de las flechas.",
+ "<b>Attenzione:</b> avevi scelto lo 0 <b>{0}</b>, ma gli assi provati con le frecce lo mettono <b>{1}</b>. Clicca l'angolo dove va davvero la testa quando fai l'homing: gli assi lo seguiranno e li ricontrolli con la prova delle frecce.": "<b>Atención:</b> habías elegido el 0 <b>{0}</b>, pero los ejes probados con las flechas lo ponen <b>{1}</b>. Haz clic en la esquina adonde va de verdad el cabezal cuando haces el homing: los ejes la seguirán y los vuelves a comprobar con la prueba de las flechas.",
+ "Già al bordo {0}: con «Continuo» non va più in là": "Ya en el borde {0}: con «Continuo» no va más allá",
+ "Posizione della testa non ancora nota: aspetta un attimo o fai l'homing": "Posición del cabezal aún desconocida: espera un momento o haz el homing",
+ "Sistemato: lo 0 è {0}. Se vuoi, controllalo con la prova delle frecce (Impostazioni → Configurazione guidata della macchina).": "Arreglado: el 0 está {0}. Si quieres, compruébalo con la prueba de las flechas (Ajustes → Configuración guiada de la máquina).",
+ "<b>Scegli un angolo</b> (o «Non lo so») per andare avanti.": "<b>Elige una esquina</b> (o «No lo sé») para seguir.",
+ "La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia opposta.": "El cabezal está en la esquina del homing: desde aquí esta flecha lo empujaría contra el final de carrera, así que no la envío y no vale como prueba. Usa primero la flecha opuesta."
 }

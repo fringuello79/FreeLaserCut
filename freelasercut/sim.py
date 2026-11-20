@@ -22,6 +22,10 @@ _G_OK = {0, 1, 2, 3, 4, 10, 17, 18, 19, 20, 21, 28, 30, 38.2, 38.3, 38.4, 38.5, 
 
 class SimSerial:
     preset = None  # prove (0.18.17): funzione chiamata su ogni simulatore nuovo (la scheda Wi-Fi finta che si riavvia)
+    # 0.21.1 (prove del joystick): i jog vanno nella coda dei movimenti come sulle schede vere (GRBL 1.1 risponde «ok»
+    # appena il jog entra in coda, non quando è finito; 0x85 ferma e svuota la coda dei jog). False = come prima: un jog
+    # alla volta, l'«ok» subito e la riga dopo aspetta la fine del movimento.
+    jog_planner = False
 
     def __init__(self, *args, speedup=1.0, negative=None, glitch=None, **kwargs):
         self.is_open = True
@@ -39,6 +43,7 @@ class SimSerial:
         self._rx = collections.deque()
         self._rx_cv = threading.Condition()
         self._planner = collections.deque()
+        self.planner_size = PLANNER_SIZE  # 0.21.1: posti nella coda dei movimenti (15 Longer, 63 MKS, 127 Falcon A1)
         self._pl_cv = threading.Condition()
         self._cancel = threading.Event()
         self._generation = 0
@@ -160,6 +165,12 @@ class SimSerial:
                 self._reset()
             elif b == 0x85:
                 if self.state == "Jog":
+                    if self.jog_planner:  # 0.21.1: come GRBL, l'arresto del jog svuota anche la coda dei jog
+                        with self._pl_cv:
+                            keep = [blk for blk in self._planner if len(blk) < 5]
+                            self._planner.clear()
+                            self._planner.extend(keep)
+                            self._pl_cv.notify_all()
                     self._cancel.set()
             elif b == ord("!"):
                 if self.state in ("Run", "Jog", "Idle") and (self._planner or self.state != "Idle"):
@@ -388,17 +399,18 @@ class SimSerial:
                 if not self.is_open:
                     return
                 block = self._planner[0]
-            target, feed, power, gen = block
+            target, feed, power, gen = block[:4]
+            is_jog = len(block) >= 5
             if gen == self._generation:
                 if self.state not in ("Hold",):
-                    self.state = "Run"
+                    self.state = "Jog" if is_jog else "Run"
                 self.power = power
                 self._move_to(target, feed, gen)
             with self._pl_cv:
                 if self._planner and self._planner[0] is block:
                     self._planner.popleft()
                 self._pl_cv.notify_all()
-                if not self._planner and self.state == "Run":
+                if not self._planner and self.state in ("Run", "Jog"):
                     self.state = "Idle"
                     self.power = 0
                     self.feed = 0
@@ -804,16 +816,32 @@ class SimSerial:
             words = dict(_WORD.findall(body))
             rel = "G91" in body
             machine = "G53" in body
-            target = list(self.pos)
+            if self.jog_planner:  # 0.21.1: i jog in coda partono da dove finisce l'ultimo movimento in coda
+                with self._pl_cv:
+                    base = list(self._planner[-1][0]) if self._planner else list(self.pos)
+            else:
+                base = list(self.pos)
+            target = list(base)
             for i, ax in enumerate("XYZ"):
                 if ax in words:
                     v = float(words[ax])
-                    target[i] = self.pos[i] + v if rel else (v if machine else v + self.wco[i])
+                    target[i] = base[i] + v if rel else (v if machine else v + self.wco[i])
             bx, by = self.bed_size()
             lo_x, hi_x = (-bx, 0.0) if self.negative else (0.0, bx)
             lo_y, hi_y = (-by, 0.0) if self.negative else (0.0, by)
             if not (lo_x - 0.001 <= target[0] <= hi_x + 0.001 and lo_y - 0.001 <= target[1] <= hi_y + 0.001):
                 return self._emit("error:15\r\n")
+            if self.jog_planner:
+                with self._pl_cv:
+                    while len(self._planner) >= self.planner_size and gen == self._generation and self.is_open:
+                        self._pl_cv.wait(timeout=0.05)
+                    if gen != self._generation:
+                        return
+                    if self.state == "Idle":
+                        self.state = "Jog"
+                    self._planner.append((target, float(words.get("F", 1000)), 0.0, gen, "jog"))
+                    self._pl_cv.notify_all()
+                return self._ok()
             self._wait_idle(gen)
             self.state = "Jog"
             self._ok()

@@ -369,6 +369,30 @@ class MachineProfile:
         neg = bool(self.negative_space)
         return ("b" if self.invert_y != neg else "f") + ("r" if self.invert_x != neg else "l")
 
+    def corner_conflict(self):
+        """0.21.1 (rapporto 2E95, Falcon A1): l'angolo dello 0 scelto nella configurazione guidata e il verso degli assi
+        provati con le frecce dicono due cose diverse? -> l'angolo scelto, oppure None se vanno d'accordo (o se non si
+        può ancora dire: senza l'homing non si sa se le coordinate sono negative, e l'angolo degli assi non è sicuro).
+        Fino alla 0.21.0 vinceva in silenzio la prova delle frecce: lo 0, il pallino verde e il ritorno a fine lavoro
+        finivano nell'angolo opposto a quello indicato, e la freccia «su» mandava la testa verso il davanti."""
+        c = str(self.origin_corner or "")
+        if len(c) != 2 or c[0] not in "fb" or c[1] not in "lr" or self.negative_space is None:
+            return None
+        return c if self.corner_now() != c else None
+
+    def follow_corner(self, corner):
+        """0.21.1: gli assi seguono l'angolo dello 0 (quello dove va la testa con l'homing). Gli assi che cambiano
+        tornano «da provare»; l'angolo resta quello scelto. -> True se è cambiato qualcosa."""
+        ix, iy = self.corner_inversion(corner, self.negative_space)
+        old = (self.invert_x, self.invert_y, self.tested_x, self.tested_y, self.origin_corner)
+        if bool(self.invert_x) != bool(ix):
+            self.invert_x, self.tested_x = bool(ix), False
+        if bool(self.invert_y) != bool(iy):
+            self.invert_y, self.tested_y = bool(iy), False
+        self.axes_tested = bool(self.tested_x and self.tested_y)
+        self.origin_corner = corner
+        return (self.invert_x, self.invert_y, self.tested_x, self.tested_y, self.origin_corner) != old
+
     def keep_user_orientation(self, old):
         """0.19.5: «Riconosci la macchina → Applica» rifà il profilo dalla scheda; quello che l'utente ha deciso per la
         stessa macchina non va perso: piano ruotato, angolo dello 0, assi provati con le frecce (o decisi a mano) e

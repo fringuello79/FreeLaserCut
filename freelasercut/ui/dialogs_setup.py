@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import machines
+from ..grbl import SIM_PORT
 from ..profile import MachineProfile
 from ..theme import C
 from . import style
@@ -282,7 +283,11 @@ class SetupWizard(QDialog):
                              "<b>dietro a sinistra</b>.")))
         h = QHBoxLayout()
         h.addStretch(1)
-        self.picker = CornerPicker(p.corner_now())
+        # 0.21.1 (rapporto 2E95, Falcon A1): si apre sull'angolo che hai scelto tu, non su quello ricavato dagli assi.
+        # Se le frecce provate dicono un'altra cosa, prima di andare avanti si sceglie quale dei due è giusto.
+        self._conflict = p.corner_conflict()
+        chosen = p.origin_corner if p.origin_corner in CORNERS else p.corner_now()
+        self.picker = CornerPicker(chosen)
         self._unknown = False
         self.picker.changed.connect(self._corner_changed)
         h.addWidget(self.picker)
@@ -290,13 +295,27 @@ class SetupWizard(QDialog):
         v.addLayout(h)
         r = QHBoxLayout()
         self.corner_lab = QLabel(tr("Lo 0 è {0}.", corner_name(self.picker.corner)))
+        self.corner_lab.setWordWrap(True)
         r.addWidget(self.corner_lab, 1)
         b = QPushButton(tr("Non lo so"))
         b.setToolTip(tr("Lascia davanti a sinistra, come la maggior parte dei laser: lo confermi con la prova delle frecce"))
         b.clicked.connect(self._dont_know)
         r.addWidget(b)
         v.addLayout(r)
+        if self._conflict:
+            self.corner_lab.setText(self._conflict_text())
         self.stack.addWidget(w)
+
+    def _conflict_text(self):
+        p = self.main.profile
+        return tr("<b>Attenzione:</b> avevi scelto lo 0 <b>{0}</b>, ma gli assi provati con le frecce lo mettono "
+                  "<b>{1}</b>. Clicca l'angolo dove va davvero la testa quando fai l'homing: gli assi lo seguiranno e "
+                  "li ricontrolli con la prova delle frecce.", corner_name(self._conflict), corner_name(p.corner_now()))
+
+    def _corner_needed(self):
+        """0.21.1: con l'angolo scelto e gli assi in contrasto, bisogna dire quale vale prima di andare avanti."""
+        return bool(getattr(self, "_conflict", None)) and self._same_model() and not self.picker.touched \
+            and not self._unknown
 
     def _corner_changed(self, c):
         note = ""
@@ -465,7 +484,48 @@ class SetupWizard(QDialog):
     # ------------------------------------------------------------------ navigazione
     def _can_jog(self):
         ctl = self.main.ctl
-        return bool(ctl.connected) and not (ctl.job_active or ctl.checking)
+        return bool(ctl.connected) and not (ctl.job_active or ctl.checking) and not self._sim_other()
+
+    def _sim_other(self):
+        """0.21.1: collegato al simulatore con il profilo di un altro laser: le frecce del simulatore non dicono niente
+        degli assi della macchina vera (rapporto 2E95: assi «provati» sul simulatore e poi usati sul Falcon A1)."""
+        ctl = self.main.ctl
+        if not ctl.connected or ctl.port != SIM_PORT:
+            return False
+        name = self.main.profile.model if self._same_model() else self.model.currentText()
+        return name not in (MachineProfile.model, tr("Simulatore"), "Simulatore")  # il profilo del simulatore stesso
+
+    def _home_block(self, axis, d):
+        """0.21.1: con l'homing fatto e la testa ancora nell'angolo dell'homing, lo spostamento `d` (sul piano, asse
+        0 = X, 1 = Y) la spingerebbe contro il finecorsa? Da lì la macchina può andare solo dall'altra parte, qualunque
+        sia il verso degli assi: una freccia verso il finecorsa non è una prova (la testa non si muove, o scatta
+        l'allarme) e ha portato a «correggere» un asse giusto."""
+        ctl, p = self.main.ctl, self.main.profile
+        if not ctl.homed or not self._same_model() or not d:
+            return False
+        mpos = ctl.last_status.get("MPos")
+        hm = p.home_machine()
+        if not mpos or hm is None or len(mpos) < 2:
+            return False
+        if abs(float(mpos[axis]) - float(hm[axis])) > 1.0:
+            return False
+        md = d * (-1.0 if self.inv[axis] else 1.0)  # come lo manda ctl.jog con il verso di questa prova
+        if not p.negative_space:
+            return md < 0  # coordinate positive: lo 0 è un estremo, si va solo verso il più
+        tx, ty = p.travel()
+        lo = -(tx if axis == 0 else ty)
+        return md > 0 if abs(float(hm[axis])) < 1e-6 else (md < 0 if abs(float(hm[axis]) - lo) < 1e-6 else False)
+
+    def _away_keys(self):
+        """Le frecce che dall'angolo dell'homing allontanano la testa (per dirlo all'inizio della prova)."""
+        names = {"up": tr("↑ verso il fondo"), "down": tr("↓ verso di te"), "left": tr("← sinistra"),
+                 "right": tr("destra →")}
+        out = []
+        for key, (axis, d) in (("right", (0, 1)), ("left", (0, -1)), ("up", (1, 1)), ("down", (1, -1))):
+            blocked = self._home_block(axis, d)
+            if blocked is False and self._home_block(axis, -d):
+                out.append(names[key])
+        return out
 
     def go(self, i):
         i = max(0, min(self.stack.count() - 1, i))
@@ -481,6 +541,10 @@ class SetupWizard(QDialog):
         self.b_next.setText(tr("Fine") if i == self.stack.count() - 1 else tr("Avanti"))
 
     def _next(self):
+        if self.stack.currentIndex() == 1 and self._corner_needed():
+            self.corner_lab.setText(self._conflict_text() + "<br>" + tr("<b>Scegli un angolo</b> (o «Non lo so») per "
+                                                                         "andare avanti."))
+            return
         if self.stack.currentIndex() == self.stack.count() - 1:
             self.accept()
         else:
@@ -499,6 +563,14 @@ class SetupWizard(QDialog):
                 "Premi le frecce: la testa si sposta di {0:g} mm a laser spento. Deve andare dove indica la freccia "
                 "(↑ = verso il fondo della macchina). Se va al contrario, premi «correggi» per quell'asse e riprova.<br>"
                 "Se la testa è vicina a un bordo, usa la freccia che la allontana.", STEP_MM))
+            away = self._away_keys()
+            self.arrows_lab.setText(tr("La testa è nell'angolo dell'homing: comincia da {0}, che la allontanano.",
+                                       ", ".join(away)) if away else "")
+        elif self._sim_other():
+            self.arrows_intro.setText(tr(
+                "Sei collegato al <b>simulatore</b>: le sue frecce non dicono niente degli assi del tuo laser, quindi la "
+                "prova qui non si fa. Collega il laser vero e riapri <i>Impostazioni → Configurazione guidata della "
+                "macchina</i>. Intanto FreeLaserCut usa l'angolo che hai scelto."))
             self.arrows_lab.setText("")
         else:
             self.arrows_intro.setText(tr(
@@ -528,6 +600,12 @@ class SetupWizard(QDialog):
         for a in (0, 1):
             if not self.tested[a]:
                 self.inv[a] = base[a]
+        axis = 0 if dx else 1
+        if self._home_block(axis, dx or dy):
+            self.arrows_lab.setText(tr("La testa è nell'angolo dell'homing: da qui questa freccia la spingerebbe contro "
+                                       "il finecorsa, quindi non la mando e non vale come prova. Usa prima la freccia "
+                                       "opposta."))
+            return
         self._apply_sign()
         self._last_axis = 0 if dx else 1
         self._tested_before = self.tested[self._last_axis]
@@ -579,11 +657,28 @@ class SetupWizard(QDialog):
                            negative_space=self.main.profile.negative_space if self._same_model() else None)
         corner = q.corner_now()  # dagli assi come saranno (provati o dall'angolo scelto)
         tested = tr("provati con le frecce") if all(self.tested) else tr("da provare con le frecce quando colleghi il laser")
+        warn = ""
+        if self._axes_disagree():
+            warn = "<br>" + tr("<b>Attenzione:</b> hai scelto lo 0 {0}, ma con la prova delle frecce risulta {1}. Se con "
+                               "l'homing la testa va {0}, torna indietro e rifai la prova delle frecce; con «Fine» vale "
+                               "quello delle frecce.", corner_name(self.picker.corner), corner_name(corner))
         self.summary.setText(tr("<b>Macchina:</b> {0}<br><b>Lo 0 è</b> {1}.<br><b>Assi:</b> X {2}, Y {3} ({4}).",
                                 self.main.profile.name if self._same_model() else self.model.currentText(), corner_name(corner),
                                 tr("invertito") if ix else tr("normale"), tr("invertito") if iy else tr("normale"),
                                 tested)
-                             + "<br>" + tr("<b>Piano:</b> {0}.", ROT_NAMES.get(self.rot_choice(), ROT_NAMES[0])))
+                             + "<br>" + tr("<b>Piano:</b> {0}.", ROT_NAMES.get(self.rot_choice(), ROT_NAMES[0])) + warn)
+
+    def _axes_disagree(self):
+        """0.21.1: l'angolo scelto e gli assi come saranno salvati dicono due cose diverse? (solo se si sa già se le
+        coordinate sono negative: senza, l'angolo degli assi non è sicuro)"""
+        if not self.picker.touched or not self._same_model() or self.main.profile.negative_space is None:
+            return False
+        ix, iy = self._final_axes()
+        q = MachineProfile(invert_x=ix, invert_y=iy, negative_space=self.main.profile.negative_space)
+        return q.corner_now() != self.picker.corner
+
+    def _axes_disagree_saved(self, p):
+        return p.negative_space is not None and p.corner_now() != self.picker.corner
 
     def help_level_choice(self):
         return next((lv for lv, b in self.levels.items() if b.isChecked()), "normale")
@@ -620,7 +715,9 @@ class SetupWizard(QDialog):
         p.tested_x, p.tested_y = bool(self.tested[0]), bool(self.tested[1])
         p.axes_tested = all(self.tested)
         if self.picker.touched:
-            p.origin_corner = self.picker.corner  # serve per gli assi non provati, quando l'homing dirà di più
+            # serve per gli assi non provati, quando l'homing dirà di più. 0.21.1: se la prova delle frecce dice un
+            # altro angolo (e il riassunto l'ha detto), vale quello delle frecce: mai più angolo e assi in contrasto
+            p.origin_corner = p.corner_now() if self._axes_disagree_saved(p) else self.picker.corner
         elif self._unknown:
             p.origin_corner = ""
         busy = bool(main.ctl.job_active or main.ctl.checking)

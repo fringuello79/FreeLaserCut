@@ -2873,6 +2873,8 @@ class MainWindow(QMainWindow):
     def _after_connect(self):
         if not self.ctl.connected:
             return
+        if self._corner_check():
+            return
         if self._interrupted:
             lines, at = self._interrupted
             self.show_banner(tr("Un lavoro si è interrotto alla riga {0} di {1}. Fai l'homing, poi puoi riprenderlo da dove si era fermato.", at, len(lines)), "warn", [(tr("Homing"), self.ctl.home), (tr("Riprendi"), self.resume_job),
@@ -2955,7 +2957,57 @@ class MainWindow(QMainWindow):
                 self.banner.hide()
             self.machine.refresh_profile()
             self.statusBar().showMessage(tr("Homing completato: piano e macchina allineati"), 5000)
+            self._corner_check()
         self.camera.update_state()
+
+    # ---- 0.21.1: angolo dello 0 e assi in contrasto (rapporto 2E95, Creality Falcon A1) --------------------------------
+    def _corner_check(self):
+        """Il profilo dice due cose diverse sull'angolo dello 0 (quello scelto nella configurazione guidata e quello
+        degli assi provati con le frecce)? Lo chiedo con un avviso, una volta sola per profilo e per contrasto: con il
+        profilo così testa, pallino verde e ritorno a fine lavoro finiscono nell'angolo sbagliato. -> True se mostrato."""
+        p = self.profile
+        chosen = p.corner_conflict()
+        if not chosen or self.ctl.port == SIM_PORT:
+            return False
+        now = p.corner_now()
+        key = f"{p.path()}|{chosen}|{now}"
+        if self.qs.value("corner_conflict_asked", "") == key:
+            return False
+        if self.banner.isVisible() and self._banner_kind == "alarm":
+            return False
+        from .dialogs_setup import corner_name
+
+        self.qs.setValue("corner_conflict_asked", key)  # una volta sola, anche se si chiude senza rispondere
+        self.show_banner(tr("Il profilo «{0}» dice due cose diverse: nella configurazione hai scelto lo 0 {1}, ma gli assi "
+                            "lo mettono {2}. Per questo testa, pallino verde e fine lavoro possono finire nell'angolo "
+                            "sbagliato. Dove va la testa quando fai l'homing?", p.name, corner_name(chosen),
+                            corner_name(now)), "warn",
+                         [(corner_name(chosen).capitalize(), lambda: self.fix_corner(chosen)),
+                          (corner_name(now).capitalize(), lambda: self.fix_corner(now)),
+                          (tr("Configurazione guidata"), lambda: (self.banner.hide(), self.setup_wizard()))])
+        return True
+
+    def fix_corner(self, corner):
+        """Gli assi seguono l'angolo dove va la testa con l'homing (risposta all'avviso di _corner_check)."""
+        from .dialogs_setup import corner_name
+
+        p = self.profile
+        changed = p.follow_corner(corner)
+        if self.ctl.port != SIM_PORT:
+            try:
+                p.save()
+            except OSError:
+                pass
+        if changed:
+            self._sync_axes()
+            self.plane_changed()
+            self.machine.refresh_profile()
+            if self.job is not None and not getattr(self, "_job_is_external", False):
+                self.build_job()
+        self.banner.hide()
+        self.statusBar().showMessage(tr("Sistemato: lo 0 è {0}. Se vuoi, controllalo con la prova delle frecce "
+                                        "(Impostazioni → Configurazione guidata della macchina).", corner_name(corner)),
+                                     12000)
 
     def _load_active_profile(self):
         """Il profilo scelto l'ultima volta (Riconosci la macchina), altrimenti il Longer B1 40W."""

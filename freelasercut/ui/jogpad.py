@@ -9,6 +9,7 @@
   ($J=G91) mandati di continuo, al massimo MAX_Q in attesa, e al rilascio l'arresto del jog (0x85).
 """
 import math
+import time
 
 from PySide6.QtCore import QObject, QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen
@@ -27,21 +28,34 @@ TAG = "joy"
 # ======================================================================= joystick: la logica (senza finestra)
 class JoyJog(QObject):
     """Movimento continuo dal joystick. set_vector(ux, uy): vettore nel cerchio unitario (y verso l'alto del piano,
-    lunghezza 0…1). Finché è attivo, ogni TICK_MS manda un pezzetto lungo quanto si percorre in SEG_T secondi alla
-    velocità chiesta, se in attesa ce ne sono meno di MAX_Q; ogni pezzetto è tagliato al bordo dell'area."""
-    DEAD = 0.08  # zona morta al centro
-    SEG_T = 0.06  # durata di un pezzetto (s)
-    MAX_Q = 2  # pezzetti al massimo in attesa sulla scheda
-    TICK_MS = 25
-    MARGIN = 0.5  # mm dal bordo dell'area
+    lunghezza 0…1).
 
-    def __init__(self, ctl, get_profile, get_head, get_feed, parent=None):
+    0.21.1 (leone2805 su GitHub e Ale: «il cambio di direzione non è immediato, anche qualche secondo»): GRBL risponde
+    «ok» a un jog appena lo mette nella sua coda dei movimenti, non quando l'ha percorso. Fino alla 0.21.0 ogni 25 ms
+    partiva un pezzetto da 60 ms se c'erano meno di 2 righe senza «ok»: quasi sempre, quindi ogni secondo arrivavano
+    circa 2,4 secondi di movimento e la coda della scheda si riempiva (fino a 7 s di ritardo con i 127 posti del Falcon
+    A1). Ora i pezzetti partono al ritmo del tempo vero: davanti alla testa resta solo il movimento di `lead()` secondi
+    (un decimo di secondo, di più solo se l'accelerazione della macchina lo chiede per arrivare alla velocità), e in più
+    si controlla dove è davvero la testa: se il movimento mandato è troppo avanti rispetto a lei, si aspetta."""
+    DEAD = 0.08  # zona morta al centro
+    SEG_T = 0.05  # durata di un pezzetto (s)
+    MAX_Q = 2  # pezzetti al massimo senza «ok» della scheda
+    TICK_MS = 20
+    MARGIN = 0.5  # mm dal bordo dell'area
+    LEAD_MIN = 0.10  # s di movimento al massimo davanti alla testa (di solito)
+    LEAD_MAX = 0.40  # s: tetto anche per le macchine con accelerazione molto bassa
+    POS_SLACK = 0.30  # s: ritardo della posizione letta (lo stato arriva ogni 0,2 s) per il controllo sulla testa
+    SETTLE = 0.35  # s dopo la fine prevista: la posizione letta è quella vera e si riparte da lì
+
+    def __init__(self, ctl, get_profile, get_head, get_feed, parent=None, clock=None):
         super().__init__(parent)
         self.ctl, self.get_profile, self.get_head, self.get_feed = ctl, get_profile, get_head, get_feed
+        self.clock = clock or time.monotonic
         self.active = False
         self.vec = (0.0, 0.0)
         self.pos = None  # posizione pianificata sul piano (testa + pezzetti già mandati)
         self.sent = 0  # pezzetti mandati da quando è attivo
+        self.plan_end = 0.0  # quando la scheda avrà finito i pezzetti mandati (stima, orologio self.clock)
         self.stop_reason = ""
         self._t = QTimer(self)
         self._t.setInterval(self.TICK_MS)
@@ -70,6 +84,7 @@ class JoyJog(QObject):
         self.pos = (float(head.x()), float(head.y()))
         self.active = True
         self.sent = 0
+        self.plan_end = self.clock()
         self.stop_reason = ""
         self._t.start()
         return True
@@ -93,17 +108,56 @@ class JoyJog(QObject):
     def angle(self):
         return (math.degrees(math.atan2(self.vec[1], self.vec[0])) + 360.0) % 360.0
 
+    def accel(self):
+        """Accelerazione della macchina (mm/s²): la più bassa dei due assi, dal profilo ($120/$121)."""
+        prof = self.get_profile()
+        vals = []
+        for k in ("accel_x", "accel_y"):
+            try:
+                v = float(getattr(prof, k, 0) or 0)
+            except (TypeError, ValueError):
+                v = 0.0
+            if v > 0 and math.isfinite(v):
+                vals.append(v)
+        return min(vals) if vals else 500.0
+
+    def lead(self, v=None):
+        """Secondi di movimento da tenere davanti alla testa alla velocità v (mm/min). La scheda deve poter frenare
+        entro il movimento che ha in coda: per arrivare a v servono almeno v²/(2a) mm, cioè v/(2a) secondi."""
+        v = self.speed() if v is None else v
+        need = 1.2 * (v / 60.0) / (2.0 * self.accel()) + self.SEG_T  # + un pezzetto: si manda a metà pezzetto
+        return min(self.LEAD_MAX, max(self.LEAD_MIN, need))
+
+    def _head(self):
+        h = self.get_head()
+        return None if h is None else (float(h.x()), float(h.y()))
+
     def tick(self):
         if not self.active:
             return
         if not self.can_move():
             self.stop(tr("Joystick fermato: la macchina non è più pronta"))
             return
+        now = self.clock()
+        idle_q = self.ctl.queued(TAG) == 0
+        if idle_q and now > self.plan_end + self.SETTLE:
+            head = self._head()  # tutto finito da un po': si riparte dalla posizione vera, non da quella stimata
+            if head is not None:
+                self.pos = head
         v = self.speed()
         if v <= 0 or self.ctl.queued(TAG) >= self.MAX_Q:
             return
+        lead = self.lead(v)
+        if self.plan_end - now > lead - self.SEG_T / 2:
+            return  # davanti alla testa c'è già abbastanza movimento
+        head = self._head()
+        if head is not None and self.pos is not None:
+            behind = math.dist(head, self.pos)  # quanto il movimento mandato è avanti rispetto alla testa vera
+            if behind > v / 60.0 * (lead + self.POS_SLACK) + 1.0:
+                return
         m = self.magnitude()
-        d = v / 60.0 * self.SEG_T
+        seg = self.SEG_T
+        d = v / 60.0 * seg
         dx, dy = self.vec[0] / m * d, self.vec[1] / m * d
         prof = self.get_profile()
         bx = float(getattr(prof, "bed_x", 0) or 0)
@@ -111,10 +165,12 @@ class JoyJog(QObject):
         x, y = self.pos
         nx, ny = self._limit(x, dx, bx), self._limit(y, dy, by)
         ddx, ddy = nx - x, ny - y
-        if math.hypot(ddx, ddy) < 0.005:
+        dist = math.hypot(ddx, ddy)
+        if dist < 0.005:
             return  # al bordo: fermo finché non cambi direzione
         self.ctl.jog(ddx, ddy, v, tag=TAG)
         self.pos = (nx, ny)
+        self.plan_end = max(self.plan_end, now) + dist / (v / 60.0)
         self.sent += 1
 
     def _limit(self, p, d, size):
@@ -472,25 +528,59 @@ class JogPad(QWidget):
             prof = self.get_profile()
             head = self.get_head()
             if head is None:
+                self._arrow_note(tr("Posizione della testa non ancora nota: aspetta un attimo o fai l'homing"))
                 return
-            L = math.hypot(dx, dy)
-            ux, uy = dx / L, dy / L
             margin = 0.5
+            hx, hy = float(head.x()), float(head.y())
+            bx, by = float(prof.bed_x), float(prof.bed_y)
+            # 0.21.1 (Giuseppe su GitHub, Discussion #5: «se imposto continuo il tasto di sinistra non funziona»): un asse
+            # già sul bordo verso cui si va non blocca più tutta la freccia (in diagonale va avanti l'altro asse), e se
+            # non si può andare da nessuna parte lo dice invece di non fare niente in silenzio
+            ux = float(dx) if (dx < 0 and hx > margin) or (dx > 0 and hx < bx - margin) else 0.0
+            uy = float(dy) if (dy < 0 and hy > margin) or (dy > 0 and hy < by - margin) else 0.0
+            L = math.hypot(ux, uy)
             t = float("inf")
-            for p, u, hi in ((head.x(), ux, prof.bed_x), (head.y(), uy, prof.bed_y)):
-                if u > 0:
-                    t = min(t, (hi - margin - p) / u)
-                elif u < 0:
-                    t = min(t, (p - margin) / -u)
-            if t <= 0 or t == float("inf"):
+            if L > 0:
+                ux, uy = ux / L, uy / L
+                for p, u, hi in ((hx, ux, bx), (hy, uy, by)):
+                    if u > 0:
+                        t = min(t, (hi - margin - p) / u)
+                    elif u < 0:
+                        t = min(t, (p - margin) / -u)
+            if L == 0 or t <= 0 or t == float("inf"):
+                self._arrow_note(self._edge_text(dx, dy))
                 return
-            mx, my = prof.to_machine(head.x() + ux * t, head.y() + uy * t)
+            self._arrow_note("")
+            mx, my = prof.to_machine(hx + ux * t, hy + uy * t)
             self._cont = True
             self.ctl.goto_machine(mx, my, self.get_feed())
         else:
+            self._arrow_note("")
             self._cont = False
             s = self.step()
             self.ctl.jog(dx * s, dy * s, self.get_feed())
+
+    @staticmethod
+    def _edge_text(dx, dy):
+        sides = []
+        if dx < 0:
+            sides.append(tr("sinistro"))
+        elif dx > 0:
+            sides.append(tr("destro"))
+        if dy > 0:
+            sides.append(tr("in alto"))
+        elif dy < 0:
+            sides.append(tr("in basso"))
+        return tr("Già al bordo {0}: con «Continuo» non va più in là", " / ".join(sides))
+
+    def _arrow_note(self, text):
+        """0.21.1: un messaggio breve sotto le frecce (sparisce da solo dopo qualche secondo)."""
+        if self.mode() == "joystick":
+            return
+        self.readout.setText(text)
+        self.readout.setToolTip(text)
+        if text:
+            QTimer.singleShot(5000, lambda t=text: self.readout.text() == t and self.readout.setText(""))
 
     def jog_release(self):
         if self._cont:

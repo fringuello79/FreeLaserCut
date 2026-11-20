@@ -1,6 +1,21 @@
 # Novità di FreeLaserCut
 
 ## 0.21.1 — in lavorazione
+L'angolo dello 0 che non si perde più (Creality Falcon A1 e tutte le macchine con l'homing in un angolo diverso da davanti a sinistra), il joystick che segue la mano senza ritardo, la freccia «Continuo» che non resta più muta al bordo.
+
+**Angolo dello 0 e assi sempre d'accordo** (rapporti di Sengir sul Falcon A1). Nella configurazione guidata si sceglie l'angolo dove va la testa con l'homing; poi la prova delle frecce dice il verso degli assi. Se le due cose non andavano d'accordo vinceva in silenzio la prova delle frecce: lo 0, il pallino verde e il ritorno a fine lavoro finivano nell'angolo sbagliato, e sul Falcon A1 la freccia «su» mandava la testa verso il davanti. Ora:
+- **se il profilo dice due cose diverse**, al collegamento (e dopo l'homing) compare un avviso, una volta sola, che chiede dove va la testa quando fai l'homing: un clic sulla risposta sistema gli assi e il profilo;
+- **la configurazione guidata** si apre sull'angolo che hai scelto e, se gli assi provati lo contraddicono, prima di andare avanti chiede quale dei due è giusto; se alla fine la prova delle frecce dice un altro angolo, il riepilogo lo dice e il profilo resta coerente;
+- **la prova delle frecce dall'angolo dell'homing**: subito dopo l'homing la testa è già nell'angolo, e una freccia verso quell'angolo la spingerebbe contro il finecorsa. La finestra dice da quali frecce cominciare e non manda quella verso il finecorsa (prima la testa non si muoveva, o scattava l'allarme, ed era facile «correggere» un asse giusto);
+- **il Creality Falcon A1** nel catalogo parte già con lo 0 dietro a sinistra, dove fa l'homing: anche riconosciuto dalla scheda collegata. Chi ha già il profilo vecchio riceve l'avviso;
+- **con il simulatore** e il profilo di un laser vero la prova delle frecce non si fa più: le frecce del simulatore non dicono niente degli assi della macchina vera.
+
+**Joystick pronto e fedele** (leone2805 su GitHub e Ale: «il cambio di direzione non è immediato, anche qualche secondo»). La scheda risponde «ok» a un movimento appena lo mette in coda, non quando l'ha fatto: il joystick ne mandava più di quanti la testa riuscisse a percorrere, la coda della scheda si riempiva e la testa restava indietro di tutta la coda (circa 1 secondo sui Longer e sugli Sculpfun, quasi 4 sulle schede MKS DLC32, fino a 7 sul Falcon A1). Ora i movimenti partono al ritmo del tempo vero: davanti alla testa resta solo un decimo di secondo di movimento (un po' di più sulle macchine con l'accelerazione bassa, per arrivare comunque alla velocità chiesta), e il programma controlla dove si trova davvero la testa. Cambiando direzione la testa gira in circa un decimo di secondo, con qualsiasi scheda; al rilascio si ferma subito come prima.
+
+**Freccia «Continuo» al bordo** (Giuseppe su GitHub: «se imposto continuo il tasto di sinistra non funziona»). Con «Continuo» la testa va fino al bordo del piano; se era già sul bordo, la freccia non faceva niente e non lo diceva. Ora lo dice sotto le frecce («Già al bordo sinistro…»), e in diagonale lungo un bordo si muove l'altro asse invece di restare ferma.
+
+Nuove prove automatiche: `tests/test_v211_falcon.py` (59 controlli) e `tests/test_v211_joystick.py` (37 controlli, con una scheda finta a tempo finto con code da 15, 63 e 127 posti e con il simulatore che ora può mettere i jog in coda come le schede vere), Classica e Banco; 15 guasti messi apposta, tutti presi.
+
 **Ringraziamenti.** Grazie a Sengir, che con i suoi rapporti sul Falcon A1 ci ha aiutato a trovare il problema dell'homing.
 
 ## 0.21.0 — 19/11/2026
