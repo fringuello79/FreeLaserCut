@@ -980,11 +980,14 @@ class JobFlow(QFrame):
         self.note.setMinimumHeight(self.note.fontMetrics().lineSpacing() * 2 + 2)  # due righe sempre: l'avvio non si sposta
         outer.addWidget(self.note)
         win.editor.changed.connect(self.refresh)
-        win.ctl.connection_changed.connect(lambda *_: self.refresh())
-        win.ctl.job_finished.connect(lambda *_: self.refresh())
+        win.ctl.connection_changed.connect(self._refresh_any)  # 0.21.2: metodi, non lambda (si staccano da soli)
+        win.ctl.job_finished.connect(self._refresh_any)
         self._timer = QTimer(self)  # tempo stimato dopo un'anteprima, stato della macchina
         self._timer.timeout.connect(self.refresh)
         self._timer.start(1500)
+        self.refresh()
+
+    def _refresh_any(self, *_):
         self.refresh()
 
     def _click_start(self):
@@ -1574,7 +1577,7 @@ class Banco(QObject):
         win.ctl.job_finished.connect(self._job_finished)
         ed.plates_changed.connect(self._plate_changed)
         win.ctl.status_changed.connect(self._status)
-        win.ctl.connection_changed.connect(lambda ok, msg: self._status(None))
+        win.ctl.connection_changed.connect(self._connection_status)  # 0.21.2: metodo, non lambda
         app = QGuiApplication.instance()
         app.screenAdded.connect(lambda *_: QTimer.singleShot(400, self.check_screens))
         app.screenRemoved.connect(lambda *_: QTimer.singleShot(400, self.check_screens))
@@ -1582,7 +1585,11 @@ class Banco(QObject):
         QTimer.singleShot(0, self.relayout)
         QTimer.singleShot(600, self.check_screens)
 
+    def _connection_status(self, *_):
+        self._status(None)
+
     # ---------------------------------------------------------- barra superiore
+
     def _build_top(self):
         win = self.win
         tb = QToolBar(tr("Banco"))

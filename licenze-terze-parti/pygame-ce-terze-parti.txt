@@ -1,0 +1,36 @@
+pygame-ce 2.5.8 — componenti inclusi
+====================================
+
+FreeLaserCut usa pygame-ce solo per leggere i joystick e i controller (scheda Movimento → Joystick fisico).
+pygame-ce è distribuito con la GNU LGPL 2.1 (testo completo in pygame-ce-LGPL-2.1.txt) ed è incluso senza
+modifiche, come libreria separata (cartella "pygame" e, a seconda del sistema, "pygame_ce.libs" o
+"pygame/.dylibs" fra le librerie di Python): chi vuole può sostituirla con un'altra versione compatibile.
+Codice sorgente: https://github.com/pygame-community/pygame-ce (versione 2.5.8) e
+https://pypi.org/project/pygame-ce/2.5.8/#files
+
+Le ruote ufficiali di pygame-ce contengono anche queste librerie, a loro volta senza modifiche. L'elenco è stato
+ricavato dai file presenti nelle ruote per Windows, Linux e macOS; i testi completi delle licenze sono negli
+indirizzi indicati.
+
+  SDL2, SDL2_image, SDL2_mixer, SDL2_ttf ....... zlib            https://github.com/libsdl-org
+  FreeType ..................................... FreeType License (FTL) o GPL 2.0, a scelta   https://freetype.org/license.html
+  HarfBuzz ..................................... MIT ("Old MIT")  https://github.com/harfbuzz/harfbuzz/blob/main/COPYING
+  libpng ....................................... licenza libpng (PNG Reference Library License v2)   http://www.libpng.org/pub/png/src/libpng-LICENSE.txt
+  libjpeg-turbo ................................ IJG, BSD 3-Clause e zlib   https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/LICENSE.md
+  libtiff ...................................... licenza libtiff (tipo BSD)   https://gitlab.com/libtiff/libtiff/-/blob/master/LICENSE.md
+  libwebp, libwebpdemux, libsharpyuv ........... BSD 3-Clause    https://chromium.googlesource.com/webm/libwebp/+/refs/heads/main/COPYING
+  Brotli (libbrotlicommon, libbrotlidec) ....... MIT             https://github.com/google/brotli/blob/master/LICENSE
+  zlib / zlib-ng ............................... zlib            https://github.com/zlib-ng/zlib-ng/blob/develop/LICENSE.md
+  libogg, libvorbis, libvorbisenc, libvorbisfile BSD 3-Clause    https://xiph.org/licenses/bsd/
+  Opus, opusfile ............................... BSD 3-Clause    https://opus-codec.org/license/
+  FLAC (libFLAC) ............................... BSD 3-Clause    https://github.com/xiph/flac/blob/master/COPYING.Xiph
+  WavPack ...................................... BSD 3-Clause    https://github.com/dbry/WavPack/blob/master/COPYING
+  libxmp ....................................... MIT             https://github.com/libxmp/libxmp/blob/master/docs/COPYING.LIB
+  PortMidi ..................................... MIT (licenza di PortMusic)   https://github.com/PortMidi/portmidi/blob/main/license.txt
+  mpg123 (Linux e macOS) ....................... GNU LGPL 2.1    https://www.mpg123.de/
+  FluidSynth (Linux e macOS) ................... GNU LGPL 2.1 o successiva   https://github.com/FluidSynth/fluidsynth
+  libsndfile (Linux e macOS) ................... GNU LGPL 2.1 o successiva   https://github.com/libsndfile/libsndfile
+  alsa-lib / libasound (solo Linux) ............ GNU LGPL 2.1 o successiva   https://github.com/alsa-project/alsa-lib
+
+Per le librerie con la LGPL 2.1 vale lo stesso testo di pygame-ce-LGPL-2.1.txt.
+FreeLaserCut non usa le parti di immagini, caratteri e suoni: sono nella ruota ufficiale e restano com'è.

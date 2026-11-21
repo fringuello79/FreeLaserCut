@@ -100,6 +100,12 @@ jobs:
         run: |
           for i in $(seq 2 254); do sudo ifconfig lo0 alias 127.0.0.$i up; done
           sudo ifconfig lo0 alias 127.0.5.1 up
+      - name: Primo avvio ripetuto (rapporto E698)
+        # 0.21.2: il crollo del primo avvio si è visto solo su un Mac ARM: qui la scelta iniziale e la finestra
+        # principale nascono 20 volte di fila, con una pulizia della memoria forzata dentro la costruzione delle barre
+        env:
+          FLC_PRIMO_AVVIO_GIRI: "20"
+        run: FLC_SETTINGS_INI="$(mktemp -d)/prova.ini" python tests/test_v212_primo_avvio.py
       - name: Prove (solo alcune)
         if: github.event_name == 'workflow_dispatch' && inputs.solo != ''
         env:

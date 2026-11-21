@@ -37,6 +37,7 @@ I testi completi sono nella cartella `licenze-terze-parti/` (e, nell'installazio
 | typing_extensions | PSF License 2.0 | `typing_extensions-PSF.txt` |
 | segno (codici QR) | BSD 3-Clause | `segno-BSD-3-Clause.txt` |
 | python-barcode (codici a barre) | MIT | `python-barcode-MIT.txt` |
+| pygame-ce 2.5 (dalla 0.21.2, solo per leggere il joystick fisico), con dentro SDL2 e le librerie di SDL per immagini, caratteri e suoni | GNU LGPL 2.1; SDL2: zlib; le altre come elencato | `pygame-ce-LGPL-2.1.txt`, `pygame-ce-terze-parti.txt` |
 
 ### Qt e PySide6 (LGPL 3.0)
 

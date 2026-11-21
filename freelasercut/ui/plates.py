@@ -472,11 +472,15 @@ class PlateOverview(QWidget):
         self._job_state = None
         win.editor.changed.connect(self.update)
         win.editor.plates_changed.connect(self.update)
-        win.ctl.job_finished.connect(lambda *_: self.update())  # niente ▶ rimasto dopo la fine o lo Stop
+        win.ctl.job_finished.connect(self._job_finished)  # niente ▶ rimasto dopo la fine o lo Stop (0.21.2: metodo)
         win.canvas.view_changed.connect(self._fit_size)
         self.hide()
 
+    def _job_finished(self, *_):
+        self.update()
+
     # ---------------------------------------------------------- geometria
+
     def _grid(self):
         doc = self.win.editor.doc
         n = max(1, len(doc.plates))

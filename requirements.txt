@@ -10,3 +10,4 @@ Hershey-Fonts>=2.1
 numba>=0.59
 segno>=1.6
 python-barcode>=0.15
+pygame-ce>=2.5; python_version < "3.15"  # joystick fisico (facoltativo: senza, il programma va lo stesso)

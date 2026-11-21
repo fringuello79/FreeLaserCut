@@ -160,6 +160,9 @@ class CutSettings:
     # 0.21.0: rampa (timbri in gomma): dal bordo la potenza sale dalla minima alla massima in ramp_len mm
     ramp: bool = False
     ramp_len: float = 1.0
+    # 0.21.2 (Mauro C., Ale): dentro il riempimento anche gli spostamenti a laser spento (vuoti e cambio di riga) alla
+    # velocità del livello, invece che veloci: meno vibrazioni, pezzo che non si sposta, macchina meno sotto sforzo
+    steady_travel: bool = False
     # immagine
     dpi: float = 254.0
     dither: str = "grayscale"
@@ -201,6 +204,7 @@ class CutSettings:
         cs.gray_power = cs.gray_power is True
         cs.perforate = cs.perforate is True
         cs.ramp = cs.ramp is True
+        cs.steady_travel = cs.steady_travel is True
         cs.z_step = 0.0 if not isinstance(cs.z_step, (int, float)) or isinstance(cs.z_step, bool) \
             or cs.z_step != cs.z_step else float(min(5.0, max(0.0, cs.z_step)))
         cs.ramp_len = min(clean_perf(cs.ramp_len, 1.0), 20.0)

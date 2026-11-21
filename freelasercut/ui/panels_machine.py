@@ -236,6 +236,23 @@ class LaserPanel(QWidget):
         v.addWidget(section(tr("Orientamento della macchina")))
         v.addWidget(self.inv_x)
         v.addWidget(self.inv_y)
+        # 0.21.2 (Ale): spostamenti a vuoto più lenti. Vale per la macchina (si salva nel profilo, come gli assi)
+        v.addWidget(section(tr("Spostamenti a vuoto")))
+        self.slow_travel = QCheckBox(tr("Spostamenti a vuoto più lenti"))
+        self.slow_travel.setToolTip(tr(
+            "Nel lavoro e nel Contorno la testa si sposta da una forma all'altra a laser spento alla velocità scelta, "
+            "invece che alla velocità massima della macchina. Utile se la macchina vibra, se il pezzo si sposta o per "
+            "non sforzare cinghie e motori. Il lavoro dura un po' di più. Jog e homing non cambiano."))
+        self.travel_feed = QDoubleSpinBox()
+        self.travel_feed.setRange(100.0, 30000.0)
+        self.travel_feed.setDecimals(0)
+        self.travel_feed.setSingleStep(500.0)
+        self.travel_feed.setSuffix(" mm/min")
+        self.travel_feed.setValue(3000.0)
+        self.travel_feed.setEnabled(False)
+        self.slow_travel.toggled.connect(self.travel_feed.setEnabled)
+        v.addWidget(self.slow_travel)
+        v.addWidget(row(QLabel(tr("Velocità")), self.travel_feed, stretch=False))
         v.addStretch(1)
         self.s_max = 1000.0
         self._t0 = 0.0
@@ -620,6 +637,17 @@ class MovePanel(QWidget):
         self.b_clear.clicked.connect(lambda: self.ctl.send_line("G10 L2 P1 X0 Y0"))
         for b in (self.b_home, self.b_unlock, self.b_goto0, self.b_origin, self.b_clear):
             side.addWidget(b)
+        # 0.21.2: joystick fisico (G13, pad, joystick USB): sotto «Togli origine», come chiesto da Ale
+        from .joystick_fisico import PhysicalJoystick, PhysicalJoystickBox
+
+        self.pjoy = PhysicalJoystick(ctl, settings, get_profile, get_head, self.feed.value,
+                                     {"step_up": lambda: self._step_by(+1), "step_down": lambda: self._step_by(-1),
+                                      "z_up": lambda: self._jog_z(+1), "z_down": lambda: self._jog_z(-1),
+                                      "home": self.ctl.home,
+                                      "goto0": lambda: self.ctl.go_to_origin(self.feed.value())},
+                                     self, user_busy=self._user_jogging)
+        self.pjoy_box = PhysicalJoystickBox(self.pjoy)
+        side.addWidget(self.pjoy_box)
         side.addStretch(1)
         top.addLayout(side)
         top.addStretch(1)
@@ -677,6 +705,19 @@ class MovePanel(QWidget):
 
     def step(self):
         return self.pad.step()
+
+    def _step_by(self, d):
+        """0.21.2 (joystick fisico): passo più grande (+1) o più piccolo (-1)."""
+        from .jogpad import STEPS
+
+        cur = self.pad.step()
+        i = min(range(len(STEPS)), key=lambda k: abs(STEPS[k] - cur))
+        self.pad.set_step(STEPS[max(0, min(len(STEPS) - 1, i + d))])
+
+    def _user_jogging(self):
+        """0.21.2: frecce, tastiera o joystick sullo schermo in uso: hanno la precedenza sulla levetta vera."""
+        recent = time.monotonic() - max(self.pad._jog_sent, getattr(self, "kb_jog_t", -1e9)) < 0.30
+        return self.pad.joy.active or self.pad.pad.pressed or recent
 
     def _step(self, s, btn):
         self.pad._step(s, btn)

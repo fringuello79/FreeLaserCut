@@ -317,6 +317,7 @@ class _Writer:
         self.rot_k = 1.0  # rotativo: la F si corregge perché la velocità sulla superficie resti quella scelta
         self.cut = 0.0
         self.scan_offset = None  # f(velocità) -> sfasamento mm fra andata e ritorno (None = nessuna correzione)
+        self.travel_feed = None  # 0.21.2: spostamenti a vuoto lenti (G1 S0 a questa velocità) invece di G0
         self.burn = [math.inf, math.inf, -math.inf, -math.inf]
         self.motion = [math.inf, math.inf, -math.inf, -math.inf]
 
@@ -339,6 +340,9 @@ class _Writer:
         return parts
 
     def rapid(self, bx, by):
+        if self.travel_feed:  # 0.21.2: «Spostamenti a vuoto più lenti»: laser spento (S0) alla velocità scelta
+            self.feed(bx, by, 0.0, self.travel_feed)
+            return
         ox, oy = self.map(bx, by)
         xy = self._xy(ox, oy)
         if not xy:
@@ -745,6 +749,12 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None, first_forward=True
 
     dxu, dyu = cos_a, sin_a  # direzione di scansione nel piano
     forward = bool(first_forward)
+    # 0.21.2: «Velocità costante anche a laser spento»: vuoti di ogni lunghezza e cambio di riga alla velocità del
+    # livello (G1 S0); resta veloce solo l'arrivo alla prima riga
+    steady = getattr(cs, "steady_travel", False) is True
+    if steady:
+        gap_g1 = math.inf
+    started = False
     for row_n, (y, segs) in enumerate(lines):
         if not row_n & 15:
             _tick()
@@ -757,7 +767,11 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None, first_forward=True
         shift[0] = -sgn * half
         sx, sy = back(segs[0][0], y)
         ox, oy = _clamp_dir(sx, sy, -ddx, -ddy, cs.overscan, bed)
-        w.rapid(ox, oy)
+        if steady and started:
+            w.feed(ox, oy, 0.0, cs.speed)
+        else:
+            w.rapid(ox, oy)
+        started = True
         w.track(ox, oy)
         w.feed(sx, sy, 0.0, cs.speed)
         w.track(sx, sy)
@@ -922,6 +936,7 @@ def _best_grouping(w, polys, cs, bed, opts, profile):
     for g in ("together", "each"):
         tmp = _Writer(w.map, w.s_max)
         tmp.scan_offset = w.scan_offset
+        tmp.travel_feed = w.travel_feed
         tmp.x, tmp.y, tmp.pb, tmp.f, tmp.s, tmp.mode = w.x, w.y, w.pb, w.f, w.s, w.mode
         _emit_fill(tmp, polys, cs, bed, opts, g)
         t = gcode_preview.plan_time(_moves_of(tmp.lines, w.x, w.y), profile.accel_x, profile.accel_y,
@@ -1137,6 +1152,7 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         job.rotary_k, job.rotary_ref = rot_k, ref
         job.warnings.append(tr("Rotativo attivo: asse Y × {0:.4f} (in anteprima il disegno resta com'è sul piano)", rot_k))
     w = _Writer(placed_map, profile.s_max)
+    w.travel_feed = profile.travel_speed() if hasattr(profile, "travel_speed") else None
     if getattr(profile, "scan_offsets", None):
         w.scan_offset = profile.scan_offset
     w.rot_k = rot_k

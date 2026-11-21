@@ -201,6 +201,8 @@ class GrblController(QObject):
     # spenti; si riparte con resume_user_pause(), si annulla con stop_job()
     user_pause = Signal(str)  # messaggio per la persona
     user_resumed = Signal()  # la pausa è finita (Riprendi da qualsiasi parte)
+    board_rebooted = Signal()  # 0.21.2: la scheda si è riavviata da sola (banner senza un reset chiesto da noi)
+    note = Signal(str)  # 0.21.2: un fatto da scrivere nel registro della comunicazione («#»), da qualsiasi filo
 
     def __init__(self):
         super().__init__()
@@ -220,6 +222,9 @@ class GrblController(QObject):
         self.rx_buffer = RX_BUFFER
         self.homed = False
         self.negative_space = None
+        self.sim_travel = None  # 0.21.2: corsa del simulatore (X, Y) in mm; la mette la finestra principale
+        self.reboots = 0  # 0.21.2: riavvii della scheda non chiesti, da quando FreeLaserCut è aperto
+        self._reset_asked_t = 0.0  # ultimo reset chiesto da noi (Ctrl+X, linee della porta) o apertura della porta
         self._check_space = False
         self._home_alarm = False  # allarme arrivato mentre l'homing era in corso: quell'homing non vale
         self._last_alarm = (0, 0.0)  # (codice, ora): un riavvio subito dopo un allarme ne è la conseguenza
@@ -268,9 +273,10 @@ class GrblController(QObject):
 
     def connect_port(self, port, baud=115200):
         self.disconnect_port()
+        self._reset_asked_t = time.time()  # 0.21.2: le schede Arduino si riavviano all'apertura della porta: è voluto
         try:
             if port == SIM_PORT:
-                ser = SimSerial()
+                ser = SimSerial(travel=self.sim_travel)  # 0.21.2: None = la corsa di sempre (450 × 440)
             elif netport.is_net(port):  # Wi-Fi / cavo di rete (FluidNC, grblHAL, ESP3D: telnet)
                 ser = netport.NetSerial.from_port(port)
             else:
@@ -363,8 +369,10 @@ class GrblController(QObject):
             return False
         self.message.emit(tr("La scheda non risponde nemmeno al Ctrl+X: la riavvio dalla porta USB, come il pulsante "
                              "di reset"))
+        self._reset_asked_t = time.time()
         if not hard_reset(ser):  # porta che non gestisce le linee: resta l'avviso della finestra
             return False
+        self._reset_asked_t = time.time() + self.BOOT_WAIT_S  # il banner arriva dopo l'avvio dell'ESP32
         self.line_resets += 1
         return True
 
@@ -472,6 +480,8 @@ class GrblController(QObject):
                     self.line_sent.emit(_mask(cmd.line))  # console, registro, comando a distanza: mai la password
 
     def realtime(self, byte):
+        if byte == 0x18 or byte == b"\x18":
+            self._reset_asked_t = time.time()  # il banner che arriverà è la risposta al nostro reset
         self._write_raw(bytes([byte]) if isinstance(byte, int) else byte)
 
     # --------------------------------------------------------- comandi utente
@@ -494,6 +504,13 @@ class GrblController(QObject):
     def soft_reset(self):
         self.realtime(0x18)
         self._clear_queues()
+        # 0.21.2: il reset spegne il laser sulla scheda; prima FreeLaserCut continuava a credere accesi Puntino e
+        # Lucciola (pulsante giallo, tempo che correva) dopo uno Stop
+        if self.fire_active:
+            if self._fire_timer is not None:
+                self._fire_timer.cancel()
+                self._fire_timer = None
+            self.fire_active = False
         if self._af is not None:
             self._af_fail(tr("Autofocus interrotto."))
         self._end_check(None)
@@ -774,17 +791,23 @@ class GrblController(QObject):
         self._fire_timer.start()
         return True
 
-    def frame_path(self, points, feed=6000, laser_pct=0.0, s_max=1000.0):
+    def frame_path(self, points, feed=6000, laser_pct=0.0, s_max=1000.0, travel_feed=None):
         """Percorre una spezzata in coordinate macchina: a laser spento con il jog (interrompibile),
-        oppure con un filo di laser per vedere il contorno sul materiale."""
+        oppure con un filo di laser per vedere il contorno sul materiale. 0.21.2: travel_feed = «Spostamenti a
+        vuoto più lenti» del profilo: il Contorno non va più veloce di così, e l'andata al primo punto è un G1 S0."""
         if not points:
             return
+        if travel_feed:
+            feed = min(feed, travel_feed)
         if laser_pct <= 0:
             for x, y in points:
                 self.send_line(f"$J=G53 G21 X{x:.3f} Y{y:.3f} F{feed:.0f}")
             return
         x0, y0 = points[0]
-        self.send_line(f"G53 G0 X{x0:.3f} Y{y0:.3f}")
+        if travel_feed:
+            self.send_line(f"G53 G1 X{x0:.3f} Y{y0:.3f} S0 F{feed:.0f}")
+        else:
+            self.send_line(f"G53 G0 X{x0:.3f} Y{y0:.3f}")
         self.send_line(f"M3 S{min(laser_pct, POINTER_MAX) / 100.0 * s_max:.1f}")
         for x, y in points[1:]:
             self.send_line(f"G53 G1 X{x:.3f} Y{y:.3f} F{feed:.0f}")
@@ -1173,6 +1196,17 @@ class GrblController(QObject):
             return
         if line.lower().startswith("grbl"):
             # la scheda si è riavviata: tutto ciò che era in volo è perso (anche un homing a metà)
+            # 0.21.2 (rapporti E933 e 44A1): se non l'abbiamo chiesto noi è un riavvio da solo (cavo, hub, alimentazione,
+            # watchdog): la posizione è persa e chi sta muovendo la testa (calibrazioni, camera) deve fermarsi
+            chk0 = self._check
+            asked = time.time() - self._reset_asked_t < 8.0 or (chk0 is not None and chk0.get("exiting"))
+            if not asked:
+                self.reboots += 1
+                if self.homed:
+                    self.homed = False
+                    self.homed_changed.emit(False, self.negative_space)
+                self.note.emit(f"la scheda si è riavviata da sola ({line.strip()}): posizione persa")
+                self.board_rebooted.emit()
             self._clear_queues()
             self._check_space = False
             self.stale_check_exit = False

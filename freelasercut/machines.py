@@ -11,6 +11,7 @@ identify() mette insieme gli indizi e propone nome, profilo di partenza e avvisi
 probe() apre la porta, trova la velocità giusta e legge banner, $I e $$ (la porta deve essere libera).
 """
 import math
+import os
 import sys
 import re
 import time
@@ -183,6 +184,18 @@ CATALOG = (
     # manuale ufficiale «X1Pro_JL9 User Manual_EN» (cartella «User Manual» linkata da carverall.com/pages/carverall-user-
     # guides): chip USB CH340, area 300 × 300 e origine davanti a sinistra nella configurazione GRBL, homing automatico.
     ("Carverall JL9 (X1 Pro) 20W", "Carverall", 300, 300, "20 W", 15000),
+    # 0.21.2: chiesta da Ale (foto di un utente). VEVOR A7: modulo «Laser Module A7» fatto da Shenzhen AtomStack, 455 nm,
+    # 5–6 W ottici, fuoco fisso; è la Atomstack A5 Pro venduta da VEVOR, quindi stessi valori: area 410 × 400 mm e
+    # 10.000 mm/min (schede VEVOR e Best Buy della A7 da 5 W, lette il 21/11/2026), spot 0,08 × 0,08 mm (schede della
+    # A7 su Best Buy). Con lo stesso nome «A7» VEVOR vende anche 380 × 400 mm (5 e 10 W) e 400 × 400 mm (10 W):
+    # «Leggi dalla macchina» legge quella vera.
+    ("VEVOR A7 5W", "VEVOR", 410, 400, "5–6 W", 10000),
+    # 0.21.2: chiesta da un utente (Ale 21/11). Sculpfun iCube Ultra Dual: diodo da 12 W a 455 nm più un modulo
+    # infrarosso da 1,2 W a 1064 nm, da cambiare a mano; area 150 × 135 mm (pagina ufficiale Sculpfun EU e manuale), qui
+    # 135 × 135 per prudenza perché nessuna fonte dice quale asse è il corto (stessa regola dei C1, vedi AREA_NOTE). Il
+    # modulo IR comprato a parte per la iCube Ultra normale porta un finecorsa che riduce l'area allo stesso 150 × 135.
+    ("Sculpfun iCube Ultra Dual 12W", "Sculpfun", 135, 135, "12 W", 10000),
+    ("Sculpfun iCube Ultra Dual 1.2W IR", "Sculpfun", 135, 135, "1,2 W (infrarosso)", 10000),
 )
 # area dichiarata dal produttore, quando è stata ridotta per prudenza (vedi sopra)
 AREA_NOTE = {
@@ -190,6 +203,7 @@ AREA_NOTE = {
     "Mecpow X4 Pro 40W": (400, 398), "Longer Ray5 Mini": (130, 140), "Creality CR-Laser Falcon 5W": (400, 415),
     "Atomstack A70 Max": (850, 800), "Longer Ray5 20W": (400, 365),
     "Sculpfun C1 3W": (150, 130), "Sculpfun C1 6W": (150, 130),
+    "Sculpfun iCube Ultra Dual 12W": (150, 135), "Sculpfun iCube Ultra Dual 1.2W IR": (150, 135),
 }
 # pagine ufficiali da cui vengono i valori dei modelli aggiunti nella 0.12.0
 SOURCES = {
@@ -215,6 +229,12 @@ SOURCES = {
     "Sculpfun SF-A9 40W": "https://www.sculpfun.com/products/sculpfun-sf-a9-40w-laser-engraver-cutting-machine",
     "Sculpfun iCube Pro Max 10W": "https://sculpfun.com/products/sculpfun-icube-portable-laser-engraving-machine",
     "Sculpfun iCube Ultra 12W": "https://eu.sculpfun.com/products/icube-ultra-portable-laser-engraving-machine",
+    # 0.21.2: la pagina EU è la stessa per la versione normale e per la Dual (tabella «Specification» con le due colonne)
+    "Sculpfun iCube Ultra Dual 12W": "https://eu.sculpfun.com/products/icube-ultra-portable-laser-engraving-machine",
+    "Sculpfun iCube Ultra Dual 1.2W IR": "https://eu.sculpfun.com/products/icube-ultra-portable-laser-engraving-machine",
+    # 0.21.2: scheda della A7 da 5 W, 16,1 × 15,7 pollici (410 × 400 mm), 10.000 mm/min (Best Buy, venditore VEVOR)
+    "VEVOR A7 5W": "https://www.bestbuy.com/product/vevor-laser-engraver-5w-output-laser-engraving-machine-16-1-x-15-7-"
+                   "large-working-area-10000mm-min-movement-speed-blue/JJGHK4KR8V",
     "Sculpfun C1 3W": "https://www.sculpfun.com/products/sculpfun-c1-mini-laser-engraver-3w",
     "Sculpfun C1 6W": "https://eu.sculpfun.com/products/sculpfun-c1-6w-mini-portable-laser-engraver",
     "Atomstack A5 Pro": "https://atomstack.com/products/refurbished-atomstack-a5-m50-pro-laser-engraver",
@@ -293,6 +313,27 @@ for _n in ("Atomstack Swift 7W", "Atomstack Swift 12W"):
                    "impostati scegliendo questo modello. Atomstack non dichiara la velocità massima: qui c'è il valore "
                    "generico di 10.000 mm/min. Collegando la macchina e premendo «Leggi dalla macchina», velocità e area "
                    "vere si leggono dalla scheda (anche con il kit di estensione dell'area).")
+NOTES["VEVOR A7 5W"] = tr(
+    "VEVOR A7 da 5 W: è la stessa macchina dell'Atomstack A5 Pro (il modulo è fatto da AtomStack), con area 410 × 400 "
+    "mm e 10.000 mm/min. Con il nome A7 VEVOR vende anche versioni da 380 × 400 e, da 10 W, 400 × 400 mm: collegando "
+    "la macchina, «Leggi dalla macchina» legge l'area vera. Prima di lavorare controlla che il pulsante d'emergenza "
+    "davanti sia sbloccato.")
+NOTES["Sculpfun iCube Ultra 12W"] = NOTES["Sculpfun iCube Ultra 12W"] + " " + tr(
+    "Hai la Dual o hai montato il modulo infrarosso? Scegli le voci «iCube Ultra Dual».")
+# 0.21.2: la iCube Ultra Dual. Le due voci sono la stessa macchina con un modulo diverso montato.
+ICUBE_DUAL = ("Sculpfun iCube Ultra Dual 12W", "Sculpfun iCube Ultra Dual 1.2W IR")
+for _n in ICUBE_DUAL:
+    NOTES[_n] = tr(
+        "Sculpfun iCube Ultra Dual: scegli la voce del modulo montato adesso (diodo da 12 W o infrarosso da 1,2 W). "
+        "Area 150 × 135 mm, anche sulla iCube Ultra normale quando hai montato il finecorsa del modulo infrarosso; qui "
+        "è 135 × 135 per prudenza finché «Leggi dalla macchina» non legge quale lato è il corto. Collegala con il cavo "
+        "USB: il Bluetooth serve all'app Sculpfun. Per cambiare modulo spegni la macchina e togli la chiavetta USB di "
+        "sicurezza, poi cambia testa e voce in FreeLaserCut. Non ancora provata su una Dual vera: alla prima "
+        "connessione fai la configurazione guidata.")
+NOTES["Sculpfun iCube Ultra Dual 1.2W IR"] = NOTES["Sculpfun iCube Ultra Dual 1.2W IR"] + " " + tr(
+    "Infrarosso: il raggio a 1064 nm non si vede. Tieni chiuso lo sportello ($safe=1, il valore di fabbrica); se lo "
+    "apri usa occhiali che riportano 1064 nm, perché quelli per il laser blu di solito non bastano. Con l'infrarosso "
+    "solo incisione (metalli, acrilico nero, plastiche, ceramica, pietra), niente taglio.")
 # 0.19.4: la serie E1. Le tre voci sono la stessa macchina con un modulo diverso montato.
 E1 = ("Sculpfun E1 12W", "Sculpfun E1 Pro 21W", "Sculpfun E1 3W IR")
 for _n in E1:
@@ -329,6 +370,8 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "Creality CR-Laser Falcon 5W": (0.06, 0.06),
          "Acmer S1 (2,5W / 3,5W / 6W)": (0.06, 0.06), "Sculpfun SF-A9 40W": (0.10, 0.15),
          "Sculpfun iCube Pro Max 10W": (0.08, 0.08), "Sculpfun iCube Ultra 12W": (0.08, 0.08),
+         "Sculpfun iCube Ultra Dual 12W": (0.08, 0.08), "Sculpfun iCube Ultra Dual 1.2W IR": (0.03, 0.03),
+         "VEVOR A7 5W": (0.08, 0.08),
          "Atomstack A5 Pro": (0.08, 0.08), "Creality Falcon A1 10W": (0.06, 0.08), "Creality Falcon A1 Pro 20W": (0.08, 0.10),
          "Creality Falcon2 Pro 22W / 40W": (0.08, 0.12), "Creality Falcon2 Pro 60W": (0.08, 0.15),
          "Two Trees TTS-10 Pro": (0.08, 0.08), "Two Trees TTS-20 Pro": (0.13, 0.145),
@@ -355,9 +398,12 @@ ACCEL = {n: 3000.0 for n in SCAN}  # mm/s² dai profili ufficiali Acmer
 CORNER = {"Creality Falcon A1 10W": "bl"}
 ACCEL.update({n: 3000.0 for n in _P2})
 ACCEL.update({n: 1000.0 for n in E1})  # $120/$121 di fabbrica (tabella di diode-laser-wiki.com, vedi CATALOG)
+# 0.21.2: accelerazione 500 della tabella dei parametri Sculpfun «iCube Ultra Engraving Parameter» (è un valore per
+# un altro programma di incisione, non della scheda): serve solo alla stima dei tempi
+ACCEL.update({n: 500.0 for n in ("Sculpfun iCube Ultra 12W",) + ICUBE_DUAL})
 # famiglie in cui la scheda è la stessa e cambia solo il modulo laser montato, che dalla scheda non si legge: quando
 # l'area letta porta a tutta la famiglia e a nient'altro, il riconoscimento propone la prima voce e lo dice (0.19.4)
-FAMILIES = (E1,)
+FAMILIES = (E1, ICUBE_DUAL)
 # comando che accende l'aria assistita, dove il profilo ufficiale del produttore non usa il solito M8 (0.19.2)
 AIR_ON = {n: "M7" for n in _P2}
 # 0.20.1: le schede Makerbase MKS DLC32 accendono l'uscita dell'aria con M7 (rapporti del 15/11/2026 da una DLC32
@@ -404,6 +450,7 @@ class PortInfo:
     chip: str = ""
     driver: str = ""  # famiglia: wch / silabs / ftdi / native / arduino
     likely: bool = False
+    system: bool = False  # 0.21.2: porta del sistema (Bluetooth, cuffie, console di debug del Mac): non è un laser
 
     def vid_pid(self):
         return f"{self.vid:04X}:{self.pid:04X}" if self.vid is not None and self.pid is not None else ""
@@ -414,7 +461,25 @@ class PortInfo:
             bits.append(self.chip)
         elif self.description:
             bits.append(self.description)
+        if self.system:
+            bits.append(tr("non è un laser"))
         return " — ".join(bits)
+
+
+# 0.21.2 (rapporto E698, Mac M1): porte seriali che il Mac crea da sé. Una scheda laser sul Mac è /dev/cu.usbserial-…,
+# /dev/cu.usbmodem…, /dev/cu.wchusbserial… o /dev/cu.SLAB_USBtoUART: tutte con «usb» o «SLAB» nel nome
+_SYSTEM_PORT_WORDS = ("bluetooth", "debug-console", "wlan-debug", "airpods", "headphone", "beats", "incoming-port")
+
+
+def system_port(device, vid=None, platform=None):
+    """True per le porte del sistema che non possono essere un laser (Bluetooth, cuffie, console di debug)."""
+    name = os.path.basename(str(device or "")).lower()
+    if any(w in name for w in _SYSTEM_PORT_WORDS):
+        return True
+    platform = platform or sys.platform
+    if platform == "darwin" and vid is None and name.startswith(("cu.", "tty.")):
+        return "usb" not in name and "slab" not in name
+    return False
 
 
 def chip_for(vid, pid):
@@ -451,13 +516,14 @@ def describe_ports(comports=None, extra=None):
             if m:
                 vid, pid = int(m.group(1), 16), int(m.group(2), 16)
                 chip, drv = chip_for(vid, pid)
-        out.append(PortInfo(p.device, desc, vid, pid, getattr(p, "manufacturer", "") or "", chip, drv, likely))
+        system = not likely and system_port(p.device, vid)
+        out.append(PortInfo(p.device, desc, vid, pid, getattr(p, "manufacturer", "") or "", chip, drv, likely, system))
         seen.add(p.device)
     for dev in extra or []:
         if dev not in seen:
             seen.add(dev)
             out.append(PortInfo(dev, tr("CH341 (driver del produttore)"), None, None, "", "CH341", "wch", True))
-    out.sort(key=lambda t: (not t.likely, t.device))
+    out.sort(key=lambda t: (not t.likely, t.system, t.device))  # 0.21.2: le porte del sistema in fondo
     return out
 
 

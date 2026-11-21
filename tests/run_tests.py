@@ -320,9 +320,35 @@ def _report(name, label, rc, out, err):
         results.append((name, False))
 
 
+TIMES = {}  # 0.21.2: secondi per suite («nome argomenti»), per l'elenco delle più lente in fondo
+RETRIED = []  # 0.21.2: suite fallite insieme alle altre e riprovate da sole, con l'esito
+
+
+def _timed(runner, name, args):
+    t0 = time.time()
+    try:
+        return runner(name, args)
+    finally:
+        key = " ".join((name, *args))
+        TIMES[key] = TIMES.get(key, 0.0) + time.time() - t0
+
+
+def timing_summary(n=10):
+    """0.21.2 (voce 2 della coda: su GitHub il giro di Windows è arrivato a 51 minuti su 60): le suite riprovate da
+    sole e le n più lente, da leggere in fondo al registro quando un giro dura più del solito. -> testo"""
+    lines = []
+    if RETRIED:
+        lines.append("Suite riprovate da sole: " + ", ".join(f"{k} ({'riuscita' if ok else 'fallita'})" for k, ok in RETRIED))
+    if TIMES:
+        top = sorted(TIMES.items(), key=lambda kv: -kv[1])[:n]
+        lines.append(f"Le {len(top)} più lente: " + ", ".join(f"{k} {v:.0f} s" for k, v in top))
+        lines.append(f"Tempo di tutte le suite sommato: {sum(TIMES.values()) / 60:.1f} min")
+    return "\n".join(lines)
+
+
 def run_suite(name, label, *args):
     if PARALLEL <= 1:
-        _report(name, label, *_run_one(name, args))
+        _report(name, label, *_timed(_run_one, name, args))
     else:
         _queue.append((name, label, args))  # girano insieme alla fine: vedi flush()
 
@@ -339,14 +365,15 @@ def flush(runner=None):
     if not todo:
         return
     with ThreadPoolExecutor(PARALLEL) as ex:
-        futs = {ex.submit(runner, n, a): i for i, (n, _l, a) in enumerate(todo)}
+        futs = {ex.submit(_timed, runner, n, a): i for i, (n, _l, a) in enumerate(todo)}
         for k, f in enumerate(as_completed(futs), 1):
             outs[futs[f]] = f.result()
             print(f"  [{k}/{len(todo)}] {todo[futs[f]][0]} {' '.join(todo[futs[f]][2])}".rstrip(), flush=True)
     for i, (name, label, args) in enumerate(todo):
         rc, out, err = outs[i]
         if _failed(rc, out):
-            rc, out, err = runner(name, args)
+            rc, out, err = _timed(runner, name, args)
+            RETRIED.append((" ".join((name, *args)), not _failed(rc, out)))
             label += "  [fallita insieme alle altre, riprovata da sola: " + ("fallita di nuovo]" if _failed(rc, out)
                                                                              else "riuscita]")
         _report(name, label, rc, out, err)
@@ -544,8 +571,6 @@ if __name__ == "__main__":
     run_suite("test_v205_richieste.py", "Angoli verso l'interno, Livelli, offset, Forme, camera della testa, sfondo del piano e ringraziamenti nell'interfaccia Banco", "banco")
     run_suite("test_v206_richieste.py", "Foto ritagliata con una forma: misure, maniglie, Allinea e aggancio del lavoro sulla sola parte che si vede, Contorno da tagliare; Prepara foto: forma sull'originale e riquadro del ritaglio che si sposta e si allarga; ingranaggio a evolvente con modulo, angolo di pressione, gioco, foro e alleggerimenti; precisazione dei ringraziamenti")
     run_suite("test_v206_richieste.py", "Foto ritagliata, Contorno da tagliare, Prepara foto, ingranaggio e ringraziamenti nell'interfaccia Banco", "banco")
-    run_suite("test_v206_xtool_xs.py", "Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori")
-    run_suite("test_v206_xtool_m2.py", "Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area")
     run_suite("test_v206_rapporti.py", "Rapporti del 18/11: punto di riferimento che resta dopo il riavvio, scritte del test materiali con potenza e velocità scelte e numeri arrotondati, invio prudente in Wi-Fi, schede che interrompono le risposte lunghe, lente molto grandangolare della camera della testa, tasto destro su una foto")
     run_suite("test_v206_rapporti.py", "Rapporti del 18/11 nell'interfaccia Banco", "banco")
     run_suite("test_v207_svg_grigi.py", "SVG con contorno e riempimento separati da soli; riempimenti in toni di grigio con la potenza dal grigio di ogni forma (nero = massima, bianco = non si incide), forme sopra che coprono quelle sotto, fori vuoti; loghi neri, colori e file di prima come prima; anteprima dei toni; salvataggio; traduzioni")
@@ -580,7 +605,22 @@ if __name__ == "__main__":
     run_suite("test_v211_grigio.py", "Grigio delle forme nell'interfaccia Banco", "banco")
     run_suite("test_v211_foto.py", "Prepara foto anche sulla foto ritagliata con una forma: menu in alto, tasto destro e pannello Proprietà")
     run_suite("test_v211_foto.py", "Prepara foto sulla foto ritagliata nell'interfaccia Banco", "banco")
-    run_suite("test_v207_xtool_m2_link.py", "Collegamento diretto con la xTool M2 (funzione in prova) contro una M2 finta: buste, abbinamento col pulsante, invio, pausa e annullamento, consenso alla prima connessione")
+    run_suite("test_v212_moduli.py", "Moduli aggiuntivi: cartella dei dati, modulo.json, versione adatta, errori che restano del modulo (importazione, registrazione, comando), niente comandi a metà né al posto di quelli del programma, traduzioni, riga nel rapporto, spenti nello Store; nessun comando né file per macchine non GRBL nel programma")
+    run_suite("test_v212_moduli.py", "Moduli aggiuntivi nell'interfaccia Banco", "banco")
+    run_suite("test_v212_lucciola.py", "Finestre chiuse che restavano attaccate ai segnali (rapporti 75E8 e ABFC): Lucciola dopo Stampa e taglia, copie della scheda dopo un cambio di collegamento, nessuna lambda sui segnali di controllore, scheda Laser e finestra principale")
+    run_suite("test_v212_lucciola.py", "Finestre chiuse attaccate ai segnali nell'interfaccia Banco", "banco")
+    run_suite("test_v212_lucciola_tasto.py", "Lucciola dalla tastiera (Alt+Maiusc+L): come il pulsante, tetto di potenza, niente raggio senza macchina, in lavoro o in allarme, Stop che la spegne davvero anche nel programma, con Stampa e taglia davanti")
+    run_suite("test_v212_lucciola_tasto.py", "Lucciola dalla tastiera nell'interfaccia Banco", "banco")
+    run_suite("test_v212_velocita.py", "Velocità costante a laser spento (riempimenti e immagini) e «Spostamenti a vuoto più lenti» (macchina): righe intere a velocità di lavoro senza G0, salti fra le forme e fra i livelli che restano, G-code identico alla 0.21.1 con le caselle spente, tetto alla velocità della scheda, Contorno, stima del tempo, file vecchi")
+    run_suite("test_v212_velocita.py", "Velocità costante e spostamenti a vuoto nell'interfaccia Banco", "banco")
+    run_suite("test_v212_joystick_fisico.py", "Joystick fisico (G13, pad, joystick USB) con un controller finto: zona morta e taratura del centro, si arma solo dal centro, programma in secondo piano e finestre aperte, guardiano e scollegamento, homing obbligatorio, tetto della «Velocità jog» e mai oltre 6000, nessun comando del laser, lavoro e allarme, un solo padrone fra schermo, tastiera e levetta, verso, pressione lunga per Homing e X0 Y0, controller ricordato, da riaccendere a ogni avvio, libreria che manca")
+    run_suite("test_v212_joystick_fisico.py", "Joystick fisico nell'interfaccia Banco", "banco")
+    run_suite("test_v212_continuo.py", "«Continuo» e joystick quando il piano del profilo è più grande della corsa della scheda (rapporto 3802): bordo vero con coordinate positive e negative, assi invertiti e piano ruotato, nessun error:15, rifiuto spiegato sotto le frecce con «Usa le misure della macchina», avviso al collegamento, simulatore con la corsa del profilo")
+    run_suite("test_v212_continuo.py", "«Continuo» e joystick al bordo vero nell'interfaccia Banco", "banco")
+    run_suite("test_v212_calibrazione.py", "Calibrazione della camera con la scheda che si riavvia da sola (rapporti E933 e 44A1): riavvii chiesti e no, homing tolto, la calibrazione si ferma con il messaggio e senza altri movimenti, inizio e fine nel registro, passaggio al cartone spiegato")
+    run_suite("test_v212_primo_avvio.py", "Primo avvio (rapporto E698, Mac M1): finestra della scelta distrutta prima della finestra principale, pulizia della memoria sospesa durante la costruzione e riattivata anche se fallisce, porte del sistema del Mac in fondo e segnate")
+    run_suite("test_v212_primo_avvio.py", "Primo avvio nell'interfaccia Banco", "banco")
+    run_suite("test_v212_catalogo.py", "Catalogo: VEVOR A7 5W (come l'Atomstack A5 Pro) e Sculpfun iCube Ultra Dual 12W e 1.2W IR (area prudente 135 × 135, dichiarata 150 × 135, famiglia nel riconoscimento, nota sul raggio a 1064 nm, accelerazione 500, tabella dei materiali Sculpfun con interlinea 0,05), traduzioni")
     run_suite("test_v201_finestra.py", "La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue")
     run_suite("test_v201_finestra.py", "Finestra che resta nello schermo nell'interfaccia Banco", "banco")
     run_suite("test_v201_nomi.py", "Il nome del progetto dato dall'importazione segue i file che restano sul piano")
@@ -596,6 +636,7 @@ if __name__ == "__main__":
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()
+    print("\n" + timing_summary())
     ko = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(ko)}/{len(results)} test superati" + (f" — falliti: {ko}" if ko else ""))
     sys.exit(1 if ko else 0)

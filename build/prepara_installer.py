@@ -43,6 +43,7 @@ PACKAGES = [
     "ezdxf==1.4.5",
     "Hershey-Fonts==2.1.0",
     "numba==0.68.1",
+    "pygame-ce==2.5.8",  # 0.21.2: solo per leggere il joystick fisico (SDL2); LGPL 2.1, libreria separata
 ]
 
 # 0.19.0: librerie «di prima» per i processori senza le istruzioni x86-64-v2 (fino al 2008-2011 circa), che NumPy
@@ -56,6 +57,7 @@ COMPAT_PACKAGES = [
 TRIM_PYTHON = ["tcl", "include", "libs"]
 TRIM_SITE = ["bin", "share", "test", "tests"]
 TRIM_PYSIDE = ["qml", "metatypes", "typesystems", "include", "glue"]
+TRIM_PYGAME = ["docs", "examples", "tests", "__briefcase", "__pyinstaller"]  # 0.21.2: guida, esempi e prove di pygame-ce
 
 
 def step(msg):
@@ -123,6 +125,8 @@ def main():
         # (il programma se ne accorge e nei registri scrive «librerie compatibili: mancanti»)
         print(f"ATTENZIONE: librerie compatibili non installate ({exc}): l'installatore ne farà a meno")
         shutil.rmtree(compat, ignore_errors=True)
+    for d in TRIM_PYGAME:
+        shutil.rmtree(os.path.join(site, "pygame", d), ignore_errors=True)
     pyside = os.path.join(site, "PySide6")
     for d in TRIM_PYSIDE:
         shutil.rmtree(os.path.join(pyside, d), ignore_errors=True)

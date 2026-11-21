@@ -1,7 +1,7 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """0.20.7, funzione in prova: G-code «del piano» scritto da un programma esterno e adattato al laser del profilo
-(`core/plane_gcode.py`, `MainWindow._plane_gcode`). Prima stava dentro la prova del collegamento con la xTool M2,
-tolto dalla versione pubblica in attesa della risposta di xTool.
+(`core/plane_gcode.py`, `MainWindow._plane_gcode`). Prima stava dentro la prova di un collegamento sperimentale, tolto dalla
+versione pubblica.
 Uso: python tests/test_v207_piano.py [classica|banco]
 """
 import os
@@ -91,8 +91,6 @@ from freelasercut.ui import help_texts  # noqa: E402
 from freelasercut.ui.main_window import MainWindow  # noqa: E402
 
 w = MainWindow()
-check("0.21.0: il collegamento diretto con la M2 c'è ma, senza il codice delle funzioni in prova, non si vede e non si apre",
-      "m2_link" in w.acts and not w.acts["m2_link"].isVisible() and w.m2_link_dialog() is None)
 gpath = os.path.join(TMP, "piano.gcode")
 with open(gpath, "w", encoding="utf-8") as fh:
     fh.write("\n".join(src) + "\n")

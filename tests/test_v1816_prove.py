@@ -87,7 +87,8 @@ class Fake:
 
 def run(fake, names, parallel):
     """Mette in fila le suite come fa il file delle prove e raccoglie quello che viene stampato e contato."""
-    del rt.results[:], rt._queue[:]
+    del rt.results[:], rt._queue[:], rt.RETRIED[:]
+    rt.TIMES.clear()
     rt.PARALLEL = parallel
     real = rt._run_one
     rt._run_one = fake
@@ -140,6 +141,10 @@ check("una suite che fallisce insieme alle altre viene riprovata, una volta, e d
 check("…se da sola riesce conta come riuscita, e il rapporto lo dice",
       all(ok for _n, ok in res) and len(res) == 20 and out.count("riprovata da sola: riuscita") == 2
       and "Etichetta s3  [fallita insieme alle altre" in out, [r for r in res if not r[1]])
+summary = rt.timing_summary(3)
+check("0.21.2: in fondo l'elenco delle suite riprovate da sole e delle più lente (con il tempo di ognuna)",
+      rt.RETRIED == [("s3", True), ("s7", True)] and "Suite riprovate da sole: s3 (riuscita), s7 (riuscita)" in summary
+      and "Le 3 più lente: " in summary and len(rt.TIMES) == 10 and rt.TIMES["s3"] >= 0.09, summary)
 
 # ------------------------------------------------------------------ fallita due volte
 script = {n: (0.03, ["ok"]) for n in names}
@@ -150,12 +155,15 @@ out, res, before = run(f, names, 4)
 bad = [n for n, ok in res if not ok]
 check("una suite rotta resta rossa anche dopo il secondo tentativo, con il suo controllo fallito",
       "KO  s2 secondo" in bad and out.count("riprovata da sola: fallita di nuovo") == 2, bad)
+check("…e nell'elenco finale risultano fallite", rt.RETRIED == [("s2", False), ("s5", False)], rt.RETRIED)
 check("…e una che si interrompe senza dire perché viene contata come fallita, con il codice e l'errore",
       "s5" in bad and "la suite si è interrotta (codice -11)" in out and "Segmentation fault" in out and len(bad) == 2, bad)
 check("…le altre non ne risentono", sum(1 for _n, ok in res if ok) == 8 * 2 + 1, len(res))
 f = Fake({"sola": (0.01, ["ko"])})
 out, res, before = run(f, ["sola"], 1)
 check("una alla volta non c'è nessun secondo tentativo: com'era prima", len(f.calls) == 1 and [ok for _n, ok in res] == [True, False])
+check("…ma il tempo si conta lo stesso, e nessuna risulta riprovata", list(rt.TIMES) == ["sola"] and not rt.RETRIED
+      and "riprovate" not in rt.timing_summary())
 del rt.results[:]
 with contextlib.redirect_stdout(io.StringIO()):
     rt.flush()
@@ -212,6 +220,7 @@ check("ogni suite dell'elenco esiste, nessuna è scritta due volte con gli stess
       [s for s in set(suites) if not os.path.exists(os.path.join(HERE, s))])
 check("le suite in coda vengono eseguite prima del riepilogo, dopo l'ultima dell'elenco",
       main.count("    flush()\n") == 1 and main.rindex("run_suite(") < main.index("    flush()\n") < main.index("ko = [n for n, ok in results")
+      and main.index("    flush()\n") < main.index("timing_summary()") < main.index("ko = [n for n, ok in results")
       and "PARALLEL = parallel_from(sys.argv, os.environ)" in main[:200])
 
 code_ = 0 if all(checks) else 1

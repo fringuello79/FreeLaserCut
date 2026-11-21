@@ -1,5 +1,52 @@
 # Novità di FreeLaserCut
 
+## 0.21.2 — 21/11/2026
+Correzioni dai vostri rapporti: la Lucciola senza finestre d'errore, la freccia «Continuo» che arriva al bordo vero della macchina, la calibrazione della camera che si ferma se la scheda si riavvia da sola, il primo avvio sul Mac. In più due macchine nuove nel catalogo, i moduli aggiuntivi, la Lucciola dalla tastiera, gli spostamenti a vuoto più lenti e il joystick fisico (in prova).
+
+**Lucciola senza errori** (rapporti di leone2805 e Daniel Z.). Dopo aver aperto e chiuso *Stampa e taglia*, ogni clic sulla Lucciola faceva comparire «Internal C++ object … already deleted», finché non si riavviava il programma (il laser comunque si accendeva e si spegneva). La croce delle frecce di quella finestra restava attaccata al pulsante della scheda Laser anche dopo la chiusura. Ora si stacca da sola. Corretto lo stesso difetto nella finestra delle copie delle impostazioni della scheda, che dava un errore al primo cambio di collegamento dopo averla chiusa.
+
+**«Continuo» e joystick fino al bordo vero** (rapporto di Giuseppe, il vero motivo del «tasto di sinistra che non funziona»). Con un profilo più grande della corsa della macchina (per esempio un profilo generico di 600 × 400 mm su una macchina da 450 × 440 con i limiti software accesi), «Continuo» puntava al bordo del profilo e la scheda rifiutava il movimento (error:15) a ogni clic, senza che comparisse niente. Ora:
+- frecce con «Continuo» e joystick si fermano al bordo che la scheda accetta davvero, con le coordinate positive e negative, gli assi invertiti e il piano ruotato;
+- se la scheda rifiuta comunque uno spostamento, sotto le frecce compare il motivo, con le due misure e il pulsante **Usa le misure della macchina**;
+- al collegamento, se il piano del profilo è più grande della corsa della scheda, un avviso lo dice una volta sola e propone la stessa correzione;
+- il simulatore ha la corsa del profilo attivo, invece di 450 × 440 per tutti.
+
+**Calibrazione della camera e scheda che si riavvia da sola** (rapporti di Giovanni sul Falcon 2 Pro). A metà del primo spostamento la scheda si riavviava da sola, la testa si fermava a metà strada e la calibrazione andava avanti come se fosse arrivata. Ora FreeLaserCut distingue i riavvii chiesti da lui da quelli improvvisi: la calibrazione si ferma subito, senza altri movimenti, e dice di controllare il cavo USB (meglio senza hub), l'alimentazione e di rifare l'homing. Vale anche per la camera della testa. Inizio e fine di ogni calibrazione, con il motivo, finiscono nel registro dei rapporti. Quando il puntino non basta e si passa al bersaglio inciso, la richiesta del cartone spiega che i lampi erano il primo metodo.
+
+**Primo avvio sul Mac** (rapporto di solboricua, MacBook Pro M1). Subito dopo la scelta dell'interfaccia il programma si chiudeva di colpo, una volta sola. La finestra della scelta ora viene chiusa del tutto prima di costruire la finestra principale, e mentre questa nasce la pulizia automatica della memoria resta ferma. Sul Mac le porte del sistema (Bluetooth, cuffie, console di debug) stanno in fondo all'elenco, segnate «non è un laser».
+
+**Lucciola dalla tastiera.** **Alt+Maiusc+L** accende e spegne la Lucciola, come il pulsante della scheda Laser: stessa potenza, con il tetto del laser. Non si accende senza macchina, durante un lavoro, in allarme o con lo sportello aperto. Si spegne anche con **Stop** (Maiusc+Esc). Il tasto è Alt+Maiusc+L e non Alt+L, perché Alt+L apre già il menu *Laser*. Sistemato anche un difetto trovato strada facendo: dopo uno Stop, per il programma la Lucciola restava «accesa» anche se il laser era spento, e il clic successivo la spegneva invece di accenderla.
+
+**Velocità costante a laser spento** (richiesta di Giuseppe). Due caselle, tutte e due spente di serie: con le caselle spente il G-code è identico a quello della 0.21.1.
+- Nelle impostazioni del livello, schede **Riempimento** e **Immagine**: **Velocità costante anche a laser spento**. Dentro il riempimento i vuoti e il passaggio da una riga all'altra si fanno alla velocità del livello invece che veloci. Ci sono meno vibrazioni e il pezzo non si sposta. I salti da una forma all'altra e da un livello all'altro restano veloci.
+- Nella scheda Laser, **Spostamenti a vuoto più lenti** con la velocità da usare (3000 mm/min di serie, mai oltre la velocità massima della scheda). Vale per tutti gli spostamenti a laser spento del lavoro e del Contorno; jog e homing non cambiano. Si salva nel profilo della macchina.
+- La stima del tempo tiene conto delle due caselle.
+
+**Joystick fisico (in prova).** Nella scheda Movimento, sotto «Togli origine», si può scegliere un controller vero per muovere la testa: il Logitech G13 in modalità joystick, un pad Xbox o PlayStation, un joystick USB. La levetta muove la testa come il joystick sullo schermo. I pulsanti si possono assegnare a Stop, Homing e Vai a X0 Y0 (questi due tenendo premuto 1 secondo), passo più grande e più piccolo, «piano» (metà velocità finché lo tieni premuto), Z su e giù a passi, Contorno a laser spento. Le regole di sicurezza:
+- va acceso a mano con la casella **Attivo** a ogni avvio del programma;
+- sulle macchine con l'homing funziona solo dopo l'homing;
+- nessun pulsante accende il laser, e di serie nessun pulsante ha un comando;
+- la testa va al massimo alla «Velocità jog», e mai oltre 6000 mm/min;
+- non si accende se la levetta non è al centro, e la zona morta si regola per i controller vecchi;
+- la levetta è ignorata se FreeLaserCut non è in primo piano, se è aperta una finestra, durante un lavoro, in allarme e mentre usi le frecce, la tastiera o il joystick sullo schermo;
+- se il controller si scollega o smette di rispondere, la testa si ferma entro un attimo.
+
+Il controller si legge con la libreria pygame-ce (LGPL 2.1), che si carica solo quando apri l'elenco dei controller: per questo gli installatori crescono di 10–17 MB. Le prove automatiche usano un controller finto: sui controller veri va ancora provato, a partire dal G13.
+
+**Catalogo dei laser**:
+- **VEVOR A7 5W**: è la Atomstack A5 Pro venduta da VEVOR (410 × 400 mm, 10.000 mm/min). La nota spiega che con lo stesso nome ci sono anche versioni da 380 × 400 e 400 × 400;
+- **Sculpfun iCube Ultra Dual**, con le due voci **12W** e **1.2W IR** (infrarosso a 1064 nm, punto 0,03 mm). Area 135 × 135 per prudenza, finché «Leggi dalla macchina» non dice quale lato della 150 × 135 è il corto. Riconosciuta dalla scheda collegata. La nota dell'infrarosso ricorda che il raggio non si vede e che servono occhiali per 1064 nm. Con le tabelle dei materiali Sculpfun per i due moduli, anche per la iCube Ultra normale.
+
+**Moduli aggiuntivi.** FreeLaserCut può caricare dei moduli aggiuntivi, messi a mano nella cartella «moduli» dei suoi dati: servono a provare funzioni nuove con pochi tester senza metterle nel programma di tutti. Non se ne scarica nessuno da solo; nella versione del Microsoft Store sono spenti; un modulo che sbaglia si ferma da solo e il programma continua. Nei rapporti compare quali moduli sono caricati.
+
+**Macchine non GRBL.** Tolte dal menu *File* le voci per una macchina chiusa non GRBL, che erano in prova: FreeLaserCut resta un programma per i laser GRBL.
+
+**Prove su GitHub.** Il limite di tempo del giro di prove passa da 60 a 90 minuti, e in fondo al registro compaiono le prove riprovate da sole e le dieci più lente.
+
+Nuove prove automatiche: `tests/test_v212_lucciola.py` (10 controlli), `tests/test_v212_lucciola_tasto.py` (13), `tests/test_v212_continuo.py` (33), `tests/test_v212_calibrazione.py` (14), `tests/test_v212_primo_avvio.py` (13, ripetuta 20 volte sul Mac), `tests/test_v212_catalogo.py` (24), `tests/test_v212_moduli.py` (23), `tests/test_v212_velocita.py` (38) e `tests/test_v212_joystick_fisico.py` (54), Classica e Banco; 98 guasti messi apposta, 97 presi. Quello che sfugge non si vede da fuori: è una copia della velocità a vuoto in un calcolo di prova che non cambia il G-code.
+
+**Ringraziamenti.** Grazie a Daniel Z., che ci segue e ci spinge sui social, e a solboricua per il primo rapporto dal Mac.
+
 ## 0.21.1 — 20/11/2026
 L'angolo dello 0 che non si perde più (Creality Falcon A1 e tutte le macchine con l'homing in un angolo diverso da davanti a sinistra), il joystick che segue la mano senza ritardo, il grigio delle forme scelto dentro FreeLaserCut, *Prepara foto* anche sulla foto ritagliata, la freccia «Continuo» che non resta più muta al bordo.
 
@@ -25,7 +72,7 @@ Nuove prove automatiche: `tests/test_v211_grigio.py` (24 controlli), `tests/test
 **Ringraziamenti.** Grazie a Sengir, che con i suoi rapporti sul Falcon A1 ci ha aiutato a trovare il problema dell'homing.
 
 ## 0.21.0 — 19/11/2026
-Le cinque richieste di un utente che lavora con FreeLaserCut su Linux: la testa mossa con la tastiera, la linea tratteggiata, la ripresa del lavoro anche dopo che è mancata la corrente e il nuovo «Parti da qui», il ritaglio dei vettori, la rampa per i timbri in gomma. In più lo Z che scende a ogni passata, Separa che separa anche i tracciati e, fra le funzioni in prova, il collegamento diretto con la xTool M2.
+Le cinque richieste di un utente che lavora con FreeLaserCut su Linux: la testa mossa con la tastiera, la linea tratteggiata, la ripresa del lavoro anche dopo che è mancata la corrente e il nuovo «Parti da qui», il ritaglio dei vettori, la rampa per i timbri in gomma. In più lo Z che scende a ogni passata e Separa che separa anche i tracciati.
 
 **La testa con la tastiera** (per usare anche un tastierino senza fili). *Laser → Muovi la testa con la tastiera*:
 - **Alt+Maiusc+frecce**: la testa si sposta del passo scelto, anche con degli oggetti selezionati (le frecce da sole spostano gli oggetti) e con la finestra *Stampa e taglia* davanti;
@@ -52,9 +99,7 @@ Le cinque richieste di un utente che lavora con FreeLaserCut su Linux: la testa 
 
 **Separa e Scomponi** (segnalazione di Ale). **Separa** (Ctrl+U) ora funziona anche su un tracciato fatto di più figure staccate (risultato di Salda, delle booleane, di Ricalca immagine, un testo, un SVG): una forma per figura, e ogni buco resta con il suo contorno (una «O» resta una «O»). Su una forma bloccata dice che è bloccata. **Scomponi** su un gruppo lascia ogni forma sul suo livello e le foto restano foto (prima finivano tutte sul livello del gruppo e una foto diventava un rettangolo). Tutti e due ci sono anche nel tasto destro, quando servono.
 
-**xTool M2: collegamento diretto (funzione in prova)**. Torna fra le funzioni in prova, visibile solo con il codice: *File → xTool M2: collega e invia (sperimentale)…*. Configurazione (indirizzo IP, modulo, costruttore, spessore), abbinamento con il pulsante della macchina, invio della cornice a potenza zero e del lavoro, che parte solo premendo il pulsante sulla M2; pausa, ripresa, annullamento. Non è ufficiale e non è affiliata a xTool: alla prima connessione chiede il consenso e ricorda che potrebbe avere effetti sulla garanzia. FreeLaserCut si presenta come ospite e non manda dati di account.
-
-**Prove automatiche nuove**: `tests/test_v210_tastiera.py` (23 controlli), `tests/test_v210_disegno.py` (52), `tests/test_v210_ripresa.py` (29), Classica e Banco; `tests/test_v207_xtool_m2_link.py` (82, con il consenso). Guasti messi apposta: 11, tutti presi.
+**Prove automatiche nuove**: `tests/test_v210_tastiera.py` (23 controlli), `tests/test_v210_disegno.py` (52), `tests/test_v210_ripresa.py` (29), Classica e Banco. Guasti messi apposta: 11, tutti presi.
 
 ## 0.20.9 «0.20.VI» — 19/11/2026
 Più laser configurati, ognuno con il suo nome, scelti da una tendina; guide tirate fuori dai righelli; deformazione a 4 e a 16 punti; larghezza delle fessure degli incastri; Prepara foto che ritaglia davvero con la forma; Wi-Fi con i router recenti, porte CH341 su Linux e la testa che non va più a sbattere senza homing.
@@ -150,18 +195,6 @@ La foto ritagliata con una forma si comporta come la sola parte che si vede, e s
 - **foro** per l'albero, anche **a D** o con la **cava per la linguetta**, che resta della stessa misura anche quando ingrandisci la ruota;
 - **alleggerimenti**: da 3 a 8 finestre fra mozzo e corona.
 Gli ingranaggi dei progetti salvati prima restano identici; con il pulsante *Usa i denti veri* passano al profilo nuovo.
-
-**xTool M2: progetto pronto per xTool Studio.** La xTool M2 non è una macchina GRBL e lavora solo con xTool Studio: nessun programma di terzi può mandarle un lavoro, e FreeLaserCut non fa eccezione. Da questa versione però puoi preparare tutto qui: *File → Esporta per xTool Studio (M2)…* salva un progetto `.xs` con il disegno, le foto e, per ogni livello, potenza, velocità e passate già impostate. Lo apri in xTool Studio, controlli e avvii da lì.
-- I livelli diventano le lavorazioni di xTool Studio: Linea → incisione di linea o taglio (lo scegli nella finestra; viene proposto «taglio» per i livelli con più passate, ponticelli o compensazione), Riempimento → incisione, Immagine → foto. I mm/min diventano mm/s, il passo delle righe diventa righe per cm.
-- L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a sinistra del piano; se qualcosa esce, lo dice.
-- Scegli il modulo laser montato (10, 20 o 40 W). Livelli che non escono, livello strumenti e forme nascoste restano fuori.
-- Le foto partono come le inciderebbe FreeLaserCut: luminosità, contrasto, gamma e negativo già applicati. Le retinature che ha anche xTool Studio (Floyd, Jarvis, Stucki, Atkinson, Bayer) le fa lui; soglia e mezzetinte le prepara FreeLaserCut alla finezza del livello e passano punto per punto (modo «passthrough» di xTool Studio 1.10). Il riempimento a contorni resta a contorni.
-- Da sapere: l'aria resta ai valori di xTool Studio e le parti trasparenti delle foto diventano bianche. Il formato è quello di xTool Studio 1.10.15; il collegamento diretto con la macchina non c'è.
-
-**xTool M2, in prova: il lavoro scritto da FreeLaserCut (non ancora attivo per tutti).** Con le funzioni in prova sbloccate, *File → Lavoro per xTool M2 (sperimentale)…* scrive il lavoro nel linguaggio della M2 (un file di testo) e, accanto, la cornice a potenza zero. È una funzione sperimentale e riguarda solo questa macchina: FreeLaserCut non invia il file alla M2 e nessuno l'ha ancora provato su una macchina vera. Serve a chi ci aiuta nelle prove; per lavorare con la M2 resta *Esporta per xTool Studio (M2)*.
-- Linee, tagli (passate e ponticelli), riempimenti a righe e foto; modulo da 10, 20 o 40 W e spessore del materiale per la messa a fuoco.
-- Se il disegno esce dall'area della macchina il lavoro non viene scritto.
-- Non ancora previsti: riempimento a contorni, inclinato o incrociato (escono a righe orizzontali, e te lo dice) e la stampa a inchiostro.
 
 **Camera della testa: «Rifai la calibrazione completa» dice sempre perché non parte.** Premendo il pulsante nella vista della testa, se la calibrazione non poteva partire (laser non connesso, macchina in allarme, un lavoro in corso, cartone che non entrerebbe nell'inquadratura) sembrava non succedere nulla: il motivo finiva in una riga che, con la camera già calibrata, veniva riscritta subito dalle coordinate. Ora compare un avviso sopra la vista, e i messaggi in quella riga restano leggibili per qualche secondo.
 

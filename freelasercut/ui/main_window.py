@@ -124,7 +124,8 @@ def manual_port_problem(port):
 
 # 0.21.0: tasti per muovere la testa (valgono in tutte le finestre del programma, anche Stampa e taglia)
 KB_JOG = {"left": "Alt+Shift+Left", "right": "Alt+Shift+Right", "up": "Alt+Shift+Up", "down": "Alt+Shift+Down",
-          "z_up": "Alt+Shift+PgUp", "z_down": "Alt+Shift+PgDown", "origin": "Alt+Home"}
+          "z_up": "Alt+Shift+PgUp", "z_down": "Alt+Shift+PgDown", "origin": "Alt+Home",
+          "glow": "Alt+Shift+L"}  # 0.21.2: Lucciola (Alt+L apre il menu Laser)
 KB_STEPS = (0.1, 1.0, 10.0, 50.0, 100.0)  # Alt+1 … Alt+5, gli stessi passi della scheda Movimento
 
 
@@ -257,6 +258,9 @@ class MainWindow(QMainWindow):
         # scritte e spiegazioni dei segni del piano: niente con la modalità esperto né durante il lavoro
         self.canvas.hints_allowed = lambda: not self.expert_mode() and not (self.ctl.job_active or self.ctl.checking)
         self.set_help_level(self.help_level(), quiet=True)
+        from .. import moduli
+
+        moduli.load_all(self)  # 0.21.2: moduli aggiuntivi (nessuno, se la cartella «moduli» non c'è)
 
     # ================================================================ azioni
     def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
@@ -287,18 +291,6 @@ class MainWindow(QMainWindow):
                             tr("Come «Importa», ma il disegno entra girato di un quarto di giro: per i file disegnati "
                                "nell'altro verso (per esempio in verticale, se il tuo piano è mostrato ruotato)")),
             "export": A(tr("Esporta SVG…"), self.file_export, "Ctrl+Shift+E", "export"),
-            # 0.20.6: xTool M2 (non GRBL, lavora solo con xTool Studio): progetto pronto da aprire là
-            "export_xs": A(tr("Esporta per xTool Studio (M2)…"), self.file_export_xs, None, "export",
-                           tr("Per la xTool M2, che lavora solo con xTool Studio: salva un progetto .xs con il disegno "
-                              "e con potenza, velocità e passate già impostate, da aprire in xTool Studio")),
-            # 0.20.6, sperimentale: il lavoro scritto direttamente nel linguaggio della M2 (non viene inviato)
-            "export_m2": A(tr("Lavoro per xTool M2 (sperimentale)…"), self.file_export_m2, None, "gcode",
-                           tr("In prova, solo per la xTool M2: scrive il lavoro nel linguaggio della macchina. Non lo "
-                              "invia e non è ancora stato provato su una M2 vera")),
-            # 0.20.7, sperimentale: configurazione della M2 e collegamento diretto (abbinamento col pulsante, invio)
-            "m2_link": A(tr("xTool M2: collega e invia (sperimentale)…"), self.m2_link_dialog, None, "connect",
-                         tr("In prova, solo per la xTool M2: configurazione, collegamento in rete con il pulsante della "
-                            "macchina, invio della cornice e del lavoro, pausa e annullamento")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -450,6 +442,7 @@ class MainWindow(QMainWindow):
             "kb_z_up": A(tr("Asse Z su di un passo"), lambda: self.kb_jog_z(1), KB_JOG["z_up"]),
             "kb_z_down": A(tr("Asse Z giù di un passo"), lambda: self.kb_jog_z(-1), KB_JOG["z_down"]),
             "kb_goto0": A(tr("Testa all'origine di lavoro (X0 Y0)"), lambda: self.kb_goto0(), KB_JOG["origin"]),
+            "kb_glow": A(tr("Lucciola: accendi / spegni"), lambda: self.kb_glow(), KB_JOG["glow"]),  # 0.21.2
             **{f"kb_step_{i}": A(tr("Passo del jog: {0:g} mm", st), lambda _=False, st=st: self.kb_step(st), f"Alt+{i}")
                for i, st in enumerate(KB_STEPS, 1)},
             "frame": A(tr("Contorno"), lambda: self.frame_job("box"), "Ctrl+Shift+F", "frame"),
@@ -701,7 +694,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "export_xs", "export_m2", "m2_link", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -781,7 +774,7 @@ class MainWindow(QMainWindow):
         self._build_settings_menu(mb)
         # 0.21.0: la testa con la tastiera, nel menu Laser e attiva in tutte le finestre del programma
         self.m_kb = QMenu(tr("Muovi la testa con la tastiera"), self)
-        for k in ("kb_left", "kb_right", "kb_up", "kb_down", "-", "kb_z_up", "kb_z_down", "-", "kb_goto0", "-",
+        for k in ("kb_left", "kb_right", "kb_up", "kb_down", "-", "kb_z_up", "kb_z_down", "-", "kb_goto0", "kb_glow", "-",
                   "kb_step_1", "kb_step_2", "kb_step_3", "kb_step_4", "kb_step_5"):
             if k == "-":
                 self.m_kb.addSeparator()
@@ -1178,8 +1171,13 @@ class MainWindow(QMainWindow):
         self.laser.b_goto_anchor.clicked.connect(self.goto_anchor)
         self.laser.inv_x.toggled.connect(lambda on: self.set_axis_inverted("x", on))
         self.laser.inv_y.toggled.connect(lambda on: self.set_axis_inverted("y", on))
+        self.laser.slow_travel.toggled.connect(lambda *_: self.set_slow_travel())  # 0.21.2
+        self.laser.travel_feed.editingFinished.connect(self.set_slow_travel)
         self.move = MovePanel(self.ctl, self.qs, lambda: self.profile, self.canvas.head_pos)
         self.move.pad.attach_laser(self.laser)  # 0.19.5: Puntino e Lucciola al centro delle frecce
+        self.move.pad.travel_fix_requested.connect(self.use_board_travel)  # 0.21.2
+        self.move.pjoy.actions.update(stop=self.ctl.stop_job,  # 0.21.2: Contorno dal controller sempre a laser spento
+                                      frame=lambda: self.frame_job("box", laser_off=True))
         self.machine = MachinePanel(self.ctl, self.profile, self.on_profile)
         self.camera = CameraPanel(self.ctl, self)
         self.camera.bg_changed.connect(self.plate_bar.bg_refresh)  # 0.20.5: pulsante dello sfondo accanto alle schede
@@ -1434,6 +1432,7 @@ class MainWindow(QMainWindow):
         ctl.message.connect(lambda m: self.statusBar().showMessage(m, 5000))
         ctl.homed_changed.connect(self.on_homed)
         ctl.settings_ready.connect(self._auto_identify)
+        ctl.settings_ready.connect(self._check_board_travel)  # 0.21.2
         ctl.travel_suspect.connect(self._travel_suspect)
         ctl.check_finished.connect(self._check_done)
         ctl.job_error.connect(self._job_error)
@@ -1985,139 +1984,6 @@ class MainWindow(QMainWindow):
         if path:
             io_formats.export_svg(shapes, self.editor.doc, path)
             self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)
-
-    def file_export_xs(self, *_, path=None, laser_w=None, cut_layers=None):
-        """0.20.6: progetto per xTool Studio (xTool M2). -> resoconto di xtool_xs.build, o None se si rinuncia."""
-        from ..core import xtool_xs
-
-        doc = self.editor.doc
-        shapes = self.editor.selection or doc.shapes
-        used = {leaf.layer for s in shapes if not s.hidden for leaf, _ in s.leaves() if not leaf.hidden}
-        layers = [cs for cs in doc.used_layers() if cs.index in used and cs.index < xtool_xs.TOOL_LAYER and cs.output]
-        if not layers:
-            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
-            return None
-        if laser_w is None:
-            try:
-                laser_w = int(self.qs.value("xtool_laser_w", 10) or 10)
-            except (TypeError, ValueError):
-                laser_w = 10
-            if laser_w not in xtool_xs.LASERS:
-                laser_w = 10
-            if not os.environ.get("FLC_NO_DIALOGS"):
-                from .dialogs_xtool import XToolExportDialog
-
-                dlg = XToolExportDialog(doc, layers, laser_w, self)
-                if dlg.exec() != QDialog.Accepted:
-                    return None
-                laser_w, cut_layers = dlg.laser_w(), dlg.cut_layers()
-                self.qs.setValue("xtool_laser_w", laser_w)
-        name = self.project_stem() or "disegno"
-        if path is None:
-            path, _f = QFileDialog.getSaveFileName(self, tr("Progetto per xTool Studio"), os.path.join(
-                self.qs.value("last_dir", os.path.expanduser("~")), name + ".xs"), tr("Progetto xTool Studio (*.xs)"))
-        if not path:
-            return None
-        try:
-            rep = xtool_xs.export_xs(doc, path, shapes=list(shapes), laser_w=laser_w, cut_layers=cut_layers, name=name,
-                                     app_version=__version__)
-        except (OSError, ValueError) as ex:
-            QMessageBox.warning(self, tr("Progetto per xTool Studio"), tr("Non riesco a salvare il file:\n{0}", ex))
-            return None
-        n = sum(k for _i, _t, k in rep["layers"])
-        msg = tr("Progetto per xTool Studio salvato: {0} oggetti. Aprilo in xTool Studio e controlla i valori prima "
-                 "di avviare", n)
-        if rep["outside"]:
-            msg += " · " + tr("{0} oggetti escono dall'area della M2 ({1:g} × {2:g} mm)", rep["outside"],
-                              xtool_xs.BED[0], xtool_xs.BED[1])
-        if rep["skipped"]:
-            msg += " · " + tr("{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)",
-                              len(rep["skipped"]))
-        self.statusBar().showMessage(msg, 12000)
-        return rep
-
-    def m2_link_dialog(self, *_):
-        """0.20.7, sperimentale: configurazione e collegamento diretto con la xTool M2 (finestra non bloccante)."""
-        from .. import admin
-        from .dialogs_m2link import M2LinkDialog
-
-        if not admin.unlocked(self.qs):
-            return None
-        dlg = getattr(self, "_m2_dialog", None)
-        if dlg is None or not dlg.isVisible():
-            dlg = self._m2_dialog = M2LinkDialog(self)
-        dlg.show()
-        dlg.raise_()
-        return dlg
-
-    def file_export_m2(self, *_, path=None, laser_w=None, cut_layers=None, thickness=None):
-        """0.20.6, sperimentale: il lavoro per la xTool M2 nel suo linguaggio, più la cornice a potenza zero.
-        Non viene inviato alla macchina. -> resoconto di xtool_m2.build, o None se si rinuncia o non si può."""
-        from ..core import xtool_m2, xtool_xs
-
-        doc = self.editor.doc
-        shapes = self.editor.selection or doc.shapes
-        used = {leaf.layer for s in shapes if not s.hidden for leaf, _ in s.leaves() if not leaf.hidden}
-        layers = [cs for cs in doc.used_layers() if cs.index in used and cs.index < xtool_xs.TOOL_LAYER and cs.output]
-        if not layers:
-            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
-            return None
-        if laser_w is None:
-            try:
-                laser_w = int(self.qs.value("xtool_laser_w", 10) or 10)
-                thick0 = float(self.qs.value("xtool_thickness", 3.0) or 0.0)
-            except (TypeError, ValueError):
-                laser_w, thick0 = 10, 3.0
-            if laser_w not in xtool_xs.LASERS:
-                laser_w = 10
-            if thickness is None:
-                thickness = thick0
-            if not os.environ.get("FLC_NO_DIALOGS"):
-                from .dialogs_xtool import XToolExportDialog
-
-                dlg = XToolExportDialog(doc, layers, laser_w, self, job=True, thickness=thickness)
-                if dlg.exec() != QDialog.Accepted:
-                    return None
-                laser_w, cut_layers, thickness = dlg.laser_w(), dlg.cut_layers(), dlg.thickness()
-                self.qs.setValue("xtool_laser_w", laser_w)
-                self.qs.setValue("xtool_thickness", thickness)
-        thickness = float(thickness or 0.0)
-        title = tr("Lavoro per xTool M2 (sperimentale)")
-        if path is None:
-            path, _f = QFileDialog.getSaveFileName(self, title, os.path.join(
-                self.qs.value("last_dir", os.path.expanduser("~")), (self.project_stem() or "disegno") + "-M2.txt"),
-                tr("G-code per xTool M2 (*.txt)"))
-        if not path:
-            return None
-        stem, ext = os.path.splitext(path)
-        frame_path = stem + "-cornice" + (ext or ".txt")
-        try:
-            rep = xtool_m2.export_gcode(doc, path, frame_path=frame_path, shapes=list(shapes), laser_w=laser_w,
-                                        thickness=thickness, cut_layers=cut_layers, app_version=__version__)
-        except xtool_m2.OutsideArea:
-            bw, bh = xtool_m2.HEAD_PLANE[(laser_w, "TO")][2:]
-            QMessageBox.warning(self, title, tr("Il disegno esce dall'area della M2 con questo modulo ({0:g} × {1:g} "
-                                                "mm dall'angolo in basso a sinistra del piano): il lavoro non è "
-                                                "stato scritto.", bw, bh))
-            return None
-        except ValueError:
-            self.statusBar().showMessage(tr("Niente da esportare: nessun oggetto su un livello che esce"), 5000)
-            return None
-        except OSError as ex:
-            QMessageBox.warning(self, title, tr("Non riesco a salvare il file:\n{0}", ex))
-            return None
-        msg = tr("Lavoro per xTool M2 salvato ({0} righe) con la sua cornice. È una funzione in prova: non è stato "
-                 "provato su una M2 vera e FreeLaserCut non lo invia", rep["lines"])
-        notes = {"offset_fill": tr("riempimento a contorni non ancora previsto: fatto a righe"),
-                 "fill_angle": tr("riempimento inclinato o incrociato non ancora previsto: righe orizzontali"),
-                 "image_start": tr("le foto partono sempre dall'alto, a righe orizzontali")}
-        for k in rep["notes"]:
-            msg += " · " + notes.get(k, k)
-        if rep["skipped"]:
-            msg += " · " + tr("{0} oggetti lasciati fuori (livelli che non escono o foto fuori dal loro livello)",
-                              len(rep["skipped"]))
-        self.statusBar().showMessage(msg, 15000)
-        return rep
 
     def autosave(self):
         if not self.editor.dirty or not self.editor.doc.all_shapes():
@@ -2813,7 +2679,12 @@ class MainWindow(QMainWindow):
         self.btn_connect.setText(tr("Connessione…"))
         QApplication.processEvents()
         self._quiet_connect = quiet
-        if self.ctl.connect_port(port, self.profile.baud):
+        self.ctl.sim_travel = self.profile.travel()  # 0.21.2: il simulatore ha la corsa del profilo attivo
+        try:
+            ok = self.ctl.connect_port(port, self.profile.baud)
+        finally:
+            self.ctl.sim_travel = None
+        if ok:
             self.qs.setValue("port", port)
         self.btn_connect.setEnabled(True)
 
@@ -2985,6 +2856,54 @@ class MainWindow(QMainWindow):
                          [(corner_name(chosen).capitalize(), lambda: self.fix_corner(chosen)),
                           (corner_name(now).capitalize(), lambda: self.fix_corner(now)),
                           (tr("Configurazione guidata"), lambda: (self.banner.hide(), self.setup_wizard()))])
+        return True
+
+    def use_board_travel(self, tx=None, ty=None):
+        """0.21.2 (rapporto 3802): il piano del profilo prende la corsa della scheda ($130/$131), quando il profilo è
+        più grande e i limiti software della scheda rifiutano gli spostamenti verso il bordo. -> True se è cambiato."""
+        if tx is None or ty is None:
+            lim = self.ctl.soft_limits() if self.ctl.connected else None
+            if not lim:
+                return False
+            tx, ty = lim
+        p = self.profile
+        if abs(p.travel()[0] - tx) < 0.01 and abs(p.travel()[1] - ty) < 0.01:
+            return False
+        p.set_travel(float(tx), float(ty))
+        if self.ctl.port != SIM_PORT:
+            try:
+                p.save()
+            except OSError:
+                pass
+        self.on_profile(p)
+        self.machine.refresh_profile()
+        self.plane_changed()
+        if self.job is not None and not getattr(self, "_job_is_external", False):
+            self.build_job()
+        if self.banner.isVisible() and self.banner_text.text() == getattr(self, "_banner_travel", None):
+            self.banner.hide()
+        self.statusBar().showMessage(tr("Piano del profilo: {0:g} × {1:g} mm, come la corsa della macchina",
+                                        p.bed_x, p.bed_y), 8000)
+        return True
+
+    def _check_board_travel(self, _settings=None):
+        """0.21.2: al collegamento, se il piano del profilo è più grande della corsa che la scheda accetta (limiti
+        software accesi), lo dice una volta per macchina e propone di usare le misure della macchina."""
+        lim = self.ctl.soft_limits() if self.ctl.connected else None
+        small = self.profile.board_smaller(lim)
+        if not small:
+            return False
+        tx, ty = self.profile.travel()
+        tag = f"{self.profile.path()}|{tx:g}x{ty:g}|{small[0]:g}x{small[1]:g}"
+        if self.qs.value("travel_dismissed", "") == tag or self.banner.isVisible():
+            return False
+        text = tr("Il piano del profilo ({0:g} × {1:g} mm) è più grande della corsa che la scheda accetta ({2:g} × {3:g} "
+                  "mm, limiti software accesi): verso il bordo la macchina rifiuterebbe gli spostamenti.",
+                  tx, ty, small[0], small[1])
+        self._banner_travel = text
+        self.show_banner(text, "warn",
+                         [(tr("Usa le misure della macchina"), self.use_board_travel),
+                          (tr("Ignora"), lambda: (self.qs.setValue("travel_dismissed", tag), self.banner.hide()))])
         return True
 
     def fix_corner(self, corner):
@@ -3259,8 +3178,6 @@ class MainWindow(QMainWindow):
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["cook"].setVisible(admin.unlocked(self.qs))  # 0.20.7: Free Laser Cook, in prova
-        self.acts["export_m2"].setVisible(admin.unlocked(self.qs))  # 0.20.6: lavoro per la xTool M2, sperimentale
-        self.acts["m2_link"].setVisible(admin.unlocked(self.qs))  # 0.21.0: collegamento diretto con la M2, in prova
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 
@@ -3774,6 +3691,38 @@ class MainWindow(QMainWindow):
             w.blockSignals(True)
             w.setChecked(bool(val))
             w.blockSignals(False)
+        if hasattr(lp, "slow_travel"):  # 0.21.2
+            for w in (lp.slow_travel, lp.travel_feed):
+                w.blockSignals(True)
+            lp.slow_travel.setChecked(p.slow_travel is True)
+            lp.travel_feed.setValue(float(p.travel_speed() or p.travel_feed or 3000.0))
+            lp.travel_feed.setEnabled(p.slow_travel is True)
+            for w in (lp.slow_travel, lp.travel_feed):
+                w.blockSignals(False)
+
+    def set_slow_travel(self, on=None, feed=None):
+        """0.21.2: «Spostamenti a vuoto più lenti» del pannello Laser: si salva nel profilo della macchina e rifà
+        l'anteprima del lavoro. Durante il lavoro non cambia niente."""
+        lp = self.laser
+        if self.ctl.job_active or self.ctl.checking:
+            self._sync_axes()
+            return
+        p = self.profile
+        on = lp.slow_travel.isChecked() if on is None else bool(on)
+        feed = lp.travel_feed.value() if feed is None else float(feed)
+        if p.slow_travel is on and abs(float(p.travel_feed) - feed) < 0.5:
+            return
+        p.slow_travel, p.travel_feed = on, feed
+        try:
+            p.save()
+        except OSError:
+            pass
+        self._sync_axes()
+        self.statusBar().showMessage(
+            tr("Spostamenti a vuoto a {0:g} mm/min nel lavoro e nel Contorno", p.travel_speed()) if on
+            else tr("Spostamenti a vuoto alla velocità massima della macchina"), 6000)
+        if self.job is not None and not getattr(self, "_job_is_external", False):
+            self.build_job()
 
     def set_axis_inverted(self, axis, on):
         """Spunta «Inverti l'asse»: si salva nel profilo della macchina e rifà l'anteprima del lavoro."""
@@ -4527,6 +4476,7 @@ class MainWindow(QMainWindow):
             dlg.jog(dx, dy)  # il passo scelto nella finestra Stampa e taglia
             return True
         s = self.move.step()
+        self.move.kb_jog_t = time.monotonic()  # 0.21.2: la tastiera ha la precedenza sul joystick fisico
         self.ctl.jog(dx * s, dy * s, self.move.feed.value())
         return True
 
@@ -4539,6 +4489,26 @@ class MainWindow(QMainWindow):
             return False
         self.move._jog_z(sign)
         return True
+
+    def kb_glow(self):
+        """0.21.2 (un amico di Ale con un comando a distanza): accende o spegne la Lucciola come il pulsante della
+        scheda Laser: stessa potenza con il tetto del laser, stessi controlli, stesso avviso degli occhiali alla prima
+        accensione. È l'unica scorciatoia che accende il raggio. -> True se adesso è accesa"""
+        lz = self.laser
+        if lz._glow_on:
+            lz.glow_stop()
+            self.statusBar().showMessage(tr("Lucciola spenta"), 3000)
+            return False
+        why = self._kb_ready()
+        if why is None and self.ctl.last_status.get("state") in ("Alarm", "Door"):
+            why = tr("La macchina è in allarme o con lo sportello aperto: la Lucciola resta spenta")
+        if why:
+            self.statusBar().showMessage(why, 3000)
+            return False
+        on = lz.glow_start_on()
+        self.statusBar().showMessage(tr("Lucciola accesa: Alt+Maiusc+L o Stop (Maiusc+Esc) per spegnerla") if on
+                                     else tr("Lucciola non accesa"), 4000)
+        return on
 
     def kb_goto0(self):
         why = self._kb_ready()
@@ -4556,7 +4526,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(tr("Passo del jog: {0:g} mm", st), 3000)
         return ok
 
-    def frame_job(self, kind="box", job=None):
+    def frame_job(self, kind="box", job=None, laser_off=False):
+        """laser_off=True (0.21.2, dal joystick fisico): il Contorno sempre a laser spento."""
         if not self.ctl.connected or self.ctl.job_active:
             return
         if isinstance(job, gcode.GcodeJob):
@@ -4587,8 +4558,9 @@ class MainWindow(QMainWindow):
         if getattr(job, "rotary_k", 1.0) != 1.0:  # rotativo: il contorno gira l'oggetto come farà il lavoro
             _, ry = self.profile.to_machine(*job.rotary_ref)
             mpts = [(mx, ry + (my - ry) * job.rotary_k) for mx, my in mpts]
-        laser = self.laser.fire_pct.value() if kind.endswith("_laser") else 0.0
-        self.ctl.frame_path(mpts, max(self.move.feed.value(), 3000), laser, self.profile.s_max)
+        laser = self.laser.fire_pct.value() if kind.endswith("_laser") and not laser_off else 0.0
+        self.ctl.frame_path(mpts, max(self.move.feed.value(), 3000), laser, self.profile.s_max,
+                            travel_feed=self.profile.travel_speed())  # 0.21.2
         self.statusBar().showMessage(tr("Contorno con il puntino al %g%%: Stop per interrompere") % laser if laser
                                      else tr("Contorno a laser spento"), 5000)
 
@@ -5322,6 +5294,7 @@ class MainWindow(QMainWindow):
             self.phone.stop()
         self._makerhub_stop()
         self.laser.glow_stop()  # 0.18.7: uscendo la Lucciola si spegne
+        self.move.pjoy.disable()  # 0.21.2
         if getattr(self, "banco", None) is None:
             self.qs.setValue("win_state_v5", self.saveState(5))
         else:
@@ -5372,6 +5345,38 @@ def _hms(sec):
 
 
 
+def run_startup_dialog(dlg):
+    """0.21.2 (rapporto E698, Mac M1): una finestra aperta in main() prima della finestra principale. La si tiene in
+    una variabile e la si distrugge del tutto (deleteLater + giro degli eventi) prima di andare avanti: con
+    «ChoiceDialog().exec()» la finestra restava a metà, e la pulizia della memoria di Python la raccoglieva mentre
+    nasceva la finestra principale (Segmentation fault su Mac ARM, in PaletteBar.__init__). -> risultato di exec()"""
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    try:
+        return dlg.exec()
+    finally:
+        dlg.hide()
+        dlg.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        QCoreApplication.processEvents()
+
+
+def build_main_window(factory=None):
+    """0.21.2 (rapporto E698): la finestra principale si costruisce con la pulizia automatica della memoria di Python
+    sospesa, poi una raccolta sola, a finestra fatta (un punto sicuro). Se la costruzione fallisce la pulizia torna
+    comunque attiva. -> la finestra"""
+    import gc
+
+    was = gc.isenabled()
+    gc.disable()
+    try:
+        return (factory or MainWindow)()
+    finally:
+        if was:
+            gc.enable()
+        gc.collect()
+
+
 def main(app=None, splash=None):
     from ..app import _install_crash_log
 
@@ -5417,7 +5422,7 @@ def main(app=None, splash=None):
     if needs_choice(migrate_qsettings()) and QGuiApplication.platformName() not in ("offscreen", "minimal"):
         if splash is not None:
             splash.hide()
-        ChoiceDialog().exec()
+        run_startup_dialog(ChoiceDialog())  # 0.21.2: tenuta in vita e distrutta del tutto prima di andare avanti
         if splash is not None:
             splash.show()
     say(tr("Apro il piano di lavoro…"))
@@ -5425,7 +5430,7 @@ def main(app=None, splash=None):
 
     startup_guard.stage("apri")
     try:
-        win = MainWindow()
+        win = build_main_window()  # 0.21.2: senza la pulizia della memoria a metà costruzione (rapporto E698)
     except Exception:  # noqa: BLE001 — prima chiudo lo splash, poi registro e mostro l'errore, poi esco
         if splash is not None:
             try:

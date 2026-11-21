@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 244. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -24,7 +24,7 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v209_rapporti.py`: Rapporti del 19/11: Wi-Fi con WPA2/WPA3 insieme e router recenti, rete propria del laser; porte CH341 su Linux e porta scritta a mano; camera della testa ferma senza homing; Prepara foto con una forma che ritaglia la foto come dalla pagina principale
 - `test_v209_rapporti.py` (Banco): Wi-Fi dei router recenti, porte a mano e homing della camera della testa nell'interfaccia Banco
 
-## Telecamera e guardia fiamme (14)
+## Telecamera e guardia fiamme (15)
 
 - `test_v107.py`: Telecamera: la scelta si ricorda, «Nessuna» non accende la webcam
 - `test_v111.py`: Fiamma con il cuore bianco, nomi sotto i comandi
@@ -37,6 +37,7 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v203_telecamere.py` (Banco): Scelta delle telecamere e calibrazione sempre possibile nell'interfaccia Banco
 - `test_v205_richieste.py`: Angoli del rettangolo raccordati verso l'interno, riga dei Livelli che segue il livello assegnato, anteprima dell'offset sul piano, opzioni dello strumento Forme subito; finestra della camera della testa ridimensionabile, pulsante dello sfondo del piano; Linux: libgthread nell'AppImage e libreria mancante detta all'avvio; ringraziamenti sulla schermata di avvio, in Aiuto e nel rapporto
 - `test_v205_richieste.py` (Banco): Angoli verso l'interno, Livelli, offset, Forme, camera della testa, sfondo del piano e ringraziamenti nell'interfaccia Banco
+- `test_v212_calibrazione.py`: Calibrazione della camera con la scheda che si riavvia da sola (rapporti E933 e 44A1): riavvii chiesti e no, homing tolto, la calibrazione si ferma con il messaggio e senza altri movimenti, inizio e fine nel registro, passaggio al cartone spiegato
 - `test_v201_lentezza.py`: Telecamera USB a riposo quando nessuno la guarda, rallentamenti nel registro e nel rapporto
 - `test_v202_camera_testa.py`: Calibrazione completa della camera della testa (griglia incisa, lente, inclinazione, verifica onesta), mosaico preciso, camera del piano aiutata, vista raddrizzata e zoom, crocetta dal centro camera
 - `test_v202_camera_testa.py` (Banco): Calibrazione completa e vista della testa nell'interfaccia Banco
@@ -59,14 +60,15 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_varie.py`: Nesting manuale che sporge dai pannelli, elenco delle scorciatoie, Sculpfun E1 dalla scheda e tabella Sculpfun, Riconosci → Applica che tiene angolo e assi
 - `test_v195_varie.py` (Banco): Nesting manuale e scorciatoie nell'interfaccia Banco
 
-## Materiali (4)
+## Materiali (5)
 
 - `test_v03.py`: Materiali, test materiale, vettorizzazione, testo variabile e curvo
 - `test_v160.py`: Materiali imparati: la curva del tuo legno dalle foto dei test, toni e anteprima
 - `test_v160.py` (Banco): Materiali imparati nell'interfaccia Banco
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
+- `test_v212_catalogo.py`: Catalogo: VEVOR A7 5W (come l'Atomstack A5 Pro) e Sculpfun iCube Ultra Dual 12W e 1.2W IR (area prudente 135 × 135, dichiarata 150 × 135, famiglia nel riconoscimento, nota sul raggio a 1064 nm, accelerazione 500, tabella dei materiali Sculpfun con interlinea 0,05), traduzioni
 
-## Foto e immagini (25)
+## Foto e immagini (24)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -89,12 +91,11 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v203_ritaglio.py` (Banco): Foto ritagliata a forma nell'interfaccia Banco
 - `test_v206_richieste.py`: Foto ritagliata con una forma: misure, maniglie, Allinea e aggancio del lavoro sulla sola parte che si vede, Contorno da tagliare; Prepara foto: forma sull'originale e riquadro del ritaglio che si sposta e si allarga; ingranaggio a evolvente con modulo, angolo di pressione, gioco, foro e alleggerimenti; precisazione dei ringraziamenti
 - `test_v206_richieste.py` (Banco): Foto ritagliata, Contorno da tagliare, Prepara foto, ingranaggio e ringraziamenti nell'interfaccia Banco
-- `test_v206_xtool_xs.py`: Progetto per xTool Studio (.xs) per la xTool M2: struttura, posizioni, tipi di lavorazione e valori, buchi nel riempimento, foto dritte e ruotate, che cosa resta fuori
-- `test_v206_xtool_m2.py`: Lavoro scritto direttamente per la xTool M2 (sperimentale): intestazione, blocchi di linea, taglio, riempimento e foto, ponticelli, messa a fuoco, scostamento della testa, righe uguali a quelle di xTool Studio, cornice, area
 - `test_v211_foto.py`: Prepara foto anche sulla foto ritagliata con una forma: menu in alto, tasto destro e pannello Proprietà
 - `test_v211_foto.py` (Banco): Prepara foto sulla foto ritagliata nell'interfaccia Banco
+- `test_v212_velocita.py`: Velocità costante a laser spento (riempimenti e immagini) e «Spostamenti a vuoto più lenti» (macchina): righe intere a velocità di lavoro senza G0, salti fra le forme e fra i livelli che restano, G-code identico alla 0.21.1 con le caselle spente, tetto alla velocità della scheda, Contorno, stima del tempo, file vecchi
 
-## Lavoro e G-code (35)
+## Lavoro e G-code (37)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -130,9 +131,11 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v210_disegno.py` (Banco): Tratteggio, ritaglio, rampa, Z per passata, Separa e Scomponi nell'interfaccia Banco
 - `test_v210_ripresa.py`: Lavoro in corso salvato sul disco e ripreso dopo la riapertura del programma, Scarta, file rovinati; Parti da qui nell'anteprima
 - `test_v211_grigio.py`: Grigio delle forme scelto nel pannello Proprietà: riga Grigio, tono e potenza, più forme insieme, gruppi, Annulla, G-code e salvataggio
+- `test_v212_lucciola.py`: Finestre chiuse che restavano attaccate ai segnali (rapporti 75E8 e ABFC): Lucciola dopo Stampa e taglia, copie della scheda dopo un cambio di collegamento, nessuna lambda sui segnali di controllore, scheda Laser e finestra principale
+- `test_v212_lucciola_tasto.py`: Lucciola dalla tastiera (Alt+Maiusc+L): come il pulsante, tetto di potenza, niente raggio senza macchina, in lavoro o in allarme, Stop che la spegne davvero anche nel programma, con Stampa e taglia davanti
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 
-## Macchina, connessione e profili (46)
+## Macchina, connessione e profili (51)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -178,6 +181,11 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v211_joystick.py`: Joystick pronto e fedele: pezzetti al ritmo del tempo vero, la testa gira subito anche con code da 15, 63 e 127 posti, velocità vera, bordo, rilascio, simulatore con i jog in coda come le schede vere
 - `test_v211_falcon.py`: Angolo dello 0 e assi che non si contraddicono più (Falcon A1 del rapporto 2E95): avviso con correzione, configurazione guidata, catalogo, prova delle frecce dall'angolo dell'homing, simulatore; freccia «Continuo» mai muta al bordo
 - `test_v211_falcon.py` (Banco): Angolo dello 0, assi e freccia «Continuo» nell'interfaccia Banco
+- `test_v212_moduli.py`: Moduli aggiuntivi: cartella dei dati, modulo.json, versione adatta, errori che restano del modulo (importazione, registrazione, comando), niente comandi a metà né al posto di quelli del programma, traduzioni, riga nel rapporto, spenti nello Store; nessun comando né file per macchine non GRBL nel programma
+- `test_v212_lucciola.py` (Banco): Finestre chiuse attaccate ai segnali nell'interfaccia Banco
+- `test_v212_lucciola_tasto.py` (Banco): Lucciola dalla tastiera nell'interfaccia Banco
+- `test_v212_joystick_fisico.py`: Joystick fisico (G13, pad, joystick USB) con un controller finto: zona morta e taratura del centro, si arma solo dal centro, programma in secondo piano e finestre aperte, guardiano e scollegamento, homing obbligatorio, tetto della «Velocità jog» e mai oltre 6000, nessun comando del laser, lavoro e allarme, un solo padrone fra schermo, tastiera e levetta, verso, pressione lunga per Homing e X0 Y0, controller ricordato, da riaccendere a ogni avvio, libreria che manca
+- `test_v212_continuo.py`: «Continuo» e joystick quando il piano del profilo è più grande della corsa della scheda (rapporto 3802): bordo vero con coordinate positive e negative, assi invertiti e piano ruotato, nessun error:15, rifiuto spiegato sotto le frecce con «Usa le misure della macchina», avviso al collegamento, simulatore con la corsa del profilo
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 
@@ -212,7 +220,7 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (36)
+## Interfaccia (42)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -246,6 +254,12 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v209_disegno.py` (Banco): Guide, deformazione e fessure nell'interfaccia Banco
 - `test_v210_ripresa.py` (Banco): Ripresa dal disco e Parti da qui nell'interfaccia Banco
 - `test_v211_joystick.py` (Banco): Joystick pronto e fedele nell'interfaccia Banco
+- `test_v212_moduli.py` (Banco): Moduli aggiuntivi nell'interfaccia Banco
+- `test_v212_velocita.py` (Banco): Velocità costante e spostamenti a vuoto nell'interfaccia Banco
+- `test_v212_joystick_fisico.py` (Banco): Joystick fisico nell'interfaccia Banco
+- `test_v212_continuo.py` (Banco): «Continuo» e joystick al bordo vero nell'interfaccia Banco
+- `test_v212_primo_avvio.py`: Primo avvio (rapporto E698, Mac M1): finestra della scelta distrutta prima della finestra principale, pulizia della memoria sospesa durante la costruzione e riattivata anche se fallisce, porte del sistema del Mac in fondo e segnate
+- `test_v212_primo_avvio.py` (Banco): Primo avvio nell'interfaccia Banco
 - `test_v201_finestra.py`: La finestra non si allarga mai oltre lo schermo (scritta «File:» della barra in basso), in tutte le lingue
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco
@@ -262,7 +276,3 @@ Suite: 231. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v1816_prove.py`: Prove su GitHub: una volta sola per versione, quattro suite insieme, secondo tentativo da sole
 - `test_v1816_avvio.py`: Guardia d'avvio: gli errori prima della finestra vengono scritti e mostrati, anche senza Qt
 - `test_v190_cpu.py`: Processori vecchi: istruzioni lette all'avvio e librerie compatibili
-
-## Altro (1)
-
-- `test_v207_xtool_m2_link.py`: Collegamento diretto con la xTool M2 (funzione in prova) contro una M2 finta: buste, abbinamento col pulsante, invio, pausa e annullamento, consenso alla prima connessione

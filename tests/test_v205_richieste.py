@@ -744,8 +744,8 @@ check("G licenza della libreria aggiunta (GLib, LGPL 2.1)", "glib-LGPL-2.1.txt" 
 # ====================================================================== H. ringraziamenti
 print("--- H. ringraziamenti")
 N = len(thanks.NAMES)
-check("H un solo elenco: 18 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1), nessun doppione, «Roberto C.» senza "
-      "cognome, Deborah", N == 18 and thanks.NAMES[-6:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
+check("H un solo elenco: 20 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1, Daniel Z. e solboricua dalla 0.21.2), nessun doppione, «Roberto C.» senza "
+      "cognome, Deborah", N == 20 and thanks.NAMES[-8:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir", "Daniel Z.", "solboricua") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
       and not any("cappellero" in n.lower() for n in thanks.NAMES) and thanks.NAMES[0] == "Stefano Modena")
 it = thanks.endless()
 seq = [next(it) for _ in range(N * 6)]
@@ -1089,8 +1089,8 @@ check("H senza nomi la schermata si disegna lo stesso", sp4.frames >= 1 and all(
 sp4.close()
 msrc = inspect.getsource(sys.modules["freelasercut.ui.main_window"].main)
 check("H l'attesa si fa a finestra principale già costruita e prima di mostrarla (non tocca errori e scelta dell'interfaccia)",
-      msrc.index("win = MainWindow()") < msrc.index("splash.wait_min()") < msrc.index("win.show()")
-      and msrc.index("ChoiceDialog().exec()") < msrc.index("win = MainWindow()"))
+      msrc.index("win = build_main_window()") < msrc.index("splash.wait_min()") < msrc.index("win.show()")
+      and msrc.index("run_startup_dialog(ChoiceDialog())") < msrc.index("win = build_main_window()"))  # 0.21.2
 bsrc = inspect.getsource(sys.modules["freelasercut.splash"].show_splash)
 check("H la schermata con i nomi compare a ogni avvio (nessuna impostazione per spegnerla)",
       "install_pulse" in bsrc and "qs" not in bsrc and "QSettings" not in open(splash.__file__, encoding="utf-8").read())

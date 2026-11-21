@@ -29,7 +29,7 @@ import tarfile
 BUILD = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(BUILD)
 sys.path.insert(0, BUILD)
-from prepara_installer import CACHE, PACKAGES, PY_RELEASE, PY_VERSION, TRIM_PYSIDE, TRIM_SITE, scarica, step, version  # noqa: E402
+from prepara_installer import CACHE, PACKAGES, PY_RELEASE, PY_VERSION, TRIM_PYGAME, TRIM_PYSIDE, TRIM_SITE, scarica, step, version  # noqa: E402
 
 PY_MINOR = ".".join(PY_VERSION.split(".")[:2])  # 3.14
 ARCH_PBS = {"arm64": "aarch64-apple-darwin", "x86_64": "x86_64-apple-darwin"}
@@ -178,6 +178,8 @@ def main():
                            "--only-binary=:all:", "--upgrade", *pkgs])
     for d in TRIM_SITE:
         shutil.rmtree(os.path.join(site, d), ignore_errors=True)
+    for d in TRIM_PYGAME:
+        shutil.rmtree(os.path.join(site, "pygame", d), ignore_errors=True)
     pyside = os.path.join(site, "PySide6")
     for d in TRIM_PYSIDE + PYSIDE_TOOLS:
         p = os.path.join(pyside, d)
