@@ -1244,14 +1244,19 @@ class HeadCalibration(AutoCam):
 
     # ---- procedura
     def _run(self):
+        self._note("calibrazione della camera della testa: inizio")
         try:
             model, msg = self._calibrate()
+            self._note("calibrazione della camera della testa: " + ("riuscita" if model is not None else "non riuscita")
+                       + (" · " + str(msg).splitlines()[0] if msg else ""))
             self.finished.emit(model, msg)
         except CalibrationCancelled:
             self._safe_off()
+            self._note("calibrazione della camera della testa: annullata")
             self.finished.emit(None, tr("Calibrazione annullata"))
         except Exception as exc:  # noqa: BLE001
             self._safe_off()
+            self._note(f"calibrazione della camera della testa: interrotta · {exc}")
             self.finished.emit(None, tr("Calibrazione interrotta: {0}", exc))
 
     def _texture_matrix(self, L0, size):

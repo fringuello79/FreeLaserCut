@@ -126,6 +126,24 @@ class MachineProfile:
     af_feed: float = 200.0  # velocità di ricerca (mm/min)
     af_slow: float = 40.0  # secondo tocco, lento e preciso (mm/min)
     af_toward_minus: bool = True  # verso il materiale = Z− (normale); False per le macchine al contrario
+    # 0.21.2 (Ale): spostamenti a vuoto del lavoro e del Contorno a una velocità scelta (G1 S0) invece che alla
+    # velocità massima della scheda (G0): per le macchine che vibrano, o se il pezzo si sposta
+    slow_travel: bool = False
+    travel_feed: float = 3000.0  # mm/min
+
+    def travel_speed(self):
+        """0.21.2: velocità degli spostamenti a vuoto se «Spostamenti a vuoto più lenti» è acceso, altrimenti None.
+        Fra 100 mm/min e la velocità massima della scheda."""
+        if self.slow_travel is not True:
+            return None
+        try:
+            v = float(self.travel_feed)
+        except (TypeError, ValueError):
+            v = 3000.0
+        if v != v:
+            v = 3000.0
+        vmax = min(float(self.max_rate_x or 6000.0), float(self.max_rate_y or 6000.0))
+        return float(round(min(max(v, 100.0), max(vmax, 100.0))))
 
     @classmethod
     def from_machine(cls, settings, info_lines=None, base=None):
@@ -448,6 +466,41 @@ class MachineProfile:
         if self.invert_y:
             by = ty - by
         return self.frame_to_plane(bx, by)
+
+    def reach_box(self, board_travel=None, negative=None):
+        """0.21.2 (rapporto 3802): il rettangolo del piano (come si vede: x0, y0, x1, y1) dove la testa può andare
+        davvero. È il piano del profilo; se la scheda ha i limiti software attivi (board_travel = ($130, $131), da
+        ctl.soft_limits()) è anche la parte di piano che la scheda accetta: -corsa..0 con le coordinate negative,
+        0..corsa con quelle positive. Senza sapere il verso delle coordinate (`negative` None e homing non ancora
+        visto) resta il piano del profilo."""
+        x0, y0, x1, y1 = 0.0, 0.0, float(self.bed_x), float(self.bed_y)
+        neg = self.negative_space if self.negative_space is not None else negative
+        if not board_travel or neg is None:
+            return (x0, y0, x1, y1)
+        tx, ty = float(board_travel[0]), float(board_travel[1])
+        lo, hi = ((-tx, -ty), (0.0, 0.0)) if neg else ((0.0, 0.0), (tx, ty))
+        prof = self
+        if self.negative_space is None:
+            import copy
+
+            prof = copy.copy(self)
+            prof.negative_space = neg
+        pts = [prof.to_bed(mx, my) for mx in (lo[0], hi[0]) for my in (lo[1], hi[1])]
+        bx0, bx1 = min(p[0] for p in pts), max(p[0] for p in pts)
+        by0, by1 = min(p[1] for p in pts), max(p[1] for p in pts)
+        box = (max(x0, bx0), max(y0, by0), min(x1, bx1), min(y1, by1))
+        if box[2] - box[0] < 1.0 or box[3] - box[1] < 1.0:  # misure che non si toccano: meglio il piano del profilo
+            return (x0, y0, x1, y1)
+        return box
+
+    def board_smaller(self, board_travel):
+        """0.21.2: (corsa X, corsa Y) della scheda se il piano del profilo è più grande di più di 1 mm su un asse,
+        altrimenti None."""
+        if not board_travel:
+            return None
+        tx, ty = self.travel()
+        bx, by = float(board_travel[0]), float(board_travel[1])
+        return (bx, by) if tx > bx + 1.0 or ty > by + 1.0 else None
 
     def checks(self):
         """Lista di (livello, messaggio, correzione_suggerita|None). livello: ok/info/warn."""

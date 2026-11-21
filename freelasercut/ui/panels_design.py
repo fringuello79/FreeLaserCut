@@ -721,6 +721,14 @@ class CutSettingsDialog(QDialog):
         self.ramp_len.setEnabled(self.ramp_on.isChecked())
         self.ramp_on.toggled.connect(self.ramp_len.setEnabled)
         ff.addRow(tr("Lunghezza della rampa"), self.ramp_len)
+        # 0.21.2 (Mauro C., Ale): niente scatti veloci a laser spento dentro il riempimento
+        steady_tip = tr("Dentro il riempimento anche i vuoti e il passaggio da una riga all'altra si fanno alla "
+                        "velocità del livello, a laser spento, invece che veloci: meno vibrazioni e il pezzo non si "
+                        "sposta. Con tanti vuoti grandi il lavoro dura un po' di più.")
+        self.steady = QCheckBox(tr("Velocità costante anche a laser spento"))
+        self.steady.setToolTip(steady_tip)
+        self.steady.setChecked(bool(getattr(cs, "steady_travel", False)))
+        ff.addRow("", self.steady)
         self.tabs.addTab(ft, tr("Riempimento"))
         # immagine
         it = QWidget()
@@ -800,6 +808,10 @@ class CutSettingsDialog(QDialog):
         iff.addRow("", self.bidir_i)
         self.overscan_i = _spin(0, 30, cs.overscan, 1, 0.5, " mm")
         iff.addRow(tr("Overscan"), self.overscan_i)
+        self.steady_i = QCheckBox(tr("Velocità costante anche a laser spento"))
+        self.steady_i.setToolTip(steady_tip)
+        self.steady_i.setChecked(bool(getattr(cs, "steady_travel", False)))
+        iff.addRow("", self.steady_i)
         self.tabs.addTab(it, tr("Immagine"))
         self.mode.currentIndexChanged.connect(self._mode_tab)
         self._mode_tab()
@@ -845,6 +857,7 @@ class CutSettingsDialog(QDialog):
                     interval=self.interval.value(), angle=self.angle.value(), crosshatch=self.cross.isChecked(),
                     bidirectional=(self.bidir_i if img else self.bidir).isChecked(),
                     overscan=(self.overscan_i if img else self.overscan).value(),
+                    steady_travel=(self.steady_i if img else self.steady).isChecked(),
                     fill_grouping=self.grouping.currentData(), dpi=self.dpi.value(), dither=self.dither.currentData(),
                     negative=self.negative.isChecked(), dot_correction=self.dotc.value(),
                     halftone_cell=self.hcell.value(), halftone_angle=self.hangle.value(),

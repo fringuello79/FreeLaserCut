@@ -1045,6 +1045,15 @@ class CalibrationCancelled(Exception):
     pass
 
 
+class BoardRebooted(RuntimeError):
+    """0.21.2: la scheda si è riavviata da sola mentre la calibrazione muoveva la testa (rapporti E933 e 44A1)."""
+
+    def __init__(self):
+        super().__init__(tr("la scheda del laser si è riavviata da sola durante il movimento e la posizione della testa "
+                            "è persa. Controlla il cavo USB (meglio senza hub, collegato direttamente al computer) e "
+                            "l'alimentazione del laser, poi rifai l'homing e riprova"))
+
+
 class AutoCam(QObject):
     progress = Signal(int, int, str)  # passo, totale, testo
     detected = Signal(object)  # lista di (u, v) trovati finora, per disegnarli sull'anteprima
@@ -1070,10 +1079,22 @@ class AutoCam(QObject):
         self.park = None  # dove è stata parcheggiata la testa
         self.park_hint = None  # parcheggio già noto (dalla calibrazione salvata): niente giro per cercarlo
         self.guess = {}  # {indice del disco: (u, v)} trovati da soli, anche quelli scartati
+        self._reboots0 = getattr(ctl, "reboots", 0)  # 0.21.2: riavvii della scheda già visti prima di cominciare
+        self._spot_failed = False  # 0.21.2: il puntino non è bastato e si passa al bersaglio inciso
 
     # ---- controllo dall'interfaccia
     def start(self):
+        self._reboots0 = getattr(self.ctl, "reboots", 0)
         threading.Thread(target=self._run, daemon=True).start()
+
+    def _note(self, text):
+        """0.21.2: una riga «#» nel registro della comunicazione (finisce nei rapporti)."""
+        note = getattr(self.ctl, "note", None)
+        if note is not None:
+            try:
+                note.emit(text)
+            except RuntimeError:
+                pass
 
     def cancel(self):
         self._cancel.set()
@@ -1087,6 +1108,8 @@ class AutoCam(QObject):
     def _check(self):
         if self._cancel.is_set():
             raise CalibrationCancelled()
+        if getattr(self.ctl, "reboots", 0) != self._reboots0:  # 0.21.2: mai continuare in una posizione sbagliata
+            raise BoardRebooted()
         if not self.ctl.connected:
             raise RuntimeError(tr("macchina disconnessa"))
         if self.ctl.last_status.get("state") == "Alarm":
@@ -1148,15 +1171,21 @@ class AutoCam(QObject):
             except Exception as exc:  # noqa: BLE001
                 self.finished.emit(None, tr("Foto non riuscita: {0}", exc))
             return
+        self._note(f"calibrazione della camera: inizio (metodo {self.method}, griglia {self.grid_n})")
         try:
             model, msg = self._calibrate()
+            self._note("calibrazione della camera: " + ("riuscita" if model is not None else "non riuscita") +
+                       (f" ({self.used_method})" if self.used_method else "") +
+                       (" · " + str(msg).splitlines()[0] if msg else ""))
             self.finished.emit(model, msg)
         except CalibrationCancelled:
             self._safe_off()
-            self.finished.emit(None, "Calibrazione annullata")
+            self._note("calibrazione della camera: annullata")
+            self.finished.emit(None, tr("Calibrazione annullata"))
         except Exception as exc:  # noqa: BLE001
             self._safe_off()
-            self.finished.emit(None, f"Calibrazione interrotta: {exc}")
+            self._note(f"calibrazione della camera: interrotta · {exc}")
+            self.finished.emit(None, tr("Calibrazione interrotta: {0}", exc))
 
     def _safe_off(self):
         try:
@@ -1180,6 +1209,7 @@ class AutoCam(QObject):
                     return model, self._result_text(model, len(pairs), len(grid))
             if self.method == "spot":
                 return None, tr("Il puntino laser non è stato visto abbastanza: prova il metodo con bersaglio inciso")
+            self._spot_failed = True  # 0.21.2: nel messaggio del cartone si spiega che i lampi erano il primo metodo
         pairs = self._sequential_method()
         tot = len(self.target_grid or grid)
         if len(pairs) < 9:
@@ -1243,6 +1273,7 @@ class AutoCam(QObject):
             first = self._spot_at(*grid[0], pct)
         if first is None:
             self.progress.emit(0, total, tr("Il puntino non è visibile: passo al bersaglio inciso"))
+            self._note("calibrazione della camera: puntino non visto, passo al bersaglio inciso")
             return None
         found.append((grid[0], first))
         self.detected.emit([p[1] for p in found])
@@ -1255,6 +1286,8 @@ class AutoCam(QObject):
                 misses += 1
                 if misses > total * 0.3:
                     self.progress.emit(i, total, tr("Troppi punti non visti: passo al bersaglio inciso"))
+                    self._note(f"calibrazione della camera: puntino visto {len(found)} volte su {i + 1}, passo al "
+                               "bersaglio inciso")
                     return None
                 continue
             found.append(((x, y), pt))
@@ -1341,7 +1374,11 @@ class AutoCam(QObject):
         disco si riconosce senza ambiguità. Funziona anche se la camera vede solo una parte del piano o se
         trave e testa coprono l'inquadratura."""
         bx, by = self.profile.bed_x, self.profile.bed_y
-        self._ask(tr("Metti sul piano un cartone o un compensato chiaro, ben piatto e a fuoco, il più grande possibile.\nFreeLaserCut inciderà fino a {0} dischi (Ø 4 mm, 40%) uno alla volta e dopo ognuno farà una foto con la testa parcheggiata: i dischi fuori dall'inquadratura vengono semplicemente ignorati.\n\nOcchiali protettivi indossati e aspirazione accesa?", n * n))
+        ask = tr("Metti sul piano un cartone o un compensato chiaro, ben piatto e a fuoco, il più grande possibile.\nFreeLaserCut inciderà fino a {0} dischi (Ø 4 mm, 40%) uno alla volta e dopo ognuno farà una foto con la testa parcheggiata: i dischi fuori dall'inquadratura vengono semplicemente ignorati.\n\nOcchiali protettivi indossati e aspirazione accesa?", n * n)
+        if self._spot_failed:  # 0.21.2 (rapporto 44A1): i lampi senza cartone erano il primo tentativo, non un errore
+            ask = tr("La camera non ha visto bene il puntino: i lampi appena fatti erano il primo metodo, senza "
+                     "cartone. Ora passo al secondo metodo, il bersaglio inciso.") + "\n\n" + ask
+        self._ask(ask)
         park, cover = self._park()
         self.park = park
         grid = [g[:2] for g in cc.seq_grid(bx, by, n)]  # stesso ordine di prima (serpentina dallo zero)

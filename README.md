@@ -13,7 +13,7 @@ Software **libero** di incisione e taglio laser per macchine GRBL, con profilo n
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.21.1** — l'angolo dello 0 che non si perde più (Creality Falcon A1 e le macchine con l'homing in un altro angolo), il joystick che segue la mano senza ritardo, il grigio delle forme scelto dentro FreeLaserCut, *Prepara foto* anche sulla foto ritagliata. Dalla 0.21.0: la testa mossa con la tastiera (Alt+Maiusc+frecce, passi con Alt+1…5, crocette di Stampa e taglia con Ctrl+1 e Ctrl+2); linea tratteggiata per pieghe e strappi; ripresa del lavoro anche dopo che è mancata la corrente al PC e *Parti da qui* nell'anteprima; *Ritaglia con la forma* e *Ritaglia al piano* per i vettori; rampa nei riempimenti per i timbri in gomma; Z che scende a ogni passata; Separa anche sui tracciati con più figure. Dalla 0.20.9: più laser configurati, guide, deformazione a 4 e 16 punti. Dalla 0.20.7: la prima versione per **Mac** (anteprima, Apple Silicon e Intel: cerchiamo chi la collaudi).
+**Versione 0.21.2** — la Lucciola senza finestre d'errore dopo *Stampa e taglia*, la freccia «Continuo» e il joystick fino al bordo vero della macchina (anche quando il profilo è più grande), la calibrazione della camera che si ferma se la scheda si riavvia da sola, il primo avvio sul Mac, VEVOR A7 e Sculpfun iCube Ultra Dual (anche con il modulo infrarosso) nel catalogo, i moduli aggiuntivi, la Lucciola dalla tastiera (Alt+Maiusc+L), la velocità costante a laser spento e gli spostamenti a vuoto più lenti, il joystick fisico (G13, pad, joystick USB; in prova). Dalla 0.21.1: l'angolo dello 0 che non si perde più, il joystick che segue la mano senza ritardo, il grigio delle forme scelto dentro FreeLaserCut.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -152,7 +152,7 @@ Premi **F1** per l'elenco completo delle scorciatoie (valgono in entrambe le int
 
 FreeLaserCut lavora con qualsiasi laser a diodo con firmware **GRBL 1.1**, **grblHAL**, **Grbl_ESP32** o **FluidNC**, collegato via **USB** oppure via **Wi-Fi**. Il Wi-Fi funziona con le schede che accettano il G-code dalla rete, come FluidNC, grblHAL, ESP3D o l'AlgoLaser Delta.
 
-- **Modelli pronti:** 57 profili, da scegliere al primo avvio o da *Laser → Riconosci la macchina*, anche senza la macchina collegata. Ci sono i modelli più diffusi di Longer, Ortur, xTool, Atomstack, Sculpfun, Creality, Two Trees, AlgoLaser, Genmitsu/SainSmart, Comgrow, Acmer e Mecpow, più "Altro laser GRBL". Per i modelli aggiunti nella 0.12.0 i valori di targa vengono dalle pagine ufficiali dei produttori, indicate nel codice.
+- **Modelli pronti:** 72 profili, da scegliere al primo avvio o da *Laser → Riconosci la macchina*, anche senza la macchina collegata. Ci sono i modelli più diffusi di Longer, Ortur, xTool, Atomstack, Sculpfun, Creality, Two Trees, AlgoLaser, Genmitsu/SainSmart, Comgrow, Acmer, Mecpow, Carverall e VEVOR, più "Altro laser GRBL". Per i modelli aggiunti nella 0.12.0 i valori di targa vengono dalle pagine ufficiali dei produttori, indicate nel codice.
 - **Lettura dalla scheda:** collegando la macchina, area di lavoro, scala di potenza, velocità e buffer si rileggono dalla scheda (`$$`, `$I`). Il produttore viene riconosciuto dal firmware, il modello dall'area di lavoro.
 - **Wi-Fi:** con il pulsante Wi-Fi accanto alla porta scrivi l'indirizzo della scheda, per esempio `192.168.1.50`, porta 23. *Prova il collegamento* controlla che risponda e l'indirizzo resta nell'elenco delle porte.
 - **Copie delle impostazioni della scheda** (*Laser → Copie delle impostazioni della scheda…*):
@@ -197,10 +197,12 @@ Nel pannello **Livelli** ogni cella si modifica direttamente: **doppio clic** su
 Modalità **Linea**, **Riempimento**, **Riempimento offset**, **Immagine**. Per ogni livello: velocità (con l'equivalente in mm/s), potenza massima e minima, passate, aria, potenza costante M3 o dinamica M4.
 
 - **Linea:** kerf (i pezzi escono a misura, i fori si compensano da soli), ponticelli.
-- **Riempimento:** interlinea (con righe/pollice), angolo, tratteggio incrociato, bidirezionale, overscan, raggruppamento *Automatico*.
+- **Riempimento:** interlinea (con righe/pollice), angolo, tratteggio incrociato, bidirezionale, overscan, raggruppamento *Automatico*, **velocità costante anche a laser spento** (vuoti e cambi di riga alla velocità del livello: meno vibrazioni).
 - **Immagine:** risoluzione, scala di grigi, soglia, Floyd–Steinberg, Jarvis, Stucki, Atkinson, Bayer, retino a punti (cella e angolo). Partenza a scelta: dall'alto o dal basso con righe orizzontali, da sinistra o da destra con righe verticali. Più negativo, correzione del punto, luminosità, contrasto e gamma per ogni immagine.
 
 **Tagli per ultimi** riordina i livelli: prima le incisioni, alla fine le linee di taglio.
+
+Nella scheda **Laser**, **Spostamenti a vuoto più lenti** porta tutti gli spostamenti a laser spento del lavoro e del Contorno alla velocità che scegli, invece che alla massima della macchina.
 
 ## Materiali
 
@@ -260,6 +262,8 @@ Durante il lavoro:
 - pausa/riprendi e stop sicuro;
 - avanzamento e tempo restante.
 
+**Joystick fisico (in prova).** Nella scheda **Movimento**, sotto «Togli origine», scegli il controller (Logitech G13 in modalità joystick, pad Xbox o PlayStation, joystick USB) e spunta **Attivo**: va riacceso a ogni avvio, sulle macchine con l'homing solo dopo l'homing. La testa va al massimo alla «Velocità jog» (mai oltre 6000 mm/min) e la levetta è ignorata se FreeLaserCut non è in primo piano, durante un lavoro o in allarme. Dal pulsante **…** regoli la zona morta e il verso e assegni i pulsanti a Stop, Homing, Vai a X0 Y0, passo, «piano», Z e Contorno a laser spento: nessuno accende il laser.
+
 Se la scheda rifiuta una riga, il lavoro va **subito in pausa** e FreeLaserCut ti dice quale riga e perché.
 
 Se si stacca il cavo o manca la corrente, al riavvio FreeLaserCut propone di **riprendere il lavoro da dove si era fermato**, dopo l'homing.
@@ -310,7 +314,7 @@ Laser di classe 4, 450 nm. Indossa occhiali protettivi adatti, non lasciare mai 
 
 ## Ringraziamenti
 
-FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter, Mauro C., Gianni, marcello, Sengir.
+FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter, Mauro C., Gianni, marcello, Sengir, Daniel Z., solboricua.
 
 Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. Fino alla versione 0.20.6 l'elenco ringrazia anche chi ci ha lasciato il proprio nome in un rapporto all'assistenza. Da qui in poi raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se è il tuo caso, scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
 

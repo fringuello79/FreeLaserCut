@@ -26,6 +26,7 @@ LOCALE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "locale")
 _lang = os.environ.get("FLC_LANG", SOURCE) if os.environ.get("FLC_LANG", SOURCE) in LANGUAGES else SOURCE
 _catalog = {}
 _fallback = {}
+_extra = {}  # 0.21.2: traduzioni portate dai moduli aggiuntivi, per lingua
 _PLACEHOLDER = re.compile(r"\{[^{}]*\}")
 
 
@@ -52,6 +53,8 @@ def _load(lang):
         if ("{" in src or "{" in dst) and _fields(src) != _fields(dst):
             continue  # segnaposto diversi: meglio il testo originale che un errore
         good[src] = dst
+    for src, dst in _extra.get(lang, {}).items():
+        good.setdefault(src, dst)
     return good
 
 
@@ -62,6 +65,22 @@ def set_language(lang):
     _catalog = _load(_lang)
     _fallback = _load(DEFAULT) if _lang not in (DEFAULT, SOURCE) else {}
     return _lang
+
+
+def extend(tables):
+    """0.21.2: traduzioni in più (moduli aggiuntivi): {"en": {"testo": "text"}, ...}. Non cambiano quelle che ci
+    sono già; valgono subito e restano quando si cambia lingua."""
+    for lang, table in (tables or {}).items():
+        if lang not in LANGUAGES or lang == SOURCE or not isinstance(table, dict):
+            continue
+        store = _extra.setdefault(lang, {})
+        for src, dst in table.items():
+            if isinstance(src, str) and isinstance(dst, str) and dst.strip() and _fields(src) == _fields(dst):
+                store.setdefault(src, dst)
+    for lang, cat in ((_lang, _catalog), (DEFAULT, _fallback)):
+        if lang != SOURCE and (cat is _catalog or _lang not in (DEFAULT, SOURCE)):
+            for src, dst in _extra.get(lang, {}).items():
+                cat.setdefault(src, dst)
 
 
 def language():

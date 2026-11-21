@@ -11,10 +11,11 @@
 import math
 import time
 
-from PySide6.QtCore import QObject, QPointF, QRectF, QSize, Qt, QTimer
+from PySide6.QtCore import QObject, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import (
-    QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel, QStackedWidget, QToolButton, QVBoxLayout, QWidget,
+    QButtonGroup, QCheckBox, QGridLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QToolButton, QVBoxLayout,
+    QWidget,
 )
 
 from ..theme import C
@@ -159,11 +160,9 @@ class JoyJog(QObject):
         seg = self.SEG_T
         d = v / 60.0 * seg
         dx, dy = self.vec[0] / m * d, self.vec[1] / m * d
-        prof = self.get_profile()
-        bx = float(getattr(prof, "bed_x", 0) or 0)
-        by = float(getattr(prof, "bed_y", 0) or 0)
+        x0, y0, x1, y1 = reach_box(self.ctl, self.get_profile())
         x, y = self.pos
-        nx, ny = self._limit(x, dx, bx), self._limit(y, dy, by)
+        nx, ny = self._limit(x, dx, x0, x1), self._limit(y, dy, y0, y1)
         ddx, ddy = nx - x, ny - y
         dist = math.hypot(ddx, ddy)
         if dist < 0.005:
@@ -173,14 +172,17 @@ class JoyJog(QObject):
         self.plan_end = max(self.plan_end, now) + dist / (v / 60.0)
         self.sent += 1
 
-    def _limit(self, p, d, size):
-        """Nuova coordinata su un asse: si ferma a MARGIN dal bordo verso cui si va, e non si muove mai nel verso
-        opposto a quello chiesto (con la testa già oltre il margine resta dov'è)."""
-        if size <= 2 * self.MARGIN or d == 0:
-            return p + d if size <= 2 * self.MARGIN else p
+    def _limit(self, p, d, lo, hi=None):
+        """Nuova coordinata su un asse fra lo e hi (con un solo numero: da 0 a quella misura): si ferma a MARGIN dal
+        bordo verso cui si va, e non si muove mai nel verso opposto a quello chiesto (con la testa già oltre il
+        margine resta dov'è)."""
+        if hi is None:
+            lo, hi = 0.0, lo
+        if hi - lo <= 2 * self.MARGIN or d == 0:
+            return p + d if hi - lo <= 2 * self.MARGIN else p
         if d > 0:
-            return min(p + d, max(p, size - self.MARGIN))
-        return max(p + d, min(p, self.MARGIN))
+            return min(p + d, max(p, hi - self.MARGIN))
+        return max(p + d, min(p, lo + self.MARGIN))
 
     def stop(self, reason=""):
         was = self.active
@@ -324,11 +326,25 @@ class JoystickPad(QWidget):
 
 
 # ======================================================================= il componente completo
+def reach_box(ctl, prof):
+    """0.21.2 (rapporto 3802): dove la testa può andare davvero, nel piano come si vede (x0, y0, x1, y1): il piano
+    del profilo, ristretto alla corsa che la scheda accetta quando ha i limiti software accesi. Prima si guardava solo
+    il piano del profilo: con un profilo di 600 mm e una scheda da 450 «Continuo» chiedeva X599,5 e la scheda
+    rispondeva error:15 a ogni clic, senza che comparisse niente."""
+    get = getattr(ctl, "soft_limits", None)
+    lim = get() if callable(get) and getattr(ctl, "connected", False) else None
+    try:
+        return prof.reach_box(lim, getattr(ctl, "negative_space", None))
+    except (AttributeError, TypeError, ValueError):
+        return (0.0, 0.0, float(getattr(prof, "bed_x", 0) or 0), float(getattr(prof, "bed_y", 0) or 0))
+
+
 class JogPad(QWidget):
     """Frecce o joystick, Puntino e Lucciola, passi e «Continuo». get_feed() = velocità del jog (mm/min)."""
     # senza margine interno: nei mezzi pulsanti stretti (25 px) il margine del tema schiaccerebbe l'icona
     _BTN_CSS = "QToolButton { padding: 0px; }"
     _GLOW_ON_CSS = "QToolButton { padding: 0px; background:#FFD43B; border:1px solid #B8860B; border-radius:6px; }"
+    travel_fix_requested = Signal(float, float)  # 0.21.2: «Usa le misure della macchina» (corsa X, corsa Y)
 
     def __init__(self, ctl, settings, get_profile, get_head, get_feed, parent=None):
         super().__init__(parent)
@@ -336,6 +352,7 @@ class JogPad(QWidget):
         self.get_profile, self.get_head, self.get_feed = get_profile, get_head, get_feed
         self.laser = None
         self._cont = False
+        self._jog_sent = -1e9  # 0.21.2: quando la croce ha mandato l'ultimo spostamento (per l'error:15)
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(5)
@@ -417,6 +434,21 @@ class JogPad(QWidget):
         mode.addSpacing(10)
         mode.addWidget(self.readout, 1)
         v.addLayout(mode)
+        # 0.21.2: la scheda ha rifiutato lo spostamento e si può correggere il profilo (rapporto 3802)
+        self.refusal = QWidget()
+        rv = QVBoxLayout(self.refusal)
+        rv.setContentsMargins(0, 0, 0, 0)
+        rv.setSpacing(3)
+        self.refusal_lab = QLabel("")
+        self.refusal_lab.setWordWrap(True)
+        rv.addWidget(self.refusal_lab)
+        self.b_fix = QPushButton(tr("Usa le misure della macchina"))
+        self.b_fix.setToolTip(tr("Il piano del profilo prende la corsa letta dalla scheda ($130/$131)"))
+        self.b_fix.clicked.connect(self._use_board_travel)
+        rv.addWidget(self.b_fix, 0, Qt.AlignLeft)
+        self.refusal.setVisible(False)
+        v.addWidget(self.refusal)
+        ctl.error_raised.connect(self._board_error)
         # passi e Continuo
         self.steps_w = QWidget()
         sv = QVBoxLayout(self.steps_w)
@@ -532,33 +564,53 @@ class JogPad(QWidget):
                 return
             margin = 0.5
             hx, hy = float(head.x()), float(head.y())
-            bx, by = float(prof.bed_x), float(prof.bed_y)
+            x0, y0, bx, by = reach_box(self.ctl, prof)  # 0.21.2: anche la corsa della scheda, non solo il profilo
             # 0.21.1 (Giuseppe su GitHub, Discussion #5: «se imposto continuo il tasto di sinistra non funziona»): un asse
             # già sul bordo verso cui si va non blocca più tutta la freccia (in diagonale va avanti l'altro asse), e se
             # non si può andare da nessuna parte lo dice invece di non fare niente in silenzio
-            ux = float(dx) if (dx < 0 and hx > margin) or (dx > 0 and hx < bx - margin) else 0.0
-            uy = float(dy) if (dy < 0 and hy > margin) or (dy > 0 and hy < by - margin) else 0.0
+            ux = float(dx) if (dx < 0 and hx > x0 + margin) or (dx > 0 and hx < bx - margin) else 0.0
+            uy = float(dy) if (dy < 0 and hy > y0 + margin) or (dy > 0 and hy < by - margin) else 0.0
             L = math.hypot(ux, uy)
             t = float("inf")
             if L > 0:
                 ux, uy = ux / L, uy / L
-                for p, u, hi in ((hx, ux, bx), (hy, uy, by)):
+                for p, u, lo, hi in ((hx, ux, x0, bx), (hy, uy, y0, by)):
                     if u > 0:
                         t = min(t, (hi - margin - p) / u)
                     elif u < 0:
-                        t = min(t, (p - margin) / -u)
+                        t = min(t, (p - lo - margin) / -u)
             if L == 0 or t <= 0 or t == float("inf"):
                 self._arrow_note(self._edge_text(dx, dy))
                 return
             self._arrow_note("")
             mx, my = prof.to_machine(hx + ux * t, hy + uy * t)
             self._cont = True
+            self._jog_sent = time.monotonic()
             self.ctl.goto_machine(mx, my, self.get_feed())
         else:
             self._arrow_note("")
             self._cont = False
             s = self.step()
+            self._jog_sent = time.monotonic()
             self.ctl.jog(dx * s, dy * s, self.get_feed())
+
+    # ---- 0.21.2: la scheda rifiuta lo spostamento (rapporto 3802): mai più un clic che non fa niente in silenzio
+    def _board_error(self, code, _text, line):
+        # solo la croce che ha appena mandato lo spostamento (la scheda Movimento o quella di Stampa e taglia)
+        recent = time.monotonic() - self._jog_sent <= 3.0 or self.joy.active
+        if not str(line).startswith("$J=") or not recent:
+            return
+        lim = self.ctl.soft_limits()
+        small = self.get_profile().board_smaller(lim) if lim else None
+        if code == 15 and small:
+            tx, ty = self.get_profile().travel()
+            self._arrow_note(tr("La scheda rifiuta il movimento: il piano del profilo ({0:g} × {1:g} mm) è più grande "
+                                "della corsa della macchina ({2:g} × {3:g} mm).", tx, ty, small[0], small[1]),
+                             fix=True)
+        elif code == 15:
+            self._arrow_note(tr("La scheda rifiuta il movimento: la testa uscirebbe dall'area di lavoro."))
+        else:
+            self._arrow_note(tr("La scheda rifiuta il movimento (errore {0}): la testa non si è mossa.", code))
 
     @staticmethod
     def _edge_text(dx, dy):
@@ -573,14 +625,33 @@ class JogPad(QWidget):
             sides.append(tr("in basso"))
         return tr("Già al bordo {0}: con «Continuo» non va più in là", " / ".join(sides))
 
-    def _arrow_note(self, text):
-        """0.21.1: un messaggio breve sotto le frecce (sparisce da solo dopo qualche secondo)."""
+    def _arrow_note(self, text, fix=False):
+        """0.21.1: un messaggio breve sotto le frecce (sparisce da solo dopo qualche secondo). 0.21.2: con fix=True
+        anche il pulsante «Usa le misure della macchina», e il messaggio resta finché non lo usi o non muovi."""
+        if fix or not text:
+            self.refusal_lab.setText(text if fix else "")
+            self.refusal.setVisible(bool(fix and text))
+            if fix:
+                return
         if self.mode() == "joystick":
             return
         self.readout.setText(text)
         self.readout.setToolTip(text)
-        if text:
-            QTimer.singleShot(5000, lambda t=text: self.readout.text() == t and self.readout.setText(""))
+        if text and not fix:
+            QTimer.singleShot(5000, self._clear_note_later(text))
+
+    def _clear_note_later(self, text):
+        def clear():
+            if self.readout.text() == text:
+                self.readout.setText("")
+        return clear
+
+    def _use_board_travel(self):
+        """0.21.2: il piano del profilo prende le misure della corsa della scheda ($130/$131)."""
+        lim = self.ctl.soft_limits()
+        if lim:
+            self.travel_fix_requested.emit(float(lim[0]), float(lim[1]))
+        self._arrow_note("")
 
     def jog_release(self):
         if self._cont:
@@ -590,7 +661,12 @@ class JogPad(QWidget):
     # ---- Puntino e Lucciola: gli stessi della scheda Laser
     def attach_laser(self, laser):
         self.laser = laser
-        laser.b_glow.toggled.connect(lambda _on: self._sync())
+        # 0.21.2: un metodo, non una lambda: quando la croce sparisce (finestra Stampa e taglia chiusa) Qt stacca da
+        # solo il collegamento. Con la lambda restava attaccato e ogni clic sulla Lucciola dava «already deleted»
+        laser.b_glow.toggled.connect(self._glow_toggled)
+        self._sync()
+
+    def _glow_toggled(self, _on):
         self._sync()
 
     def _dot(self, on):

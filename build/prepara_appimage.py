@@ -29,7 +29,7 @@ import tarfile
 BUILD = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(BUILD)
 sys.path.insert(0, BUILD)
-from prepara_installer import CACHE, PACKAGES, PY_RELEASE, PY_VERSION, TRIM_PYSIDE, scarica, step, version  # noqa: E402
+from prepara_installer import CACHE, PACKAGES, PY_RELEASE, PY_VERSION, TRIM_PYGAME, TRIM_PYSIDE, scarica, step, version  # noqa: E402
 
 APPDIR = os.path.join(BUILD, "AppDir")
 PY_URL = (f"https://github.com/astral-sh/python-build-standalone/releases/download/{PY_RELEASE}/"
@@ -279,6 +279,8 @@ def main():
                            *LINUX_PACKAGES])
     for d in ("bin", "share", "test", "tests"):
         shutil.rmtree(os.path.join(site, d), ignore_errors=True)
+    for d in TRIM_PYGAME:
+        shutil.rmtree(os.path.join(site, "pygame", d), ignore_errors=True)
     pyside = os.path.join(site, "PySide6")
     for d in TRIM_PYSIDE + ["scripts"]:  # scripts: strumenti di pubblicazione di Qt (Android, Nuitka…), non servono
         shutil.rmtree(os.path.join(pyside, d), ignore_errors=True)

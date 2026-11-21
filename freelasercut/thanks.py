@@ -26,6 +26,8 @@ NAMES = (
     "Gianni",  # 0.20.9: rapporto del 19/11
     "marcello",  # 0.20.9: rapporto del 19/11
     "Sengir",  # 0.21.1: rapporti sul Falcon A1 (Ale, 19/11)
+    "Daniel Z.",  # 0.21.2: rapporti e spinta sui social (Ale, 20/11)
+    "solboricua",  # 0.21.2: rapporto E698 dal Mac M1 (20/11)
 )
 
 

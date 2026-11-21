@@ -28,7 +28,7 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90  # 0.21.2: il giro di Windows è arrivato a 51 minuti su 60 (vedi in fondo al registro le più lente)
     env:
       QT_QPA_PLATFORM: offscreen
       PYTHONIOENCODING: utf-8

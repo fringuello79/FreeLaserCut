@@ -119,6 +119,9 @@ class CommLog(QObject):
         ctl.alarm_raised.connect(lambda c, t: self._anomaly(f"ALLARME {c}: {t}"))
         ctl.error_raised.connect(lambda c, t, l: self._error(c, t, l))
         ctl.connection_changed.connect(self._connection)
+        note = getattr(ctl, "note", None)
+        if note is not None:
+            note.connect(self._note)  # 0.21.2: fatti scritti da altre parti (calibrazioni, riavvii della scheda)
         ctl.job_progress.connect(self._progress)
         ctl.job_finished.connect(self._finished)
         self._timer = QTimer(self)
@@ -138,6 +141,9 @@ class CommLog(QObject):
             pos = st.get("MPos") or st.get("WPos") or []
             extra = (" MPos " + ",".join(f"{v:.2f}" for v in pos[:2])) if pos else ""
             self.add("=", f"stato {state}{extra} F{st.get('feed', 0):.0f} S{st.get('power', 0):.0f}")
+
+    def _note(self, text):
+        self.add("#", text)
 
     def _error(self, code, text, line):
         self.add("!", f"error:{code} {text}" + (f"  [{line}]" if line else ""))
@@ -306,6 +312,10 @@ def env_text(win=None, code=""):
     except Exception:  # noqa: BLE001
         pass
     lines.append(f"Fuso orario: {time.strftime('%z')} · processori: {os.cpu_count()}")
+    from . import moduli
+
+    if moduli.summary():  # 0.21.2
+        lines.append(moduli.summary())
     ctl = getattr(win, "ctl", None)
     if ctl is not None:
         from .grbl import SIM_PORT

@@ -83,6 +83,7 @@ class PrintCutDialog(QDialog):
 
         self.pad = JogPad(self.ctl, main.qs, lambda: main.profile, main.canvas.head_pos, main.move.feed.value)
         self.pad.attach_laser(main.laser)
+        self.pad.travel_fix_requested.connect(main.use_board_travel)  # 0.21.2
         self.jog_btns = self.pad.jog_buttons
         self.l_pos = QLabel("")
         self.l_pos.setWordWrap(True)

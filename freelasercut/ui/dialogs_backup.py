@@ -59,9 +59,12 @@ class BoardBackupDialog(QDialog):
         box = QDialogButtonBox(QDialogButtonBox.Close)
         box.rejected.connect(self.reject)
         v.addWidget(box)
-        self.ctl.connection_changed.connect(lambda *_: self._buttons())
+        self.ctl.connection_changed.connect(self._connection_changed)  # 0.21.2: metodo, si stacca alla chiusura
         self.table.itemSelectionChanged.connect(self._buttons)
         self.fill()
+
+    def _connection_changed(self, *_):
+        self._buttons()
 
     # ---------------------------------------------------------------- elenco
     def fill(self, select=None):

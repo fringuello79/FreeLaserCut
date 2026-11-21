@@ -27,7 +27,7 @@ class SimSerial:
     # alla volta, l'«ok» subito e la riga dopo aspetta la fine del movimento.
     jog_planner = False
 
-    def __init__(self, *args, speedup=1.0, negative=None, glitch=None, **kwargs):
+    def __init__(self, *args, speedup=1.0, negative=None, glitch=None, travel=None, **kwargs):
         self.is_open = True
         self.wifi = None  # 0.18.17: scheda con il Wi-Fi finta (vedi wifi_board); None = il simulatore di sempre
         self._broken = False
@@ -150,6 +150,12 @@ class SimSerial:
             134: "300.000",
             135: "300.000",
         }
+        try:  # 0.21.2: la corsa del profilo attivo, così il simulatore non rifiuta il bordo di un piano più grande
+            tx, ty = (float(v) for v in travel) if travel else (0.0, 0.0)
+        except (TypeError, ValueError):
+            tx = ty = 0.0
+        if 10.0 <= tx <= 5000.0 and 10.0 <= ty <= 5000.0:
+            self.settings[130], self.settings[131] = f"{tx:.3f}", f"{ty:.3f}"
         threading.Thread(target=self._processor, daemon=True).start()
         threading.Thread(target=self._executor, daemon=True).start()
         self._emit("\r\nGrbl 1.1h ['$' for help]\r\n")
@@ -356,6 +362,24 @@ class SimSerial:
         self._emit("\r\nGrbl 1.1h ['$' for help]\r\n")
         if alarm:
             self._emit("[MSG:'$H'|'$X' to unlock]\r\n")
+
+    def reboot(self, banner="Grbl 1.1f ['$' for help]"):
+        """0.21.2: la scheda si riavvia da sola (calo di tensione, cavo, watchdog): movimento perso, coordinate da capo
+        (GRBL riparte da 0,0 finché non si fa l'homing), il banner arriva senza che nessuno abbia chiesto un reset."""
+        self._generation += 1
+        self._cancel.set()
+        with self._rx_cv:
+            self._rx.clear()
+        with self._pl_cv:
+            self._planner.clear()
+            self._pl_cv.notify_all()
+        self.pos = [0.0, 0.0, 0.0]
+        self.check_mode = False
+        self.absolute = True
+        self.state = "Idle"
+        self.feed = self.power = 0
+        self.laser = False
+        self._emit("\r\n" + banner + "\r\n[MSG:Using cpu_map...esp32-s3]\r\n")
 
     def _limits(self):
         bx, by = self.bed_size()

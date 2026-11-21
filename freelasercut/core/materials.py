@@ -130,20 +130,43 @@ _E1_ENGRAVE_IR = [
     ("Ciottolo / pietra", 80, 3000, _ST), ("Acrilico nero", 35, 4000, _ST), ("Alluminio (argento)", 100, 1000, ""),
     ("Alluminio anodizzato nero", 20, 10000, _ST),
 ]
-_E1_TABLES = {"Sculpfun E1 12W": (_E1_ENGRAVE_12, _E1_CUT_12), "Sculpfun E1 Pro 21W": (_E1_ENGRAVE_21, _E1_CUT_21),
-              "Sculpfun E1 3W IR": (_E1_ENGRAVE_IR, [])}
+# 0.21.2: tabella Sculpfun «iCube Ultra Engraving Parameter» (PDF di Sculpfun pubblicato dal rivenditore LaserBuying,
+# laserbuying.com; sul sito Sculpfun non c'è, letta il 21/11/2026). Accelerazione 500, interlinea 0,05 mm e retinatura
+# Stucki in tutte le righe; velocità in mm/min. Il diodo da 12 W è lo stesso della iCube Ultra normale e della Dual.
+_SCI = "Tabella Sculpfun iCube Ultra"
+_ICU_ENGRAVE_12 = [
+    ("Compensato di tiglio", 70, 10000, _ST), ("MDF", 40, 10000, _ST), ("Alluminio anodizzato nero", 15, 10000, _ST),
+    ("Ciottolo / pietra", 50, 10000, _ST), ("Pelle / cuoio", 60, 10000, _ST), ("Carta kraft", 30, 10000, _ST),
+    ("Cartone ondulato", 30, 10000, _ST), ("Acrilico (nero/colorato)", 100, 8000, _ST),
+    ("Carta fotografica nera", 25, 10000, _ST), ("Ferro (togliere la ruggine)", 100, 1000, _ST),
+    ("Acciaio inox", 100, 9000, _ST),
+]
+_ICU_CUT_12 = [("Compensato di tiglio", 3, 100, 420), ("Compensato di tiglio", 5, 100, 250), ("Paulonia", 10, 100, 180)]
+_ICU_ENGRAVE_IR = [
+    ("Acciaio inox", 100, 5000, _ST), ("Ferro (togliere la ruggine)", 100, 5000, _ST),
+    ("Alluminio anodizzato nero", 100, 7000, _ST), ("Ciottolo / pietra", 100, 2000, _ST), ("Pelle / cuoio", 100, 1000, _ST),
+    ("Ottone", 100, 1000, _ST), ("Carta fotografica nera", 50, 10000, _ST),
+]
+# modello del catalogo: (incisioni, tagli, interlinea in mm, fonte)
+_E1_TABLES = {"Sculpfun E1 12W": (_E1_ENGRAVE_12, _E1_CUT_12, 0.1, _SC),
+              "Sculpfun E1 Pro 21W": (_E1_ENGRAVE_21, _E1_CUT_21, 0.1, _SC),
+              "Sculpfun E1 3W IR": (_E1_ENGRAVE_IR, [], 0.1, _SC),
+              "Sculpfun iCube Ultra 12W": (_ICU_ENGRAVE_12, _ICU_CUT_12, 0.05, _SCI),
+              "Sculpfun iCube Ultra Dual 12W": (_ICU_ENGRAVE_12, _ICU_CUT_12, 0.05, _SCI),
+              "Sculpfun iCube Ultra Dual 1.2W IR": (_ICU_ENGRAVE_IR, [], 0.05, _SCI)}
 
 
 def official(model):
-    """Voci ufficiali del produttore per questo modello del catalogo (oggi la serie E1), o [] se non ce ne sono."""
+    """Voci ufficiali del produttore per questo modello del catalogo (serie E1, iCube Ultra), o [] se non ce ne sono."""
     t = _E1_TABLES.get(model or "")
     if t is None:
         return []
+    engrave, cut, step, src = t
     out = []
-    for name, pw, sp, note in t[0]:
-        out.append(Material(name, _E, 0, float(pw), float(sp), 1, 0.0, "fill", 0.1, note, _SC, model))
-    for name, th, pw, sp in t[1]:
-        out.append(Material(name, _C, float(th), float(pw), float(sp), 1, 0.0, "line", 0.1, "", _SC, model))
+    for name, pw, sp, note in engrave:
+        out.append(Material(name, _E, 0, float(pw), float(sp), 1, 0.0, "fill", step, note, src, model))
+    for name, th, pw, sp in cut:
+        out.append(Material(name, _C, float(th), float(pw), float(sp), 1, 0.0, "line", step, "", src, model))
     return out
 
 

@@ -50,23 +50,6 @@ HELP = {
                       "quando nella configurazione hai scelto di vedere il piano ruotato. I disegni importati con "
                       "«Importa» entrano sempre dritti come li vedi sullo schermo; i progetti di FreeLaserCut invece "
                       "sono legati al piatto e si aprono già nel verso giusto."), None),
-    "export_xs": (tr("Esporta per xTool Studio (M2)"), tr("La xTool M2 non è una macchina GRBL e lavora solo con xTool "
-                  "Studio: FreeLaserCut non può comandarla. Questo comando salva un progetto .xs con il disegno, le "
-                  "foto e, per ogni livello, potenza, velocità e passate già impostate. Lo apri in xTool Studio, "
-                  "controlli e avvii da lì. L'area della M2 è 426 × 320 mm, misurata dall'angolo in basso a "
-                  "sinistra del piano."), None),
-    "export_m2": (tr("Lavoro per xTool M2 (sperimentale)"), tr("Funzione in prova, solo per la xTool M2. Scrive il "
-                  "lavoro nel linguaggio della macchina (un file di testo) e, accanto, la cornice a potenza zero. "
-                  "FreeLaserCut non lo invia alla M2 e nessuno l'ha ancora provato su una macchina vera: serve a chi "
-                  "ci aiuta nelle prove. Per lavorare con la M2 usa «Esporta per xTool Studio (M2)». Se il disegno "
-                  "esce dall'area della macchina il lavoro non viene scritto."), None),
-    "m2_link": (tr("xTool M2: collegamento diretto (sperimentale)"), tr("Funzione in prova, solo per la xTool M2, "
-                "non ufficiale e non ancora provata su una macchina vera. Nella finestra scrivi l'indirizzo IP della "
-                "M2 e scegli modulo laser e costruttore (o «Automatico»: li dice la macchina). La prima volta la M2 "
-                "chiede di premere il suo pulsante per abbinarsi. Poi puoi inviare la cornice a potenza zero o il "
-                "lavoro: la macchina si mette in attesa e parte solo quando premi il pulsante su di lei. Da qui puoi "
-                "mettere in pausa, riprendere e annullare. «Usa l'area della M2 per il piano» crea il profilo con "
-                "l'area giusta."), None),
     "kb_left": (tr("Testa a sinistra di un passo"), tr("Muove la testa del laser con la tastiera, del passo scelto nella scheda Movimento (Alt+1 … Alt+5). Funziona anche con oggetti selezionati e con la finestra Stampa e taglia davanti; non durante il lavoro."), None),
     "kb_right": (tr("Testa a destra di un passo"), tr("Muove la testa del laser con la tastiera, del passo scelto nella scheda Movimento (Alt+1 … Alt+5). Funziona anche con oggetti selezionati e con la finestra Stampa e taglia davanti; non durante il lavoro."), None),
     "kb_up": (tr("Testa in alto di un passo"), tr("Muove la testa del laser con la tastiera, del passo scelto nella scheda Movimento (Alt+1 … Alt+5). Funziona anche con oggetti selezionati e con la finestra Stampa e taglia davanti; non durante il lavoro."), None),
@@ -74,6 +57,7 @@ HELP = {
     "kb_z_up": (tr("Asse Z su di un passo"), tr("Alza l'asse Z del passo scelto (al massimo 10 mm), solo sui laser con lo Z motorizzato."), None),
     "kb_z_down": (tr("Asse Z giù di un passo"), tr("Abbassa l'asse Z del passo scelto (al massimo 10 mm), solo sui laser con lo Z motorizzato."), None),
     "kb_goto0": (tr("Testa all'origine di lavoro (X0 Y0)"), tr("Porta la testa all'origine di lavoro, come «Vai a X0 Y0» nella scheda Movimento."), None),
+    "kb_glow": (tr("Lucciola: accendi / spegni"), tr("Accende o spegne la Lucciola come il pulsante della scheda Laser: stessa potenza, con il tetto del laser, e stessi controlli. Si spegne anche con Stop (Maiusc+Esc), all'inizio di un lavoro e da sola dopo qualche minuto. Occhiali protettivi sempre."), None),
     "kb_step_1": (tr("Passo del jog: {0:g} mm", 0.1), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
     "kb_step_2": (tr("Passo del jog: {0:g} mm", 1), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
     "kb_step_3": (tr("Passo del jog: {0:g} mm", 10), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
