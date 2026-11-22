@@ -4,7 +4,7 @@
 Poche domande: il modello, l'angolo in cui sta lo 0 della macchina e, se il laser è collegato, la prova delle
 frecce. Da lì FreeLaserCut ricava il verso degli assi, così testa e lavoro compaiono nel punto giusto del piano.
 Alla fine: nomi sotto i comandi oppure modalità esperto. Si può rifare quando si vuole."""
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (
     QButtonGroup, QComboBox, QDialog, QRadioButton, QGridLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout,
@@ -22,6 +22,8 @@ CORNERS = {"bl": tr("dietro a sinistra"), "br": tr("dietro a destra"), "fl": tr(
            "fr": tr("davanti a destra")}
 STEP_MM = 10.0
 JOG_FEED = 1500
+AIR_PAGE = 4  # 0.22.0: il passo dell'aria, fra «piano» e «fine»
+AIR_TEST_MS = 2000  # quanto resta accesa l'aria a ogni prova
 
 
 def corner_name(corner):
@@ -216,6 +218,7 @@ class SetupWizard(QDialog):
         self._page_corner(p)
         self._page_arrows()
         self._page_rotation(p)
+        self._page_air()
         self._page_end()
         row = QHBoxLayout()
         self.b_skip = QPushButton(tr("Più tardi") if first else tr("Annulla"))
@@ -446,6 +449,124 @@ class SetupWizard(QDialog):
         else:
             self.rot_lab.setText(tr("Il piano resta com'è: largo {0:g} mm e alto {1:g} mm.", w, h))
 
+    # ------------------------------------------------------------------ aria (0.22.0)
+    def _page_air(self):
+        """0.22.0 — con quale comando la scheda accende l'aria? Non serve saperlo: due prove di due secondi a laser
+        spento, e si dice con quale delle due è partita. Chi non ha l'aria o non vuole provare va avanti e basta."""
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(_title(tr("L'aria (air assist)")))
+        self.air_intro = _text("")
+        v.addWidget(self.air_intro)
+        self.air_box = QWidget()
+        row = QHBoxLayout(self.air_box)
+        row.setContentsMargins(0, 0, 0, 0)
+        self.b_air = {}
+        for n in (1, 2):
+            b = QPushButton(tr("Prova {0}", n))
+            b.setMinimumHeight(34)
+            b.clicked.connect(lambda _=False, k=n: self.air_test(k))
+            row.addWidget(b)
+            self.b_air[n] = b
+        v.addWidget(self.air_box)
+        self.air_lab = _text("")
+        v.addWidget(self.air_lab)
+        self.air_radio = {}
+        self.air_group = QButtonGroup(self)
+        self.air_answers = QWidget()
+        va = QVBoxLayout(self.air_answers)
+        va.setContentsMargins(0, 0, 0, 0)
+        for key, text in (("keep", tr("Non lo so, o lo provo dopo: lascio com'è")),
+                          ("m8", tr("L'aria è partita con la prova 1")),
+                          ("m7", tr("L'aria è partita con la prova 2")),
+                          ("none", tr("Con nessuna delle due: non ho l'aria, o la accendo a mano"))):
+            b = QRadioButton(text)
+            self.air_group.addButton(b)
+            va.addWidget(b)
+            self.air_radio[key] = b
+        self.air_radio["keep"].setChecked(True)
+        v.addWidget(self.air_answers)
+        self._air_running = 0
+        self._air_timer = QTimer(self)
+        self._air_timer.setSingleShot(True)
+        self._air_timer.timeout.connect(self._air_stop)
+        self.main.ctl.error_raised.connect(self._air_refused)
+        v.addStretch(1)
+        self.stack.addWidget(w)
+
+    def air_choice(self):
+        return next((k for k, b in self.air_radio.items() if b.isChecked()), "keep")
+
+    def _air_now(self):
+        """Il comando dell'aria com'è adesso nel profilo (per dirlo nella pagina)."""
+        on = self.main.profile.air_cmds()[0] if self._same_model() else "M8"
+        return on or tr("nessun comando")
+
+    def _enter_air(self):
+        ok = self._can_jog()
+        marlin = self._same_model() and self.main.profile.air_cmds()[0] == "M106"
+        self.air_box.setVisible(ok and not marlin)
+        self.air_answers.setVisible(not marlin)
+        self.air_lab.setText("")
+        if marlin:
+            self.air_intro.setText(tr("Questa macchina accende l'aria con il comando della ventola (M106): non c'è "
+                                      "niente da provare, vai avanti."))
+        elif ok:
+            self.air_intro.setText(tr(
+                "Se il tuo laser ha la pompa dell'aria comandata dalla scheda, FreeLaserCut deve sapere con quale comando "
+                "accenderla. <b>Non serve saperlo:</b> premi «Prova 1», poi «Prova 2», e ascolta. Ogni prova accende "
+                "l'aria per {0:g} secondi, a laser spento. Poi segna qui sotto con quale è partita.<br>"
+                "Se non hai l'aria, o non ti interessa adesso, vai avanti: resta com'è ({1}).",
+                AIR_TEST_MS / 1000.0, self._air_now()))
+        else:
+            self.air_intro.setText(tr(
+                "Il laser non è collegato: la prova dell'aria la fai dopo. Quando lo colleghi, apri <i>Impostazioni → "
+                "Configurazione guidata della macchina</i> e torna a questo passo. Intanto resta com'è ({0}).",
+                self._air_now()))
+
+    def air_test(self, n):
+        """Accende l'aria per AIR_TEST_MS con il comando della prova n (1 = M8, 2 = M7), poi la spegne (M9)."""
+        ctl = self.main.ctl
+        if not self._can_jog():
+            self.air_lab.setText(tr("Il laser non è pronto: collegalo e riprova."))
+            return
+        if self._alarm():
+            self.air_lab.setText(tr("La macchina è bloccata (allarme) e non accetta comandi: sbloccala con l'homing "
+                                    "(al passo delle frecce o dal pannello Laser), poi riprova."))
+            return
+        self._air_timer.stop()
+        ctl.send_line("M9")  # se l'altra prova era ancora accesa, prima si spegne
+        self._air_running = n
+        ctl.send_line("M8" if n == 1 else "M7")
+        self.air_lab.setText(tr("<b>Prova {0}:</b> se l'aria è su questo comando, adesso sta soffiando…", n))
+        self._air_timer.start(AIR_TEST_MS)
+
+    def _air_stop(self, quiet=False):
+        """Fine della prova: l'aria si spegne sempre, anche se si cambia pagina o si chiude."""
+        self._air_timer.stop()
+        if not self._air_running:
+            return
+        self._air_running = 0
+        ctl = self.main.ctl
+        if ctl.connected and not (ctl.job_active or ctl.checking):
+            ctl.send_line("M9")
+        if not quiet:
+            self.air_lab.setText(tr("Prova finita, aria spenta. Fatte tutte e due, segna qui sotto con quale è partita."))
+
+    def _air_refused(self, code, _text, line):
+        cmd = str(line).strip().upper()
+        if self.stack.currentIndex() != AIR_PAGE or cmd not in ("M7", "M8"):
+            return
+        n = 1 if cmd == "M8" else 2
+        self._air_timer.stop()
+        self._air_running = 0
+        if code == 20:
+            self.air_lab.setText(tr("La scheda non conosce il comando della prova {0}: non è un guasto. Se hai l'aria "
+                                    "comandata dalla scheda, è sulla prova {1}.", n, 3 - n))
+        else:
+            self.air_lab.setText(tr("La macchina ha rifiutato la prova {0} (errore {1}). Controlla che sia pronta e "
+                                    "riprova.", n, code))
+
     def _page_end(self):
         w = QWidget()
         v = QVBoxLayout(w)
@@ -533,6 +654,10 @@ class SetupWizard(QDialog):
             self._enter_arrows()
         if i == 3:
             self._enter_rotation()
+        if self.stack.currentIndex() == AIR_PAGE and i != AIR_PAGE:
+            self._air_stop(quiet=True)
+        if i == AIR_PAGE:
+            self._enter_air()
         if i == self.stack.count() - 1:
             self._fill_summary()
         self.stack.setCurrentIndex(i)
@@ -666,7 +791,16 @@ class SetupWizard(QDialog):
                                 self.main.profile.name if self._same_model() else self.model.currentText(), corner_name(corner),
                                 tr("invertito") if ix else tr("normale"), tr("invertito") if iy else tr("normale"),
                                 tested)
-                             + "<br>" + tr("<b>Piano:</b> {0}.", ROT_NAMES.get(self.rot_choice(), ROT_NAMES[0])) + warn)
+                             + "<br>" + tr("<b>Piano:</b> {0}.", ROT_NAMES.get(self.rot_choice(), ROT_NAMES[0]))
+                             + self._air_summary() + warn)
+
+    def _air_summary(self):
+        k = self.air_choice()
+        if k == "keep":
+            return ""
+        return "<br>" + tr("<b>Aria:</b> {0}.", {"m8": tr("si accende con la prova 1 (M8)"),
+                                                 "m7": tr("si accende con la prova 2 (M7)"),
+                                                 "none": tr("nessun comando (a mano, o non c'è)")}[k])
 
     def _axes_disagree(self):
         """0.21.1: l'angolo scelto e gli assi come saranno salvati dicono due cose diverse? (solo se si sa già se le
@@ -685,10 +819,12 @@ class SetupWizard(QDialog):
 
     # ------------------------------------------------------------------ fine
     def _disconnect(self):
-        try:
-            self.main.ctl.error_raised.disconnect(self._jog_refused)
-        except (RuntimeError, TypeError):
-            pass
+        self._air_stop(quiet=True)
+        for slot in (self._jog_refused, self._air_refused):
+            try:
+                self.main.ctl.error_raised.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
 
     def reject(self):
         self._disconnect()
@@ -720,6 +856,11 @@ class SetupWizard(QDialog):
             p.origin_corner = p.corner_now() if self._axes_disagree_saved(p) else self.picker.corner
         elif self._unknown:
             p.origin_corner = ""
+        air = self.air_choice()
+        if air != "keep":  # 0.22.0: come la scelta a mano nel pannello Macchina, e resta rifacendo il profilo
+            p.air_on = {"m8": "M8", "m7": "M7", "none": ""}[air]
+            p.air_off = "M9" if p.air_on else ""
+            p.air_chosen = True
         busy = bool(main.ctl.job_active or main.ctl.checking)
         if not busy:  # 0.19.3: mai cambiare orientamento del piano con un lavoro in corso
             p.set_view_rot(self.rot_choice())

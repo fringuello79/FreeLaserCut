@@ -633,6 +633,12 @@ if __name__ == "__main__":
     run_suite("test_v202_pausa.py", "Pausa prima di un livello nell'interfaccia Banco", "banco")
     run_suite("test_v202_linee_piatte.py", "Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri")
     run_suite("test_v202_linee_piatte.py", "Linee piatte nella selezione nell'interfaccia Banco", "banco")
+    run_suite("test_v220_galleria.py", "Galleria dei lavori condivisi (in prova): comandi nel menu File, modulo, progetto ripulito e che cosa parte davvero, foto senza EXIF, risposte e file ostili, voti, segnalazioni, «I miei lavori», apertura come progetto nuovo")
+    run_suite("test_v220_galleria.py", "Galleria dei lavori condivisi nell'interfaccia Banco", "banco")
+    run_suite("test_v220_aria.py", "Configurazione guidata della macchina, passo dell'aria: due prove a laser spento (M8 e M7), aria che si spegne sempre, casi in cui la prova non si fa, scelta salvata nel profilo")
+    run_suite("test_v220_aria.py", "Configurazione guidata della macchina, passo dell'aria nell'interfaccia Banco", "banco")
+    run_suite("test_v220_incastri.py", "Adatta gli incastri allo spessore: spessore trovato da solo, fessure e fori allargati al centro, tacche più profonde, linguette più lunghe, bordi a dita con le punte ferme, angoli e tetti obliqui, incastri troppo vicini lasciati come sono, andata e ritorno")
+    run_suite("test_v220_incastri.py", "Adatta gli incastri allo spessore nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

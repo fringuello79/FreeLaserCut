@@ -42,7 +42,7 @@ TRIM_STDLIB = ["test", "idlelib", "tkinter", "turtledemo", "ensurepip", "lib2to3
 PYSIDE_TOOLS = ["scripts", "assistant", "designer", "linguist", "lrelease", "lupdate", "qmlformat", "qmllint", "qmlls", "rcc",
                 "uic", "balsam", "balsamui", "svgtoqml", "qsb", "Assistant.app", "Designer.app", "Linguist.app"]
 BUNDLE_ID = "io.github.fringuello79.freelasercut"
-MIN_MACOS = "13.0"  # Qt 6.12 (PySide6) chiede macOS 13 Ventura o più recente
+MIN_MACOS = "14.4"  # 0.22.0: le librerie di Qt 6.12 (PySide6) sono costruite per macOS 14.4 (Sonoma): sul 13 il programma si apriva e si chiudeva (mail di Michele, 21/11)
 
 # Avvio: il programma gira con una copia di Python dentro Contents/MacOS, così macOS lo vede come «FreeLaserCut»
 # (nome nella barra dei menu e nel Dock, icona) e non come «python3». -I: Python isolato, niente PYTHONPATH o librerie

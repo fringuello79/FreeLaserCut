@@ -199,6 +199,33 @@ check("7 progetto aperto da file: il nome resta quello del file", w.project_stem
       and "Fumetti" in w.windowTitle(), (w.project_stem(), w.windowTitle()))
 check("7 il dato non finisce nel file del progetto", "name_auto" not in open(target, "rb").read().decode("utf-8", "replace"))
 
+# 7b (0.22.0, Evoluzione2): progetto .flcut aperto, svuotato del tutto, poi un file importato
+ed.undo()
+spin()
+w.import_files([svg("Qui.svg", 70)])
+spin()
+check("7b progetto aperto con forme: un file importato non cambia nome né file", w.project_stem() == "Fumetti"
+      and ed.doc.path == target, (w.project_stem(), ed.doc.path))
+w.file_save()
+prima = open(target, "rb").read()
+ed.select(list(ed.doc.shapes))
+ed.delete()
+spin()
+check("7b svuotato del tutto: finché non si importa resta il progetto aperto", w.project_stem() == "Fumetti"
+      and ed.doc.path == target)
+w.import_files([svg("Topolino.svg", 40)])
+spin()
+check("7b importato un file nel progetto svuotato: prende il nome del file", ed.doc.name == "Topolino"
+      and w.project_stem() == "Topolino" and "Topolino" in w.windowTitle() and "Fumetti" not in w.windowTitle(),
+      (ed.doc.name, w.project_stem(), w.windowTitle()))
+check("7b …non è più legato al vecchio file: Salva chiede dove, proponendo «Topolino»", ed.doc.path is None
+      and any("Topolino" in x for x in proposals()) and not any("Fumetti" in x for x in proposals()), proposals())
+check("7b …e il vecchio progetto sul disco non è stato toccato", open(target, "rb").read() == prima)
+ed.undo()
+spin()
+check("7b Annulla dell'importazione: progetto vuoto «Senza titolo»", not ed.doc.shapes and ed.doc.name == tr("Senza titolo"),
+      ed.doc.name)
+
 # 3b l'ordine d'importazione, non quello alfabetico
 w.editor.dirty = False
 w.file_new()

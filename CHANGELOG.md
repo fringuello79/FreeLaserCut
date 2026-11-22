@@ -1,5 +1,33 @@
 # Novità di FreeLaserCut
 
+## 0.22.0 — 22/11/2026
+La **Galleria FreeLaserCut**: i lavori fatti con FreeLaserCut si condividono e si scaricano direttamente dal programma, con l'anteprima, i materiali e i parametri di chi li ha fatti. In più gli incastri che si adattano a un materiale di spessore diverso, la configurazione guidata della macchina che controlla l'aria, e sul Mac la versione minima giusta.
+
+**Galleria FreeLaserCut.** Due comandi nuovi nel menu *File*, subito sotto *Salva con nome*:
+- **Condividi nella Galleria…** manda il progetto aperto. Si compila un modulo breve: titolo, categoria, materiale e spessore, lavorazione, due righe di descrizione, licenza (CC BY 4.0, CC BY-NC 4.0 o CC0) e, se vuoi, un nome pubblico. L'anteprima, le misure e il tempo li aggiunge il programma; si possono aggiungere fino a 3 foto del pezzo finito. Bisogna spuntare due caselle: «è opera mia, oppure ho il diritto di condividerla» e «ho letto e accetto le regole della Galleria».
+- **Galleria FreeLaserCut…** apre l'elenco dei lavori di tutti, con le miniature. Si cercano per parola, categoria e lavorazione, in ordine di voto, di quante persone li hanno fatti o di data. Ogni lavoro ha la sua scheda: chi l'ha fatto, materiale e spessore, laser e potenza dell'autore, misure, tempo, licenza.
+- **Apri come progetto nuovo** porta il lavoro sul piano con i livelli e i parametri dell'autore, senza file: per tenerlo si salva con nome. Una fascia avvisa che potenza e velocità sono quelle del laser di chi l'ha condiviso, da controllare sul tuo prima di incidere.
+- Si danno da 1 a 5 stelle (un voto per installazione, che si può cambiare), si segna **L'ho fatto anch'io** e si **segnala** un lavoro che non funziona, è copiato, è pubblicità o non è adatto.
+- In **I miei lavori** ci sono i lavori condivisi da questo computer, con lo stato («in attesa del controllo», «non accettato»…), l'anteprima e il pulsante **Togli dalla Galleria**.
+
+Come funziona dietro, senza lavoro a mano:
+- **niente account e niente email**: un numero a caso, salvato solo sul tuo computer, distingue l'installazione per i voti e i limiti; per togliere un tuo lavoro serve una chiave che resta anch'essa sul tuo computer;
+- **parte solo quello che vedi**: il progetto ripulito (il nome diventa il titolo del modulo, niente percorsi né nomi dei file), l'anteprima, le foto scelte, girate nel verso giusto e senza i dati EXIF (posizione, telefono), e i dati del modulo. Mai il nome del computer, dell'utente o della porta;
+- **controlli automatici**: il programma e il servizio controllano il file (solo il progetto e le sue immagini, niente file gonfiati), i testi (niente link, email, telefoni, parolacce, contenuti espliciti, tutto maiuscolo) e i doppioni; poi un modello di intelligenza artificiale guarda l'anteprima e le foto. Un lavoro dubbio resta in attesa e viene ricontrollato ogni ora: diventa pubblico solo con due risposte positive di fila;
+- **la community fa il resto**: un lavoro segnalato da tre installazioni diverse, o una volta come «non adatto» se è nuovo, si nasconde da solo;
+- al massimo 5 condivisioni al giorno per installazione, progetti fino a 10 MB;
+- i file che arrivano dalla Galleria vengono controllati prima di aprirli (solo `project.json` e immagini PNG, niente file cifrati, gonfiati o con immagini enormi) e i testi degli altri si mostrano sempre come testo semplice.
+
+Il servizio gira su Cloudflare (piano gratuito); il suo codice è pubblico nel repository `FreeLaserCut-galleria`. Le regole sono nella finestra della condivisione (*Leggi le regole*) e l'informativa sulla privacy è aggiornata.
+
+**Configurazione guidata: l'aria.** Un passo nuovo, il quinto di sei: con il laser collegato, «Prova 1» e «Prova 2» accendono l'aria per 2 secondi a laser spento, e si segna con quale è partita. Non serve sapere se la scheda usa M8 o M7. La scelta finisce nel profilo, come quella fatta a mano nel pannello Macchina. L'aria si spegne sempre, anche cambiando passo o chiudendo la finestra; se la scheda non conosce uno dei due comandi lo dice senza allarmare. Chi non ha l'aria va avanti e resta tutto com'è.
+
+**Adatta gli incastri allo spessore** (Stefano Modena ed Evoluzione2, con i loro file). Nuovo comando nel menu delle forme, subito dopo «Cambia la larghezza delle fessure…»: si selezionano i pezzi di una scatola, di una casetta o di un gioco a incastro, FreeLaserCut trova da solo lo spessore per cui sono disegnati («il disegno sembra fatto per un materiale da 4 mm: 22 fessure e fori, 32 tacche, 42 linguette») e tu scrivi quello nuovo. Cambiano insieme la larghezza di fessure e fori, la profondità delle tacche sul bordo e la lunghezza delle linguette; il gioco del disegno resta (un foro da 3,9 per 4 mm diventa da 5,9 per 6 mm). Nei bordi a dita le punte restano dove sono, quindi le misure esterne non cambiano; quando un bordo a dita finisce contro un angolo del pezzo, anche obliquo come un tetto, l'angolo si sposta con lui. Prima di confermare vedi il risultato sul piano; un incastro che non si può cambiare (troppo vicino a un altro o al bordo) resta com'è e lo dice. Un solo Annulla torna indietro. Provato con i file della casetta per uccelli (4 → 6 mm) e della scatola del vino (2,25 → 3 mm): tutte le misure cambiate, nessuna saltata.
+
+**Il nome del progetto** (Evoluzione2). Se apri un progetto .flcut, cancelli tutto e importi un altro file, il progetto prende il nome del file importato e non è più legato al vecchio file: «Salva» chiede dove salvare proponendo il nome nuovo, così il progetto di prima non si sovrascrive per sbaglio.
+
+**Mac: serve macOS 14.4 o più recente** (mail di Michele). Le librerie grafiche di questa versione (Qt 6.12) sono costruite per macOS 14.4: su macOS 13 il programma si apriva e si chiudeva subito. Ora il .dmg dichiara il minimo vero e macOS lo dice da solo. Stiamo provando una versione per i Mac più vecchi.
+
 ## 0.21.2 — 21/11/2026
 Correzioni dai vostri rapporti: la Lucciola senza finestre d'errore, la freccia «Continuo» che arriva al bordo vero della macchina, la calibrazione della camera che si ferma se la scheda si riavvia da sola, il primo avvio sul Mac. In più due macchine nuove nel catalogo, i moduli aggiuntivi, la Lucciola dalla tastiera, gli spostamenti a vuoto più lenti e il joystick fisico (in prova).
 

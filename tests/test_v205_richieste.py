@@ -1149,7 +1149,7 @@ check("H sito: gli stessi nomi, tutti e soli", m is not None and [x.strip() for 
 check("H informativa privacy: dice del nome facoltativo e che è l'unica cosa che può diventare pubblica (inglese e italiano)",
       "Name for the acknowledgements" in priv and "Nome per i ringraziamenti" in priv
       and "Nothing else from your report is published" in priv and "Nient'altro del tuo rapporto viene pubblicato" in priv
-      and any(f"{d} November 2026" in priv for d in (16, 17, 18)))  # 0.20.6: aggiornata il 18/11
+      and any(f"{d} November 2026" in priv for d in range(16, 31)))  # 0.20.6: aggiornata il 18/11; 0.22.0 il 22/11
 
 # ====================================================================== I. traduzioni
 print("--- I. traduzioni")

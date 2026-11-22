@@ -43,8 +43,8 @@ check("Info.plist: nome, eseguibile, identificativo e versione", info["CFBundleN
       and info["CFBundleShortVersionString"] == "9.8.7" and info["CFBundlePackageType"] == "APPL")
 check("Info.plist: permessi di camera e rete locale con la loro spiegazione",
       len(info.get("NSCameraUsageDescription", "")) > 20 and len(info.get("NSLocalNetworkUsageDescription", "")) > 20)
-check("Info.plist: macOS 13 o più recente (come Qt 6.12), schermi Retina, progetti .flcut",
-      info["LSMinimumSystemVersion"] == "13.0" and info["NSHighResolutionCapable"] is True
+check("Info.plist: macOS 14.4 o più recente (0.22.0: le librerie di Qt 6.12 sono costruite per il 14.4), schermi Retina, progetti .flcut",
+      info["LSMinimumSystemVersion"] == "14.4" and info["NSHighResolutionCapable"] is True
       and info["CFBundleDocumentTypes"][0]["CFBundleTypeExtensions"] == ["flcut"])
 check("Info.plist: niente App Nap (con la finestra coperta il lavoro al laser non rallenta)",
       info.get("LSAppNapIsDisabled") is True)

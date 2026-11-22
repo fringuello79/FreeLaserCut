@@ -133,10 +133,7 @@ def _shape_polys(shape):
 def resize_slots(editor, shapes, old, new, tol=0.1):
     """Cambia le fessure delle forme e le sostituisce (un'azione sola di Annulla). -> (cambiate, saltate) o None se
     le misure non vanno."""
-    from PySide6.QtGui import QPainterPath
-
     from ..core import slots
-    from ..core.document import PathShape
 
     polys = [_shape_polys(s) for s in shapes]
     try:
@@ -147,6 +144,16 @@ def resize_slots(editor, shapes, old, new, tol=0.1):
         return None
     if not done:
         return 0, skipped
+    _replace_shapes(editor, shapes, res, changed, tr("Fessure da {0:g} a {1:g} mm", float(old), float(new)))
+    return done, skipped
+
+
+def _replace_shapes(editor, shapes, res, changed, label):
+    """Sostituisce le forme cambiate con tracciati (un'azione sola di Annulla)."""
+    from PySide6.QtGui import QPainterPath
+
+    from ..core.document import PathShape
+
     old_shapes, made = [], []
     for si in changed:
         s = shapes[si]
@@ -163,8 +170,137 @@ def resize_slots(editor, shapes, old, new, tol=0.1):
         ps = PathShape(path, layer=s.layer if len(layers) != 1 else layers.pop())
         old_shapes.append(s)
         made.append(ps)
-    editor.replace(old_shapes, made, tr("Fessure da {0:g} a {1:g} mm", float(old), float(new)))
-    return done, skipped
+    editor.replace(old_shapes, made, label)
+
+
+# ======================================================================= spessore del materiale (0.22.0)
+def change_thickness(editor, shapes, old, new, tol=0.3):
+    """Adatta fessure, tacche e linguette delle forme dallo spessore old a new (un'azione sola di Annulla).
+    -> ({tipo: cambiate}, saltate) o None se le misure non vanno."""
+    from ..core import slots
+
+    polys = [_shape_polys(s) for s in shapes]
+    try:
+        res, done, skipped, changed = slots.change_thickness(polys, old, new, tol)
+    except ValueError:
+        editor.message.emit(tr("Misure non valide: servono due spessori maggiori di zero e una tolleranza più "
+                               "piccola di metà spessore"))
+        return None
+    if changed:
+        _replace_shapes(editor, shapes, res, changed,
+                        tr("Incastri da {0:g} a {1:g} mm di spessore", float(old), float(new)))
+    return done, len(skipped)
+
+
+def thickness_text(cnt):
+    """«22 fessure e fori, 32 tacche, 42 linguette» (solo le voci che ci sono)."""
+    parts = []
+    if cnt.get("fessura"):
+        parts.append(tr("{0} fessure e fori", cnt["fessura"]))
+    if cnt.get("tacca"):
+        parts.append(tr("{0} tacche", cnt["tacca"]))
+    if cnt.get("linguetta"):
+        parts.append(tr("{0} linguette", cnt["linguetta"]))
+    return ", ".join(parts) or tr("nessun incastro")
+
+
+class ThicknessDialog(QDialog):
+    """0.22.0: lo spessore per cui è disegnato il pezzo (trovato da solo), lo spessore nuovo; anteprima sul piano."""
+
+    def __init__(self, win, shapes):
+        from ..core import slots
+
+        super().__init__(win)
+        self.win, self.shapes = win, shapes
+        self._polys = [_shape_polys(s) for s in shapes]
+        self.found_list = slots.detect(self._polys)
+        self.setWindowTitle(tr("Adatta gli incastri allo spessore"))
+        v = QVBoxLayout(self)
+        intro = QLabel(tr("Per usare il disegno con un materiale di spessore diverso. Cambiano insieme la larghezza "
+                          "di fessure e fori, la profondità delle tacche e la lunghezza delle linguette; il gioco del "
+                          "disegno resta (un foro da 3,9 per 4 mm diventa da 4,9 per 5 mm). Nei bordi a dita le punte "
+                          "restano dove sono, quindi le misure esterne non cambiano."))
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+        self.found = QLabel()
+        self.found.setWordWrap(True)
+        v.addWidget(self.found)
+        f = QFormLayout()
+        qs = getattr(win, "qs", None)
+        try:
+            last_new = float(qs.value("thick_new", 0) or 0) if qs is not None else 0.0
+        except (TypeError, ValueError):
+            last_new = 0.0
+        guess = self.found_list[0][0] if self.found_list else 3.0
+        self.old = _spin(0.5, 30, guess)
+        self.new = _spin(0.5, 30, last_new if last_new > 0 and abs(last_new - guess) > 1e-9 else guess)
+        self.tol = _spin(0.0, 2, 0.3)
+        f.addRow(tr("Spessore del disegno"), self.old)
+        f.addRow(tr("Spessore nuovo"), self.new)
+        f.addRow(tr("Tolleranza"), self.tol)
+        v.addLayout(f)
+        self.result = QLabel()
+        self.result.setObjectName("muted")
+        self.result.setWordWrap(True)
+        v.addWidget(self.result)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        self.ok = bb.button(QDialogButtonBox.Ok)
+        v.addWidget(bb)
+        if self.found_list:
+            t, cnt = self.found_list[0]
+            self.found.setText(tr("Il disegno sembra fatto per un materiale da <b>{0:g} mm</b>: {1}.", t,
+                                  thickness_text(cnt)))
+        else:
+            self.found.setText(tr("Nel disegno non ho trovato incastri riconoscibili: scrivi tu lo spessore per cui "
+                                  "è fatto."))
+        for sp in (self.old, self.new, self.tol):
+            sp.valueChanged.connect(self._update)
+        self._update()
+
+    def values(self):
+        return self.old.value(), self.new.value(), self.tol.value()
+
+    def _update(self, *_):
+        from PySide6.QtGui import QPainterPath
+
+        from ..core import slots
+
+        old, new, tol = self.values()
+        try:
+            res, done, skipped, _ch = slots.change_thickness(self._polys, old, new, tol)
+        except ValueError:
+            self.result.setText(tr("La tolleranza deve essere più piccola di metà spessore"))
+            self.ok.setEnabled(False)
+            return
+        n = sum(done.values())
+        txt = tr("Cambiano: {0}.", thickness_text(done)) if n else tr("Nessun incastro da {0:g} mm (± {1:g}).", old, tol)
+        if skipped:
+            txt += " " + tr("{0} restano come sono (troppo vicini a un altro incastro o al bordo).", len(skipped))
+        self.result.setText(txt)
+        self.ok.setEnabled(n > 0 and abs(new - old) > 1e-9)
+        paths = []
+        for shape in res:
+            p = QPainterPath()
+            for pts, closed in shape:
+                if len(pts) > 1:
+                    p.moveTo(*pts[0])
+                    for q in pts[1:]:
+                        p.lineTo(*q)
+                    if closed:
+                        p.closeSubpath()
+            paths.append(p)
+        cv = getattr(self.win, "canvas", None)
+        if cv is not None:
+            cv.overlay_paths = paths if n else []
+            cv.viewport().update()
+
+    def accept(self):
+        qs = getattr(self.win, "qs", None)
+        if qs is not None:
+            qs.setValue("thick_new", self.new.value())
+        super().accept()
 
 
 class SlotsDialog(QDialog):

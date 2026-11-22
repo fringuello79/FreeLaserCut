@@ -170,3 +170,368 @@ def count(polys_by_shape, width, tol=0.1):
     cleaned = [[(_clean(pts), True) for pts, closed in shape if closed] for shape in polys_by_shape]
     material = [pts for shape in cleaned for pts, _ in shape if len(pts) >= 3]
     return sum(len(find(pts, material, float(width), float(tol))) for shape in cleaned for pts, _ in shape)
+
+
+# ======================================================================= spessore del materiale (0.22.0)
+# Stefano Modena ed Evoluzione2 (21/11/2026): passando da un compensato a un altro di spessore diverso non basta
+# allargare le fessure. Lo spessore del materiale compare in tre modi:
+#   - FESSURE e FORI: larghi quanto lo spessore (o poco meno, per farli entrare stretti) → si allargano al centro;
+#   - TACCHE sul bordo (scatole a dita, incastri sul bordo): profonde quanto lo spessore → si scavano di più;
+#   - LINGUETTE: lunghe quanto lo spessore → si allungano.
+# Il gioco del disegno resta: un foro da 3,9 per un compensato da 4 diventa da 4,9 per uno da 5.
+# Tacche e linguette contano solo se stanno su un bordo dritto (prima e dopo, il contorno continua sulla stessa riga):
+# così il lato lungo di un foro rettangolare non viene preso per una tacca. Prima si scavano le tacche, poi si
+# allungano le linguette che non si sono già allungate da sole: in un bordo a dita le punte restano dove sono e le
+# misure esterne della scatola non cambiano.
+
+EDGE_TOL = 0.02  # |seno| ammesso fra i tratti del bordo e il fondo della tacca
+
+
+def _same_line(a, b, u, tol):
+    """I tratti a=(p, q) e b=(p, q) vanno nel verso u e stanno sulla stessa retta (entro tol mm)."""
+    ux, uy = u
+    for p, q in (a, b):
+        vx, vy, L = _unit(p, q)
+        if L < MIN_WALL or vx * ux + vy * uy < 1 - EDGE_TOL:
+            return False
+    # distanza del secondo tratto dalla retta del primo
+    nx, ny = -uy, ux
+    return abs((b[0][0] - a[0][0]) * nx + (b[0][1] - a[0][1]) * ny) <= max(tol, 0.05)
+
+
+def features(poly, all_polys, thick, tol):
+    """Le parti di un contorno chiuso già pulito legate allo spessore thick. -> [(tipo, i, ux, uy, ax, ay, misura)]
+    con tipo «fessura» (fondo lungo circa thick, spazio vuoto), «tacca» (pareti lunghe circa thick, vuoto, su un bordo
+    dritto) o «linguetta» (pareti lunghe circa thick, pieno, su un bordo dritto). i = indice del fondo (o della punta)
+    poly[i] → poly[i+1]; (ux, uy) il suo verso, (ax, ay) il verso della parete che entra."""
+    n = len(poly)
+    out = []
+    if n < 4:
+        return out
+    for i in range(n):
+        p_prev, p0, p1, p_next = poly[i - 1], poly[i], poly[(i + 1) % n], poly[(i + 2) % n]
+        ux, uy, Lb = _unit(p0, p1)
+        ax, ay, La = _unit(p_prev, p0)
+        cx, cy, Lc = _unit(p1, p_next)
+        if Lb < MIN_WALL or La < MIN_WALL or Lc < MIN_WALL:
+            continue
+        if abs(ax * ux + ay * uy) > ANGLE_TOL or abs(cx * ux + cy * uy) > ANGLE_TOL:
+            continue
+        if ax * cx + ay * cy > -1 + ANGLE_TOL:
+            continue
+        depth = min(La, Lc) * 0.5
+        mid = ((p0[0] + p1[0]) / 2 - ax * depth, (p0[1] + p1[1]) / 2 - ay * depth)
+        full = in_material(mid, all_polys)
+        if not full and abs(Lb - thick) <= tol:
+            out.append(("fessura", i, ux, uy, ax, ay, Lb))
+            continue
+        if abs(La - thick) > tol or abs(Lc - thick) > tol:
+            continue
+        edge_in = (poly[i - 2], p_prev)
+        edge_out = (p_next, poly[(i + 3) % n])
+        if not _same_line(edge_in, edge_out, (ux, uy), tol):
+            continue
+        out.append(("linguetta" if full else "tacca", i, ux, uy, ax, ay, (La + Lc) / 2))
+    return out
+
+
+def _cleaned(polys_by_shape):
+    cleaned = [[(_clean(pts) if closed else [tuple(p) for p in pts], closed) for pts, closed in shape]
+               for shape in polys_by_shape]
+    material = [pts for shape in cleaned for pts, closed in shape if closed and len(pts) >= 3]
+    return cleaned, material
+
+
+def detect(polys_by_shape, lo=0.8, hi=12.0, tol=0.3):
+    """Lo spessore per cui è disegnato il pezzo. -> [(spessore, {"fessura": n, "tacca": n, "linguetta": n})], il più
+    probabile per primo. Lo spessore vero si legge da tacche e linguette (sono lunghe quanto il materiale); le
+    fessure contano anche se un po' più strette."""
+    cleaned, material = _cleaned(polys_by_shape)
+    found = []  # (tipo, misura)
+    for shape in cleaned:
+        for pts, closed in shape:
+            if not closed or len(pts) < 4:
+                continue
+            n = len(pts)
+            for i in range(n):
+                p_prev, p0, p1, p_next = pts[i - 1], pts[i], pts[(i + 1) % n], pts[(i + 2) % n]
+                ux, uy, Lb = _unit(p0, p1)
+                ax, ay, La = _unit(p_prev, p0)
+                cx, cy, Lc = _unit(p1, p_next)
+                if min(Lb, La, Lc) < MIN_WALL or abs(ax * ux + ay * uy) > ANGLE_TOL \
+                        or abs(cx * ux + cy * uy) > ANGLE_TOL or ax * cx + ay * cy > -1 + ANGLE_TOL:
+                    continue
+                if abs(La - Lc) <= tol and lo <= La <= hi and _same_line((pts[i - 2], p_prev),
+                                                                          (p_next, pts[(i + 3) % n]), (ux, uy), tol):
+                    found.append(("bordo", (La + Lc) / 2))
+                elif lo <= Lb <= hi:
+                    depth = min(La, Lc) * 0.5
+                    mid = ((p0[0] + p1[0]) / 2 - ax * depth, (p0[1] + p1[1]) / 2 - ay * depth)
+                    if not in_material(mid, material) and min(La, Lc) > Lb:
+                        found.append(("fessura", Lb))
+    # gruppi di misure vicine, prima quelle del bordo (lo spessore vero)
+    edge_vals = sorted(v for k, v in found if k == "bordo")
+    vals = edge_vals or sorted(v for k, v in found)
+    least = 1 if edge_vals else 2  # una linguetta basta a dire lo spessore; una fessura da sola no
+    groups = []
+    for v in vals:
+        if groups and v - groups[-1][-1] <= tol / 2:
+            groups[-1].append(v)
+        else:
+            groups.append([v])
+    groups.sort(key=len, reverse=True)
+    out = []
+    for g in groups[:3]:
+        t = round(sorted(g)[len(g) // 2], 2)
+        if len(g) < least:
+            continue
+        cnt = {"fessura": 0, "tacca": 0, "linguetta": 0}
+        for shape in cleaned:
+            for pts, closed in shape:
+                if closed and len(pts) >= 4:
+                    _q, d, sk = change_poly(pts, material, t, t + 0.01, tol)
+                    for k, v in d.items():
+                        cnt[k] += v
+                    for k, _p in sk:
+                        cnt[k] += 1
+        if sum(cnt.values()):
+            out.append((t, cnt))
+    return out
+
+
+def _slide_base(pts, start, step, ax, ay, delta, moved):
+    """Sposta di -a·delta il tratto dritto che parte da pts[start] e va (passo step) fino all'angolo del pezzo.
+    -> {indice: punto nuovo} o None se non si può (angolo già spostato, lato parallelo alla base…)."""
+    n = len(pts)
+    idx, k = [start], start
+    while True:
+        k2 = (k + step) % n
+        dx, dy, L = _unit(pts[k], pts[k2])
+        if L > 0 and abs(dx * ax + dy * ay) <= ANGLE_TOL:  # ancora sulla linea della base
+            idx.append(k2)
+            k = k2
+            if len(idx) > n - 3:
+                return None
+            continue
+        break
+    # l'angolo può essere già stato spostato dal bordo accanto (due bordi a dita che si incontrano): il lato
+    # passa allora per i punti nuovi, e l'angolo finale è l'incrocio delle due basi spostate
+    if len(idx) < 2 or any(j in moved for j in idx[:-1]):
+        return None
+    corner, side = idx[-1], (idx[-1] + step) % n
+    bx, by, _Lb = _unit(pts[idx[0]], pts[idx[1]])
+    sx, sy, Ls = _unit(pts[side], pts[corner])
+    den = bx * sy - by * sx
+    if Ls < MIN_WALL or abs(den) < 0.2:  # lato quasi parallelo alla base: l'angolo non si trova bene
+        return None
+    trial = {j: [pts[j][0] - ax * delta, pts[j][1] - ay * delta] for j in idx[:-1]}
+    # intersezione della base spostata (punto q, verso b) con il lato (punto pts[side], verso s)
+    q = trial[idx[0]]
+    t = ((pts[side][0] - q[0]) * sy - (pts[side][1] - q[1]) * sx) / den
+    c = [q[0] + bx * t, q[1] + by * t]
+    # l'angolo nuovo deve restare sul lato, dalla parte giusta
+    if (c[0] - pts[side][0]) * sx + (c[1] - pts[side][1]) * sy < MIN_LEFT:
+        return None
+    trial[corner] = c
+    return trial
+
+
+def change_poly(poly, all_polys, old, new, tol):
+    """-> (punti nuovi, {tipo: cambiate}, [(tipo, punto) saltate])."""
+    pts = [list(p) for p in poly]
+    n = len(pts)
+    delta = float(new) - float(old)
+    feats = features(poly, all_polys, old, tol)
+    done = {"fessura": 0, "tacca": 0, "linguetta": 0}
+    skipped = []
+    moved = set()
+    groups = []
+
+    def walls_ok(trial, idx):
+        # nessun tratto del contorno deve sparire o rovesciarsi
+        for k in idx:
+            for j in ((k - 1) % n, (k + 1) % n):
+                if j in idx:
+                    a, b = (trial[k], trial[j])
+                else:
+                    a, b = (trial[k], pts[j])
+                o = (pts[k][0] - pts[j][0], pts[k][1] - pts[j][1])
+                m = (a[0] - b[0], a[1] - b[1])
+                if math.hypot(*m) < MIN_LEFT or o[0] * m[0] + o[1] * m[1] <= 0:
+                    return False
+        return True
+
+    # 1) fessure e fori: si allargano al centro (come resize_poly)
+    for kind, i, ux, uy, ax, ay, _m in feats:
+        if kind != "fessura":
+            continue
+        a_out, a_in, c_in, c_out = (i - 1) % n, i, (i + 1) % n, (i + 2) % n
+        group = {a_out, a_in, c_in, c_out}
+        if group in groups:
+            continue
+        mid = ((pts[a_in][0] + pts[c_in][0]) / 2, (pts[a_in][1] + pts[c_in][1]) / 2)
+        if group & moved:
+            skipped.append((kind, mid))
+            continue
+        d = delta / 2
+        trial = {k: list(pts[k]) for k in group}
+        for k in (a_out, a_in):
+            trial[k] = [pts[k][0] - ux * d, pts[k][1] - uy * d]
+        for k in (c_in, c_out):
+            trial[k] = [pts[k][0] + ux * d, pts[k][1] + uy * d]
+        if not walls_ok(trial, group):
+            skipped.append((kind, mid))
+            continue
+        for k, v in trial.items():
+            pts[k] = v
+        moved |= group
+        groups.append(group)
+        done[kind] += 1
+    # 2) tacche: il fondo scende lungo le pareti
+    for kind, i, ux, uy, ax, ay, _m in feats:
+        if kind != "tacca":
+            continue
+        a_in, c_in = i, (i + 1) % n
+        mid = ((pts[a_in][0] + pts[c_in][0]) / 2, (pts[a_in][1] + pts[c_in][1]) / 2)
+        if a_in in moved or c_in in moved:
+            skipped.append((kind, mid))
+            continue
+        trial = {a_in: [pts[a_in][0] + ax * delta, pts[a_in][1] + ay * delta],
+                 c_in: [pts[c_in][0] + ax * delta, pts[c_in][1] + ay * delta]}
+        if not walls_ok(trial, {a_in, c_in}):
+            skipped.append((kind, mid))
+            continue
+        for k, v in trial.items():
+            pts[k] = v
+        moved |= {a_in, c_in}
+        done[kind] += 1
+    # 3) linguette. In un bordo a dita la linea delle punte resta dov'è (le misure esterne non cambiano) e scende
+    # solo la linea dei fondi: una linguetta fra due tacche già scavate è già lunga giusta; una linguetta in fondo
+    # alla fila (tacca da un lato, angolo del pezzo dall'altro) si allunga facendo scendere anche il tratto fino
+    # all'angolo. Una linguetta da sola (incastro a tenone in un foro) si allunga spostando la punta.
+    for kind, i, ux, uy, ax, ay, _m in feats:
+        if kind != "linguetta":
+            continue
+        b_left, t_left, t_right, b_right = (i - 1) % n, i, (i + 1) % n, (i + 2) % n
+        mid = ((pts[t_left][0] + pts[t_right][0]) / 2, (pts[t_left][1] + pts[t_right][1]) / 2)
+        if t_left in moved or t_right in moved:
+            skipped.append((kind, mid))
+            continue
+        lm, rm = b_left in moved, b_right in moved
+        if lm and rm:
+            done[kind] += 1  # già allungata dalle tacche accanto
+            continue
+        if not lm and not rm:
+            trial = {t_left: [pts[t_left][0] + ax * delta, pts[t_left][1] + ay * delta],
+                     t_right: [pts[t_right][0] + ax * delta, pts[t_right][1] + ay * delta]}
+        else:
+            # il tratto di base dal lato senza tacca scende fino all'angolo del pezzo; l'angolo nuovo è dove la
+            # base spostata incontra il lato dopo l'angolo (anche se il lato è obliquo, come un tetto)
+            trial = _slide_base(pts, b_right if lm else b_left, 1 if lm else -1, ax, ay, delta, moved)
+            if trial is None:
+                skipped.append((kind, mid))
+                continue
+        if not walls_ok(trial, set(trial)):
+            skipped.append((kind, mid))
+            continue
+        for k, v in trial.items():
+            pts[k] = v
+        moved |= set(trial)
+        done[kind] += 1
+    return [tuple(p) for p in pts], done, skipped
+
+
+def change_thickness(polys_by_shape, old, new, tol=0.3):
+    """Adatta fessure, tacche e linguette dallo spessore old allo spessore new. polys_by_shape come in resize().
+    -> (stessa struttura con i punti nuovi, {tipo: cambiate}, [(tipo, punto) saltate], [indici delle forme
+    cambiate]). ValueError se le misure non vanno."""
+    old, new, tol = float(old), float(new), float(tol)
+    if not (old > 0 and new > 0 and math.isfinite(old) and math.isfinite(new)):
+        raise ValueError("misure")
+    if not (0 <= tol < old / 2):
+        raise ValueError("tolleranza")
+    cleaned, material = _cleaned(polys_by_shape)
+    # ogni contorno per conto suo, poi un controllo fra contorni: un contorno cambiato che ne tocca un altro (due fori
+    # troppo vicini, un foro che arriva al bordo) torna com'era e i suoi incastri si contano fra quelli saltati
+    items = []  # (forma, indice, punti di prima, punti nuovi, {tipo: n}, saltate)
+    for si, shape in enumerate(cleaned):
+        for ci, (pts, closed) in enumerate(shape):
+            if closed and len(pts) >= 4:
+                q, d, s = change_poly(pts, material, old, new, tol)
+                items.append([si, ci, pts, q, d, s, closed])
+            else:
+                items.append([si, ci, pts, pts, {}, [], closed])
+    while True:
+        boxes = [_bbox(it[3]) for it in items]
+        bad = None
+        for a_i, it in enumerate(items):
+            if not sum(it[4].values()):
+                continue
+            for b_i, other in enumerate(items):
+                if b_i != a_i and _boxes_meet(boxes[a_i], boxes[b_i]) and _cross(it[3], it[6], other[3], other[6]):
+                    bad = a_i
+                    break
+            if bad is not None:
+                break
+        if bad is None:
+            break
+        it = items[bad]
+        q0 = it[2]
+        n = len(q0)
+        lost = []
+        for k, v in it[4].items():
+            lost += [(k, (sum(p[0] for p in q0) / n, sum(p[1] for p in q0) / n))] * v
+        it[3], it[4], it[5] = q0, {}, it[5] + lost
+    out = [[None] * len(shape) for shape in cleaned]
+    total = {"fessura": 0, "tacca": 0, "linguetta": 0}
+    skipped, changed = [], []
+    for si, ci, _p0, q, d, s, closed in items:
+        out[si][ci] = (q, closed)
+        for k, v in d.items():
+            total[k] += v
+        skipped += s
+        if sum(d.values()) and si not in changed:
+            changed.append(si)
+    return out, total, skipped, sorted(changed)
+
+
+def _bbox(pts):
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return (min(xs), min(ys), max(xs), max(ys)) if pts else (0, 0, -1, -1)
+
+
+def _boxes_meet(a, b):
+    return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
+
+
+def _cross(p, p_closed, q, q_closed):
+    """I due contorni si toccano o si incrociano?"""
+    def segs(pts, closed):
+        n = len(pts)
+        return [(pts[i], pts[(i + 1) % n]) for i in range(n if closed else n - 1)]
+
+    sq = segs(q, q_closed)
+    qb = [(min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])) for a, b in sq]
+    for a, b in segs(p, p_closed):
+        ab = (min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1]))
+        for (c, d), cb in zip(sq, qb):
+            if _boxes_meet(ab, cb) and _seg_meet(a, b, c, d):
+                return True
+    return False
+
+
+def _seg_meet(a, b, c, d):
+    def orient(p, q, r):
+        v = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+        return 0 if abs(v) < 1e-12 else (1 if v > 0 else -1)
+
+    o1, o2, o3, o4 = orient(a, b, c), orient(a, b, d), orient(c, d, a), orient(c, d, b)
+    if o1 != o2 and o3 != o4:
+        return True
+
+    def on(p, q, r):
+        return min(p[0], q[0]) - 1e-12 <= r[0] <= max(p[0], q[0]) + 1e-12 and \
+            min(p[1], q[1]) - 1e-12 <= r[1] <= max(p[1], q[1]) + 1e-12
+
+    return (o1 == 0 and on(a, b, c)) or (o2 == 0 and on(a, b, d)) or (o3 == 0 and on(c, d, a)) or \
+        (o4 == 0 and on(c, d, b))

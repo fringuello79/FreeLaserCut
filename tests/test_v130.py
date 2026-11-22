@@ -123,7 +123,7 @@ w.set_help_level("normale")
 # ------------------------------------------------------------------ configurazione guidata (senza laser)
 from freelasercut.ui.dialogs_setup import SetupWizard
 d = SetupWizard(w)
-check("configurazione guidata: 5 passi (0.19.3: anche «Come vuoi vedere il piano?»), modello attuale già scelto", d.stack.count() == 5 and
+check("configurazione guidata: 6 passi (0.19.3: anche «Come vuoi vedere il piano?»; 0.22.0: anche l'aria), modello attuale già scelto", d.stack.count() == 6 and
       d._same_model(), (d.model.currentText(), w.profile.model, w.profile.name))
 # profilo che non viene dal catalogo (es. riconosciuto dalla scheda): resta quello, Avanti non lo sostituisce
 saved = (w.profile.model, w.profile.name)
@@ -131,13 +131,13 @@ w.profile.model, w.profile.name = "Scheda riconosciuta XYZ", "Il mio laser"
 d2 = SetupWizard(w)
 check("profilo fuori catalogo: in cima «Il profilo attuale: Il mio laser», già scelto",
       d2.model.currentText() == "Il profilo attuale: Il mio laser" and d2._same_model())
-d2.go(4)
+d2.go(5)
 check("…e il riepilogo parla di quel profilo, non del primo modello del catalogo", "Il mio laser" in d2.summary.text())
 d2.reject()
 w.profile.model, w.profile.name = saved
 d.go(1); d.picker.choose("bl"); d.go(2)
 check("senza laser collegato la prova delle frecce si rimanda (frecce nascoste)", not d.arrows_box.isVisibleTo(d))
-d.go(4)
+d.go(5)
 check("ultimo passo: i tre livelli, con quello attuale già scelto", d.help_level_choice() == "normale")
 d.levels["esperto"].setChecked(True)
 d.levels["principiante"].setChecked(True)
@@ -189,7 +189,7 @@ d.fix(1)
 sent.clear(); d.jog("up")
 check("«correggi» rovescia subito l'asse: la stessa freccia manda la testa dall'altra parte",
       until(lambda: sent, 3) and "Y-10.000" in sent[0], sent)
-d.go(4)
+d.go(5)
 check("riepilogo: assi provati", "provati con le frecce" in d.summary.text(), d.summary.text())
 d.levels["normale"].setChecked(True)
 d.accept()
@@ -219,20 +219,20 @@ def fresh(**kw):
     w._sync_axes()
     return p
 p = fresh()
-d = SetupWizard(w); d.go(1); d.picker.choose("br"); d.go(2); d.jog("right"); d.fix(0); d.go(4); d.accept()
+d = SetupWizard(w); d.go(1); d.picker.choose("br"); d.go(2); d.jog("right"); d.fix(0); d.go(5); d.accept()
 check("macchina con lo 0 dietro a destra, solo X provato e corretto: X normale, Y dall'angolo",
       (p.invert_x, p.invert_y, p.tested_x, p.tested_y) == (False, True, True, False), (p.invert_x, p.invert_y))
 w.on_homed(True, True)
 check("dopo l'homing (coordinate negative) si ricalcola solo Y; X provato resta com'è",
       (p.invert_x, p.invert_y) == (False, ci("br", True)[1]), (p.invert_x, p.invert_y))
 p = fresh()
-d = SetupWizard(w); d.go(1); d._dont_know(); d.go(2); d.go(4); d.accept()
+d = SetupWizard(w); d.go(1); d._dont_know(); d.go(2); d.go(5); d.accept()
 check("«Non lo so» senza prove: niente angolo salvato, assi come prima", (p.origin_corner, p.invert_x, p.invert_y) ==
       ("", False, False))
 w.on_homed(True, True)
 check("…e l'homing con coordinate negative non li capovolge (come nella 0.12)", (p.invert_x, p.invert_y) == (False, False))
 p = fresh()
-d = SetupWizard(w); d.go(1); d.go(2); d.go(4); d.accept()
+d = SetupWizard(w); d.go(1); d.go(2); d.go(5); d.accept()
 check("configurazione fatta con Avanti senza toccare niente: assi come prima, nessun angolo dato per vero",
       (p.origin_corner, p.invert_x, p.invert_y) == ("", False, False))
 p = fresh(tested_x=True, tested_y=True)
@@ -241,7 +241,7 @@ check("assi provati, poi homing con coordinate negative: l'angolo mostrato si ag
       p.corner_now() == "br" and (p.invert_x, p.invert_y) == (False, False))
 d = SetupWizard(w)
 check("rifacendo la configurazione l'angolo proposto è quello vero", d.picker.corner == "br")
-d.go(1); d.go(2); d.go(4); d.accept()
+d.go(1); d.go(2); d.go(5); d.accept()
 check("…e Fine senza toccare niente non rovina gli assi", (p.invert_x, p.invert_y, p.tested_x, p.tested_y) ==
       (False, False, True, True))
 import json as _json
@@ -257,7 +257,7 @@ check("profilo della 0.13.0 senza prove: l'angolo salvato in automatico non vale
 p = fresh(invert_y=True, tested_y=True)
 d = SetupWizard(w)
 other = [n for n in machines_names if n != w.profile.model and "Longer" not in n][0]
-d.model.setCurrentText(other); d.go(1); d.go(2); d.go(4); d.accept()
+d.model.setCurrentText(other); d.go(1); d.go(2); d.go(5); d.accept()
 check("configurazione per un altro modello: niente Y invertito né assi «provati» presi dalla macchina di prima",
       w.profile.model == other and not w.profile.invert_y and not w.profile.tested_y, (w.profile.model, w.profile.invert_y))
 # homing durante la configurazione: Fine non rimette il verso di prima
@@ -266,7 +266,7 @@ p.invert_x, p.invert_y = MachineProfile.corner_inversion("br", None)
 w._sync_axes()
 d = SetupWizard(w); d.go(1); d.go(2)
 w.on_homed(True, True)   # homing premuto dalla configurazione: coordinate negative → assi ricalcolati
-d.go(4); d.accept()
+d.go(5); d.accept()
 check("homing fatto durante la configurazione: Fine tiene il verso ricalcolato, non quello di prima",
       (w.profile.invert_x, w.profile.invert_y) == MachineProfile.corner_inversion("br", True), (w.profile.invert_x, w.profile.invert_y))
 fresh()

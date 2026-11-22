@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 244. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 250. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -68,7 +68,7 @@ Suite: 244. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
 - `test_v212_catalogo.py`: Catalogo: VEVOR A7 5W (come l'Atomstack A5 Pro) e Sculpfun iCube Ultra Dual 12W e 1.2W IR (area prudente 135 × 135, dichiarata 150 × 135, famiglia nel riconoscimento, nota sul raggio a 1064 nm, accelerazione 500, tabella dei materiali Sculpfun con interlinea 0,05), traduzioni
 
-## Foto e immagini (24)
+## Foto e immagini (25)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -94,8 +94,9 @@ Suite: 244. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v211_foto.py`: Prepara foto anche sulla foto ritagliata con una forma: menu in alto, tasto destro e pannello Proprietà
 - `test_v211_foto.py` (Banco): Prepara foto sulla foto ritagliata nell'interfaccia Banco
 - `test_v212_velocita.py`: Velocità costante a laser spento (riempimenti e immagini) e «Spostamenti a vuoto più lenti» (macchina): righe intere a velocità di lavoro senza G0, salti fra le forme e fra i livelli che restano, G-code identico alla 0.21.1 con le caselle spente, tetto alla velocità della scheda, Contorno, stima del tempo, file vecchi
+- `test_v220_galleria.py`: Galleria dei lavori condivisi (in prova): comandi nel menu File, modulo, progetto ripulito e che cosa parte davvero, foto senza EXIF, risposte e file ostili, voti, segnalazioni, «I miei lavori», apertura come progetto nuovo
 
-## Lavoro e G-code (37)
+## Lavoro e G-code (39)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -134,6 +135,8 @@ Suite: 244. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v212_lucciola.py`: Finestre chiuse che restavano attaccate ai segnali (rapporti 75E8 e ABFC): Lucciola dopo Stampa e taglia, copie della scheda dopo un cambio di collegamento, nessuna lambda sui segnali di controllore, scheda Laser e finestra principale
 - `test_v212_lucciola_tasto.py`: Lucciola dalla tastiera (Alt+Maiusc+L): come il pulsante, tetto di potenza, niente raggio senza macchina, in lavoro o in allarme, Stop che la spegne davvero anche nel programma, con Stampa e taglia davanti
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
+- `test_v220_aria.py`: Configurazione guidata della macchina, passo dell'aria: due prove a laser spento (M8 e M7), aria che si spegne sempre, casi in cui la prova non si fa, scelta salvata nel profilo
+- `test_v220_aria.py` (Banco): Configurazione guidata della macchina, passo dell'aria nell'interfaccia Banco
 
 ## Macchina, connessione e profili (51)
 
@@ -220,7 +223,7 @@ Suite: 244. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (42)
+## Interfaccia (45)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -264,6 +267,9 @@ Suite: 244. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v201_finestra.py` (Banco): Finestra che resta nello schermo nell'interfaccia Banco
 - `test_v201_nomi.py` (Banco): Nome del progetto che segue i file nell'interfaccia Banco
 - `test_v202_pausa.py` (Banco): Pausa prima di un livello nell'interfaccia Banco
+- `test_v220_galleria.py` (Banco): Galleria dei lavori condivisi nell'interfaccia Banco
+- `test_v220_incastri.py`: Adatta gli incastri allo spessore: spessore trovato da solo, fessure e fori allargati al centro, tacche più profonde, linguette più lunghe, bordi a dita con le punte ferme, angoli e tetti obliqui, incastri troppo vicini lasciati come sono, andata e ritorno
+- `test_v220_incastri.py` (Banco): Adatta gli incastri allo spessore nell'interfaccia Banco
 
 ## Avvio, installazione, aggiornamenti e assistenza (9)
 

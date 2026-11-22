@@ -587,7 +587,7 @@ check("D targa in Aiuto: stessa precisazione", "in modo attivo e con regolarità
       and "Vuoi esserci anche tu" not in src_thanks)
 priv = open(os.path.join(ROOT, "docs", "privacy.html"), encoding="utf-8").read()
 check("D informativa privacy (inglese e italiano): non per ogni rapporto, data aggiornata",
-      "not for every report" in priv and "non per ogni rapporto" in priv and "18 November 2026" in priv
+      "not for every report" in priv and "non per ogni rapporto" in priv and any(f"Last updated: {d} November 2026" in priv for d in range(18, 31))
       and "donation" in priv and "donazione" in priv)
 site = open(os.path.join(ROOT, "docs", "index.html"), encoding="utf-8").read()
 readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()

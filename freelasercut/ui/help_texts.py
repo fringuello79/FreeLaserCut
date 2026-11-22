@@ -37,6 +37,19 @@ HELP = {
     "open": (tr("Apri"), tr("Apre un progetto FreeLaserCut (.flcut, anche i vecchi .fbrn di Freeburn) o .lbrn2/.lbrn con forme, livelli e impostazioni."), None),
     "save": (tr("Salva"), tr("Salva il progetto. La prima volta chiede nome e cartella."), None),
     "save_as": (tr("Salva con nome"), tr("Salva una copia del progetto con un altro nome."), None),
+    "gallery_share": (tr("Condividi nella Galleria"), tr(
+        "Manda il progetto aperto alla Galleria di FreeLaserCut, dove gli altri lo possono vedere, scaricare e votare. "
+        "Compili un modulo breve: titolo, categoria, materiale e spessore, due righe di descrizione, licenza. "
+        "L'anteprima, le misure e il tempo li aggiunge il programma; se vuoi aggiungi fino a 3 foto del pezzo finito. "
+        "Parte solo quello che vedi nella finestra: il progetto ripulito, l'anteprima, le foto scelte e i dati del "
+        "modulo; mai percorsi, nomi dei file, nome del computer o della porta. Non serve un account. I controlli "
+        "sono automatici; i tuoi lavori li ritrovi e li togli da «I miei lavori» nella Galleria."), None),
+    "gallery_open": (tr("Galleria FreeLaserCut"), tr(
+        "Sfoglia i lavori condivisi dagli altri: li cerchi per parola, categoria e tipo di lavorazione, in ordine di "
+        "voto, di quante persone li hanno fatti o di data. Un lavoro si apre come progetto nuovo, con i livelli e i "
+        "parametri di chi lo ha fatto: potenza e velocità sono quelle del suo laser, quindi controllale sul tuo "
+        "prima di incidere. Puoi dare da 1 a 5 stelle, segnare «L'ho fatto anch'io» e segnalare un lavoro finto, "
+        "copiato o non adatto: con più segnalazioni il lavoro si nasconde da solo."), None),
     "import": (tr("Importa"), tr("Aggiunge al progetto aperto disegni e immagini: SVG, DXF, PNG, JPG, BMP e progetti .lbrn2. "
                "Puoi anche trascinare i file sulla tela. Circuiti stampati: scegli insieme i file Gerber della basetta "
                "(rame, contorno) e i fori Excellon; una finestra chiede se incidere lo spazio fra le piste o le piste, "
@@ -288,6 +301,14 @@ HELP = {
               "tolleranza): tacche sul bordo e fori rettangolari, anche disegnati a parte. Il centro resta fermo, la "
               "profondità non cambia, le linguette non si toccano. Prima di confermare vedi il risultato sul piano."),
               None),
+    "slots_thick": (tr("Adatta gli incastri allo spessore"), tr("Per usare un disegno con incastri (scatole, casette, "
+                    "giochi a incastro) con un materiale di spessore diverso. Seleziona i pezzi: FreeLaserCut trova da "
+                    "solo lo spessore per cui sono disegnati e tu scrivi quello nuovo. Cambiano insieme la larghezza di "
+                    "fessure e fori, la profondità delle tacche sul bordo e la lunghezza delle linguette; il gioco del "
+                    "disegno resta. Nei bordi a dita le punte restano dove sono, così le misure esterne non cambiano. "
+                    "Prima di confermare vedi il risultato sul piano; gli incastri che non si possono cambiare (troppo "
+                    "vicini a un altro o al bordo) restano come sono e te lo dice. Per cambiare solo le fessure di una "
+                    "misura c'è ancora «Cambia la larghezza delle fessure»."), None),
     # ------------------------------------------------------------------ laser
     "laser_pick": (tr("Laser in uso"), tr("Se hai più di un laser, ognuno ha il suo nome, la sua area, le sue impostazioni "
                    "e la porta con cui si collega. Scegli qui con quale lavori: piano e impostazioni cambiano subito e "
@@ -396,7 +417,9 @@ HELP = {
         "una prova delle frecce fatta prima: gli assi lo seguono e la prova, rifatta, lo conferma. Un passo chiede anche "
         "come vuoi vedere il piano: di norma non ruotato; ruotato di 90° a sinistra o a destra solo se la macchina ha un "
         "lato molto più lungo dell'altro e vuoi disegnare con il lato lungo in orizzontale. Cambia solo come si vede: "
-        "assi, punto zero e file dei progetti restano quelli della macchina."), None),
+        "assi, punto zero e file dei progetti restano quelli della macchina. Un altro passo riguarda l'aria (air "
+        "assist): con il laser collegato, due prove di due secondi a laser spento fanno capire con quale comando la "
+        "scheda la accende, senza doverlo sapere; chi non ha l'aria va avanti e basta."), None),
     "wifi_wizard": (tr("Collegamento Wi-Fi del laser"), tr(
         "Procedura guidata per usare il laser senza cavo. Serve una scheda con il Wi-Fi integrato (ESP32: Makerbase "
         "MKS DLC32, Longer, Sculpfun, Atomstack…). Con il cavo USB (oppure senza cavo, se il laser acceso mostra una "

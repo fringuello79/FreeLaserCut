@@ -286,6 +286,11 @@ class MainWindow(QMainWindow):
             "open": A(tr("Apri…"), self.file_open, "Ctrl+O", "open"),
             "save": A(tr("Salva"), self.file_save, "Ctrl+S", "save"),
             "save_as": A(tr("Salva con nome…"), self.file_save_as, "Ctrl+Shift+S"),
+            # 0.22.0: la Galleria dei lavori condivisi (in prova finché le regole non sono definitive)
+            "gallery_share": A(tr("Condividi nella Galleria…"), self.gallery_share, None, None,
+                               tr("Manda questo progetto alla Galleria, dove gli altri lo possono vedere e scaricare")),
+            "gallery_open": A(tr("Galleria FreeLaserCut…"), self.gallery_open, None, None,
+                              tr("Sfoglia i lavori condivisi dagli altri e aprili come progetto nuovo")),
             "import": A(tr("Importa…"), self.file_import, "Ctrl+I", "import", "SVG, DXF, PNG, JPG, BMP…"),
             "import_rot": A(tr("Importa ruotato di 90°…"), lambda: self.file_import(turn=True), None, "import",
                             tr("Come «Importa», ma il disegno entra girato di un quarto di giro: per i file disegnati "
@@ -331,6 +336,9 @@ class MainWindow(QMainWindow):
             "slots": A(tr("Cambia la larghezza delle fessure…"), lambda: self.slots_dialog(), None, None,
                        tr("Allarga o stringe gli incastri (per esempio da 3 a 4 mm per un materiale più spesso) "
                           "lasciando il resto del pezzo com'è")),
+            "slots_thick": A(tr("Adatta gli incastri allo spessore…"), lambda: self.thickness_dialog(), None, None,
+                             tr("Per un materiale di spessore diverso: fessure, fori, tacche e linguette insieme, "
+                                "con lo spessore del disegno trovato da solo")),
             "trace": A(tr("Vettorizza immagine…"), self.trace_dialog, "Alt+T", "trace",
                        tr("Trasforma una foto o un disegno in tracciati (contorno o linea centrale)")),
             "photo": A(tr("Prepara foto…"), self.photo_dialog, "Ctrl+Alt+F", "photo_prep",
@@ -694,7 +702,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "-", "import", "import_rot", "export", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "gallery_share", "gallery_open", "-", "import", "import_rot", "export", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -703,7 +711,7 @@ class MainWindow(QMainWindow):
         m_edit = menu(tr("&Modifica"), ["undo", "redo", "-", "cut", "copy", "paste", "paste_in_place", "duplicate", "delete", "-",
                            "select_all", "invert_sel", (tr("Seleziona speciale"), ["sel_open", "sel_open_fill", "sel_contained"]),
                            "-", "to_path", "trace", "close_paths", "join", "break", "reverse", "duplicates", "offset",
-                           "simplify", (tr("Deforma"), ["deform4", "deform16"]), "slots", "-", "lock", "unlock"])
+                           "simplify", (tr("Deforma"), ["deform4", "deform16"]), "slots", "slots_thick", "-", "lock", "unlock"])
         m_edit.addSeparator()
         self.m_plates = m_edit.addMenu(tr("Piani di lavoro"))
         for k in ("plate_new", "plate_dup", "-", "plate_next", "plate_prev", "-"):
@@ -1486,7 +1494,7 @@ class MainWindow(QMainWindow):
         nodes_tool = cv is not None and cv.tool is not None and cv.tool is cv.tools.get("nodes")
         for k in ("cut", "copy", "duplicate", "delete", "to_path", "break", "reverse", "offset", "flip_h", "flip_v",
                   "rot_cw", "rot_ccw", "grid_array", "circ_array", "front", "back", "lock", "unlock", "close_paths", "join",
-                  "simplify", "deform4", "deform16", "slots"):
+                  "simplify", "deform4", "deform16", "slots", "slots_thick"):
             self.acts[k].setEnabled(n >= 1)
         for k in ("group", "same_w", "same_h", "along_path"):
             self.acts[k].setEnabled(n >= 2)
@@ -1631,6 +1639,37 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(msg, 8000)
         return done, skipped
 
+    def thickness_dialog(self, old=None, new=None, tol=0.3):
+        """0.22.0: adatta gli incastri della selezione a un materiale di spessore diverso. Con old e new dati: subito,
+        senza finestra. -> ({tipo: cambiate}, saltate) o None."""
+        from .dialogs_shapes import ThicknessDialog, change_thickness, thickness_text
+
+        sel = [s for s in self.editor.editable() if not isinstance(s, ImageShape)]
+        if not sel:
+            self.statusBar().showMessage(tr("Seleziona prima i pezzi con gli incastri"), 5000)
+            return None
+        if old is None or new is None:
+            dlg = ThicknessDialog(self, sel)
+            self.thickness_last_dialog = dlg
+            ok = dlg.exec() if not os.environ.get("FLC_NO_DIALOGS") else False
+            self.canvas.overlay_paths = []
+            self.canvas.viewport().update()
+            if not ok:
+                return None
+            old, new, tol = dlg.values()
+        res = change_thickness(self.editor, sel, old, new, tol)
+        if res is None:
+            return None
+        done, skipped = res
+        if not sum(done.values()):
+            self.statusBar().showMessage(tr("Nessun incastro da {0:g} mm (± {1:g}) nella selezione", old, tol), 6000)
+        else:
+            msg = tr("Incastri adattati da {0:g} a {1:g} mm: {2}", old, new, thickness_text(done))
+            if skipped:
+                msg += " · " + tr("{0} restano come sono", skipped)
+            self.statusBar().showMessage(msg, 8000)
+        return done, skipped
+
     def _set_guides_opt(self, attr, on):
         """0.20.9: guide visibili / aggancio alle guide (restano nelle preferenze)."""
         setattr(self.canvas, attr, bool(on))
@@ -1769,6 +1808,29 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(tr("Salvato: {0}", d.path), 4000)
         return True
 
+    # ---- 0.22.0: Galleria dei lavori condivisi
+    def gallery_share(self, *_):
+        """File → Condividi nella Galleria: il modulo breve, poi l'invio. -> la finestra (per le prove), o None."""
+        from .. import galleria
+        from . import dialogs_galleria as dg
+
+        if not [s for s in self.editor.doc.all_shapes() if not s.hidden]:
+            dg.avviso(self, galleria.testo_errore("vuoto"), tr("Condividi nella Galleria"))
+            return None
+        dlg = dg.ShareDialog(self)
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            dlg.exec()
+        return dlg
+
+    def gallery_open(self, *_):
+        """File → Galleria FreeLaserCut: sfoglia i lavori degli altri. -> la finestra (per le prove)."""
+        from . import dialogs_galleria as dg
+
+        dlg = dg.GalleryDialog(self)
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            dlg.exec()
+        return dlg
+
     def project_stem(self):
         """0.20.0: il nome del progetto per i file da salvare: quello del file aperto, o il nome dato dall'importazione;
         None se è ancora «Senza titolo»."""
@@ -1891,7 +1953,11 @@ class MainWindow(QMainWindow):
 
     def import_files(self, paths, at=None, gerber_opts=None, turn=False):
         doc = self.editor.doc
-        was_empty = not doc.all_shapes() and not doc.path  # 0.20.0: il progetto prende il nome del primo file
+        was_empty = not doc.all_shapes()  # 0.20.0: il progetto prende il nome del primo file
+        # 0.22.0 (Evoluzione2): un progetto .flcut aperto e poi svuotato del tutto, in cui si importa un altro file, è
+        # un progetto nuovo: prende il nome del file importato e non è più legato al vecchio file (Salva chiede dove,
+        # così non si sovrascrive per sbaglio il progetto di prima)
+        emptied = was_empty and bool(doc.path)
         added = []
         first_name = None
         self._import_note = ""
@@ -1966,7 +2032,10 @@ class MainWindow(QMainWindow):
             for leaf, _ in s.leaves():
                 if isinstance(leaf, ImageShape):
                     doc.layer(leaf.layer).mode = "image"
-        if was_empty and first_name and doc.name in ("", tr("Senza titolo"), "Senza titolo", "Progetto"):
+        if was_empty and first_name and added and (emptied or doc.name in ("", tr("Senza titolo"), "Senza titolo",
+                                                                           "Progetto")):
+            if emptied:
+                doc.path = None
             doc.name = first_name  # 0.20.0: «Pippo.svg» in un progetto nuovo → progetto «Pippo» (titolo, Salva, Esporta)
             doc.name_auto = True  # 0.20.1: finché non si salva, il nome segue i file che restano
             self._update_title()

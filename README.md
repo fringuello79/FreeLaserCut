@@ -7,13 +7,14 @@
 > - **Website:** https://fringuello79.github.io/FreeLaserCut/ · **Nesting** (Arrange → Optimize space, Alt+N) · ready-made profiles for Longer, Ortur, xTool, Atomstack, Sculpfun, Creality Falcon, Two Trees, Comgrow and any GRBL laser.
 > - **Two interfaces:** *Workbench* (full-screen bed, command search, radial menu, second-monitor aware) or *Classic* — *Settings → Interface*.
 > - Free (GPL-3.0) laser engraving and cutting software for GRBL machines, native profile for the Longer B1 40W.
+> - **New in 0.22.0: the FreeLaserCut Gallery** — share your jobs and download other people's straight from the program (*File → Share to the Gallery…*), no account needed.
 > - Windows installer, **Linux AppImage** and **macOS .dmg (preview, Apple Silicon and Intel)** in **Releases**. The macOS version is new and not yet tested with a real laser: testers welcome. The Linux version is the same program with the same automated tests, but real-machine testing on Linux is done by the people who install it: please report problems with *Help → Send a report to support*. Documentation below is in Italian.
 
 Software **libero** di incisione e taglio laser per macchine GRBL, con profilo nativo per il **Longer B1 40W**.
 Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.21.2** — la Lucciola senza finestre d'errore dopo *Stampa e taglia*, la freccia «Continuo» e il joystick fino al bordo vero della macchina (anche quando il profilo è più grande), la calibrazione della camera che si ferma se la scheda si riavvia da sola, il primo avvio sul Mac, VEVOR A7 e Sculpfun iCube Ultra Dual (anche con il modulo infrarosso) nel catalogo, i moduli aggiuntivi, la Lucciola dalla tastiera (Alt+Maiusc+L), la velocità costante a laser spento e gli spostamenti a vuoto più lenti, il joystick fisico (G13, pad, joystick USB; in prova). Dalla 0.21.1: l'angolo dello 0 che non si perde più, il joystick che segue la mano senza ritardo, il grigio delle forme scelto dentro FreeLaserCut.
+**Versione 0.22.0** — la **Galleria FreeLaserCut**: condividi i tuoi lavori e scarica quelli degli altri direttamente dal programma (*File → Condividi nella Galleria…* e *File → Galleria FreeLaserCut…*), con anteprima, materiale e parametri, stelle e «L'ho fatto anch'io», senza account. In più «Adatta gli incastri allo spessore» (fessure, fori, tacche e linguette insieme, per un materiale di spessore diverso), la configurazione guidata che prova l'aria (M8 o M7) e, sul Mac, il minimo vero: macOS 14.4. Dalla 0.21.2: la Lucciola dalla tastiera (Alt+Maiusc+L), la velocità costante a laser spento, il joystick fisico (in prova), VEVOR A7 e Sculpfun iCube Ultra Dual nel catalogo.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -53,7 +54,7 @@ Se qualcosa non va (porta USB, camera, finestre, lavoro sulla macchina, aggiorna
 
 ## Installazione (macOS, anteprima)
 
-Dalla 0.20.7 nella pagina **Releases** ci sono due file: **`FreeLaserCut-<versione>-macOS-arm64.dmg`** per i Mac con Apple Silicon (M1, M2, M3, M4…) e **`FreeLaserCut-<versione>-macOS-x86_64.dmg`** per i Mac Intel (menu Apple → *Informazioni su questo Mac*: «Chip Apple M…» o «Processore … Intel»). Serve macOS 13 o più recente.
+Dalla 0.20.7 nella pagina **Releases** ci sono due file: **`FreeLaserCut-<versione>-macOS-arm64.dmg`** per i Mac con Apple Silicon (M1, M2, M3, M4…) e **`FreeLaserCut-<versione>-macOS-x86_64.dmg`** per i Mac Intel (menu Apple → *Informazioni su questo Mac*: «Chip Apple M…» o «Processore … Intel»). Serve macOS 14.4 (Sonoma) o più recente: le librerie grafiche di questa versione non partono sui sistemi più vecchi.
 
 Apri il .dmg e trascina **FreeLaserCut** in **Applicazioni**. Il programma non è firmato da Apple: al primo avvio macOS lo blocca; vai in *Impostazioni di Sistema → Privacy e sicurezza* e premi **Apri comunque** (lo spiega anche il LEGGIMI nel .dmg).
 
@@ -244,6 +245,17 @@ Nel testo usa `{N}` (numero di serie), `{N:3}` (001), `{DATA}`, `{ANNO}`, `{ORA}
 Se colleghi una macchina diversa da quella del profilo attivo, FreeLaserCut se ne accorge dopo la connessione e propone il riconoscimento.
 
 **Velocità della porta seriale:** di partenza 115200 baud, quella standard di GRBL, e *Riconosci* trova da solo quella giusta. Se sai che la tua scheda ne usa un'altra: *Laser → Velocità della porta seriale…* (o tasto destro su **Connetti**), scegli o scrivi il valore, **Prova questa velocità** (non muove niente e non cambia il profilo) e poi **Salva nel profilo**. Se dopo la connessione la scheda non risponde, FreeLaserCut lo dice e propone queste due strade.
+
+## Galleria FreeLaserCut
+
+I lavori fatti con FreeLaserCut si condividono e si scaricano dal programma, senza account.
+
+- **Condividere:** *File → Condividi nella Galleria…* con il progetto aperto. Compili titolo, categoria, materiale e spessore, lavorazione, due righe di descrizione e licenza (CC BY 4.0, CC BY-NC 4.0 o CC0), e se vuoi un nome pubblico e fino a 3 foto del pezzo finito. Anteprima, misure e tempo li aggiunge il programma. Spunti le due caselle («è opera mia…» e «accetto le regole») e premi **Condividi**.
+- **Sfogliare:** *File → Galleria FreeLaserCut…*. Cerchi per parola, categoria e lavorazione; ordini per voto, per «fatto da» o per data. **Apri come progetto nuovo** porta il lavoro sul piano con i livelli dell'autore: potenza e velocità sono quelle del suo laser, controllale sul tuo prima di incidere.
+- **Votare e segnalare:** da 1 a 5 stelle, **L'ho fatto anch'io**, **Segnala…** (non funziona, copiato, pubblicità, non adatto).
+- **I miei lavori:** i lavori condivisi da questo computer, con lo stato e **Togli dalla Galleria**.
+
+Parte solo quello che vedi nella finestra: il progetto ripulito, l'anteprima, le foto (senza i dati EXIF) e i dati del modulo; mai percorsi, nomi dei file, nome del computer o della porta. Un numero a caso, salvato sul tuo computer, distingue l'installazione per voti e limiti. I controlli sono automatici (testi, file, doppioni e un modello di intelligenza artificiale sulle immagini); i lavori segnalati da più persone si nascondono da soli. Il servizio è nel repository [`FreeLaserCut-galleria`](https://github.com/fringuello79/FreeLaserCut-galleria). Dettagli nell'[informativa sulla privacy](https://fringuello79.github.io/FreeLaserCut/privacy.html).
 
 ## Guida "?"
 

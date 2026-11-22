@@ -34,9 +34,9 @@ li{margin:6px 0}
   </div>
 
   <h1>Privacy policy</h1>
-  <p class="muted">Last updated: 18 November 2026</p>
+  <p class="muted">Last updated: 22 November 2026 (FreeLaserCut Gallery)</p>
   <div class="card">
-    <p><b>FreeLaserCut does not collect, store or send any personal data on its own.</b> It has no account, no analytics, no advertising and no telemetry. The only data that can leave your computer is the <a href="#report">support report</a>, and only if you decide to send it.</p>
+    <p><b>FreeLaserCut does not collect, store or send any personal data on its own.</b> It has no account, no analytics, no advertising and no telemetry. The only data that can leave your computer are the <a href="#report">support report</a> and the jobs you share in the <a href="#gallery">FreeLaserCut Gallery</a>, and only if you decide to send them.</p>
     <ul>
       <li><b>Your files</b> (projects, images, settings, material library, camera calibration) stay on your computer, in the folders you choose and in <code>%APPDATA%\FreeLaserCut</code>.</li>
       <li><b>Your laser</b> is controlled over a local USB/serial connection or, if you choose a Wi-Fi laser, over your home network directly to the laser's address. Nothing goes over the internet.</li>
@@ -65,9 +65,24 @@ li{margin:6px 0}
     </ul>
   </div>
 
+  <h2 id="gallery">FreeLaserCut Gallery (File → Share to the Gallery…)</h2>
+  <div class="card">
+    <ul>
+      <li><b>Who runs it:</b> the FreeLaserCut project (maintainer: fringuello79), contact <a href="mailto:freelasercut@gmail.com">freelasercut@gmail.com</a>. The service runs on Cloudflare (Workers, D1, KV, Workers AI); its code is public at <a href="https://github.com/fringuello79/FreeLaserCut-galleria">github.com/fringuello79/FreeLaserCut-galleria</a>.</li>
+      <li><b>When:</b> only when you press <i>Share</i> after filling in the form and ticking the two boxes. Browsing, voting, «I made it too» and reports are sent only when you click them.</li>
+      <li><b>What is sent when you share:</b> the project, cleaned before it leaves (its name becomes the title you write; no file paths, no original file names); a preview drawn by the program; the photos you choose, resized and without EXIF data (no location, no phone model); the form (title, category, material and thickness, process, description, licence, the laser model and power if you leave them, the optional public name); the program version. <b>Never</b> your computer name, user name, port, e-mail or other files.</li>
+      <li><b>No account:</b> each installation has a random number, stored only on your computer, sent with your requests. The service keeps only a salted fingerprint of it, used for one vote per installation and for the daily limits. To remove your own job, the program uses a key stored only on your computer.</li>
+      <li><b>What becomes public:</b> everything in the form (except the random number), the preview, the photos and the project. Anyone can see, download and use them under the licence you chose. Votes, «made it» and reports are counted, not shown with your identity.</li>
+      <li><b>Automatic checks:</b> texts and files are checked by the program and by the service; the preview and the photos are checked by an AI model (Llama 3.2 Vision on Cloudflare Workers AI) only to refuse adult, violent, hateful or advertising content. Nobody reviews your job by hand unless it is reported.</li>
+      <li><b>IP address:</b> used by Cloudflare only to block abuse (rate limits); the service does not store it.</li>
+      <li><b>How long:</b> until you remove the job (<i>My works → Remove from the Gallery</i>) or it is removed after reports or a formal request. Jobs that are refused or never finished are deleted within a day.</li>
+      <li><b>Why:</b> to publish the job you chose to share (legal basis: your request, art. 6.1.b GDPR) and to keep the Gallery free of abuse (legitimate interest, art. 6.1.f). Removal requests and your rights (access, deletion): the <i>Report…</i> button, or <a href="mailto:freelasercut@gmail.com">freelasercut@gmail.com</a>. You can also lodge a complaint with your data-protection authority.</li>
+      <li>If you are under 14, do not share jobs.</li>
+    </ul>
+  </div>
   <h2>Informativa sulla privacy (italiano)</h2>
   <div class="card">
-    <p><b>FreeLaserCut non raccoglie, non conserva e non invia dati personali di sua iniziativa.</b> Non ha account, statistiche d'uso, pubblicità né telemetria. L'unica cosa che può uscire dal tuo computer è il <a href="#rapporto">rapporto per l'assistenza</a>, e solo se decidi tu di inviarlo.</p>
+    <p><b>FreeLaserCut non raccoglie, non conserva e non invia dati personali di sua iniziativa.</b> Non ha account, statistiche d'uso, pubblicità né telemetria. Dal tuo computer possono uscire solo il <a href="#rapporto">rapporto per l'assistenza</a> e i lavori che condividi nella <a href="#galleria">Galleria FreeLaserCut</a>, e solo se decidi tu di inviarli.</p>
     <ul>
       <li><b>I tuoi file</b> (progetti, immagini, impostazioni, libreria materiali, calibrazione della camera) restano sul tuo computer, nelle cartelle che scegli e in <code>%APPDATA%\FreeLaserCut</code>.</li>
       <li><b>Il laser</b> è comandato tramite collegamento USB/seriale locale o, se scegli un laser in Wi-Fi, sulla rete di casa direttamente all'indirizzo del laser: niente passa da Internet.</li>
@@ -93,6 +108,21 @@ li{margin:6px 0}
       <li><b>Nome per i ringraziamenti (facoltativo, dalla versione 0.20.5):</b> nel rapporto c'è il campo «Nome per i ringraziamenti». Resta vuoto se non lo compili. Se ci scrivi un nome o uno pseudonimo, chiedi di comparire fra chi ha aiutato FreeLaserCut. Dalla versione 0.20.6 l'elenco raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione: il nome viene aggiunto quando l'aiuto rientra in questi casi, non per ogni rapporto. Quel nome, e solo quello, può comparire nell'elenco pubblico dei ringraziamenti (schermata di avvio e <i>Aiuto → Ringraziamenti</i> nel programma, sito e pagina del progetto su GitHub). Nient'altro del tuo rapporto viene pubblicato, e il nome non è collegato a quello che hai segnalato. Per farti togliere dall'elenco scrivi a <a href="mailto:freelasercut@gmail.com">freelasercut@gmail.com</a>: il nome viene tolto dalla versione successiva.</li>
       <li><b>I tuoi diritti:</b> accesso, rettifica, cancellazione, revoca del consenso: scrivi a freelasercut@gmail.com indicando il codice del rapporto (FLC-…). Puoi anche presentare reclamo al <a href="https://www.garanteprivacy.it">Garante per la protezione dei dati personali</a>.</li>
       <li>Se hai meno di 14 anni, non inviare rapporti.</li>
+    </ul>
+  </div>
+  <h2 id="galleria">Galleria FreeLaserCut (File → Condividi nella Galleria…)</h2>
+  <div class="card">
+    <ul>
+      <li><b>Chi la gestisce (titolare):</b> il progetto FreeLaserCut (responsabile: fringuello79), contatto <a href="mailto:freelasercut@gmail.com">freelasercut@gmail.com</a>. Il servizio gira su Cloudflare (Workers, D1, KV, Workers AI); il suo codice è pubblico in <a href="https://github.com/fringuello79/FreeLaserCut-galleria">github.com/fringuello79/FreeLaserCut-galleria</a>.</li>
+      <li><b>Quando:</b> solo quando premi <i>Condividi</i> dopo aver compilato il modulo e spuntato le due caselle. Sfogliare, votare, «L'ho fatto anch'io» e le segnalazioni partono solo quando li clicchi.</li>
+      <li><b>Che cosa parte quando condividi:</b> il progetto, ripulito prima di partire (il nome diventa il titolo che scrivi; niente percorsi, niente nomi dei file originali); un'anteprima disegnata dal programma; le foto che scegli, ridotte e senza i dati EXIF (niente posizione, niente modello del telefono); il modulo (titolo, categoria, materiale e spessore, lavorazione, descrizione, licenza, modello e potenza del laser se li lasci, il nome pubblico facoltativo); la versione del programma. <b>Mai</b> il nome del computer, dell'utente o della porta, la tua email o altri file.</li>
+      <li><b>Niente account:</b> ogni installazione ha un numero a caso, salvato solo sul tuo computer, che parte con le richieste. Il servizio ne tiene solo un'impronta con sale, per un voto per installazione e per i limiti del giorno. Per togliere un tuo lavoro il programma usa una chiave che resta solo sul tuo computer.</li>
+      <li><b>Che cosa diventa pubblico:</b> tutto quello che è nel modulo (tranne il numero a caso), l'anteprima, le foto e il progetto. Chiunque può vederli, scaricarli e usarli secondo la licenza che hai scelto. Voti, «fatto» e segnalazioni si contano, senza mostrare chi li ha dati.</li>
+      <li><b>Controlli automatici:</b> testi e file sono controllati dal programma e dal servizio; l'anteprima e le foto da un modello di intelligenza artificiale (Llama 3.2 Vision su Cloudflare Workers AI), solo per rifiutare contenuti per adulti, violenti, d'odio o pubblicità. Nessuno guarda a mano il tuo lavoro, a meno che non venga segnalato.</li>
+      <li><b>Indirizzo IP:</b> lo usa Cloudflare solo per bloccare gli abusi (limiti di richieste); il servizio non lo conserva.</li>
+      <li><b>Per quanto:</b> finché togli il lavoro (<i>I miei lavori → Togli dalla Galleria</i>) o finché viene tolto dopo le segnalazioni o una richiesta formale. I lavori rifiutati o mai finiti di inviare si cancellano entro un giorno.</li>
+      <li><b>Perché:</b> per pubblicare il lavoro che hai scelto di condividere (base giuridica: la tua richiesta, art. 6.1.b GDPR) e per tenere la Galleria libera da abusi (legittimo interesse, art. 6.1.f). Richieste di rimozione e diritti (accesso, cancellazione): il pulsante <i>Segnala…</i>, oppure <a href="mailto:freelasercut@gmail.com">freelasercut@gmail.com</a>. Puoi anche presentare reclamo al <a href="https://www.garanteprivacy.it">Garante per la protezione dei dati personali</a>.</li>
+      <li>Se hai meno di 14 anni, non condividere lavori.</li>
     </ul>
   </div>
   <p class="muted" style="margin-top:30px">© 2026 fringuello79 · GNU GPL 3.0</p>
