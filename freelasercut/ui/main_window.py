@@ -137,6 +137,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.qs = migrate_qsettings()
+        try:  # 0.22.1: punti per pollice degli SVG senza unità (0 = li capisce da solo)
+            io_formats.SVG_PPI = int(self.qs.value("svg_ppi", 0) or 0)
+        except (TypeError, ValueError):
+            io_formats.SVG_PPI = 0
         self.ctl = GrblController()
         from .. import diag
 
@@ -854,7 +858,9 @@ class MainWindow(QMainWindow):
             self.ui_actions[code] = act
         sec = m.addAction(tr("Officina sul secondo monitor, se c'è"))
         sec.setCheckable(True)
-        sec.setChecked(self.qs.value("officina_second_screen", "true") in (True, "true"))
+        from .banco import second_screen_on
+
+        sec.setChecked(second_screen_on(self.qs))  # 0.22.2: sul Mac parte spenta
         sec.toggled.connect(self._toggle_second_screen)
         self.act_second_screen = sec
         self._build_look_menu(m)
@@ -4634,8 +4640,16 @@ class MainWindow(QMainWindow):
             _, ry = self.profile.to_machine(*job.rotary_ref)
             mpts = [(mx, ry + (my - ry) * job.rotary_k) for mx, my in mpts]
         laser = self.laser.fire_pct.value() if kind.endswith("_laser") and not laser_off else 0.0
+        # 0.22.2 (maurodani76): con la partenza dalla posizione della testa, finito il giro la testa torna da dove è
+        # partita. Prima restava sul primo angolo e il lavoro, che segue la testa, si spostava a ogni contorno (non
+        # si vedeva con il pallino in alto a sinistra, perché il giro finisce lì)
+        back = None
+        if self.laser.start_from.currentData() == "current":
+            m = (self.ctl.last_status or {}).get("MPos")
+            if m and len(m) >= 2:
+                back = (float(m[0]), float(m[1]))
         self.ctl.frame_path(mpts, max(self.move.feed.value(), 3000), laser, self.profile.s_max,
-                            travel_feed=self.profile.travel_speed())  # 0.21.2
+                            travel_feed=self.profile.travel_speed(), back=back)  # 0.21.2
         self.statusBar().showMessage(tr("Contorno con il puntino al %g%%: Stop per interrompere") % laser if laser
                                      else tr("Contorno a laser spento"), 5000)
 
@@ -5309,6 +5323,7 @@ class MainWindow(QMainWindow):
 
         name = f"{__version__} «{__codename__}»" if __codename__ else __version__
         QMessageBox.about(self, tr("FreeLaserCut"), tr("<h3>FreeLaserCut (FLC) {0}</h3>Software libero di incisione laser per macchine GRBL, con profilo nativo per il Longer B1 40W.<br>Di fringuello79 · licenza GNU GPL 3.0 o successiva · nessuna garanzia.<br>Ti è utile? Puoi sostenerne lo sviluppo da <i>Aiuto → Sostieni FreeLaserCut</i>.<br><br>Caratteri Inter e JetBrains Mono (SIL OFL) · icone Lucide (ISC) · font a linea singola Hershey.", name)
+                          + "<br>" + self.codev_line()  # 0.22.2
                           + (tr("<br><br><b>Versione per macOS (anteprima).</b> Stesso codice e stesse prove "
                                 "automatiche della versione per Windows; è la prima per Mac e il collaudo con laser e "
                                 "camera veri lo fa chi la usa. Problemi? <i>Aiuto → Invia un rapporto "
@@ -5316,6 +5331,43 @@ class MainWindow(QMainWindow):
                           + (tr("<br><br><b>Versione per Linux.</b> Stesso codice e stesse prove automatiche della versione "
                                 "per Windows; il collaudo con laser e camera veri lo fa chi la usa. Problemi? "
                                 "<i>Aiuto → Invia un rapporto all'assistenza</i>.") if _is_linux() else ""))
+
+    # ------------------------------------------------------------------ 0.22.2: il Banco non si è aperto
+    def banco_fallback_banner(self, reason):
+        """La fascia quando l'avvio è in Classica perché il Banco non si è aperto. reason: "una" (per questa volta) o
+        "due" (due volte di seguito: la scelta salvata è diventata Classica)."""
+        if reason == "due":
+            text = tr("FreeLaserCut non è riuscito ad aprirsi due volte di seguito con l'interfaccia Banco: da ora "
+                      "usa la Classica. Mandaci un rapporto, così capiamo perché.")
+        else:
+            text = tr("L'ultima volta FreeLaserCut non è riuscito ad aprirsi con l'interfaccia Banco: per questa "
+                      "volta usa la Classica. Mandaci un rapporto, così capiamo perché.")
+        buttons = [(tr("Manda un rapporto"), self.acts["send_report"].trigger), (tr("Riprova il Banco"), self.retry_banco)]
+        if reason != "due":
+            buttons.append((tr("Resta in Classica"), self.keep_classic))
+        self.banco_fallback = reason
+        self.show_banner(text, "warn", buttons)
+
+    def retry_banco(self):
+        from . import banco
+
+        banco.guard_retry(self.qs)
+        self._restart = True
+        if not self.close():
+            self._restart = False
+
+    def keep_classic(self):
+        from . import banco
+
+        banco.guard_keep_classic(self.qs)
+        self.banner.hide()
+
+    @staticmethod
+    def codev_line():
+        """0.22.2: «Co-sviluppatori: Evoluzione2 e Stefano Modena» (i nomi stanno solo in thanks.CODEV)."""
+        from .. import thanks
+
+        return tr("Co-sviluppatori: {0}", thanks.codev_text(" " + tr("e") + " "))
 
     def show_thanks(self, *_):
         """Aiuto → Ringraziamenti (0.20.5). -> la finestra (già chiusa)."""
@@ -5504,6 +5556,9 @@ def main(app=None, splash=None):
     from .. import startup_guard
 
     startup_guard.stage("apri")
+    from . import banco as _banco
+
+    banco_reason = _banco.guard_start()  # 0.22.2: se il Banco l'ultima volta non si è aperto, questa volta Classica
     try:
         win = build_main_window()  # 0.21.2: senza la pulizia della memoria a metà costruzione (rapporto E698)
     except Exception:  # noqa: BLE001 — prima chiudo lo splash, poi registro e mostro l'errore, poi esco
@@ -5521,6 +5576,9 @@ def main(app=None, splash=None):
             _diag.ignored("attesa della schermata d'avvio")
     win.show()
     startup_guard.done()  # 0.18.16: la finestra c'è, l'avvio è finito (il segno dell'avvio in corso si toglie)
+    QTimer.singleShot(_banco.GUARD_OK_MS, _banco.guard_ok)  # 0.22.2: il Banco è aperto e regge: via il suo segno
+    if banco_reason:
+        win.banco_fallback_banner(banco_reason)
     win.pin_identity()  # 0.19.3: fissata sulla barra di Windows tiene l'icona e riapre FreeLaserCut
     if splash is not None:
         splash.finish(win)

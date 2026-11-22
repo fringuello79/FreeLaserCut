@@ -28,7 +28,18 @@ NAMES = (
     "Sengir",  # 0.21.1: rapporti sul Falcon A1 (Ale, 19/11)
     "Daniel Z.",  # 0.21.2: rapporti e spinta sui social (Ale, 20/11)
     "solboricua",  # 0.21.2: rapporto E698 dal Mac M1 (20/11)
+    "universalecinema-boop",  # 0.22.2: GitHub (Ale, 22/11)
+    "Paul H.",  # 0.22.2: chiesto da Ale (22/11 sera)
 )
+# 0.22.2 (Ale, 22/11): i co-sviluppatori. L'UNICO posto in cui stanno; li mostrano Aiuto → Informazioni, la targa dei
+# ringraziamenti, il README e il sito (una prova controlla che siano gli stessi). Restano anche nell'elenco qui sopra.
+CODEV = ("Evoluzione2", "Stefano Modena")
+
+
+def codev_text(joiner=" e "):
+    """«Evoluzione2 e Stefano Modena»: i co-sviluppatori in una riga (joiner: la congiunzione nella lingua giusta)."""
+    names = [n for n in CODEV if n and n.strip()]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + joiner + names[-1] if names else ""
 
 
 def endless(names=NAMES):

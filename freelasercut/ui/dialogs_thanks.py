@@ -160,6 +160,11 @@ class ThanksDialog(QDialog):
         self.intro.setWordWrap(True)
         self.intro.setStyleSheet(f"color:{SOFT}; background:transparent; font-size:15px;")
         v.addWidget(self.intro)
+        # 0.22.2: i co-sviluppatori, in testa alla targa
+        self.codev = QLabel(tr("Co-sviluppatori: {0}", thanks.codev_text(" " + tr("e") + " ")))
+        self.codev.setWordWrap(True)
+        self.codev.setStyleSheet(f"color:{SOFT}; background:transparent; font-size:15px; font-weight:600;")
+        v.addWidget(self.codev)
         v.addSpacing(10)
         self.view = NamesView(names, animate)
         v.addWidget(self.view)

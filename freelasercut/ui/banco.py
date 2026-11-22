@@ -12,6 +12,7 @@ Riusa tutti i comandi, i pannelli e la logica della finestra classica e cambia s
 La finestra classica resta disponibile: l'interfaccia si sceglie al primo avvio e in Impostazioni → Interfaccia.
 """
 import os
+import sys
 import time
 import unicodedata
 
@@ -107,12 +108,112 @@ def settings():
 
 
 def ui_mode(qs=None):
-    """Interfaccia da usare: variabile FLC_UI, poi la scelta salvata, altrimenti Banco."""
+    """Interfaccia da usare: variabile FLC_UI, poi la scelta salvata, altrimenti Banco. 0.22.2: se il Banco non è
+    riuscito ad aprirsi, per questo avvio vale la Classica (vedi guard_start)."""
     env = os.environ.get("FLC_UI")
     if env in MODES:
         return env
+    if _guard["forced"] in MODES:
+        return _guard["forced"]
     v = (qs or settings()).value("ui_mode")
     return v if v in MODES else "banco"
+
+
+# ------------------------------------------------------------ rete di sicurezza del Banco (0.22.2)
+# rinosp (GitHub, Mac): passato al Banco, il programma si chiudeva a ogni avvio e non c'era più modo di entrare, nemmeno
+# per mandare un rapporto. Ora ogni avvio nel Banco lascia un segno (banco-avvio.txt nella cartella dei dati) che si
+# toglie quando la finestra è aperta da qualche secondo, o alla chiusura normale. Se all'avvio dopo il segno c'è ancora,
+# il Banco non ce l'ha fatta: per quella volta si parte in Classica, con una fascia che lo dice. Alla seconda volta di
+# seguito la scelta salvata diventa Classica. Vale solo per l'avvio vero del programma (main), non per le prove.
+GUARD_FILE = "banco-avvio.txt"
+GUARD_OK_MS = 8000  # la finestra aperta da tanto: il Banco ce l'ha fatta
+_guard = {"forced": None, "open": False, "reason": None}
+
+
+def _guard_path():
+    from ..profile import config_dir
+
+    return os.path.join(config_dir(), GUARD_FILE)
+
+
+def guard_read():
+    """-> (avvii nel Banco di seguito non andati a buon fine, l'ultimo avvio è stato in Classica per questo?)."""
+    try:
+        with open(_guard_path(), encoding="utf-8") as fh:
+            parts = fh.read().split()
+        return max(0, int(parts[0])), len(parts) > 1 and parts[1] == "classica"
+    except (OSError, ValueError, IndexError):
+        return 0, False
+
+
+def _guard_write(fails, fallback):
+    try:
+        with open(_guard_path(), "w", encoding="utf-8") as fh:
+            fh.write(f"{int(fails)}" + (" classica" if fallback else "") + "\n")
+        return True
+    except OSError:
+        return False
+
+
+def guard_clear():
+    try:
+        os.remove(_guard_path())
+    except OSError:
+        pass
+
+
+def guard_start(qs=None):
+    """Da chiamare una volta, all'avvio vero, prima di costruire la finestra. -> None se si parte con l'interfaccia
+    scelta; "una" se il Banco l'ultima volta non si è aperto (per questo avvio: Classica); "due" se è successo due
+    volte di seguito (la scelta salvata diventa Classica)."""
+    _guard.update(forced=None, open=False, reason=None)
+    if os.environ.get("FLC_UI") in MODES:  # interfaccia imposta da fuori: niente rete
+        return None
+    qs = qs or settings()
+    if ui_mode(qs) != "banco":
+        guard_clear()
+        return None
+    fails, fallback = guard_read()
+    if fails >= 2:
+        save_mode("classica", qs)
+        guard_clear()
+        _guard.update(forced="classica", reason="due")
+    elif fails == 1 and not fallback:
+        _guard_write(1, True)
+        _guard.update(forced="classica", reason="una")
+    elif _guard_write(fails + 1, False):  # se il segno non si può scrivere la rete resta spenta, senza danni
+        _guard["open"] = True
+    return _guard["reason"]
+
+
+def guard_reason():
+    return _guard["reason"]
+
+
+def guard_ok():
+    """Il Banco si è aperto e ha retto (o il programma è stato chiuso in modo normale): via il segno."""
+    if _guard["open"]:
+        _guard["open"] = False
+        guard_clear()
+
+
+def guard_retry(qs=None):
+    """«Riprova il Banco»: al prossimo avvio si prova di nuovo il Banco (se non va, torna la Classica)."""
+    save_mode("banco", qs)
+    _guard_write(1, True)
+
+
+def guard_keep_classic(qs=None):
+    """«Resta in Classica»: la scelta salvata diventa Classica e il segno si toglie."""
+    save_mode("classica", qs)
+    guard_clear()
+
+
+def second_screen_on(qs=None):
+    """«Officina sul secondo monitor, se c'è». 0.22.2: sul Mac parte spenta (non è mai stata provata su un Mac con
+    due schermi, ed è la prima cosa che il Banco fa dopo l'avvio); chi vuole la accende da Impostazioni."""
+    default = "false" if sys.platform == "darwin" else "true"
+    return (qs or settings()).value("officina_second_screen", default) in (True, "true")
 
 
 def needs_choice(qs=None):
@@ -1979,7 +2080,7 @@ class Banco(QObject):
     # ---------------------------------------------------------- secondo monitor
     def check_screens(self):
         win = self.win
-        if win.qs.value("officina_second_screen", "true") not in (True, "true"):
+        if not second_screen_on(win.qs):
             if self.officina.window_mode:
                 self.officina.to_drawer()
             return
@@ -1995,6 +2096,7 @@ class Banco(QObject):
     def shutdown(self):
         """Alla chiusura del programma: l'Officina sul secondo monitor si chiude con la finestra principale."""
         self._closing = True
+        guard_ok()  # 0.22.2: chiusura normale, il Banco ha funzionato
         try:
             self.win.canvas.removeEventFilter(self)
             self.win.canvas.viewport().removeEventFilter(self)

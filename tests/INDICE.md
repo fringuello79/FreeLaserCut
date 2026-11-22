@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 252. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 257. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -98,7 +98,7 @@ Suite: 252. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v221_vuoti.py`: Vuoti nelle righe di foto e riempimenti: salto veloce solo se resta lungo dopo le rincorse, mai all'indietro (foto con l'effetto Matita)
 - `test_v221_vuoti.py` (Banco): Vuoti nelle righe di foto e riempimenti nell'interfaccia Banco
 
-## Lavoro e G-code (39)
+## Lavoro e G-code (42)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -139,8 +139,11 @@ Suite: 252. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_pausa.py`: Pausa prima di un livello: G-code con M0, invio diretto che si ferma e riprende, Annulla durante la pausa
 - `test_v220_aria.py`: Configurazione guidata della macchina, passo dell'aria: due prove a laser spento (M8 e M7), aria che si spegne sempre, casi in cui la prova non si fa, scelta salvata nel profilo
 - `test_v220_aria.py` (Banco): Configurazione guidata della macchina, passo dell'aria nell'interfaccia Banco
+- `test_v221_import.py`: DXF con i colori numerati e del layer (il taglio rosso non si perde); SVG senza unità a 72, 90 o 96 dpi (Illustrator)
+- `test_v222_contorno.py`: Contorno con la partenza dalla posizione della testa: finito il giro la testa torna da dove è partita e il lavoro non si sposta (9 pallini, laser spento e puntino, rettangolo e convesso)
+- `test_v222_contorno.py` (Banco): Contorno con la partenza dalla testa nell'interfaccia Banco
 
-## Macchina, connessione e profili (51)
+## Macchina, connessione e profili (53)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -193,6 +196,8 @@ Suite: 252. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v212_continuo.py`: «Continuo» e joystick quando il piano del profilo è più grande della corsa della scheda (rapporto 3802): bordo vero con coordinate positive e negative, assi invertiti e piano ruotato, nessun error:15, rifiuto spiegato sotto le frecce con «Usa le misure della macchina», avviso al collegamento, simulatore con la corsa del profilo
 - `test_v201_nomi.py`: Il nome del progetto dato dall'importazione segue i file che restano sul piano
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
+- `test_v221_import.py` (Banco): DXF e SVG importati nell'interfaccia Banco
+- `test_v222_banco_rete.py`: Rete di sicurezza del Banco: dopo un avvio fallito si parte in Classica con la fascia, alla seconda la scelta diventa Classica; Officina sul secondo monitor spenta sul Mac; prova d'avvio di GitHub anche nel Banco
 
 ## Disegno e modifica (28)
 

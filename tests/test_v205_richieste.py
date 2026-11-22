@@ -744,8 +744,8 @@ check("G licenza della libreria aggiunta (GLib, LGPL 2.1)", "glib-LGPL-2.1.txt" 
 # ====================================================================== H. ringraziamenti
 print("--- H. ringraziamenti")
 N = len(thanks.NAMES)
-check("H un solo elenco: 20 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1, Daniel Z. e solboricua dalla 0.21.2), nessun doppione, «Roberto C.» senza "
-      "cognome, Deborah", N == 20 and thanks.NAMES[-8:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir", "Daniel Z.", "solboricua") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
+check("H un solo elenco: 22 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1, Daniel Z. e solboricua dalla 0.21.2, universalecinema-boop e Paul H. dalla 0.22.2), nessun doppione, «Roberto C.» senza "
+      "cognome, Deborah", N == 22 and thanks.NAMES[-10:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir", "Daniel Z.", "solboricua", "universalecinema-boop", "Paul H.") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
       and not any("cappellero" in n.lower() for n in thanks.NAMES) and thanks.NAMES[0] == "Stefano Modena")
 it = thanks.endless()
 seq = [next(it) for _ in range(N * 6)]
@@ -1144,6 +1144,17 @@ priv = open(os.path.join(ROOT, "docs", "privacy.html"), encoding="utf-8").read()
 m = re.search(r"## Ringraziamenti\n(.*?)\n## ", readme, re.S)
 check("H README: la sezione Ringraziamenti ha tutti i nomi dell'elenco, nello stesso ordine",
       m is not None and ", ".join(thanks.NAMES) in m.group(1))
+# 0.22.2 (Ale, 22/11): i co-sviluppatori, un elenco solo (thanks.CODEV), mostrato in quattro posti
+check("H co-sviluppatori: Evoluzione2 e Stefano Modena, che restano anche nell'elenco dei grazie",
+      thanks.CODEV == ("Evoluzione2", "Stefano Modena") and all(n in thanks.NAMES for n in thanks.CODEV)
+      and thanks.codev_text() == "Evoluzione2 e Stefano Modena" and thanks.codev_text(" and ") == "Evoluzione2 and Stefano Modena")
+check("H co-sviluppatori nella targa di Aiuto → Ringraziamenti e in Aiuto → Informazioni",
+      all(n in w.show_thanks().codev.text() for n in thanks.CODEV) and all(n in w.codev_line() for n in thanks.CODEV)
+      and "self.codev_line()" in open(os.path.join(ROOT, "freelasercut", "ui", "main_window.py"), encoding="utf-8").read())
+check("H co-sviluppatori nel README (accanto all'autore) e nel sito, in inglese e in italiano",
+      "con i co-sviluppatori **" + "** e **".join(thanks.CODEV) + "**" in readme
+      and "<b>Co-sviluppatori:</b> " + thanks.codev_text() + "</p>" in site
+      and "<b>Co-developers:</b> " + thanks.codev_text(" and ") + "</p>" in site)
 m = re.search(r'<p id="thanks-names"[^>]*>(.*?)</p>', site, re.S)
 check("H sito: gli stessi nomi, tutti e soli", m is not None and [x.strip() for x in m.group(1).split("·")] == list(thanks.NAMES))
 check("H informativa privacy: dice del nome facoltativo e che è l'unica cosa che può diventare pubblica (inglese e italiano)",

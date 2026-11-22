@@ -79,7 +79,39 @@ def clean_svg_bytes(data):
     return (out, fixed) if fixed else (data, 0)
 
 
+SVG_PPI = 0  # 0.22.1: punti per pollice degli SVG senza unità di misura; 0 = li capisce da solo (preferenze)
+_ABS_UNIT = re.compile(r"^\s*[-+0-9.eE]+\s*(mm|cm|in|pt|pc|q)\s*$", re.I)
+
+
+def svg_ppi(data, chosen=None):
+    """0.22.1: quanti punti per pollice valgono i «px» (e i numeri senza unità) di questo SVG. -> (ppi, nota).
+    Se larghezza e altezza del disegno sono scritte in mm, cm, pollici o punti la misura è già certa e il valore
+    non conta. Altrimenti: quello scelto nelle preferenze; se è «da solo», Illustrator scrive a 72, il vecchio
+    Inkscape (fino alla 0.48) a 90, tutti gli altri a 96 (lo standard)."""
+    chosen = SVG_PPI if chosen is None else chosen
+    head = data[:20000].decode("utf-8", "replace")
+    m = re.search(r"<svg\b[^>]*>", head, re.S | re.I)
+    tag = m.group(0) if m else ""
+
+    def attr(name):
+        mm = re.search(r"\s" + name + r"\s*=\s*[\"']([^\"']*)[\"']", tag)
+        return mm.group(1) if mm else ""
+    if _ABS_UNIT.match(attr("width")) and _ABS_UNIT.match(attr("height")):
+        return 96.0, ""
+    if chosen in (72, 90, 96):
+        return float(chosen), ""
+    if "Adobe Illustrator" in head or re.search(r"\bi:pgf|xmlns:i\s*=\s*[\"']&ns_ai", head):
+        return 72.0, tr("SVG di Illustrator senza unità di misura: letto a 72 dpi, come lo scrive Illustrator "
+                        "(si cambia nelle preferenze)")
+    mv = re.search(r"inkscape:version\s*=\s*[\"']0\.(\d+)", head)
+    if mv and int(mv.group(1)) < 91:
+        return 90.0, tr("SVG di una versione vecchia di Inkscape: letto a 90 dpi, come la scriveva Inkscape "
+                        "(si cambia nelle preferenze)")
+    return 96.0, ""
+
+
 def import_svg(path_or_bytes, doc):
+    global LAST_NOTE
     import svgelements as se
 
     if isinstance(path_or_bytes, str):
@@ -91,8 +123,11 @@ def import_svg(path_or_bytes, doc):
         import gzip
         data = gzip.decompress(data)
     data, _ = clean_svg_bytes(data)
-    svg = se.SVG.parse(io.BytesIO(data), ppi=96.0, reify=True)
-    k = 25.4 / 96.0  # px -> mm
+    ppi, note = svg_ppi(data)
+    if note:
+        LAST_NOTE = note
+    svg = se.SVG.parse(io.BytesIO(data), ppi=ppi, reify=True)
+    k = 25.4 / ppi  # px -> mm
     shapes = []
     grays = set()
     for el in svg.elements():
@@ -322,6 +357,39 @@ def read_dxf(path):
             raise first from None
 
 
+def _dxf_color(dwg, ent, insert=None):
+    """0.22.1: il colore vero di una linea DXF. Prima si leggeva solo il colore RGB scritto sulla linea; quasi tutti
+    i programmi invece usano i colori numerati di AutoCAD (1 rosso, 5 blu…) o il colore del layer DXF («DaLayer»),
+    e così tutto finiva nel primo livello (il taglio rosso si perdeva). -> (r, g, b) o None."""
+    from ezdxf.colors import aci2rgb
+
+    def from_layer(name):
+        try:
+            lay = dwg.layers.get(name)
+        except Exception:  # noqa: BLE001  layer non dichiarato
+            return None
+        if lay.dxf.hasattr("true_color"):
+            tc = lay.dxf.true_color
+            return ((tc >> 16) & 255, (tc >> 8) & 255, tc & 255)
+        return _aci(abs(lay.dxf.get("color", 7)))
+
+    def _aci(n):
+        if n == 7 or not 1 <= n <= 255:
+            return (0, 0, 0)  # 7 = bianco su fondo nero, nero su fondo bianco: è il «nero» del disegno
+        r, g, b = aci2rgb(n)
+        return (r, g, b)
+
+    if ent.dxf.hasattr("true_color"):
+        tc = ent.dxf.true_color
+        return ((tc >> 16) & 255, (tc >> 8) & 255, tc & 255)
+    aci = ent.dxf.get("color", 256)
+    if aci == 0 and insert is not None:  # «DaBlocco»: il colore del blocco inserito
+        return _dxf_color(dwg, insert)
+    if aci in (0, 256):  # «DaLayer» (e «DaBlocco» fuori da un blocco)
+        return from_layer(ent.dxf.get("layer", "0"))
+    return _aci(aci)
+
+
 def import_dxf(path, doc):
     global LAST_NOTE
     from ezdxf import path as dxfpath
@@ -360,9 +428,7 @@ def import_dxf(path, doc):
                 if qp.elementCount() > 1:
                     color = None
                     try:
-                        if ent.dxf.hasattr("true_color"):
-                            tc = ent.dxf.true_color
-                            color = ((tc >> 16) & 255, (tc >> 8) & 255, tc & 255)
+                        color = _dxf_color(dwg, ent, e if ent is not e else None)
                     except Exception:  # noqa: BLE001
                         from .. import diag as _diag
 

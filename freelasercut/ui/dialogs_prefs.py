@@ -111,6 +111,9 @@ class PreferencesDialog(QDialog):
         self._button("ui", a.get("admin_code"))
         self._arrow_step("ui")
 
+        self._section("files", tr("File importati"))
+        self._svg_ppi("files")
+
         self._section("updates", tr("Aggiornamenti"))
         for k in ("update_auto", "update_preview"):
             self._check("updates", a.get(k))
@@ -140,6 +143,45 @@ class PreferencesDialog(QDialog):
         self.arrow_step_box = box
         self._add(key, row, text, tr("Un clic su una freccetta cambia il valore di tanto (mm o gradi); con Maiusc "
                                      "dieci volte tanto. Tastiera e rotella restano come prima."))
+
+    def _svg_ppi(self, key):
+        """0.22.1: a quanti punti per pollice leggere gli SVG senza unità di misura (domanda da GitHub: le misure
+        degli incastri di alcuni file di Illustrator)."""
+        from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QWidget
+
+        from ..core import io_formats
+
+        qs = getattr(self.win, "qs", None)
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        text = tr("Risoluzione degli SVG senza unità di misura")
+        h.addWidget(QLabel(text), 1)
+        box = QComboBox()
+        for val, label in ((0, tr("Da solo (consigliato)")), (96, tr("96 dpi (Inkscape, browser, la maggior parte)")),
+                           (90, tr("90 dpi (Inkscape fino alla 0.48)")), (72, tr("72 dpi (Illustrator)"))):
+            box.addItem(label, val)
+        try:
+            cur = int(qs.value("svg_ppi", 0) or 0) if qs is not None else 0
+        except (TypeError, ValueError):
+            cur = 0
+        box.setCurrentIndex(max(0, box.findData(cur)))
+
+        def chosen(_i):
+            val = int(box.currentData() or 0)
+            io_formats.SVG_PPI = val
+            if qs is not None:
+                qs.setValue("svg_ppi", val)
+                qs.sync()
+        box.currentIndexChanged.connect(chosen)
+        h.addWidget(box)
+        self.svg_ppi_box = box
+        self._add(key, row, text, tr("Conta solo per gli SVG che scrivono le misure in pixel o senza unità. Da "
+                                     "solo: 72 dpi per i file di Illustrator, 90 per il vecchio Inkscape, 96 per "
+                                     "tutti gli altri. Se un disegno importato è più grande o più piccolo del "
+                                     "giusto (per esempio gli incastri non tornano), scegli qui la risoluzione del "
+                                     "programma che l'ha creato e importalo di nuovo. Gli SVG in mm restano sempre "
+                                     "giusti."))
 
     # ------------------------------------------------------------------ mattoni
     def _section(self, key, title):

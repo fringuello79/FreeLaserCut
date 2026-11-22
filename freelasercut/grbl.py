@@ -791,16 +791,18 @@ class GrblController(QObject):
         self._fire_timer.start()
         return True
 
-    def frame_path(self, points, feed=6000, laser_pct=0.0, s_max=1000.0, travel_feed=None):
+    def frame_path(self, points, feed=6000, laser_pct=0.0, s_max=1000.0, travel_feed=None, back=None):
         """Percorre una spezzata in coordinate macchina: a laser spento con il jog (interrompibile),
         oppure con un filo di laser per vedere il contorno sul materiale. 0.21.2: travel_feed = «Spostamenti a
-        vuoto più lenti» del profilo: il Contorno non va più veloce di così, e l'andata al primo punto è un G1 S0."""
+        vuoto più lenti» del profilo: il Contorno non va più veloce di così, e l'andata al primo punto è un G1 S0.
+        0.22.2: back = punto (coordinate macchina) a cui tornare alla fine, a laser spento. Serve quando il lavoro
+        parte dalla posizione della testa: senza, la testa restava sull'angolo e il lavoro si spostava."""
         if not points:
             return
         if travel_feed:
             feed = min(feed, travel_feed)
         if laser_pct <= 0:
-            for x, y in points:
+            for x, y in list(points) + ([back] if back is not None else []):
                 self.send_line(f"$J=G53 G21 X{x:.3f} Y{y:.3f} F{feed:.0f}")
             return
         x0, y0 = points[0]
@@ -812,6 +814,11 @@ class GrblController(QObject):
         for x, y in points[1:]:
             self.send_line(f"G53 G1 X{x:.3f} Y{y:.3f} F{feed:.0f}")
         self.send_line("M5 S0")
+        if back is not None:  # il ritorno sempre dopo aver spento il laser
+            if travel_feed:
+                self.send_line(f"G53 G1 X{back[0]:.3f} Y{back[1]:.3f} S0 F{feed:.0f}")
+            else:
+                self.send_line(f"G53 G0 X{back[0]:.3f} Y{back[1]:.3f}")
 
     # ------------------------------------------------------------- autofocus
     @property

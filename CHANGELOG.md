@@ -1,5 +1,30 @@
 # Novità di FreeLaserCut
 
+## 0.22.2 — 22/11/2026
+Correzioni e ritocchi arrivati in giornata da chi sta provando la 0.22, più due miglioramenti nell'importazione di DXF e SVG. (La 0.22.1 non è uscita.)
+
+**Foto: niente più scatti nelle zone chiare.** Con alcune foto (per esempio con l'effetto *Matita*, che lascia molto bianco con tanti puntini sparsi) la testa andava a scatti: nei tratti bianchi lunghi più di 8 mm saltava veloce, ma con la rincorsa prima e dopo il salto veloce durava pochi millimetri, e con una rincorsa lunga tornava perfino indietro. Ora salta veloce solo se il salto resta lungo almeno 8 mm anche tolte le due rincorse; gli altri tratti bianchi li fa a laser spento alla velocità del livello. Le parti incise sono identiche a prima, il lavoro dura qualche punto percentuale in più. Vale anche per i riempimenti.
+
+**Adatta gli incastri allo spessore.**
+- Le frecce della **Tolleranza** vanno di 0,1 mm (prima di 1 mm).
+- L'anteprima si ricalcola una volta sola, quando smetti di cliccare: da 3 a 5 mm non fa più il conto anche per il 4. Nel frattempo c'è scritto «Calcolo l'anteprima…».
+- La misura del disegno è molte volte più veloce, con gli stessi risultati. Se all'apertura serve più di mezzo secondo compare una barra: «Misuro gli incastri del disegno…».
+
+**Nome del progetto.** Un lavoro aperto dalla Galleria, svuotato del tutto e riempito importando un altro file teneva il titolo della scheda della Galleria. Ora un progetto svuotato del tutto prende sempre il nome del primo file importato, da dovunque arrivasse.
+
+**Contorno con la partenza dalla posizione della testa.** Con *Partenza: Posizione attuale della testa* e un pallino diverso da quello in alto a sinistra, dopo il Contorno la testa restava sull'angolo del giro e il lavoro, che segue la testa, si spostava di mezzo ingombro a ogni contorno. Ora, finito il giro, la testa torna da dove è partita, a laser spento: il lavoro resta dov'è e si può rifare il contorno quante volte si vuole. Con le altre partenze non cambia niente.
+
+**Se l'interfaccia Banco non riesce ad aprirsi.** Su un Mac, dopo il passaggio al Banco, il programma si chiudeva a ogni avvio e non c'era più modo di entrare, nemmeno per mandare un rapporto. La causa è ancora da trovare; intanto non può più lasciare fuori nessuno:
+- se il Banco non si apre, all'avvio dopo FreeLaserCut parte con l'interfaccia Classica e lo dice in una fascia, con i pulsanti **Manda un rapporto**, **Riprova il Banco** e **Resta in Classica**. Se succede due volte di seguito, la scelta salvata diventa Classica (il Banco si rimette quando si vuole da *Impostazioni → Interfaccia*);
+- sul Mac **Officina sul secondo monitor** parte spenta: con due schermi era la prima cosa che il Banco faceva dopo l'avvio, e su un Mac non è mai stata provata. Chi la vuole la accende da *Impostazioni*;
+- le prove automatiche che aprono il programma con la finestra vera ora aprono anche il Banco, su Mac e su Linux.
+
+**Ringraziamenti.** Entrano nell'elenco universalecinema-boop e Paul H. E da questa versione ci sono i **co-sviluppatori: Evoluzione2 e Stefano Modena**, in *Aiuto → Informazioni*, in *Aiuto → Ringraziamenti*, nel README e nel sito.
+
+**DXF: i colori diventano livelli.** Un disegno DXF finiva tutto nel primo livello, mentre lo stesso disegno in SVG teneva il suo livello di taglio. Del DXF si leggeva solo il colore scritto per esteso sulla linea; quasi tutti i programmi usano invece i colori numerati (1 rosso, 5 blu…) o il colore del layer DXF. Ora si leggono tutti: rosso va nel livello rosso, blu nel blu, e il nero (o bianco) resta nel primo.
+
+**SVG senza unità di misura.** Gli SVG con le misure in pixel non dicono quanto è grande un pixel: Illustrator ne conta 72 per pollice, le vecchie versioni di Inkscape 90, tutti gli altri 96. Prima si leggevano sempre a 96, e un disegno di Illustrator veniva più piccolo di un quarto (con gli incastri che non tornavano). Ora FreeLaserCut riconosce da solo i file di Illustrator e del vecchio Inkscape, e dopo l'importazione lo dice nella barra in basso. Per i casi particolari, in *Preferenze → File importati* c'è **Risoluzione degli SVG senza unità di misura**: da solo, 96, 90 o 72 dpi. Gli SVG in mm restano sempre giusti.
+
 ## 0.22.0 — 22/11/2026
 La **Galleria FreeLaserCut**: i lavori fatti con FreeLaserCut si condividono e si scaricano direttamente dal programma, con l'anteprima, i materiali e i parametri di chi li ha fatti. In più gli incastri che si adattano a un materiale di spessore diverso, la configurazione guidata della macchina che controlla l'aria, e sul Mac la versione minima giusta.
 

@@ -624,8 +624,10 @@ def leggi(*parti):
 readme, changelog, sito, priv = leggi("README.md"), leggi("CHANGELOG.md"), leggi("docs", "index.html"), leggi("docs", "privacy.html")
 from freelasercut import __version__  # noqa: E402
 
-check("versione 0.22.0, in cima al CHANGELOG e nel README", __version__ == "0.22.0" and changelog.split("\n## ")[1].startswith("0.22.0")
-      and "**Versione 0.22.0**" in readme)
+# 0.22.2: il numero è andato avanti; la 0.22.0 resta nel CHANGELOG e il README porta la versione di adesso
+check("versione dalla 0.22.0 in poi, in cima al CHANGELOG e nel README; la 0.22.0 resta nel CHANGELOG",
+      tuple(int(x) for x in __version__.split(".")[:3]) >= (0, 22, 0) and changelog.split("\n## ")[1].startswith(__version__)
+      and f"**Versione {__version__}**" in readme and "\n## 0.22.0 — 22/11/2026" in changelog)
 check("CHANGELOG, README e sito parlano della Galleria con i due comandi del menu File",
       all("Condividi nella Galleria" in t and "Galleria FreeLaserCut" in t for t in (changelog, readme, sito))
       and "Share to the Gallery" in sito)

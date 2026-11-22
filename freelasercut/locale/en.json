@@ -4168,5 +4168,21 @@
  "{0} restano come sono (troppo vicini a un altro incastro o al bordo).": "{0} stay as they are (too close to another joint or to the edge).",
  "{0} tacche": "{0} notches",
  "Misuro gli incastri del disegno…": "Measuring the joints in the drawing…",
- "Calcolo l'anteprima…": "Calculating the preview…"
+ "Calcolo l'anteprima…": "Calculating the preview…",
+ "SVG di Illustrator senza unità di misura: letto a 72 dpi, come lo scrive Illustrator (si cambia nelle preferenze)": "Illustrator SVG without units: read at 72 dpi, as Illustrator writes it (you can change this in the preferences)",
+ "SVG di una versione vecchia di Inkscape: letto a 90 dpi, come la scriveva Inkscape (si cambia nelle preferenze)": "SVG from an old Inkscape version: read at 90 dpi, as Inkscape used to write it (you can change this in the preferences)",
+ "File importati": "Imported files",
+ "Risoluzione degli SVG senza unità di misura": "Resolution of SVG files without units",
+ "Da solo (consigliato)": "Automatic (recommended)",
+ "96 dpi (Inkscape, browser, la maggior parte)": "96 dpi (Inkscape, browsers, most programs)",
+ "90 dpi (Inkscape fino alla 0.48)": "90 dpi (Inkscape up to 0.48)",
+ "72 dpi (Illustrator)": "72 dpi (Illustrator)",
+ "Conta solo per gli SVG che scrivono le misure in pixel o senza unità. Da solo: 72 dpi per i file di Illustrator, 90 per il vecchio Inkscape, 96 per tutti gli altri. Se un disegno importato è più grande o più piccolo del giusto (per esempio gli incastri non tornano), scegli qui la risoluzione del programma che l'ha creato e importalo di nuovo. Gli SVG in mm restano sempre giusti.": "Only matters for SVG files that give sizes in pixels or without units. Automatic: 72 dpi for Illustrator files, 90 for old Inkscape, 96 for everything else. If an imported drawing is bigger or smaller than it should be (for example the joints don't fit), choose the resolution of the program that made it here and import it again. SVG files in mm are always right.",
+ "Co-sviluppatori: {0}": "Co-developers: {0}",
+ "e": "and",
+ "FreeLaserCut non è riuscito ad aprirsi due volte di seguito con l'interfaccia Banco: da ora usa la Classica. Mandaci un rapporto, così capiamo perché.": "FreeLaserCut failed to open twice in a row with the Workbench interface: from now on it uses the Classic one. Send us a report so we can find out why.",
+ "L'ultima volta FreeLaserCut non è riuscito ad aprirsi con l'interfaccia Banco: per questa volta usa la Classica. Mandaci un rapporto, così capiamo perché.": "Last time FreeLaserCut failed to open with the Workbench interface: this time it uses the Classic one. Send us a report so we can find out why.",
+ "Manda un rapporto": "Send a report",
+ "Riprova il Banco": "Try Workbench again",
+ "Resta in Classica": "Stay in Classic"
 }

@@ -11,10 +11,10 @@
 > - Windows installer, **Linux AppImage** and **macOS .dmg (preview, Apple Silicon and Intel)** in **Releases**. The macOS version is new and not yet tested with a real laser: testers welcome. The Linux version is the same program with the same automated tests, but real-machine testing on Linux is done by the people who install it: please report problems with *Help → Send a report to support*. Documentation below is in Italian.
 
 Software **libero** di incisione e taglio laser per macchine GRBL, con profilo nativo per il **Longer B1 40W**.
-Di **fringuello79** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
+Di **fringuello79**, con i co-sviluppatori **Evoluzione2** e **Stefano Modena** · licenza **GNU GPL 3.0 o successiva** (vedi `LICENSE`).
 Video tutorial sul canale YouTube **[Free Laser Cut](https://www.youtube.com/@FreeLaserCut)** (anche dal programma: *Aiuto → Video tutorial su YouTube*).
 
-**Versione 0.22.0** — la **Galleria FreeLaserCut**: condividi i tuoi lavori e scarica quelli degli altri direttamente dal programma (*File → Condividi nella Galleria…* e *File → Galleria FreeLaserCut…*), con anteprima, materiale e parametri, stelle e «L'ho fatto anch'io», senza account. In più «Adatta gli incastri allo spessore» (fessure, fori, tacche e linguette insieme, per un materiale di spessore diverso), la configurazione guidata che prova l'aria (M8 o M7) e, sul Mac, il minimo vero: macOS 14.4. Dalla 0.21.2: la Lucciola dalla tastiera (Alt+Maiusc+L), la velocità costante a laser spento, il joystick fisico (in prova), VEVOR A7 e Sculpfun iCube Ultra Dual nel catalogo.
+**Versione 0.22.2** — dalla 0.22 la **Galleria FreeLaserCut**: condividi i tuoi lavori e scarica quelli degli altri direttamente dal programma (*File → Condividi nella Galleria…* e *File → Galleria FreeLaserCut…*), con anteprima, materiale e parametri, stelle e «L'ho fatto anch'io», senza account. In più «Adatta gli incastri allo spessore» (fessure, fori, tacche e linguette insieme, per un materiale di spessore diverso), la configurazione guidata che prova l'aria (M8 o M7) e, sul Mac, il minimo vero: macOS 14.4. La 0.22.2 corregge gli scatti nelle foto con molto bianco e il Contorno che spostava il lavoro con la partenza dalla testa, parte in Classica se il Banco non riesce ad aprirsi, rende più veloce «Adatta gli incastri», legge i colori numerati e dei layer dei DXF e riconosce gli SVG di Illustrator a 72 dpi. Dalla 0.21.2: la Lucciola dalla tastiera (Alt+Maiusc+L), la velocità costante a laser spento, il joystick fisico (in prova), VEVOR A7 e Sculpfun iCube Ultra Dual nel catalogo.
 
 Tutte le novità, versione per versione, sono in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -326,7 +326,7 @@ Laser di classe 4, 450 nm. Indossa occhiali protettivi adatti, non lasciare mai 
 
 ## Ringraziamenti
 
-FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter, Mauro C., Gianni, marcello, Sengir, Daniel Z., solboricua.
+FreeLaserCut migliora perché qualcuno lo prova, lo racconta e ci dice che cosa non va. Grazie a: Stefano Modena, MakerHub, leone2805, Evoluzione2, rinosp, Brenda-IT, giorgiobattisti56-wq, giuseppegrassano77-coder, OrsoLaser, Roberto C., SpikeTheDragon40k, Deborah, Paolo1968, DolomiticHunter, Mauro C., Gianni, marcello, Sengir, Daniel Z., solboricua, universalecinema-boop, Paul H.
 
 Gli stessi nomi compaiono sulla schermata di avvio e in *Aiuto → Ringraziamenti*. Fino alla versione 0.20.6 l'elenco ringrazia anche chi ci ha lasciato il proprio nome in un rapporto all'assistenza. Da qui in poi raccoglie chi aiuta FreeLaserCut in modo attivo e con regolarità (prove ripetute, idee, codice, traduzioni) o con una donazione. Se è il tuo caso, scrivi il tuo nome nel campo «Nome per i ringraziamenti» quando mandi un rapporto da *Aiuto → Invia un rapporto all'assistenza*.
 

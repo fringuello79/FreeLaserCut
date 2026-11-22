@@ -222,6 +222,19 @@ jobs:
           grep -q "piattaforma Qt xcb" selftest.txt
           grep -q "aggiornamento: appimage" selftest.txt
           grep -q "ESITO: tutto a posto" selftest.txt
+      # 0.22.2 (segnalazione dal Mac): la stessa prova con l'interfaccia Banco, che prima non veniva mai aperta con una
+      # finestra vera. «continue-on-error»: è una prova nuova e non deve fermare la pubblicazione; l'esito è nel registro.
+      - name: Prova di avvio nel Banco (X11)
+        continue-on-error: true
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          QT_QPA_PLATFORM: xcb
+          FLC_UI: banco
+        run: |
+          app=$(ls dist/FreeLaserCut-*-x86_64.AppImage)
+          xvfb-run -a -s "-screen 0 1920x1080x24" "$app" --self-test | tee selftest-banco.txt
+          grep -q "interfaccia Banco: ok" selftest-banco.txt
+          grep -q "ESITO: tutto a posto" selftest-banco.txt
       - name: Server per Claude (--mcp-server)
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
@@ -311,6 +324,17 @@ jobs:
           grep -q "piattaforma Qt cocoa" selftest.txt
           grep -q "pacchetto .app con la frase della camera: sì" selftest.txt
           grep -q "ESITO: tutto a posto" selftest.txt
+      # 0.22.2 (segnalazione dal Mac: con l'interfaccia Banco il programma si chiudeva all'avvio): la stessa prova nel
+      # Banco, con l'Officina che diventa finestra e torna cassetto. «continue-on-error»: non ferma la pubblicazione.
+      - name: Prova di avvio nel Banco (finestra vera, Cocoa)
+        continue-on-error: true
+        env:
+          FLC_UI: banco
+        run: |
+          build/mac/FreeLaserCut.app/Contents/MacOS/FreeLaserCut --self-test | tee selftest-banco.txt
+          grep -q "piattaforma Qt cocoa" selftest-banco.txt
+          grep -q "interfaccia Banco: ok" selftest-banco.txt
+          grep -q "ESITO: tutto a posto" selftest-banco.txt
       - name: Server per Claude (--mcp-server)
         run: |
           echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"prova","version":"1"}}}' \

@@ -641,6 +641,11 @@ if __name__ == "__main__":
     run_suite("test_v220_incastri.py", "Adatta gli incastri allo spessore nell'interfaccia Banco", "banco")
     run_suite("test_v221_vuoti.py", "Vuoti nelle righe di foto e riempimenti: salto veloce solo se resta lungo dopo le rincorse, mai all'indietro (foto con l'effetto Matita)")
     run_suite("test_v221_vuoti.py", "Vuoti nelle righe di foto e riempimenti nell'interfaccia Banco", "banco")
+    run_suite("test_v221_import.py", "DXF con i colori numerati e del layer (il taglio rosso non si perde); SVG senza unità a 72, 90 o 96 dpi (Illustrator)")
+    run_suite("test_v221_import.py", "DXF e SVG importati nell'interfaccia Banco", "banco")
+    run_suite("test_v222_contorno.py", "Contorno con la partenza dalla posizione della testa: finito il giro la testa torna da dove è partita e il lavoro non si sposta (9 pallini, laser spento e puntino, rettangolo e convesso)")
+    run_suite("test_v222_contorno.py", "Contorno con la partenza dalla testa nell'interfaccia Banco", "banco")
+    run_suite("test_v222_banco_rete.py", "Rete di sicurezza del Banco: dopo un avvio fallito si parte in Classica con la fascia, alla seconda la scelta diventa Classica; Officina sul secondo monitor spenta sul Mac; prova d'avvio di GitHub anche nel Banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

@@ -24,6 +24,12 @@ def run():
     os.environ.setdefault("FLC_UI", "classica")
     ok = True
     out = []
+    try:  # 0.22.2: se una libreria fa chiudere il programma di colpo, nel registro resta almeno la riga di Python
+        import faulthandler
+
+        faulthandler.enable()
+    except Exception:  # noqa: BLE001
+        pass
 
     def say(text):
         out.append(text)
@@ -59,6 +65,23 @@ def run():
         w.show()
         app.processEvents()
         say(f"  finestra principale: ok ({w.width()}×{w.height()}, piattaforma Qt {app.platformName()})")
+        if getattr(w, "banco", None) is not None:
+            # 0.22.2 (rinosp, Mac): il Banco provato con la finestra vera, compresa l'Officina che diventa finestra
+            # (quello che succede da sola con due schermi) e torna cassetto. Prima la prova d'avvio era solo in Classica
+            off = w.banco.officina
+            off.show_tab("laser")
+            app.processEvents()
+            off.hide_drawer()
+            app.processEvents()
+            off.to_window(w.screen() or app.primaryScreen())
+            app.processEvents()
+            off.to_drawer()
+            app.processEvents()
+            w.banco.check_screens()
+            app.processEvents()
+            say(f"  interfaccia Banco: ok (Officina cassetto, finestra, di nuovo cassetto; schermi: {len(app.screens())})")
+        else:
+            say("  interfaccia Classica: ok")
         if sys.platform == "darwin":  # 0.20.8: il permesso della camera si chiede solo dal pacchetto .app
             from . import camera as _cam
 
