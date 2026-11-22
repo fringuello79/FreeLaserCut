@@ -754,6 +754,10 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None, first_forward=True
     steady = getattr(cs, "steady_travel", False) is True
     if steady:
         gap_g1 = math.inf
+    # 0.22.1 (Evoluzione2, foto con l'effetto Matita): un vuoto si salta veloce solo se il tratto veloce, tolte le due
+    # rincorse, resta lungo almeno gap_g1. Prima bastava il vuoto: con rincorse lunghe il salto veloce era cortissimo o
+    # tornava indietro, e sulle foto con tanti puntini sparsi la testa andava avanti e indietro a scatti
+    gap_rapid = gap_g1 + 2.0 * max(float(cs.overscan or 0.0), 0.0)
     started = False
     for row_n, (y, segs) in enumerate(lines):
         if not row_n & 15:
@@ -782,7 +786,7 @@ def _emit_scan(w, lines, rot, cs, bed, gap_g1, power_of=None, first_forward=True
                 gap = abs(xa - segs[k - 1][1])
                 if gap < 1e-9:
                     pass  # pixel attaccato al precedente: il movimento a S0 sarebbe lungo zero (feed non scrive nulla)
-                elif gap <= gap_g1:
+                elif gap <= gap_rapid:
                     w.feed(ax, ay, 0.0, cs.speed)
                 else:
                     ex, ey = _clamp_dir(*back(segs[k - 1][1], y), ddx, ddy, cs.overscan, bed)

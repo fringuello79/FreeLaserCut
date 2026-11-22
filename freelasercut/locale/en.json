@@ -4166,5 +4166,7 @@
  "{0} linguette": "{0} tabs",
  "{0} restano come sono": "{0} stay as they are",
  "{0} restano come sono (troppo vicini a un altro incastro o al bordo).": "{0} stay as they are (too close to another joint or to the edge).",
- "{0} tacche": "{0} notches"
+ "{0} tacche": "{0} notches",
+ "Misuro gli incastri del disegno…": "Measuring the joints in the drawing…",
+ "Calcolo l'anteprima…": "Calculating the preview…"
 }

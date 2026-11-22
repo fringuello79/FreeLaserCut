@@ -1657,7 +1657,11 @@ class MainWindow(QMainWindow):
             if not ok:
                 return None
             old, new, tol = dlg.values()
-        res = change_thickness(self.editor, sel, old, new, tol)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            res = change_thickness(self.editor, sel, old, new, tol)
+        finally:
+            QApplication.restoreOverrideCursor()
         if res is None:
             return None
         done, skipped = res
@@ -1957,7 +1961,9 @@ class MainWindow(QMainWindow):
         # 0.22.0 (Evoluzione2): un progetto .flcut aperto e poi svuotato del tutto, in cui si importa un altro file, è
         # un progetto nuovo: prende il nome del file importato e non è più legato al vecchio file (Salva chiede dove,
         # così non si sovrascrive per sbaglio il progetto di prima)
-        emptied = was_empty and bool(doc.path)
+        # 0.22.1 (Evoluzione2): lo stesso per un progetto aperto dalla Galleria (ha il titolo della scheda, non un file):
+        # un progetto svuotato del tutto non tiene il nome di quello che non c'è più
+        emptied = was_empty and (bool(doc.path) or doc.name not in ("", tr("Senza titolo"), "Senza titolo", "Progetto"))
         added = []
         first_name = None
         self._import_note = ""

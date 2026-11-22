@@ -117,7 +117,9 @@ e = EllipseShape(30, 20); e.layer = 2; d3.shapes.append(e)
 h_line = hashlib.md5("\n".join(gcode.generate(d2, prof, gcode.JobOptions()).lines).encode()).hexdigest()
 h_fill = hashlib.md5("\n".join(gcode.generate(d3, prof, gcode.JobOptions()).lines).encode()).hexdigest()
 check("G-code delle linee identico alla 0.9", h_line == "5cffa50b69026574f06587ef908cd1bb", h_line)
-check("G-code dei riempimenti identico alla 0.9", h_fill == "f5ee11e54c34bf8b48b97d7e0392a045", h_fill)
+# 0.22.1: i vuoti fra 8 mm e 8 mm più le due rincorse non si saltano più veloci (salto di 3-5 mm, a scatti): stessi tratti
+# accesi della 0.9, 12 salti veloci in meno (prima f5ee11e54c34bf8b48b97d7e0392a045)
+check("G-code dei riempimenti come la 0.9, senza i salti veloci cortissimi", h_fill == "a075ab34a55e34ef53e0e200b853d27c", h_fill)
 
 # ------------------------------------------------------------------ foto enormi: conferma prima di preparare il lavoro
 big = ImageShape(None, 400, 300); ed.doc.images["big"] = Image.new("L", (40, 30), 128); big.image_id = "big"; big.layer = 5

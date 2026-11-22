@@ -226,6 +226,50 @@ spin()
 check("7b Annulla dell'importazione: progetto vuoto «Senza titolo»", not ed.doc.shapes and ed.doc.name == tr("Senza titolo"),
       ed.doc.name)
 
+# 7c (0.22.1, Evoluzione2): progetto aperto dalla Galleria (titolo della scheda, nessun file), svuotato con
+# «Seleziona tutto» ed «Elimina» (i comandi veri), poi un file importato
+from freelasercut.ui import dialogs_galleria  # noqa: E402
+
+w.editor.dirty = False
+w.file_new()
+spin()
+gdoc = Document()
+gdoc.add(RectShape(20, 10))
+gdoc.add(RectShape(5, 5))
+gpath = os.path.join(d, "galleria.flcut")
+gdoc.save(gpath)
+dialogs_galleria.apri_nel_programma(w, open(gpath, "rb").read(), {"titolo": "Targhetta FreeLaserCut"})
+spin()
+ed = w.editor
+check("7c aperto dalla Galleria: si chiama come la scheda, senza file", ed.doc.name == "Targhetta FreeLaserCut"
+      and ed.doc.path is None and "Targhetta FreeLaserCut" in w.windowTitle(), (ed.doc.name, ed.doc.path))
+w.acts["select_all"].trigger()
+w.acts["delete"].trigger()
+spin()
+check("7c Seleziona tutto + Elimina: il progetto è vuoto", not ed.doc.all_shapes(), len(ed.doc.all_shapes()))
+w.import_files([svg("Paperino.svg", 30)])
+spin()
+check("7c importato un file: prende il nome del file, non quello della scheda", ed.doc.name == "Paperino"
+      and "Paperino" in w.windowTitle() and "Targhetta" not in w.windowTitle(), (ed.doc.name, w.windowTitle()))
+check("7c …e Salva propone «Paperino»", any("Paperino" in x for x in proposals())
+      and not any("Targhetta" in x for x in proposals()), proposals())
+
+# 7d lo stesso con un .flcut aperto e svuotato con i comandi veri
+w.editor.dirty = False
+w.file_open(gpath)
+spin()
+ed = w.editor
+check("7d .flcut aperto: si chiama come il file", w.project_stem() == "galleria" and ed.doc.path == gpath,
+      (w.project_stem(), ed.doc.path))
+w.acts["select_all"].trigger()
+w.acts["delete"].trigger()
+spin()
+w.import_files([svg("Minnie.svg", 30)])
+spin()
+check("7d Seleziona tutto + Elimina + Importa: prende il nome del file importato e non è più legato al .flcut",
+      ed.doc.name == "Minnie" and ed.doc.path is None and "Minnie" in w.windowTitle()
+      and any("Minnie" in x for x in proposals()), (ed.doc.name, ed.doc.path, w.windowTitle(), proposals()))
+
 # 3b l'ordine d'importazione, non quello alfabetico
 w.editor.dirty = False
 w.file_new()

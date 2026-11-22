@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 250. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 252. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -68,7 +68,7 @@ Suite: 250. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
 - `test_v212_catalogo.py`: Catalogo: VEVOR A7 5W (come l'Atomstack A5 Pro) e Sculpfun iCube Ultra Dual 12W e 1.2W IR (area prudente 135 × 135, dichiarata 150 × 135, famiglia nel riconoscimento, nota sul raggio a 1064 nm, accelerazione 500, tabella dei materiali Sculpfun con interlinea 0,05), traduzioni
 
-## Foto e immagini (25)
+## Foto e immagini (27)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -95,6 +95,8 @@ Suite: 250. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v211_foto.py` (Banco): Prepara foto sulla foto ritagliata nell'interfaccia Banco
 - `test_v212_velocita.py`: Velocità costante a laser spento (riempimenti e immagini) e «Spostamenti a vuoto più lenti» (macchina): righe intere a velocità di lavoro senza G0, salti fra le forme e fra i livelli che restano, G-code identico alla 0.21.1 con le caselle spente, tetto alla velocità della scheda, Contorno, stima del tempo, file vecchi
 - `test_v220_galleria.py`: Galleria dei lavori condivisi (in prova): comandi nel menu File, modulo, progetto ripulito e che cosa parte davvero, foto senza EXIF, risposte e file ostili, voti, segnalazioni, «I miei lavori», apertura come progetto nuovo
+- `test_v221_vuoti.py`: Vuoti nelle righe di foto e riempimenti: salto veloce solo se resta lungo dopo le rincorse, mai all'indietro (foto con l'effetto Matita)
+- `test_v221_vuoti.py` (Banco): Vuoti nelle righe di foto e riempimenti nell'interfaccia Banco
 
 ## Lavoro e G-code (39)
 

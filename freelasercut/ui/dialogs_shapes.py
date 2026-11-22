@@ -1,8 +1,10 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """Crea una forma con misure esatte: tipo, larghezza, altezza, posizione del centro, parametro."""
-from PySide6.QtCore import Qt
+import os
+
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QLabel, QVBoxLayout,
+    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QLabel, QVBoxLayout,
 )
 
 from ..core import shapes_lib
@@ -213,7 +215,30 @@ class ThicknessDialog(QDialog):
         super().__init__(win)
         self.win, self.shapes = win, shapes
         self._polys = [_shape_polys(s) for s in shapes]
-        self.found_list = slots.detect(self._polys)
+        # 0.22.1 (Evoluzione2): sui disegni grandi la misura richiede qualche secondo: una barra mostra che sta
+        # lavorando (compare solo se ci mette più di mezzo secondo)
+        bar = None
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            from PySide6.QtWidgets import QProgressDialog
+            bar = QProgressDialog(tr("Misuro gli incastri del disegno…"), "", 0, 100, win)
+            bar.setWindowTitle(tr("Adatta gli incastri allo spessore"))
+            bar.setCancelButton(None)
+            bar.setMinimumDuration(500)
+            bar.setWindowModality(Qt.WindowModal)
+        self.progress_steps = []
+
+        def step(frac):
+            self.progress_steps.append(frac)
+            if bar is not None:
+                bar.setValue(int(frac * 100))
+                QApplication.processEvents()
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            self.found_list = slots.detect(self._polys, progress=step)
+        finally:
+            QApplication.restoreOverrideCursor()
+            if bar is not None:
+                bar.close()
         self.setWindowTitle(tr("Adatta gli incastri allo spessore"))
         v = QVBoxLayout(self)
         intro = QLabel(tr("Per usare il disegno con un materiale di spessore diverso. Cambiano insieme la larghezza "
@@ -235,6 +260,7 @@ class ThicknessDialog(QDialog):
         self.old = _spin(0.5, 30, guess)
         self.new = _spin(0.5, 30, last_new if last_new > 0 and abs(last_new - guess) > 1e-9 else guess)
         self.tol = _spin(0.0, 2, 0.3)
+        self.tol.setSingleStep(0.1)  # 0.22.1 (Evoluzione2): con le frecce di 0,1 mm, non di 1 mm
         f.addRow(tr("Spessore del disegno"), self.old)
         f.addRow(tr("Spessore nuovo"), self.new)
         f.addRow(tr("Tolleranza"), self.tol)
@@ -255,18 +281,32 @@ class ThicknessDialog(QDialog):
         else:
             self.found.setText(tr("Nel disegno non ho trovato incastri riconoscibili: scrivi tu lo spessore per cui "
                                   "è fatto."))
+        # 0.22.1 (Evoluzione2): l'anteprima si rifà solo quando si smette di cliccare sulle frecce (da 3 a 5 un
+        # conto solo, non uno per il 4 e uno per il 5)
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(350)
+        self._timer.timeout.connect(self._update)
+        self.updates = 0
         for sp in (self.old, self.new, self.tol):
-            sp.valueChanged.connect(self._update)
+            sp.valueChanged.connect(self._later)
         self._update()
 
     def values(self):
         return self.old.value(), self.new.value(), self.tol.value()
+
+    def _later(self, *_):
+        self.result.setText(tr("Calcolo l'anteprima…"))
+        self.ok.setEnabled(False)
+        self._timer.start()
 
     def _update(self, *_):
         from PySide6.QtGui import QPainterPath
 
         from ..core import slots
 
+        self._timer.stop()
+        self.updates += 1
         old, new, tol = self.values()
         try:
             res, done, skipped, _ch = slots.change_thickness(self._polys, old, new, tol)
@@ -297,6 +337,10 @@ class ThicknessDialog(QDialog):
             cv.viewport().update()
 
     def accept(self):
+        if self._timer.isActive():  # OK premuto prima che l'anteprima finisse: prima il conto, poi si chiude
+            self._update()
+            if not self.ok.isEnabled():
+                return
         qs = getattr(self.win, "qs", None)
         if qs is not None:
             qs.setValue("thick_new", self.new.value())
@@ -339,18 +383,32 @@ class SlotsDialog(QDialog):
         bb.rejected.connect(self.reject)
         self.ok = bb.button(QDialogButtonBox.Ok)
         v.addWidget(bb)
+        # 0.22.1 (Evoluzione2): l'anteprima si rifà solo quando si smette di cliccare sulle frecce (da 3 a 5 un
+        # conto solo, non uno per il 4 e uno per il 5)
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(350)
+        self._timer.timeout.connect(self._update)
+        self.updates = 0
         for sp in (self.old, self.new, self.tol):
-            sp.valueChanged.connect(self._update)
+            sp.valueChanged.connect(self._later)
         self._update()
 
     def values(self):
         return self.old.value(), self.new.value(), self.tol.value()
+
+    def _later(self, *_):
+        self.result.setText(tr("Calcolo l'anteprima…"))
+        self.ok.setEnabled(False)
+        self._timer.start()
 
     def _update(self, *_):
         from PySide6.QtGui import QPainterPath
 
         from ..core import slots
 
+        self._timer.stop()
+        self.updates += 1
         old, new, tol = self.values()
         try:
             res, done, skipped, _ch = slots.resize(self._polys, old, new, tol)

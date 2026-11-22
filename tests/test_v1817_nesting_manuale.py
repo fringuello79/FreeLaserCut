@@ -306,7 +306,7 @@ for name in ("nest_manual.py", "dialogs_nest.py", "main_window.py"):
             continue
         if any(t in k for t in ("seleziona prima", "Seleziona prima", "avevi selezionato", "Lascia sul piano l'area",
                                 "il contorno dell'area sparisce", "selezionato prima")):
-            if "fessure" in k:  # 0.20.9: «Seleziona prima il pezzo con le fessure» è di un altro comando
+            if "fessure" in k or "incastri" in k:  # 0.20.9 e 0.22.0: testi di altri comandi (fessure, incastri)
                 continue
             keys.add(k)
 check("i testi nuovi del nesting manuale sono nel codice (6)", len(keys) == 6, sorted(k[:40] for k in keys))

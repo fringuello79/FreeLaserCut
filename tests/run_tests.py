@@ -639,6 +639,8 @@ if __name__ == "__main__":
     run_suite("test_v220_aria.py", "Configurazione guidata della macchina, passo dell'aria nell'interfaccia Banco", "banco")
     run_suite("test_v220_incastri.py", "Adatta gli incastri allo spessore: spessore trovato da solo, fessure e fori allargati al centro, tacche più profonde, linguette più lunghe, bordi a dita con le punte ferme, angoli e tetti obliqui, incastri troppo vicini lasciati come sono, andata e ritorno")
     run_suite("test_v220_incastri.py", "Adatta gli incastri allo spessore nell'interfaccia Banco", "banco")
+    run_suite("test_v221_vuoti.py", "Vuoti nelle righe di foto e riempimenti: salto veloce solo se resta lungo dopo le rincorse, mai all'indietro (foto con l'effetto Matita)")
+    run_suite("test_v221_vuoti.py", "Vuoti nelle righe di foto e riempimenti nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

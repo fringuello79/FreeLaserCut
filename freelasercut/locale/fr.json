@@ -4166,5 +4166,7 @@
  "{0} linguette": "{0} languettes",
  "{0} restano come sono": "{0} restent tels quels",
  "{0} restano come sono (troppo vicini a un altro incastro o al bordo).": "{0} restent tels quels (trop près d'un autre assemblage ou du bord).",
- "{0} tacche": "{0} encoches"
+ "{0} tacche": "{0} encoches",
+ "Misuro gli incastri del disegno…": "Mesure des assemblages du dessin…",
+ "Calcolo l'anteprima…": "Calcul de l'aperçu…"
 }

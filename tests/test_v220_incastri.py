@@ -262,8 +262,95 @@ dH = slots.detect(H)
 check("tanti fori stretti di 0,1 e una sola linguetta: lo spessore resta quello della linguetta (4)",
       dH and dH[0][0] == 4.0, dH)
 
+# ============================================================ 0.22.1 più veloce, stessi risultati
+print("--- velocità")
+import random  # noqa: E402
+
+rnd = random.Random(7)
+plain = [[(rnd.uniform(0, 50), rnd.uniform(0, 50)) for _ in range(rnd.randint(3, 9))] for _ in range(40)]
+mat = slots._Material(plain)
+pts = [(rnd.uniform(-5, 55), rnd.uniform(-5, 55)) for _ in range(800)]
+check("pari-dispari con gli ingombri: identico a quello su tutti i contorni",
+      all(slots.in_material(p, mat) == slots.in_material(p, plain) for p in pts))
+# molti pezzi: la misura e il cambio restano rapidi e uguali al conto pezzo per pezzo
+base = panel_a()
+grid = [[([(x + gx * 140.0, y + gy * 120.0) for x, y in base], True)] for gx in range(6) for gy in range(5)]
+import time  # noqa: E402
+
+t_0 = time.time()
+det_many = slots.detect(grid)
+res_many = slots.change_thickness(grid, det_many[0][0], 6.0)
+dt = time.time() - t_0
+one = slots.change_thickness([[(base, True)]], T, 6.0)
+check("30 pannelli: stesso spessore trovato e 30 volte gli stessi incastri cambiati",
+      det_many[0][0] == T and all(res_many[1][k] == 30 * one[1][k] for k in res_many[1]), (det_many[0], res_many[1], one[1]))
+check("30 pannelli: misura e cambio in pochi secondi", dt < 8.0, round(dt, 2))
+
+
+def reference(polys_by_shape, old, new, tol=0.3):
+    """Il controllo fra contorni della 0.22.0, lento ma semplice: dal primo contorno che ne tocca un altro si torna
+    com'era e si ricomincia da capo."""
+    cleaned, material = slots._cleaned(polys_by_shape)
+    items = []
+    for si, shape in enumerate(cleaned):
+        for ci, (pts_, closed) in enumerate(shape):
+            if closed and len(pts_) >= 4:
+                q, d_, s_ = slots.change_poly(pts_, material, old, new, tol)
+                items.append([si, ci, pts_, q, d_, s_, closed])
+            else:
+                items.append([si, ci, pts_, pts_, {}, [], closed])
+    while True:
+        bad = None
+        for a_i, it in enumerate(items):
+            if sum(it[4].values()) and any(b_i != a_i and slots._cross(it[3], it[6], o[3], o[6])
+                                           for b_i, o in enumerate(items)):
+                bad = a_i
+                break
+        if bad is None:
+            break
+        it = items[bad]
+        lost = sum(it[4].values())
+        it[3], it[4], it[5] = it[2], {}, it[5] + [None] * lost
+    return [[tuple(map(lambda v: round(v, 6), p_)) for p_ in it[3]] for it in items], sum(len(it[5]) for it in items)
+
+
+def holes_panel(seed):
+    """Un pannello con fori da T × 12 mm messi a caso: alcuni si toccano quando si allargano, a catena."""
+    r = random.Random(seed)
+    shape = [([(0, 0), (200, 0), (200, 120), (0, 120)], True)]
+    x = 8.0
+    while x < 185:
+        y = r.uniform(8, 100)
+        shape.append(([(x, y), (x, y + 12), (x + T, y + 12), (x + T, y)], True))
+        x += T + r.choice([0.6, 0.8, 1.2, 3.0, 9.0])
+    return [shape]
+
+
+same = True
+for seed in range(12):
+    pb = holes_panel(seed)
+    ref, ref_skip = reference(pb, T, 6.0)
+    out_, tot_, sk_, _c = slots.change_thickness(pb, T, 6.0)
+    got = [[tuple(map(lambda v: round(v, 6), p_)) for p_ in q] for shape in out_ for q, _cl in shape]
+    if got != ref or len(sk_) != ref_skip:
+        same = False
+        print("    seme", seed, len(sk_), ref_skip)
+check("fori vicini a caso (anche a catena): stessi fori allargati e stessi lasciati com'erano del controllo di prima",
+      same)
+prog = []
+slots.detect(grid, progress=prog.append)
+check("la misura dice a che punto è, dall'inizio alla fine", prog and prog[0] == 0.0 and prog[-1] == 1.0
+      and prog == sorted(prog), (prog[:2], prog[-2:]))
+
 # ============================================================ nel programma
 print("--- finestra")
+from PySide6.QtTest import QTest  # noqa: E402
+
+
+def settle():
+    QTest.qWait(500)
+
+
 w = MainWindow()
 acts = w.m_shape.actions() if hasattr(w, "m_shape") else []
 a_thick, a_slots = w.acts.get("slots_thick"), w.acts.get("slots")
@@ -279,13 +366,42 @@ dlg = ThicknessDialog(w, w.editor.editable())
 check("la finestra dice lo spessore trovato e propone quello", "4 mm" in dlg.found.text() and dlg.old.value() == 4.0,
       dlg.found.text())
 dlg.new.setValue(6.0)
+settle()
 check("anteprima sul piano e conteggio di quello che cambia", w.canvas.overlay_paths and "Cambiano" in dlg.result.text()
       and dlg.ok.isEnabled(), dlg.result.text())
 dlg.new.setValue(4.0)
+settle()
 check("stesso spessore: «OK» spento", not dlg.ok.isEnabled())
 dlg.tol.setValue(2.5)
+settle()
 check("tolleranza troppo grande: lo dice e «OK» spento", not dlg.ok.isEnabled() and "metà" in dlg.result.text())
 dlg.reject()
+w.canvas.overlay_paths = []
+
+# 0.22.1 (Evoluzione2): frecce della tolleranza di 0,1 mm; un conto solo quando si clicca più volte; barra all'apertura
+dlg = ThicknessDialog(w, w.editor.editable())
+check("0.22.1 apertura: la misura dice a che punto è, fino alla fine", dlg.progress_steps
+      and dlg.progress_steps[-1] == 1.0 and dlg.progress_steps == sorted(dlg.progress_steps), dlg.progress_steps[-3:])
+check("0.22.1 tolleranza: le frecce vanno di 0,1 mm", abs(dlg.tol.singleStep() - 0.1) < 1e-9, dlg.tol.singleStep())
+t0 = dlg.tol.value()
+dlg.tol.stepBy(1)
+check("0.22.1 …0,3 → 0,4", abs(dlg.tol.value() - (t0 + 0.1)) < 1e-9, dlg.tol.value())
+dlg.tol.setValue(0.3)
+settle()
+n0 = dlg.updates
+dlg.new.setValue(4.0)
+dlg.new.stepBy(1)
+dlg.new.stepBy(1)
+check("0.22.1 mentre si clicca: «Calcolo l'anteprima…» e «OK» spento, nessun conto ancora", dlg.updates == n0
+      and not dlg.ok.isEnabled() and "Calcolo" in dlg.result.text(), (dlg.updates - n0, dlg.result.text()))
+settle()
+check("0.22.1 da 4 a 6 con due clic: un conto solo, per il 6", dlg.updates == n0 + 1 and dlg.new.value() == 6.0
+      and dlg.ok.isEnabled() and "Cambiano" in dlg.result.text(), (dlg.updates - n0, dlg.result.text()))
+dlg.new.stepBy(-1)
+dlg.accept()
+check("0.22.1 OK premuto prima della fine del conto: prima il conto, poi si chiude con i valori giusti",
+      dlg.new.value() == 5.0 and dlg.updates == n0 + 2 and "Cambiano" in dlg.result.text(),
+      (dlg.updates - n0, dlg.result.text()))
 w.canvas.overlay_paths = []
 n_undo = len(w.editor.undo_stack)
 out = w.thickness_dialog(4.0, 6.0)

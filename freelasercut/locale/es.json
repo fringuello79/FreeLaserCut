@@ -4166,5 +4166,7 @@
  "{0} linguette": "{0} lengüetas",
  "{0} restano come sono": "{0} se quedan como están",
  "{0} restano come sono (troppo vicini a un altro incastro o al bordo).": "{0} se quedan como están (demasiado cerca de otro encaje o del borde).",
- "{0} tacche": "{0} muescas"
+ "{0} tacche": "{0} muescas",
+ "Misuro gli incastri del disegno…": "Midiendo los encajes del dibujo…",
+ "Calcolo l'anteprima…": "Calculando la vista previa…"
 }

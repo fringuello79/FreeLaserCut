@@ -14,6 +14,7 @@ fessure troppo vicine, una parete che finirebbe oltre l'altra) non si cambia e s
 
 Tutto in mm sul piano; niente Qt nel calcolo.
 """
+import bisect
 import math
 
 ANGLE_TOL = 0.02  # |coseno| ammesso fra pareti e fondo (circa 1,1°)
@@ -56,9 +57,22 @@ def _inside(pt, poly):
     return ins
 
 
+class _Material(list):
+    """0.22.1: i contorni chiusi con il loro rettangolo d'ingombro, così il pari-dispari salta quelli lontani (sui
+    disegni con centinaia di contorni la finestra degli incastri ci metteva decine di secondi ad aprirsi)."""
+
+    def __init__(self, polys):
+        super().__init__(polys)
+        self.boxes = [_bbox(p) for p in self]
+
+
 def in_material(pt, all_polys):
     """Pari-dispari su tutti i contorni chiusi."""
-    return sum(_inside(pt, p) for p in all_polys) % 2 == 1
+    boxes = getattr(all_polys, "boxes", None)
+    if boxes is None:
+        return sum(_inside(pt, p) for p in all_polys) % 2 == 1
+    x, y = pt
+    return sum(_inside(pt, p) for p, b in zip(all_polys, boxes) if b[0] <= x <= b[2] and b[1] <= y <= b[3]) % 2 == 1
 
 
 def _unit(a, b):
@@ -238,17 +252,20 @@ def features(poly, all_polys, thick, tol):
 def _cleaned(polys_by_shape):
     cleaned = [[(_clean(pts) if closed else [tuple(p) for p in pts], closed) for pts, closed in shape]
                for shape in polys_by_shape]
-    material = [pts for shape in cleaned for pts, closed in shape if closed and len(pts) >= 3]
+    material = _Material(pts for shape in cleaned for pts, closed in shape if closed and len(pts) >= 3)
     return cleaned, material
 
 
-def detect(polys_by_shape, lo=0.8, hi=12.0, tol=0.3):
+def detect(polys_by_shape, lo=0.8, hi=12.0, tol=0.3, progress=None):
     """Lo spessore per cui è disegnato il pezzo. -> [(spessore, {"fessura": n, "tacca": n, "linguetta": n})], il più
     probabile per primo. Lo spessore vero si legge da tacche e linguette (sono lunghe quanto il materiale); le
     fessure contano anche se un po' più strette."""
     cleaned, material = _cleaned(polys_by_shape)
+    n_shapes = max(len(cleaned), 1)
     found = []  # (tipo, misura)
-    for shape in cleaned:
+    for s_i, shape in enumerate(cleaned):
+        if progress is not None:  # 0.22.1: metà del lavoro è la misura, l'altra metà il conto per gli spessori trovati
+            progress(0.5 * s_i / n_shapes)
         for pts, closed in shape:
             if not closed or len(pts) < 4:
                 continue
@@ -281,12 +298,15 @@ def detect(polys_by_shape, lo=0.8, hi=12.0, tol=0.3):
             groups.append([v])
     groups.sort(key=len, reverse=True)
     out = []
-    for g in groups[:3]:
+    top = groups[:3]
+    for g_i, g in enumerate(top):
         t = round(sorted(g)[len(g) // 2], 2)
         if len(g) < least:
             continue
         cnt = {"fessura": 0, "tacca": 0, "linguetta": 0}
-        for shape in cleaned:
+        for s_i, shape in enumerate(cleaned):
+            if progress is not None:
+                progress(0.5 + 0.5 * (g_i + s_i / n_shapes) / len(top))
             for pts, closed in shape:
                 if closed and len(pts) >= 4:
                     _q, d, sk = change_poly(pts, material, t, t + 0.01, tol)
@@ -296,6 +316,8 @@ def detect(polys_by_shape, lo=0.8, hi=12.0, tol=0.3):
                         cnt[k] += 1
         if sum(cnt.values()):
             out.append((t, cnt))
+    if progress is not None:
+        progress(1.0)
     return out
 
 
@@ -461,27 +483,48 @@ def change_thickness(polys_by_shape, old, new, tol=0.3):
                 items.append([si, ci, pts, q, d, s, closed])
             else:
                 items.append([si, ci, pts, pts, {}, [], closed])
-    while True:
-        boxes = [_bbox(it[3]) for it in items]
-        bad = None
-        for a_i, it in enumerate(items):
-            if not sum(it[4].values()):
-                continue
-            for b_i, other in enumerate(items):
-                if b_i != a_i and _boxes_meet(boxes[a_i], boxes[b_i]) and _cross(it[3], it[6], other[3], other[6]):
-                    bad = a_i
-                    break
-            if bad is not None:
-                break
-        if bad is None:
-            break
-        it = items[bad]
+    boxes = [_bbox(it[3]) for it in items]
+    order = sorted(range(len(items)), key=lambda k: boxes[k][0])  # per x minima: si scorre solo chi può toccarsi
+    xs = [boxes[k][0] for k in order]
+
+    def near(a_i):
+        b = boxes[a_i]
+        for k in order[:bisect.bisect_right(xs, b[2])]:
+            if k != a_i and boxes[k][2] >= b[0] and _boxes_meet(b, boxes[k]):
+                yield k
+
+    def revert(a_i):
+        it = items[a_i]
         q0 = it[2]
         n = len(q0)
         lost = []
         for k, v in it[4].items():
             lost += [(k, (sum(p[0] for p in q0) / n, sum(p[1] for p in q0) / n))] * v
         it[3], it[4], it[5] = q0, {}, it[5] + lost
+        old_box = boxes[a_i]
+        boxes[a_i] = _bbox(q0)
+        return old_box
+
+    todo = [k for k, it in enumerate(items) if sum(it[4].values())]
+    while todo:
+        reverted = []
+        for a_i in todo:
+            it = items[a_i]
+            if not sum(it[4].values()):
+                continue
+            if any(_cross(it[3], it[6], items[k][3], items[k][6]) for k in near(a_i)):
+                reverted.append((a_i, revert(a_i)))
+        # un contorno tornato com'era può toccare un vicino ancora cambiato: si ricontrollano solo quelli
+        todo = []
+        for a_i, old_box in reverted:
+            area = (min(old_box[0], boxes[a_i][0]), min(old_box[1], boxes[a_i][1]),
+                    max(old_box[2], boxes[a_i][2]), max(old_box[3], boxes[a_i][3]))
+            todo += [k for k, it in enumerate(items) if k != a_i and sum(it[4].values()) and k not in todo
+                     and _boxes_meet(area, boxes[k])]
+        if reverted:
+            xs_order = sorted(range(len(items)), key=lambda k: boxes[k][0])
+            order[:] = xs_order
+            xs[:] = [boxes[k][0] for k in order]
     out = [[None] * len(shape) for shape in cleaned]
     total = {"fessura": 0, "tacca": 0, "linguetta": 0}
     skipped, changed = [], []
@@ -510,10 +553,23 @@ def _cross(p, p_closed, q, q_closed):
         n = len(pts)
         return [(pts[i], pts[(i + 1) % n]) for i in range(n if closed else n - 1)]
 
-    sq = segs(q, q_closed)
-    qb = [(min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])) for a, b in sq]
+    pb, qbox = _bbox(p), _bbox(q)
+    if not _boxes_meet(pb, qbox):
+        return False
+    # 0.22.1: solo i lati che stanno nella zona in comune dei due ingombri
+    zone = (max(pb[0], qbox[0]), max(pb[1], qbox[1]), min(pb[2], qbox[2]), min(pb[3], qbox[3]))
+    sq, qb = [], []
+    for a, b in segs(q, q_closed):
+        cb = (min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1]))
+        if _boxes_meet(cb, zone):
+            sq.append((a, b))
+            qb.append(cb)
+    if not sq:
+        return False
     for a, b in segs(p, p_closed):
         ab = (min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1]))
+        if not _boxes_meet(ab, zone):
+            continue
         for (c, d), cb in zip(sq, qb):
             if _boxes_meet(ab, cb) and _seg_meet(a, b, c, d):
                 return True
