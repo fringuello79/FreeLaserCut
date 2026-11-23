@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from .. import galleria
 from ..i18n import tr
 from . import bg
+from freelasercut import fontscale  # noqa: E402
 
 MAX_LATO_IMMAGINE = 2400  # un'immagine arrivata dalla Galleria più grande di così non si apre
 
@@ -434,11 +435,11 @@ class GalleryDialog(QDialog):
         self.schede.setExpanding(True)
         self.schede.setDrawBase(False)
         self.schede.setCursor(Qt.PointingHandCursor)
-        self.schede.setStyleSheet(
+        self.schede.setStyleSheet(fontscale.css(
             "QTabBar::tab { padding: 9px 18px; margin: 0 3px; font-size: 11pt; font-weight: 600; border-radius: 6px;"
             " border: 1px solid #5A6478; }"
             "QTabBar::tab:selected { background: #2F9E64; color: #FFFFFF; border-color: #2F9E64; }"
-            "QTabBar::tab:!selected:hover { border-color: #2F9E64; }")
+            "QTabBar::tab:!selected:hover { border-color: #2F9E64; }"))
         self.schede.currentChanged.connect(lambda *_: self.carica())
         v.addWidget(self.schede)
         r = QHBoxLayout()
@@ -491,7 +492,7 @@ class GalleryDialog(QDialog):
         self.grande.setStyleSheet("background:#FFFFFF; border:1px solid #8892A6;")
         d.addWidget(self.grande)
         self.t_titolo = _semplice(QLabel())
-        self.t_titolo.setStyleSheet("font-size: 12pt; font-weight: 600;")
+        self.t_titolo.setStyleSheet(fontscale.css("font-size: 12pt; font-weight: 600;"))
         d.addWidget(self.t_titolo)
         self.t_dati = _semplice(QLabel())
         d.addWidget(self.t_dati)

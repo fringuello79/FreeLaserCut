@@ -13,6 +13,7 @@ from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer
 from PySide6.QtWidgets import QLineEdit, QToolButton, QWidget
 
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 from ..theme import C
 from . import style
 from .banco import PALETTE_QSS, CommandPalette
@@ -68,11 +69,11 @@ class CommandBox(CommandPalette):
         self.edit.setToolTip(tr("Scrivi una parola e trovi il comando, in qualsiasi menu sia (Ctrl+F)"))
         # discreta finché non serve: fondo della barra e bordo leggero, come il pulsante «Griglia»; quando ci si
         # scrive diventa un campo bianco come tutti gli altri campi del programma
-        self.edit.setStyleSheet(
+        self.edit.setStyleSheet(fontscale.css(
             f"QLineEdit#cmdBoxEdit {{ font-size: 8.5pt; padding: 1px 4px; border-radius: 6px; background: transparent; "
             f"color: {C['text']}; border: 1px solid {C['border']}; }}"
             f"QLineEdit#cmdBoxEdit:hover {{ border-color: {C['accent_hi']}; }}"
-            f"QLineEdit#cmdBoxEdit:focus {{ background: #FFFFFF; color: #0E1526; border: 1px solid {C['accent']}; }}")
+            f"QLineEdit#cmdBoxEdit:focus {{ background: #FFFFFF; color: #0E1526; border: 1px solid {C['accent']}; }}"))
         self.compact = False
         self._opened = False
         self._height = 21

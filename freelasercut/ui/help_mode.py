@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from ..theme import C
 from . import help_texts
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 _MOUSE = (QEvent.MouseButtonPress, QEvent.MouseButtonRelease, QEvent.MouseButtonDblClick)
 
@@ -327,4 +328,4 @@ class HelpMode(QObject):
         if value:
             h += f"<div style='margin-top:4px; color:{muted}'>Adesso: {html.escape(value)}</div>"
         h += tr("<div style='margin-top:6px; color:{0}; font-size:7.5pt'>Guida attiva · Esc per uscire</div>", muted)
-        return h
+        return fontscale.css(h)

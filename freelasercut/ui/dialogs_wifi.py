@@ -20,6 +20,7 @@ from .. import netport, wifi_setup
 from ..grbl import SIM_PORT, list_serial_ports
 from . import bg
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 REPLY_S = 4.0  # attesa della risposta a un comando
 WAIT_S = 30.0  # attesa dei messaggi della scheda dopo il riavvio
@@ -160,7 +161,7 @@ class WifiWizard(QDialog):
         self.setMinimumWidth(560)
         v = QVBoxLayout(self)
         self.title = QLabel("")
-        self.title.setStyleSheet("font-size: 13pt;")
+        self.title.setStyleSheet(fontscale.css("font-size: 13pt;"))
         self.title.setTextFormat(Qt.RichText)
         self.title.setWordWrap(True)
         v.addWidget(self.title)

@@ -9,6 +9,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 from ..theme import C, css, tc
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 ASSETS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 UI_FONT = "Inter"
@@ -65,14 +66,14 @@ def fast_ui(app):
 
 def ui_font(size=9.0, weight=QFont.Weight.Normal):
     f = QFont(UI_FONT)
-    f.setPointSizeF(size)
+    f.setPointSizeF(fontscale.pt(size))
     f.setWeight(weight)
     return f
 
 
 def mono_font(size=9.0):
     f = QFont(MONO_FONT)
-    f.setPointSizeF(size)
+    f.setPointSizeF(fontscale.pt(size))
     f.setStyleHint(QFont.StyleHint.Monospace)
     return f
 

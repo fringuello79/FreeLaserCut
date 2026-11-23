@@ -79,6 +79,11 @@ CATALOG = (
     ("xTool D1 Pro", "xTool", 430, 390, "10–40 W", 24000),
     ("Atomstack A10 Pro V2", "Atomstack", 410, 380, "10 W", 24000),
     ("Atomstack X20 Pro / S20 Pro / A20 Pro", "Atomstack", 400, 400, "20 W", 20000),
+    # 0.22.4: chiesto da un utente (rapporto del 23/11/2026). Pagina ufficiale Atomstack (SOURCES, letta il 23/11/2026):
+    # 33 W ottici, 455 nm, fuoco fisso, spot 0,08 × 0,1 mm, area 400 × 400 (nella tabella «410*400»); la velocità
+    # massima non è dichiarata. 6000 mm/min è il valore letto dalla scheda ($110 e $111) su due X30 Pro veri (rapporti
+    # del 18/11 e del 23/11/2026), che dicono anche 400 × 400 ($130 e $131).
+    ("Atomstack X30 Pro / S30 Pro / A30 Pro", "Atomstack", 400, 400, "33 W", 6000),
     ("Atomstack X40 Pro / S40 Pro / A40 Pro", "Atomstack", 400, 400, "40 W", 20000),
     ("Sculpfun S9", "Sculpfun", 410, 420, "5,5 W", 10000),
     ("Sculpfun S10", "Sculpfun", 410, 400, "10 W", 10000),
@@ -224,6 +229,7 @@ SOURCES = {
     "Longer Ray5 Mini": "https://www.longer.net/products/longer-ray5-mini-laser-engraver",
     "Creality CR-Laser Falcon 5W": "https://www.crealityfalcon.com/products/cr-laser-falcon-5w-laser-engraver",
     "Atomstack A70 Max": "https://atomstack.com/products/atomstack-a70-max",
+    "Atomstack X30 Pro / S30 Pro / A30 Pro": "https://atomstack.com/products/refurbished-atomstack-x30-pro-laser-engraver",
     "Ortur Aufero Laser 1 (AL1)": "https://ortur.net/pages/support-al1",
     "Ortur Aufero Laser 2 (AL2)": "https://ortur.net/pages/support-al2",
     "Sculpfun SF-A9 40W": "https://www.sculpfun.com/products/sculpfun-sf-a9-40w-laser-engraver-cutting-machine",
@@ -364,6 +370,10 @@ for _n, (_ax, _ay) in AREA_NOTE.items():
                             _ax, _ay, _bx, _by))
 NOTES["Atomstack A70 Max"] = NOTES["Atomstack A70 Max"] + " " + tr(
     "Velocità massima dichiarata 400 mm/s (24.000 mm/min), senza dire se di incisione o di spostamento.")
+NOTES["Atomstack X30 Pro / S30 Pro / A30 Pro"] = tr(
+    "X30 Pro, S30 Pro e A30 Pro sono lo stesso modello con tre nomi. La scheda non scrive la marca: collegando la "
+    "macchina FreeLaserCut la riconosce dalla versione del firmware e dall'area di lavoro. La velocità massima "
+    "(6000 mm/min) è quella letta dalla scheda su due macchine vere; Atomstack non la dichiara.")
 SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpow X4 22W / X4 Pro 22W": (0.08, 0.10),
          "Mecpow X4 Pro 40W": (0.10, 0.15), "Mecpow X5 Pro 33W": (0.08, 0.10), "Longer Ray5 Mini": (0.04, 0.04),
          "Mecpow X3S 7W": (0.05, 0.07), "Mecpow X3S 12W": (0.06, 0.08),
@@ -401,6 +411,14 @@ ACCEL.update({n: 1000.0 for n in E1})  # $120/$121 di fabbrica (tabella di diode
 # 0.21.2: accelerazione 500 della tabella dei parametri Sculpfun «iCube Ultra Engraving Parameter» (è un valore per
 # un altro programma di incisione, non della scheda): serve solo alla stima dei tempi
 ACCEL.update({n: 500.0 for n in ("Sculpfun iCube Ultra 12W",) + ICUBE_DUAL})
+# 0.22.4: le schede degli Atomstack X30 Pro non scrivono la marca: in $I rispondono solo «[VER:1.1h.2022070601:]» e
+# «[OPT:VZ,15,128]», con l'area 400 × 400 (due macchine vere, rapporti del 18/11 e del 23/11/2026). Con queste tre cose
+# insieme il riconoscimento propone l'X30 Pro e lascia fra i candidati X20 Pro e X40 Pro, che hanno la stessa area (se
+# montino la stessa scheda non si sa: nessun rapporto). L'affidabilità resta «media».
+ATOM_400 = ("Atomstack X30 Pro / S30 Pro / A30 Pro", "Atomstack X20 Pro / S20 Pro / A20 Pro",
+            "Atomstack X40 Pro / S40 Pro / A40 Pro")
+_ATOM_VER = re.compile(r"\[VER:1\.1H\.2022070601:")
+_ATOM_OPT = re.compile(r"\[OPT:VZ,15,128\]")
 # famiglie in cui la scheda è la stessa e cambia solo il modulo laser montato, che dalla scheda non si legge: quando
 # l'area letta porta a tutta la famiglia e a nient'altro, il riconoscimento propone la prima voce e lo dice (0.19.4)
 FAMILIES = (E1, ICUBE_DUAL)
@@ -662,6 +680,18 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
         if bx and by and not any(abs(bx - a) <= 2 and abs(by - b) <= 2 for a, b in ((400, 320), (320, 400))):
             ident.notes.append(("warn", tr("La scheda dice {0:g} × {1:g} mm di area di lavoro, la E1 di fabbrica "
                                            "400 × 320: controlla $130 e $131 nella scheda Macchina.", bx, by)))
+    # 0.22.4: scheda Atomstack che non dice la marca (vedi ATOM_400)
+    by_firmware = False
+    if (not ident.vendor and not ident.model and bx and by and abs(bx - 400) <= 2 and abs(by - 400) <= 2
+            and _ATOM_VER.search(up) and _ATOM_OPT.search(up)):
+        by_firmware = True
+        ident.vendor = "Atomstack"
+        ident.model = ATOM_400[0]
+        ident.candidates = list(ATOM_400)
+        ident.notes.append(("info", tr("Atomstack X30 Pro riconosciuto dalla versione del firmware e dall'area di "
+                                       "lavoro (la scheda non scrive la marca). Il modulo laser montato non si legge "
+                                       "dalla scheda: se non è quello da 33 W, scegli la voce giusta nell'elenco dei "
+                                       "modelli ({0}).", ", ".join(ATOM_400[1:]))))
     if ident.vendor and not ident.model and bx and by:
         def gap(n, cx, cy):  # distanza dall'area del catalogo o da quella dichiarata (anche con X e Y scambiati)
             ax, ay = AREA_NOTE.get(n, (cx, cy))
@@ -696,6 +726,8 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
     # affidabilità
     score = (2 if ident.vendor else 0) + (1 if ident.family else 0) + (1 if bx and by else 0) + (1 if ident.board else 0)
     ident.confidence = "alta" if score >= 4 else "media" if score >= 2 else "bassa"
+    if by_firmware and ident.confidence == "alta":
+        ident.confidence = "media"  # la marca non l'ha detta la scheda
     # avvisi utili
     if not text.strip() and not settings:
         ident.notes.append(("warn", tr("La scheda non ha risposto: controlla che sia accesa, il cavo e il driver USB.")))

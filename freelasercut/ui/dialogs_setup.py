@@ -17,6 +17,7 @@ from ..profile import MachineProfile
 from ..theme import C
 from . import style
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 CORNERS = {"bl": tr("dietro a sinistra"), "br": tr("dietro a destra"), "fl": tr("davanti a sinistra"),
            "fr": tr("davanti a destra")}
@@ -184,7 +185,7 @@ class PlanePreview(QWidget):
 
 def _title(text):
     lab = QLabel(f"<b>{text}</b>")
-    lab.setStyleSheet("font-size: 13pt;")
+    lab.setStyleSheet(fontscale.css("font-size: 13pt;"))
     return lab
 
 

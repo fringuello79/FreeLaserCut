@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from .. import camera_calib as cc
 from ..theme import C
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 USER, AUTO, FILL = "user", "auto", "fill"  # messo dalla persona, trovato dalla calibrazione, trovato dopo i primi 4
 COLORS = {USER: "#2FBF71", AUTO: "#FF8A3D", FILL: "#FF8A3D"}
@@ -43,7 +44,7 @@ class _Marker(QGraphicsEllipseItem):
         self.label = QGraphicsSimpleTextItem(str(idx + 1), self)
         f = QFont()
         f.setBold(True)
-        f.setPointSizeF(9)
+        f.setPointSizeF(fontscale.pt(9))
         self.label.setFont(f)
         self.label.setPos(r + 1, -r - 12)
 
@@ -151,7 +152,7 @@ class _BedScheme(QWidget):
         p.drawRect(QRectF(a, b))
         p.setPen(QColor(C["muted"]))
         f = p.font()
-        f.setPointSizeF(8)
+        f.setPointSizeF(fontscale.pt(8))
         p.setFont(f)
         z = self._pt(0, 0)
         p.drawText(QRectF(z.x() - 26, z.y() + 2, 60, 16), Qt.AlignLeft, tr("0 (zero)"))

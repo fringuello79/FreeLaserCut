@@ -18,6 +18,7 @@ BIG_PIECES = 300
 from ..core import nesting, render3d, sculpt as sc
 from ..core.document import GroupShape, PathShape, RectShape, TextShape, default_layer
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 STYLES = {"layers": tr("A strati (da incollare)"), "interlocking": tr("A incastro (senza colla)")}
 VIEWS = (("model", tr("Modello")), ("sculpture", tr("Scultura")), ("assembly", tr("Montaggio")))
@@ -160,7 +161,7 @@ class Viewer3D(QWidget):
             p.drawImage(0, 0, self._img)
         p.setPen(QColor("#5A6478"))
         f = QFont(self.font())
-        f.setPointSizeF(8.5)
+        f.setPointSizeF(fontscale.pt(8.5))
         p.setFont(f)
         p.drawText(QRectF(8, h - 22, w - 16, 18), Qt.AlignLeft | Qt.AlignVCenter,
                    tr("Trascina per girare · rotella per avvicinare · doppio clic: vista di partenza"))

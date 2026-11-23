@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QSizePoli
 from ..theme import C
 from . import style
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 _UNITS = {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4, '"': 25.4, "pt": 25.4 / 72.0}
 _FUNCS = {"sqrt": math.sqrt, "sin": lambda d: math.sin(math.radians(d)), "cos": lambda d: math.cos(math.radians(d)),
@@ -399,7 +400,8 @@ def shrinkable(root, cap=74):
 def section(title):
     """Intestazione di sezione per i pannelli."""
     lab = QLabel(title.upper())
-    lab.setStyleSheet(f"color:{C['muted']}; font-size:7.5pt; font-weight:700; letter-spacing:0.6px; padding-top:4px;")
+    lab.setStyleSheet(fontscale.css(
+        f"color:{C['muted']}; font-size:7.5pt; font-weight:700; letter-spacing:0.6px; padding-top:4px;"))
     return lab
 
 

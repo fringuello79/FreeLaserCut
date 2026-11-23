@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 261. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -145,7 +145,7 @@ Suite: 261. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v222_contorno.py`: Contorno con la partenza dalla posizione della testa: finito il giro la testa torna da dove è partita e il lavoro non si sposta (9 pallini, laser spento e puntino, rettangolo e convesso)
 - `test_v222_contorno.py` (Banco): Contorno con la partenza dalla testa nell'interfaccia Banco
 
-## Macchina, connessione e profili (55)
+## Macchina, connessione e profili (56)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -202,6 +202,7 @@ Suite: 261. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v222_banco_rete.py`: Rete di sicurezza del Banco: dopo un avvio fallito si parte in Classica con la fascia, alla seconda la scelta diventa Classica; Officina sul secondo monitor spenta sul Mac; prova d'avvio di GitHub anche nel Banco
 - `test_v223_studio.py`: Studia la macchina (in prova): prove guidate su K40 (scheda M2 Nano) e Ruida con schede finte, in qualsiasi ordine; il laser non si accende mai (comandi permessi, chiavi sbagliate innocue), diario e rapporto, indirizzo nascosto, difetti rimessi apposta
 - `test_v223_studio.py` (Banco): Studia la macchina nell'interfaccia Banco
+- `test_v224_atomstack.py`: Atomstack X30 Pro / S30 Pro / A30 Pro: modelli nel catalogo e scheda riconosciuta dalla versione del firmware (la marca non la scrive), con X20 Pro e X40 Pro fra i candidati
 
 ## Disegno e modifica (28)
 
@@ -234,7 +235,7 @@ Suite: 261. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (45)
+## Interfaccia (47)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -281,6 +282,8 @@ Suite: 261. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v220_galleria.py` (Banco): Galleria dei lavori condivisi nell'interfaccia Banco
 - `test_v220_incastri.py`: Adatta gli incastri allo spessore: spessore trovato da solo, fessure e fori allargati al centro, tacche più profonde, linguette più lunghe, bordi a dita con le punte ferme, angoli e tetti obliqui, incastri troppo vicini lasciati come sono, andata e ritorno
 - `test_v220_incastri.py` (Banco): Adatta gli incastri allo spessore nell'interfaccia Banco
+- `test_v224_caratteri.py`: Grandezza dei caratteri dell'interfaccia: stessi pixel sugli schermi a 72 punti per pollice (Mac), scelta in Impostazioni e nelle Preferenze (85–150%), ogni foglio di stile e ogni carattere passa dallo stesso punto
+- `test_v224_caratteri.py` (Banco): Grandezza dei caratteri nell'interfaccia Banco
 
 ## Avvio, installazione, aggiornamenti e assistenza (9)
 

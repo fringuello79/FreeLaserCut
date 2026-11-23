@@ -30,6 +30,8 @@ NAMES = (
     "solboricua",  # 0.21.2: rapporto E698 dal Mac M1 (20/11)
     "universalecinema-boop",  # 0.22.2: GitHub (Ale, 22/11)
     "Paul H.",  # 0.22.2: chiesto da Ale (22/11 sera)
+    "Michele S.",  # 0.22.4: richiesta della grandezza dei caratteri (Ale, 23/11)
+    "LaserJack",  # 0.22.4: rapporto del 23/11 (Atomstack X30 Pro)
 )
 # 0.22.2 (Ale, 22/11): i co-sviluppatori. L'UNICO posto in cui stanno; li mostrano Aiuto → Informazioni, la targa dei
 # ringraziamenti, il README e il sito (una prova controlla che siano gli stessi). Restano anche nell'elenco qui sopra.

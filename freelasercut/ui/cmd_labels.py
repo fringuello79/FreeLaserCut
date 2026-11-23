@@ -3,6 +3,7 @@
 nella lingua scelta. Spento di partenza; la scelta si ricorda."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QToolBar, QToolButton
+from freelasercut import fontscale  # noqa: E402
 
 
 FONT_PX = 9  # appena leggibile su un monitor 1920 × 1080
@@ -142,7 +143,7 @@ def _buttons(win):
 
 def apply(win, on):
     label_actions(win)
-    sheet = f"QToolButton {{ font-size: {FONT_PX}px; padding: 1px 0px 0px 0px; margin: 0px; }}"
+    sheet = fontscale.css(f"QToolButton {{ font-size: {FONT_PX}px; padding: 1px 0px 0px 0px; margin: 0px; }}")
     for tb in win.findChildren(QToolBar):
         if tb is getattr(win, "numeric", None) or tb is getattr(win, "palette", None) or tb.objectName() == "bcTopBar":
             continue

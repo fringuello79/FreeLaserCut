@@ -21,6 +21,7 @@ from ..theme import C
 from . import style
 from .widgets import section
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 from .. import units
 
 
@@ -103,7 +104,7 @@ class MaterialLibraryDialog(QDialog):
         rv = QVBoxLayout(right)
         rv.setContentsMargins(12, 0, 0, 0)
         self.title = QLabel("")
-        self.title.setStyleSheet("font-size: 13pt; font-weight: 600;")
+        self.title.setStyleSheet(fontscale.css("font-size: 13pt; font-weight: 600;"))
         self.title.setWordWrap(True)
         rv.addWidget(self.title)
         self.src = QLabel("")

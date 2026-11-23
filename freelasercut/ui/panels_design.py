@@ -17,6 +17,7 @@ from ..core.document import (
     CodeShape, PolygonShape, RectShape, SpecialShape, TextPathShape, TextShape,
 )
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 from .. import units
 
 
@@ -1001,7 +1002,7 @@ class LayersPanel(QWidget):
         v.addWidget(self.tree, 1)
         hint = QLabel(tr("Doppio clic su una cella per modificarla · tasto destro per altre opzioni"))
         hint.setObjectName("muted")
-        hint.setStyleSheet(f"color:{C['muted']}; font-size:7.5pt;")
+        hint.setStyleSheet(fontscale.css(f"color:{C['muted']}; font-size:7.5pt;"))
         v.addWidget(hint)
         bar = QHBoxLayout()
         for icon, tip, fn, key in (("chevron_up", tr("Sposta su (prima nell'ordine di lavoro)"), lambda: self.move(-1), "layers:up"),

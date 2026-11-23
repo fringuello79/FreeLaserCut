@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from .theme import C
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 BURN = "#FF8A3D"
 
@@ -57,7 +58,7 @@ class BedView(QGraphicsView):
         )
         self.cursor_label.hide()
         self.hint_label = QLabel(tr("Doppio clic: porta la testa lì   ·   Frecce: jog   ·   Rotella: zoom   ·   Home: adatta"), self)
-        self.hint_label.setStyleSheet(f"color: {C['muted']}; background: transparent; font-size: 9pt;")
+        self.hint_label.setStyleSheet(fontscale.css(f"color: {C['muted']}; background: transparent; font-size: 9pt;"))
         self.set_bed(bed_x, bed_y)
 
     # ---------------------------------------------------------------- disegno
@@ -89,13 +90,16 @@ class BedView(QGraphicsView):
             it.setPen(_pen(col, 1))
             sc.addItem(it)
             self._grid_items.append(it)
-        font = QFont("Segoe UI", 8)
+        font = QFont("Segoe UI")
+        font.setPointSizeF(fontscale.pt(8))
         for i in range(0, int(self.bed_x) + 1, 50):
             self._label(str(i), i, 0, font, below=True)
         for j in range(50, int(self.bed_y) + 1, 50):
             self._label(str(j), 0, -j, font, below=False)
         dim = QGraphicsSimpleTextItem(tr("Area di lavoro  ·  {0:g} × {1:g} mm", self.bed_x, self.bed_y))
-        dim.setFont(QFont("Segoe UI", 9))
+        dim_font = QFont("Segoe UI")
+        dim_font.setPointSizeF(fontscale.pt(9))
+        dim.setFont(dim_font)
         dim.setBrush(QColor(C["muted"]))
         dim.setFlag(QGraphicsItem.ItemIgnoresTransformations)
         dim.setPos(0, -self.bed_y - 24)

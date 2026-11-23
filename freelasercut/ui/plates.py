@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QTransform
 from PySide6.QtWidgets import QHBoxLayout, QInputDialog, QMenu, QMessageBox, QTabBar, QToolButton, QWidget
 
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 from ..core.document import ImageShape
 
@@ -113,7 +114,7 @@ class PlateBar(QWidget):
         # usciva chiara su bianco. Piano attivo: scuro e in grassetto (bianco sul piano scuro); gli altri: un grigio
         # ben leggibile ma diverso.
         cur, other = TAB_TEXT[light]
-        self.setStyleSheet(f"""
+        self.setStyleSheet(fontscale.css(f"""
 QWidget#plateBar {{ background: transparent; }}
 QTabBar#plateTabs {{ background: transparent; }}
 QTabBar#plateTabs::tab {{ background: {idle}; border: 1px solid {pal["grid_major"]}; border-bottom: none;
@@ -127,7 +128,7 @@ QToolButton#plateAdd, QToolButton#plateGhosts, QToolButton#plateOverviewBtn, QTo
 QToolButton#plateAdd:hover, QToolButton#plateGhosts:hover, QToolButton#plateOverviewBtn:hover,
 QToolButton#plateBg:hover {{ background: {hover}; }}
 QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ background: rgba(47,125,246,45); }}
-""")
+"""))
         from . import style
 
         on = "#2F7DF6" if light else "#8DB8FF"  # acceso: blu, come il bordo del piano attivo nella vista d'insieme
@@ -744,7 +745,7 @@ class PlateOverview(QWidget):
         job = win.plate_bar._job_index()
         head = cv.head_pos()
         f = QFont(self.font())
-        f.setPointSizeF(max(8.0, min(13.0, 11.0 * self._k * cv.bed_x / 300)))
+        f.setPointSizeF(fontscale.pt(max(8.0, min(13.0, 11.0 * self._k * cv.bed_x / 300))))
         for i, plate in enumerate(doc.plates):
             r = self.plate_rect(i)
             if not r.intersects(QRectF(self.rect())):
@@ -786,7 +787,7 @@ class PlateOverview(QWidget):
         # in basso: come si usa
         p.setPen(QColor("#5B6578" if cv.light_bed else "#AEB8CB"))
         f2 = QFont(self.font())
-        f2.setPointSizeF(9)
+        f2.setPointSizeF(fontscale.pt(9))
         p.setFont(f2)
         a = self._area()
         p.drawText(QRectF(a.left(), a.bottom() + 4, a.width(), 20), Qt.AlignCenter,

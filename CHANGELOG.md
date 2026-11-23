@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.22.4 — 23/11/2026
+**Grandezza dei caratteri.** Due cose, nate dalla stessa segnalazione («sul portatile le scritte sono molto piccole»):
+- **Sul Mac le scritte erano più piccole che su Windows**, di un quarto: il Mac conta le grandezze dei caratteri in un altro modo e FreeLaserCut non ne teneva conto. Ora menu, pannelli e finestre hanno le scritte alte uguali su Mac, Windows e Linux. Chi usa il Mac le vedrà più grandi già al primo avvio, in tutte e due le interfacce.
+- **Si può scegliere la grandezza**: *Impostazioni → Grandezza dei caratteri* (c'è anche nelle *Preferenze*, sezione Interfaccia): Piccoli (85%), Normali, Grandi (115%), Molto grandi (130%), Grandissimi (150%). Vale dal riavvio, che il programma propone subito. Con i caratteri più grandi qualche scritta può restare tagliata, soprattutto con «Grandissimi» su uno schermo piccolo: in quel caso si sceglie una misura in meno.
+
+Su Windows e Linux, lasciando «Normali», non cambia niente. La correzione per il Mac è stata provata simulando il suo schermo, non su un Mac vero.
+
+**Atomstack X30 Pro, S30 Pro e A30 Pro.** Ora sono fra i modelli pronti (33 W, 400 × 400 mm) e, collegando la macchina, FreeLaserCut li riconosce da solo: prima la chiamava «Laser GRBL 400×400», perché la scheda di questi modelli non scrive la marca. Il riconoscimento usa la versione del firmware e l'area di lavoro lette su due macchine vere; propone l'X30 Pro e lascia a portata X20 Pro e X40 Pro, che hanno la stessa area. Chi l'aveva già collegata la ritrova scegliendola nell'elenco dei modelli o rifacendo la configurazione guidata.
+
 ## 0.22.3 — 23/11/2026
 **Immagini con lo sfondo trasparente.** Un PNG con lo sfondo trasparente (un logo, un disegno scontornato) sul piano si vedeva dentro un riquadro bianco, che copriva quello che c'era sotto e si prendeva con un clic in qualunque punto. Ora:
 - sul piano si vede solo la parte piena dell'immagine; quello che c'è sotto resta visibile;

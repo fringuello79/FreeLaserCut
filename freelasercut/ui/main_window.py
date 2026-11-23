@@ -31,6 +31,7 @@ from .panels_design import LayersPanel, NumericBar, PaletteBar, PropertiesPanel
 from .panels_machine import LaserPanel, MovePanel, choppy_text
 from .dialogs_setup import corner_name
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 from .. import units
 
 ASSETS = style.ASSETS
@@ -691,8 +692,9 @@ class MainWindow(QMainWindow):
                     m.addSeparator()
                     lab = QLabel(k[1].upper())
                     lab.setObjectName("menuTitle")
-                    lab.setStyleSheet(f"color:{C['muted']}; font-size:7.5pt; font-weight:700; letter-spacing:0.6px; "
-                                      "padding: 4px 12px 2px 12px; background: transparent;")
+                    lab.setStyleSheet(fontscale.css(
+                        f"color:{C['muted']}; font-size:7.5pt; font-weight:700; letter-spacing:0.6px; "
+                        "padding: 4px 12px 2px 12px; background: transparent;"))
                     head = QWidgetAction(m)
                     head.setDefaultWidget(lab)
                     head.setProperty("menu_title", True)
@@ -868,6 +870,7 @@ class MainWindow(QMainWindow):
         sec.toggled.connect(self._toggle_second_screen)
         self.act_second_screen = sec
         self._build_look_menu(m)
+        self._build_font_menu(m)
         self._build_units_menu(m)
         # Livello di aiuto: tre voci, una sola attiva (anche nel menu Aiuto; nel Banco il menu Aiuto non c'è)
         sub = m.addMenu(tr("Livello di aiuto"))
@@ -929,6 +932,42 @@ class MainWindow(QMainWindow):
             grp2.addAction(act)
             act.triggered.connect(lambda _=False, c=code: self.choose_look(accent=c))
             self.accent_actions[code] = act
+
+    def _build_font_menu(self, parent):
+        """Impostazioni → Grandezza dei caratteri (0.22.4, chiesta da un utente con un portatile): vale dal riavvio."""
+        sub = parent.addMenu(tr("Grandezza dei caratteri"))
+        self.m_font = sub
+        self.font_actions = {}
+        cur = fontscale.saved_percent(self.qs)
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        names = {85: tr("Piccoli"), 100: tr("Normali"), 115: tr("Grandi"), 130: tr("Molto grandi"),
+                 150: tr("Grandissimi")}
+        for pct in fontscale.SIZES:
+            act = sub.addAction(f"{names[pct]} ({pct}%)")
+            act.setCheckable(True)
+            act.setChecked(pct == cur)
+            act.setStatusTip(tr("Grandezza delle scritte di menu, pannelli e finestre. Con i caratteri più grandi "
+                                "qualche scritta può restare tagliata: in quel caso scegli una misura più piccola."))
+            grp.addAction(act)
+            act.triggered.connect(lambda _=False, c=pct: self.choose_font_size(c))
+            self.font_actions[pct] = act
+
+    def choose_font_size(self, pct):
+        """Salva la grandezza dei caratteri; si vede dal prossimo avvio (propone di riavviare subito)."""
+        if pct not in fontscale.SIZES:
+            return False
+        self.qs.setValue(fontscale.KEY, int(pct))
+        self.qs.sync()
+        if pct == fontscale.percent:
+            return False  # è già quella in uso
+        r = QMessageBox.question(self, tr("Grandezza dei caratteri"), tr(
+            "La nuova grandezza dei caratteri sarà usata dal prossimo avvio di FreeLaserCut. Riavviare adesso?"))
+        if r == QMessageBox.Yes:
+            self._restart = True
+            if not self.close():
+                self._restart = False
+        return True
 
     def _build_units_menu(self, parent):
         """Impostazioni → Unità di misura: velocità in mm/min (come GRBL) o in mm/s."""
@@ -1333,7 +1372,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(sb)
         from PySide6.QtGui import QFontMetrics
 
-        mono = f"font-family: '{style.MONO_FONT}', Consolas, monospace; font-size: 8.5pt;"
+        mono = fontscale.css(f"font-family: '{style.MONO_FONT}', Consolas, monospace; font-size: 8.5pt;")
         fm = QFontMetrics(style.mono_font(8.5))
 
         def own_fm(lab):
@@ -2853,7 +2892,8 @@ class MainWindow(QMainWindow):
         color = STATE_COLORS.get(state, "#4E5C7A")
         text = STATE_IT.get(state, state)
         self.pill.setText(text)
-        self.pill.setStyleSheet(f"background:{color}; border-radius:9px; padding:1px 8px; font-weight:600; font-size:8pt; color:white;")
+        self.pill.setStyleSheet(fontscale.css(
+            f"background:{color}; border-radius:9px; padding:1px 8px; font-weight:600; font-size:8pt; color:white;"))
         self.pill.ensurePolished()
         # larghezza dal testo, non da sizeHint(): sizeHint() tiene conto della larghezza minima già impostata
         # e a ogni stato la pastiglia (con tutto il pannello Laser) si allargava di qualche pixel
@@ -5529,6 +5569,33 @@ def build_main_window(factory=None):
         gc.collect()
 
 
+def screen_font_dpi(app):
+    """Punti per pollice che lo schermo principale dichiara per i caratteri (96 su Windows e Linux, 72 sul Mac)."""
+    try:
+        scr = app.primaryScreen()
+        return float(scr.logicalDotsPerInchY()) if scr is not None else fontscale.BASE_DPI
+    except Exception:  # noqa: BLE001
+        return fontscale.BASE_DPI
+
+
+def apply_look(app, qs=None):
+    """Stile, caratteri e foglio di stile dell'applicazione. 0.22.4: prima di tutto la grandezza dei caratteri
+    (scelta della persona e correzione per gli schermi che contano 72 punti per pollice, cioè il Mac)."""
+    from ..settings_store import app_settings
+
+    try:
+        pct = fontscale.saved_percent(qs if qs is not None else app_settings())
+    except Exception:  # noqa: BLE001
+        pct = fontscale.DEFAULT
+    fontscale.setup(pct, screen_font_dpi(app))
+    app.setStyle("Fusion")
+    style.fast_ui(app)  # suggerimenti pronti e senza scatti, niente animazioni dei menu
+    style.load_fonts()
+    app.setFont(style.ui_font(9))
+    app.setStyleSheet(fontscale.css(
+        QSS.replace("'Segoe UI', 'Inter'", f"'{style.UI_FONT}', 'Segoe UI'") + style.QSS_EXTRA))
+
+
 def main(app=None, splash=None):
     from ..app import _install_crash_log
 
@@ -5556,11 +5623,7 @@ def main(app=None, splash=None):
         app = QApplication(sys.argv)
     app.setApplicationName("FreeLaserCut")
     linux.after_qapp(app)
-    app.setStyle("Fusion")
-    style.fast_ui(app)  # suggerimenti pronti e senza scatti, niente animazioni dei menu
-    style.load_fonts()
-    app.setFont(style.ui_font(9))
-    app.setStyleSheet(QSS.replace("'Segoe UI', 'Inter'", f"'{style.UI_FONT}', 'Segoe UI'") + style.QSS_EXTRA)
+    apply_look(app)
     app.setWindowIcon(QIcon(os.path.join(ASSETS, "logo.svg")))
     say(tr("Preparo il motore delle immagini…"))
     try:

@@ -22,6 +22,7 @@ from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
 from ..core import render3d
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 # costanti OpenGL (quelle che servono)
 GL_FLOAT = 0x1406
@@ -524,7 +525,7 @@ class GLViewer(QOpenGLWidget):
             return
         p.setPen(QColor("#5A6478"))
         ft = QFont(self.font())
-        ft.setPointSizeF(8.5)
+        ft.setPointSizeF(fontscale.pt(8.5))
         p.setFont(ft)
         w, h = self.width(), self.height()
         p.drawText(QRectF(8, h - 22, w - 16, 18), Qt.AlignLeft | Qt.AlignVCenter,

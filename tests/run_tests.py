@@ -650,6 +650,9 @@ if __name__ == "__main__":
     run_suite("test_v223_studio.py", "Studia la macchina nell'interfaccia Banco", "banco")
     run_suite("test_v223_png_trasparenti.py", "Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza")
     run_suite("test_v223_png_trasparenti.py", "Immagini con lo sfondo trasparente nell'interfaccia Banco", "banco")
+    run_suite("test_v224_caratteri.py", "Grandezza dei caratteri dell'interfaccia: stessi pixel sugli schermi a 72 punti per pollice (Mac), scelta in Impostazioni e nelle Preferenze (85–150%), ogni foglio di stile e ogni carattere passa dallo stesso punto")
+    run_suite("test_v224_caratteri.py", "Grandezza dei caratteri nell'interfaccia Banco", "banco")
+    run_suite("test_v224_atomstack.py", "Atomstack X30 Pro / S30 Pro / A30 Pro: modelli nel catalogo e scheda riconosciuta dalla versione del firmware (la marca non la scrive), con X20 Pro e X40 Pro fra i candidati")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

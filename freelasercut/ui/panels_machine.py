@@ -15,6 +15,7 @@ from ..theme import C, css
 from . import style
 from .widgets import AnchorPicker, NumField, row, section
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 from .. import units
 
 START_MODES = [("absolute", tr("Coordinate assolute")), ("current", tr("Posizione attuale della testa")),
@@ -878,7 +879,7 @@ class PointerDialog(QDialog):
         v.addWidget(txt)
         self.val = QLabel("")
         self.val.setAlignment(Qt.AlignCenter)
-        self.val.setStyleSheet("font-size: 26pt; font-weight: 700;")
+        self.val.setStyleSheet(fontscale.css("font-size: 26pt; font-weight: 700;"))
         self.val.setFont(style.mono_font(26))
         minus = _btn("−")
         plus = _btn("+")

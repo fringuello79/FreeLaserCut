@@ -19,6 +19,7 @@ from ..theme import C
 from . import style
 from .widgets import section
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 
 _LINUX = sys.platform.startswith("linux")
 
@@ -170,7 +171,7 @@ class MachineWizard(QDialog):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumHeight(90)
-        self.log.setStyleSheet(f"font-size:8pt; color:{C['muted']};")
+        self.log.setStyleSheet(fontscale.css(f"font-size:8pt; color:{C['muted']};"))
         v.addWidget(self.log, 1)
         bb = QHBoxLayout()
         bb.addStretch(1)
@@ -423,8 +424,8 @@ class MachineWizard(QDialog):
         conf_col = {"alta": C["success"], "media": C["accent_hi"], "bassa": C["warn"]}[ident.confidence]
         icons = {"ok": "✓", "info": "ℹ", "warn": "⚠"}
         notes = "".join(f"<li>{icons.get(k, '•')} {t}</li>" for k, t in ident.notes)
-        self.summary.setText(
-            tr("<b style='font-size:10.5pt'>{0}</b> &nbsp;<span style='background:{1}; color:white; border-radius:6px; padding:1px 6px'>affidabilità {2}</span><br>{3} · {4} baud", ident.name(), conf_col, {"alta": tr("alta"), "media": tr("media"), "bassa": tr("bassa")}.get(ident.confidence, ident.confidence), ident.summary() or tr("nessun dettaglio dalla scheda"), r['baud']) + (tr("<ul style='margin-left:-18px'>{0}</ul>", notes) if notes else ""))
+        self.summary.setText(fontscale.css(
+            tr("<b style='font-size:10.5pt'>{0}</b> &nbsp;<span style='background:{1}; color:white; border-radius:6px; padding:1px 6px'>affidabilità {2}</span><br>{3} · {4} baud", ident.name(), conf_col, {"alta": tr("alta"), "media": tr("media"), "bassa": tr("bassa")}.get(ident.confidence, ident.confidence), ident.summary() or tr("nessun dettaglio dalla scheda"), r['baud']) + (tr("<ul style='margin-left:-18px'>{0}</ul>", notes) if notes else "")))
         # 0.17.6: con il simulatore il profilo si chiama «Simulatore», così non sovrascrive quello della macchina vera
         self.name.setText(tr("Simulatore") if port.device == SIM_PORT else ident.name())
         bx, by = ident.bed

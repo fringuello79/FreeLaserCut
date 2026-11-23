@@ -15,6 +15,7 @@ from .. import fire_guard as fg
 from ..camera import SIM_CAMERA
 from ..i18n import tr
 from ..theme import css
+from freelasercut import fontscale  # noqa: E402
 
 def level_names():
     return {"alta": tr("Alta (piccole fiamme)"), "media": tr("Media (consigliata)"),
@@ -162,7 +163,7 @@ class FireGuard(QObject):
                              "Controlla subito la macchina. Se c'è fuoco, coprilo o spegnilo; non lasciare la "
                              "macchina da sola.") + (("\n\n" + tr("Foto salvata: {0}", path)) if path else ""),
                           QMessageBox.Ok, self.win)
-        box.setStyleSheet(css("QMessageBox { background:#3A1418; } QLabel { color:#FFD7DA; font-size:14px; }"))
+        box.setStyleSheet(fontscale.css(css("QMessageBox { background:#3A1418; } QLabel { color:#FFD7DA; font-size:14px; }")))
         box.setModal(False)
         box.setAttribute(Qt.WA_DeleteOnClose)
         box.show()

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from freelasercut.i18n import tr  # noqa: E402
+from freelasercut import fontscale  # noqa: E402
 from .. import units
 
 from . import style
@@ -236,8 +237,8 @@ class ChoiceDialog(QDialog):
         self.choice = "banco"
         v = QVBoxLayout(self)
         v.setSpacing(14)
-        head = QLabel(tr("<b style='font-size:14pt'>Come preferisci lavorare?</b><br>"
-                         "Le due interfacce hanno gli stessi comandi: cambia solo la disposizione."))
+        head = QLabel(fontscale.css(tr("<b style='font-size:14pt'>Come preferisci lavorare?</b><br>"
+                                       "Le due interfacce hanno gli stessi comandi: cambia solo la disposizione.")))
         head.setWordWrap(True)
         v.addWidget(head)
         row = QHBoxLayout()
@@ -308,7 +309,7 @@ class ChoiceDialog(QDialog):
         lay = QVBoxLayout(b)
         lay.setContentsMargins(16, 14, 16, 14)
         lay.setSpacing(8)
-        t = QLabel(f"<b style='font-size:12pt'>{title}</b> &nbsp;<span style='color:#94A0B8'>{tag}</span>")
+        t = QLabel(fontscale.css(f"<b style='font-size:12pt'>{title}</b> &nbsp;<span style='color:#94A0B8'>{tag}</span>"))
         d = QLabel(text)
         d.setWordWrap(True)
         for w in (t, d):
@@ -673,10 +674,11 @@ class RadialMenu(QWidget):
             b.setFixedSize(80, 80)
             b.setEnabled(act.isEnabled())
             b.setToolTip(_clean(act.text()))
-            b.setStyleSheet(css("QToolButton { background: #141B2B; border: 1px solid #2E3A56; border-radius: 40px; "
+            b.setStyleSheet(fontscale.css(css(
+                            "QToolButton { background: #141B2B; border: 1px solid #2E3A56; border-radius: 40px; "
                             "color: #E8EDF7; font-size: 7.5pt; font-weight: 600; } "
                             "QToolButton:hover { background: " + ORANGE + "; color: #1A0E05; border-color: " + ORANGE + "; } "
-                            "QToolButton:disabled { color: #55627E; }"))
+                            "QToolButton:disabled { color: #55627E; }")))
             b.move(int(c + self.R * math.cos(a) - 40), int(c + self.R * math.sin(a) - 40))
             b.clicked.connect(lambda _=False, act=act: self._go(act))
             self.buttons.append(b)
@@ -1591,7 +1593,7 @@ class Banco(QObject):
         self.officina_screen = None
         self._rpress = None
         cv = win.canvas
-        win.setStyleSheet(win.styleSheet() + BANCO_QSS)
+        win.setStyleSheet(win.styleSheet() + fontscale.css(BANCO_QSS))
         # --- via la disposizione classica (i comandi restano tutti, anche le scorciatoie)
         # con la barra dei menu e le barre nascoste Qt non attiverebbe più le loro scorciatoie:
         # le azioni vengono agganciate anche alla finestra, così Ctrl+S, Ctrl+K, R, E… restano tutte vive

@@ -100,6 +100,7 @@ class PreferencesDialog(QDialog):
         self._check("ui", getattr(w, "act_second_screen", None))
         self._radios("ui", tr("Aspetto"), list(getattr(w, "theme_actions", {}).values()))
         self._radios("ui", tr("Colore principale"), list(getattr(w, "accent_actions", {}).values()))
+        self._radios("ui", tr("Grandezza dei caratteri"), list(getattr(w, "font_actions", {}).values()))
         lang = getattr(w, "m_language", None)
         if lang is not None:
             self._radios("ui", _plain(lang.title()), [x for x in lang.actions() if not x.isSeparator()])
