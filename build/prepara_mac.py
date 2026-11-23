@@ -4,6 +4,7 @@
 Uso (su un Mac, con Python 3.10 o più recente e internet; sulle macchine Mac di GitHub lo fa mac.yml):
 
     python build/prepara_mac.py [--arch arm64|x86_64]
+    python build/prepara_mac.py --arch x86_64 --ventura
 
 Stesso schema della versione per Linux (prepara_appimage.py), stesso Python e stesse librerie:
 1. scarica Python per macOS (python-build-standalone, stessa versione dell'installatore Windows);
@@ -21,6 +22,7 @@ import argparse
 import os
 import platform
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -43,6 +45,15 @@ PYSIDE_TOOLS = ["scripts", "assistant", "designer", "linguist", "lrelease", "lup
                 "uic", "balsam", "balsamui", "svgtoqml", "qsb", "Assistant.app", "Designer.app", "Linguist.app"]
 BUNDLE_ID = "io.github.fringuello79.freelasercut"
 MIN_MACOS = "14.4"  # 0.22.0: le librerie di Qt 6.12 (PySide6) sono costruite per macOS 14.4 (Sonoma): sul 13 il programma si apriva e si chiudeva (mail di Michele, 21/11)
+VENTURA_MIN_MACOS = "13.0"
+VENTURA_QT = "6.9.3"  # le wheel 6.10.x contengono moduli Intel con deployment target macOS 15
+VENTURA_PYTHON = "3.13.18"  # PySide6 6.9.3 dichiara Python < 3.14
+VENTURA_PACKAGES = {
+    "PySide6-Essentials": f"PySide6-Essentials=={VENTURA_QT}",
+    "opencv-python-headless": "opencv-python-headless==4.11.0.86",  # wheel per macOS 13 e NumPy del pacchetto
+}
+MACHO_MAGICS = {b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe", b"\xcf\xfa\xed\xfe",
+                b"\xca\xfe\xba\xbe", b"\xca\xfe\xba\xbf"}
 
 # Avvio: il programma gira con una copia di Python dentro Contents/MacOS, così macOS lo vede come «FreeLaserCut»
 # (nome nella barra dei menu e nel Dock, icona) e non come «python3». -I: Python isolato, niente PYTHONPATH o librerie
@@ -84,7 +95,7 @@ certificate): close the message, open System Settings → Privacy & Security and
 """
 
 
-def info_plist(ver):
+def info_plist(ver, min_macos=MIN_MACOS):
     return {
         "CFBundleName": "FreeLaserCut",
         "CFBundleDisplayName": "FreeLaserCut",
@@ -97,7 +108,7 @@ def info_plist(ver):
         "CFBundleInfoDictionaryVersion": "6.0",
         "CFBundleDevelopmentRegion": "en",
         "CFBundleLocalizations": ["en", "it", "es", "fr", "pt"],
-        "LSMinimumSystemVersion": MIN_MACOS,
+        "LSMinimumSystemVersion": min_macos,
         "NSHighResolutionCapable": True,
         "NSSupportsAutomaticGraphicsSwitching": True,
         "LSApplicationCategoryType": "public.app-category.graphics-design",
@@ -118,6 +129,44 @@ def info_plist(ver):
             "LSHandlerRank": "Owner",
         }],
     }
+
+
+def mac_packages(arch, ventura=False):
+    packages = [p for p in MAC_PACKAGES if not (arch == "x86_64" and p.startswith(NO_INTEL))]
+    if not ventura:
+        return packages
+    return [VENTURA_PACKAGES.get(p.split("==", 1)[0], p) for p in packages] + [f"shiboken6=={VENTURA_QT}"]
+
+
+def verify_ventura_binaries(app):
+    """Controlla il deployment target effettivo della slice Intel prima di firmare."""
+    incompatible = []
+    target = tuple(map(int, VENTURA_MIN_MACOS.split("."))) + (0,)
+    for directory, _, files in os.walk(app):
+        for filename in files:
+            path = os.path.join(directory, filename)
+            if os.path.islink(path):
+                continue
+            with open(path, "rb") as binary:
+                if binary.read(4) not in MACHO_MAGICS:
+                    continue
+            result = subprocess.run(["otool", "-arch", "x86_64", "-l", path], capture_output=True, text=True)
+            minimums = re.findall(
+                r"cmd LC_BUILD_VERSION\s+cmdsize \d+\s+platform (?:macos|1)\s+minos ([\d.]+)"
+                r"|cmd LC_VERSION_MIN_MACOSX\s+cmdsize \d+\s+version ([\d.]+)",
+                result.stdout, re.IGNORECASE,
+            )
+            if result.returncode or len(minimums) != 1:
+                detail = "slice x86_64 o versione minima di macOS illeggibile"
+            else:
+                minimum = next(filter(None, minimums[0]))
+                parts = tuple(map(int, minimum.split(".")))
+                if parts + (0,) * (3 - len(parts)) <= target:
+                    continue
+                detail = f"richiede macOS {minimum}"
+            incompatible.append(f"{os.path.relpath(path, app)}: {detail}")
+    if incompatible:
+        raise SystemExit("Binari incompatibili con macOS Ventura:\n" + "\n".join(incompatible))
 
 
 def make_icns(png, dest):
@@ -142,9 +191,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arch", choices=sorted(ARCH_PBS), default="arm64" if platform.machine() == "arm64" else "x86_64")
     ap.add_argument("--no-dmg", action="store_true", help="solo FreeLaserCut.app (prove)")
+    ap.add_argument("--ventura", action="store_true", help="pacchetto aggiuntivo per macOS 13 su Intel")
     args = ap.parse_args()
+    if args.ventura and args.arch != "x86_64":
+        ap.error("--ventura richiede --arch x86_64")
+    if args.ventura and (sys.platform != "darwin" or platform.machine() != "x86_64" or not shutil.which("otool")):
+        ap.error("--ventura richiede macOS x86_64 e gli strumenti da riga di comando di Xcode (otool)")
+    min_macos = VENTURA_MIN_MACOS if args.ventura else MIN_MACOS
+    python_version = VENTURA_PYTHON if args.ventura else PY_VERSION
+    python_minor = ".".join(VENTURA_PYTHON.split(".")[:2]) if args.ventura else PY_MINOR
     ver = version()
-    out_dir = os.path.join(BUILD, "mac")
+    out_dir = os.path.join(BUILD, "mac-ventura" if args.ventura else "mac")
     app = os.path.join(out_dir, "FreeLaserCut.app")
     contents = os.path.join(app, "Contents")
     res = os.path.join(contents, "Resources")
@@ -156,15 +213,15 @@ def main():
 
     step("Python per macOS")
     url = (f"https://github.com/astral-sh/python-build-standalone/releases/download/{PY_RELEASE}/"
-           f"cpython-{PY_VERSION}+{PY_RELEASE}-{ARCH_PBS[args.arch]}-install_only_stripped.tar.gz")
+           f"cpython-{python_version}+{PY_RELEASE}-{ARCH_PBS[args.arch]}-install_only_stripped.tar.gz")
     archive = os.path.join(CACHE, os.path.basename(url).replace("+", "_"))
     if not os.path.exists(archive):
         scarica(url, archive)
     with tarfile.open(archive) as tf:
         tf.extractall(res, filter="data") if sys.version_info >= (3, 12) else tf.extractall(res)
     py_dir = os.path.join(res, "python")
-    py = os.path.join(py_dir, "bin", f"python{PY_MINOR}")
-    stdlib = os.path.join(py_dir, "lib", f"python{PY_MINOR}")
+    py = os.path.join(py_dir, "bin", f"python{python_minor}")
+    stdlib = os.path.join(py_dir, "lib", f"python{python_minor}")
     for d in TRIM_STDLIB:
         shutil.rmtree(os.path.join(stdlib, d), ignore_errors=True)
 
@@ -173,9 +230,14 @@ def main():
         raise SystemExit(f"Questo Mac è {platform.machine()}: per {args.arch} serve un Mac {args.arch} (pip usa il "
                          "Python del pacchetto, che deve poter girare qui).")
     site = os.path.join(stdlib, "site-packages")
-    pkgs = [p for p in MAC_PACKAGES if not (args.arch == "x86_64" and p.startswith(NO_INTEL))]
+    pkgs = mac_packages(args.arch, args.ventura)
+    wheel_options = []
+    if args.ventura:
+        # Anche su un Mac di build più recente, pip deve scegliere wheel compatibili con Ventura.
+        wheel_options = ["--platform", "macosx_13_0_x86_64", "--target", site,
+                         "--report", os.path.join(out_dir, "dipendenze.json")]
     subprocess.check_call([py, "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
-                           "--only-binary=:all:", "--upgrade", *pkgs])
+                           "--only-binary=:all:", "--upgrade", *wheel_options, *pkgs])
     for d in TRIM_SITE:
         shutil.rmtree(os.path.join(site, d), ignore_errors=True)
     for d in TRIM_PYGAME:
@@ -228,12 +290,16 @@ def main():
         fh.write(LAUNCHER)
     os.chmod(launcher, 0o755)
     with open(os.path.join(contents, "Info.plist"), "wb") as fh:
-        plistlib.dump(info_plist(ver), fh)
+        plistlib.dump(info_plist(ver, min_macos), fh)
     with open(os.path.join(contents, "PkgInfo"), "w", encoding="ascii") as fh:
         fh.write("APPL????")
     logo = os.path.join(ROOT, "freelasercut", "assets", "logo.png")
     if not make_icns(logo, os.path.join(res, "FreeLaserCut.icns")):
         print("ATTENZIONE: icona .icns non creata (servono sips e iconutil di macOS)")
+
+    if args.ventura:
+        step("Controllo dei binari Intel per macOS Ventura")
+        verify_ventura_binaries(app)
 
     if shutil.which("codesign"):
         step("Firma ad hoc (nessun certificato Apple: il programma non è notarizzato)")
@@ -253,11 +319,15 @@ def main():
     shutil.move(app, os.path.join(stage, "FreeLaserCut.app"))
     os.symlink("/Applications", os.path.join(stage, "Applicazioni"))
     with open(os.path.join(stage, "LEGGIMI - primo avvio.txt"), "w", encoding="utf-8") as fh:
+        if args.ventura:
+            fh.write("Pacchetto aggiuntivo per Mac Intel (x86_64) con macOS 13 Ventura o successivo.\n\n")
         fh.write(LEGGIMI)
-    dmg = os.path.join(BUILD, f"FreeLaserCut-{ver}-macOS-{args.arch}.dmg")
+    variant = "ventura-" if args.ventura else ""
+    dmg = os.path.join(BUILD, f"FreeLaserCut-{ver}-macOS-{variant}{args.arch}.dmg")
     if os.path.exists(dmg):
         os.remove(dmg)
-    make_dmg(["hdiutil", "create", "-volname", f"FreeLaserCut {ver}", "-srcfolder", stage, "-ov", "-format", "UDZO",
+    volume = f"FreeLaserCut {ver} Ventura" if args.ventura else f"FreeLaserCut {ver}"
+    make_dmg(["hdiutil", "create", "-volname", volume, "-srcfolder", stage, "-ov", "-format", "UDZO",
               dmg])
     shutil.move(os.path.join(stage, "FreeLaserCut.app"), app)  # resta anche fuori, per la prova di avvio
     step(f"Pronto: {dmg}")

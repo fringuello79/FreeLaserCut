@@ -16,6 +16,8 @@ import plistlib
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ["APPDATA"] = tempfile.mkdtemp()
@@ -60,6 +62,34 @@ check("librerie: le stesse versioni dell'installatore Windows, OpenCV senza la s
       len(pm.MAC_PACKAGES) == len(prepara_installer.PACKAGES)
       and any(p.startswith("opencv-python-headless==") for p in pm.MAC_PACKAGES)
       and not any(p.startswith("opencv-python==") for p in pm.MAC_PACKAGES))
+check("pacchetto Ventura: Info.plist con macOS 13", pm.info_plist("9.8.7", pm.VENTURA_MIN_MACOS)[
+    "LSMinimumSystemVersion"] == "13.0")
+qt_ventura = {"PySide6-Essentials==6.9.3", "shiboken6==6.9.3", "opencv-python-headless==4.11.0.86"}
+ventura = set(pm.mac_packages("x86_64", ventura=True))
+intel = set(pm.mac_packages("x86_64"))
+check("pacchetto Ventura: cambia Qt e OpenCV, le altre dipendenze Intel sono le stesse",
+      ventura - intel == qt_ventura
+      and {p.split("==")[0] for p in intel - ventura} == {"PySide6-Essentials", "opencv-python-headless"})
+check("pacchetto Apple Silicon: tutte le dipendenze ufficiali", pm.mac_packages("arm64") == pm.MAC_PACKAGES)
+with tempfile.TemporaryDirectory() as native:
+    (Path(native) / "FreeLaserCut-python").write_bytes(b"\xcf\xfa\xed\xfe")
+    (Path(native) / "testo.txt").write_text("non è Mach-O", encoding="utf-8")
+    with patch.object(pm.subprocess, "run") as otool:
+        compatible = "cmd LC_VERSION_MIN_MACOSX\ncmdsize 16\nversion 10.15\nsdk 13.1\n"
+        otool.return_value = subprocess.CompletedProcess([], 0, stdout=compatible)
+        pm.verify_ventura_binaries(native)
+        check("controllo Ventura: legge il solo binario Intel", otool.call_count == 1
+              and otool.call_args.args[0][1:4] == ["-arch", "x86_64", "-l"])
+        modern = "cmd LC_BUILD_VERSION\ncmdsize 32\nplatform MACOS\nminos 13.0\nsdk 14.5\n"
+        otool.return_value = subprocess.CompletedProcess([], 0, stdout=modern)
+        pm.verify_ventura_binaries(native)
+        otool.return_value = subprocess.CompletedProcess([], 0, stdout=modern.replace("13.0", "14.4"))
+        try:
+            pm.verify_ventura_binaries(native)
+        except SystemExit as exc:
+            check("controllo Ventura: rifiuta un binario che richiede Sonoma", "richiede macOS 14.4" in str(exc))
+        else:
+            check("controllo Ventura: rifiuta un binario che richiede Sonoma", False)
 check("numba tolto solo per i Mac Intel (non esiste più per loro)", pm.NO_INTEL == ("numba==",)
       and any(p.startswith("numba==") for p in pm.MAC_PACKAGES))
 check("Python per Mac: stessa versione e stessa uscita dell'installatore Windows",
