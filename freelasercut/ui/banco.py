@@ -1598,16 +1598,21 @@ class Banco(QObject):
         # con la barra dei menu e le barre nascoste Qt non attiverebbe più le loro scorciatoie:
         # le azioni vengono agganciate anche alla finestra, così Ctrl+S, Ctrl+K, R, E… restano tutte vive
         keep = list(win.actions())
+        # PySide 6.9 può invalidare i menu quando si liberano i wrapper delle loro azioni.
+        top_actions = win.menuBar().actions()
+        self._menu_actions = list(top_actions)
 
         def hook(menu):
-            for a in menu.actions():
+            actions = menu.actions()
+            self._menu_actions.extend(actions)
+            for a in actions:
                 if a.menu() is not None:
                     hook(a.menu())
                 elif not a.isSeparator() and a not in keep:
                     keep.append(a)
                     win.addAction(a)
 
-        for a in win.menuBar().actions():
+        for a in top_actions:
             if a.menu() is not None:
                 hook(a.menu())
         for tb in win.findChildren(QToolBar):

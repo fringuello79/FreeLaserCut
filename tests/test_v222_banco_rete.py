@@ -172,6 +172,9 @@ banco.save_mode("banco")
 check("avvio nel Banco", start() == (None, "banco") and mark() == "1")
 wb = MainWindow()
 check("la finestra nasce nel Banco", wb.ui_mode == "banco" and wb.banco is not None)
+check("il pulsante Impostazioni conserva il menu dopo la costruzione del Banco",
+      wb.banco.gear.menu() is wb.m_settings and bool(wb.m_settings.actions()))
+check("il sottomenu Grandezza dei caratteri resta accessibile", bool(wb.m_font.actions()))
 wb.editor.dirty = False
 wb.banco.shutdown()
 check("chiusura normale del Banco: il segno si toglie", mark() is None)

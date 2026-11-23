@@ -47,6 +47,13 @@ Il codice sorgente di Qt è disponibile su <https://download.qt.io/official_rele
 PySide6 su <https://download.qt.io/official_releases/QtForPython/> (versione 6.12.0).
 Le licenze dei componenti di terze parti usati da Qt sono elencate su <https://doc.qt.io/qt-6/licenses-used-in-qt.html>.
 
+Il pacchetto aggiuntivo per macOS Ventura su Intel include Python 3.13.18 (PSF License 2.0),
+Qt, PySide6 Essentials e Shiboken6 6.9.3
+(LGPL 3.0) e OpenCV headless 4.11.0.86 (Apache 2.0, con componenti di terze parti). I sorgenti sono
+disponibili negli archivi Qt e Qt for Python indicati sopra e nel
+[repository OpenCV](https://github.com/opencv/opencv/tree/4.11.0) e nel
+[repository delle wheel OpenCV](https://github.com/opencv/opencv-python/tree/4.11.0.86).
+
 ### Come si ottengono questi componenti
 
 L'installatore li scarica dalle fonti ufficiali (PyPI e il progetto python-build-standalone su GitHub) con lo
