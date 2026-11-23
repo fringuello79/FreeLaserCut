@@ -475,6 +475,10 @@ class MainWindow(QMainWindow):
             "cook": A(tr("Free Laser Cook (in prova)…"), self.cook_dialog, None, "chef_hat",
                       tr("Cuoce un alimento a laser sfocato: ricette con dose per passata, passate, giro, griglia, "
                          "firma e aroma del legno, con le dovute accortezze")),
+            # 0.22.3: raccoglie dati veri dalle K40 e dalle Ruida dei tester (in prova, il laser non si accende mai)
+            "study_machine": A(tr("Studia la macchina (in prova)…"), self.study_machine_dialog, None, None,
+                               tr("Prove guidate su una K40 (scheda M2 Nano) o su un laser con scheda Ruida: dati "
+                                  "veri per insegnare a FreeLaserCut a usarle, a laser sempre spento")),
             "print_cut": A(tr("Stampa e taglia…"), self.print_cut_dialog, None, "frame",
                            tr("Taglia attorno a qualcosa di già stampato: due crocette stampate con il disegno dicono "
                               "al laser dove sta il foglio")),
@@ -1002,7 +1006,7 @@ class MainWindow(QMainWindow):
 
     # 0.19.2: gli strumenti che non sono «attrezzi da disegno», nell'ordine del menu Strumenti. Lo stesso elenco fa il
     # menu del pulsante «Strumenti» nella barra di sinistra (MakerHub ha il suo pulsante, subito sotto)
-    TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "cook", "print_cut", "-", "variables",
+    TOOLS_MENU = ("exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "cook", "study_machine", "print_cut", "-", "variables",
                   "photo", "trace")
 
     # i comandi della barra in alto, sempre lì (0.20.7: dopo di loro vengono quelli scelti da chi usa il programma)
@@ -3259,6 +3263,7 @@ class MainWindow(QMainWindow):
 
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["cook"].setVisible(admin.unlocked(self.qs))  # 0.20.7: Free Laser Cook, in prova
+        self.acts["study_machine"].setVisible(admin.unlocked(self.qs))  # 0.22.3: Studia la macchina, in prova
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 
@@ -3367,6 +3372,26 @@ class MainWindow(QMainWindow):
         dlg.action.connect(lambda kind, job: self._test_job_action(kind, job, "free-laser-cook"))
         dlg.destroyed.connect(lambda *_: setattr(self, "_cook_dlg", None))
         self._cook_dlg = dlg
+        dlg.show()
+        return dlg
+
+    def study_machine_dialog(self, *_):
+        """Strumenti → Studia la macchina (0.22.3, solo con le funzioni in prova sbloccate)."""
+        from .. import admin
+
+        if not admin.unlocked(self.qs):
+            return None
+        if getattr(self, "_study_dlg", None) is not None:
+            self._study_dlg.raise_()
+            self._study_dlg.activateWindow()
+            return self._study_dlg
+        from .dialogs_studio import StudioDialog
+
+        dlg = StudioDialog(self, self.qs)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.destroyed.connect(lambda *_: setattr(self, "_study_dlg", None))
+        self._study_dlg = dlg
         dlg.show()
         return dlg
 

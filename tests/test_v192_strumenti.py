@@ -81,8 +81,9 @@ w.show()
 app.processEvents()
 a = w.acts
 OLD = ["makerhub_dima", "makerhub_forma", "makerhub_hinge", "makerhub_split"]
-TOOL_KEYS = ["exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "cook", "print_cut", "variables", "photo",
-             "trace"]  # 0.20.7: «cook» (Free Laser Cook, in prova) dopo il Rilievo 3D
+TOOL_KEYS = ["exact_shape", "code", "text_path", "puzzle", "sculpt", "relief", "cook", "study_machine", "print_cut",
+             "variables", "photo", "trace"]  # 0.20.7: «cook» (Free Laser Cook, in prova) dopo il Rilievo 3D;
+# 0.22.3: «study_machine» (Studia la macchina, in prova) dopo Free Laser Cook
 menu = next(m.menu() for m in w.menuBar().actions() if m.menu() is not None and a["puzzle"] in m.menu().actions())
 bar = w.tools_bar
 btn = w.btn_tools
@@ -134,7 +135,7 @@ check("M1 …nessun sottomenu MakerHub e le quattro voci di prima non esistono p
       and not any(k in a for k in OLD) and sum("MakerHub" in x.text() for x in acts) == 2)
 check("M1 …gli altri strumenti del menu sono quelli di prima, nello stesso ordine",
       [x for x in acts if x in [a[k] for k in TOOL_KEYS]] == [a[k] for k in TOOL_KEYS]
-      and list(w.TOOLS_MENU) == TOOL_KEYS[:8] + ["-"] + TOOL_KEYS[8:])
+      and list(w.TOOLS_MENU) == TOOL_KEYS[:9] + ["-"] + TOOL_KEYS[9:])
 
 # ================================================================== M3 / M4. barra di sinistra (interfaccia classica)
 items = bar_items()

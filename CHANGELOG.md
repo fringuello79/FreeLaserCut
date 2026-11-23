@@ -1,5 +1,22 @@
 # Novità di FreeLaserCut
 
+## 0.22.3 — 23/11/2026
+**Immagini con lo sfondo trasparente.** Un PNG con lo sfondo trasparente (un logo, un disegno scontornato) sul piano si vedeva dentro un riquadro bianco, che copriva quello che c'era sotto e si prendeva con un clic in qualunque punto. Ora:
+- sul piano si vede solo la parte piena dell'immagine; quello che c'è sotto resta visibile;
+- un clic sulla parte trasparente prende quello che c'è sotto; l'immagine si prende cliccando sulla parte che si vede. Se è già selezionata si trascina da qualunque punto del suo riquadro, come prima;
+- **la parte trasparente non si incide mai.** Prima, con *Negativo* acceso sul livello, lo sfondo trasparente diventava nero e si incideva a piena potenza; succedeva qualcosa di simile abbassando luminosità o contrasto. Ora le regolazioni cambiano solo la parte piena, e i bordi sfumati restano sfumati. Vale anche per l'anteprima dei punti in *Prepara foto* e per *Vettorizza*.
+
+Le immagini senza parti trasparenti, e quelle trasparenti senza regolazioni, danno esattamente lo stesso lavoro di prima.
+
+**DXF.** Provato su un file vero arrivato da un utente (scritto da un programma che ripete la tabella dei layer per ogni linea): dalla 0.22.2 il taglio rosso resta sul livello rosso come nell'SVG. Aggiunta una prova con un file fatto allo stesso modo.
+
+**Per chi prova le funzioni in prova: «Studia la macchina».** Un aiuto per insegnare a FreeLaserCut a guidare due famiglie di laser a CO2 che ancora non sa usare: le **K40 con la scheda M2 Nano** e i laser con la scheda **Ruida**. Si apre da *Strumenti*, dopo aver sbloccato le funzioni in prova, e propone alcune prove guidate: trovare la scheda, chiederle lo stato, leggerne la memoria (modello, misure del piano, posizione della testa) e, solo con il consenso, spostare la testa di pochi centimetri per misurare la velocità vera.
+- **Il laser non si accende mai.** I comandi che lo accendono non esistono in questa parte del programma, e ogni byte prima di partire passa da un controllo che lascia andare solo quelli della prova.
+- Le prove si fanno **in qualsiasi ordine, anche solo alcune**, e da persone diverse: ogni risultato si salva subito ed entra da solo in *Aiuto → Invia un rapporto all'assistenza*.
+- Nel rapporto ci sono solo dati della macchina: niente disegni, niente nomi di file; l'indirizzo di rete è nascosto.
+
+Non cambia niente per chi non usa le funzioni in prova. Le prove sono state controllate con schede simulate, non ancora su macchine vere: è proprio quello che chiediamo a chi ne ha una.
+
 ## 0.22.2 — 22/11/2026
 Correzioni e ritocchi arrivati in giornata da chi sta provando la 0.22, più due miglioramenti nell'importazione di DXF e SVG. (La 0.22.1 non è uscita.)
 

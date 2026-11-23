@@ -352,6 +352,13 @@ HELP = {
         "tavoletta di legno massello, il giro che lo profuma di fumo. Le ricette si salvano, si esportano e si "
         "importano. Prima di accendere si spuntano le accortezze; quando è cotto lo dice il termometro a sonda."),
              None),
+    "study_machine": (tr("Studia la macchina (in prova)"), tr(
+        "Prove guidate su una K40 con la scheda M2 Nano o su un laser con la scheda Ruida, per insegnare a "
+        "FreeLaserCut a usarle. Il laser non si accende mai: le prove leggono lo stato e la memoria della scheda e, "
+        "solo se dai il consenso, spostano la testa di pochi centimetri a laser spento. Si fanno in qualsiasi ordine, "
+        "anche solo alcune; ogni risultato si salva subito ed entra da solo in «Invia un rapporto all'assistenza». "
+        "Nel rapporto ci sono solo dati della macchina; l'indirizzo di rete è nascosto."),
+                      None),
     "makerhub_site": (tr("Strumenti MakerHub"), tr(
         "Apre nel browser il sito di MakerHub, un servizio esterno (maker-hub.it, serve un account), dove scegli uno "
         "dei loro strumenti per il laser: Dima Lab (dime per posizionare gli oggetti), Forma Lab (scatole, espositori, "

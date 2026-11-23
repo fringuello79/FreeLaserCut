@@ -317,6 +317,7 @@ def engrave_preview(pil, w_mm, h_mm, dpi, dither, brightness=0.0, contrast=0.0, 
     from . import imaging
 
     dark = imaging.to_dark(pil)
+    alpha = None if imaging.neutral(brightness, contrast, gamma, negative) else imaging.alpha_of(pil)  # 0.22.3
     H, W = dark.shape
     step = 25.4 / max(dpi, 10.0)
     nx, ny = max(1, int(round(w_mm / step))), max(1, int(round(h_mm / step)))
@@ -326,13 +327,17 @@ def engrave_preview(pil, w_mm, h_mm, dpi, dither, brightness=0.0, contrast=0.0, 
         a, b = int(x0 * W), max(int(x1 * W), int(x0 * W) + 1)
         c, d = int(y0 * H), max(int(y1 * H), int(y0 * H) + 1)
         dark = dark[c:d, a:b]
+        if alpha is not None:
+            alpha = alpha[c:d, a:b]
         nx, ny = max(1, int(round(nx * (x1 - x0)))), max(1, int(round(ny * (y1 - y0))))
     elif nx * ny > max_dots:
         k = (max_dots / (nx * ny)) ** 0.5
         nx, ny = max(1, int(nx * k)), max(1, int(ny * k))
     interp = cv2.INTER_AREA if nx < dark.shape[1] else cv2.INTER_LINEAR
     grid = cv2.resize(dark.astype(np.float32), (nx, ny), interpolation=interp)
-    grid = imaging.adjust(grid, brightness, contrast, gamma, negative)
+    if alpha is not None:  # 0.22.3: il trasparente resta bianco anche in negativo (come nell'incisione vera)
+        alpha = cv2.resize(alpha, (nx, ny), interpolation=interp)
+    grid = imaging.adjust_alpha(grid, alpha, brightness, contrast, gamma, negative)
     cell_px = max(halftone_cell / step * k, 2.0)
     return imaging.dither(grid, dither, cell_px, halftone_angle, halftone_size), k
 
@@ -353,7 +358,7 @@ def to_vectors(pil, w_mm, h_mm, tones=2, detail=0.5, smooth=0.5, outlines=True, 
     dal più chiaro al più scuro, 'outline' e 'edges' = QPainterPath o None, 'thresholds'."""
     from . import imaging, trace
 
-    dark = imaging.adjust(imaging.to_dark(pil), brightness, contrast, gamma)
+    dark = imaging.adjust_alpha(imaging.to_dark(pil), imaging.alpha_of(pil), brightness, contrast, gamma)  # 0.22.3
     # leggera sfocatura: le fasce non devono seguire la grana della foto
     H, W = dark.shape
     px_mm = W / max(w_mm, 1e-6)

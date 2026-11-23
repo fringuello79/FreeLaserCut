@@ -646,6 +646,10 @@ if __name__ == "__main__":
     run_suite("test_v222_contorno.py", "Contorno con la partenza dalla posizione della testa: finito il giro la testa torna da dove è partita e il lavoro non si sposta (9 pallini, laser spento e puntino, rettangolo e convesso)")
     run_suite("test_v222_contorno.py", "Contorno con la partenza dalla testa nell'interfaccia Banco", "banco")
     run_suite("test_v222_banco_rete.py", "Rete di sicurezza del Banco: dopo un avvio fallito si parte in Classica con la fascia, alla seconda la scelta diventa Classica; Officina sul secondo monitor spenta sul Mac; prova d'avvio di GitHub anche nel Banco")
+    run_suite("test_v223_studio.py", "Studia la macchina (in prova): prove guidate su K40 (scheda M2 Nano) e Ruida con schede finte, in qualsiasi ordine; il laser non si accende mai (comandi permessi, chiavi sbagliate innocue), diario e rapporto, indirizzo nascosto, difetti rimessi apposta")
+    run_suite("test_v223_studio.py", "Studia la macchina nell'interfaccia Banco", "banco")
+    run_suite("test_v223_png_trasparenti.py", "Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza")
+    run_suite("test_v223_png_trasparenti.py", "Immagini con lo sfondo trasparente nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

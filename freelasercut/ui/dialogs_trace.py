@@ -57,7 +57,7 @@ class TraceDialog(QDialog):
         self.setWindowTitle(tr("Vettorizza immagine"))
         self.shape = shape
         dark = imaging.to_dark(pil)
-        self.dark = imaging.adjust(dark, shape.brightness, shape.contrast, shape.gamma)
+        self.dark = imaging.adjust_alpha(dark, imaging.alpha_of(pil), shape.brightness, shape.contrast, shape.gamma)
         self.auto_t = trace.otsu(self.dark)
         self.result = None
         h = QHBoxLayout(self)

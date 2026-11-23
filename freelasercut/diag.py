@@ -597,6 +597,14 @@ def make_report(path, win=None, comm=None, extra=None, user=None, screenshot=Non
                 with open(os.path.join(d, fn), encoding="utf-8", errors="replace") as fh:
                     z.writestr("diagnostica/" + fn, sanitize(fh.read()))
                 names.append("diagnostica/" + fn)
+        try:  # 0.22.3: i diari di «Studia la macchina» (solo dati della macchina, scritti man mano)
+            from .studio import file_per_rapporto
+
+            for name, txt in file_per_rapporto():
+                z.writestr(name, sanitize(txt))
+                names.append(name)
+        except Exception:  # noqa: BLE001
+            ignored("rapporto: diari dello studio della macchina")
         for name, data in (extra or {}).items():
             z.writestr(name, sanitize(data if isinstance(data, str) else json.dumps(data, indent=1, ensure_ascii=False)))
             names.append(name)

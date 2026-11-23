@@ -565,7 +565,7 @@ class RemoteServer:
         if not isinstance(img, ImageShape):
             raise RemoteError("non è un'immagine")
         pil = self.doc.images.get(img.image_id)
-        dark = imaging.adjust(imaging.to_dark(pil), img.brightness, img.contrast, img.gamma)
+        dark = imaging.adjust_alpha(imaging.to_dark(pil), imaging.alpha_of(pil), img.brightness, img.contrast, img.gamma)
         path, info = trace.trace(dark, img.w, img.h, mode, threshold, False, detail, smooth, min_size_mm)
         ps = PathShape(path, self._layer(layer if layer is not None else 1))
         ps.set_transform(img.tf)

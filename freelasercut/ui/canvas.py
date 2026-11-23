@@ -687,6 +687,12 @@ class Canvas(QGraphicsView):
         if q is not None:
             return q
         dark = imaging.to_dark(img)
+        # 0.22.3: le parti trasparenti non si disegnano (prima erano bianche e coprivano quello che c'è sotto).
+        # Colore = il disegno regolato, trasparenza = quella dell'immagine: su fondo bianco si vede lo stesso scuro
+        # che verrà inciso (scuro del disegno × trasparenza)
+        alpha = imaging.alpha_of(img)
+        neg = bool(cs and cs.negative)
+        cover = None  # trasparenza da dare ai pixel (None = immagine piena, come prima)
         if dith:
             step = 25.4 / max(cs.dpi, 10)
             nx = max(2, min(int(leaf.w / step), 2400))
@@ -694,20 +700,34 @@ class Canvas(QGraphicsView):
             import cv2
 
             small = cv2.resize(dark, (nx, ny), interpolation=cv2.INTER_AREA)
-            small = imaging.adjust(small, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
+            small_a = None if alpha is None else cv2.resize(alpha, (nx, ny), interpolation=cv2.INTER_AREA)
+            small = imaging.adjust_alpha(small, small_a, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
             vals = imaging.dither(small, cs.dither, max(cs.halftone_cell / step, 2), cs.halftone_angle,
                                   cs.halftone_size)
-            lum = (1.0 - vals) * 255
-        else:
-            dark = imaging.adjust(dark, leaf.brightness, leaf.contrast, leaf.gamma, bool(cs and cs.negative))
+            if small_a is None:
+                lum = (1.0 - vals) * 255
+            elif cs.dither == "grayscale":  # potenza continua: colore del disegno, trasparenza dell'immagine
+                lum = (1.0 - imaging.unpremultiply(vals, small_a)) * 255
+                cover = small_a
+            else:  # punti accesi pieni, il resto trasparente come l'immagine
+                lum = (1.0 - vals) * 255
+                cover = np.maximum(small_a, vals.astype(np.float32))
+        elif alpha is None:
+            dark = imaging.adjust(dark, leaf.brightness, leaf.contrast, leaf.gamma, neg)
             lum = (1.0 - dark) * 255
+        else:
+            dark = imaging.adjust(imaging.unpremultiply(dark, alpha), leaf.brightness, leaf.contrast, leaf.gamma, neg)
+            lum = (1.0 - dark) * 255
+            cover = alpha
         arr = np.ascontiguousarray(lum.astype(np.uint8))
         h, w = arr.shape
         if getattr(leaf, "clip", None):  # 0.20.3: fuori dalla sagoma la foto non si vede (né si incide)
             keep = photo_clip.pixel_mask(leaf.clip, leaf.w, leaf.h, w, h)
+            cover = np.where(keep, 1.0 if cover is None else cover, 0.0)
+        if cover is not None:
             rgba = np.empty((h, w, 4), np.uint8)
             rgba[..., 0] = rgba[..., 1] = rgba[..., 2] = arr
-            rgba[..., 3] = np.where(keep, 255, 0)
+            rgba[..., 3] = np.clip(np.rint(np.asarray(cover, np.float32) * 255), 0, 255).astype(np.uint8)
             qi = QImage(rgba.data, w, h, 4 * w, QImage.Format_RGBA8888).copy()
         else:
             qi = QImage(arr.data, w, h, w, QImage.Format_Grayscale8).copy()
@@ -1058,6 +1078,45 @@ class Canvas(QGraphicsView):
                 p.drawText(QPointF(x + 4, RULER + 14), txt)
 
     # ================================================================ selezione a colpo
+    def _image_hit_mask(self, image_id):
+        """0.22.3: maschera ridotta delle parti visibili di un'immagine (None = nessuna parte trasparente), tenuta
+        in memoria: il clic sulla tela si guarda a ogni movimento del mouse."""
+        img = self.editor.doc.images.get(image_id)
+        cache = getattr(self, "_hit_masks", None)
+        if cache is None:
+            cache = self._hit_masks = {}
+        got = cache.get(image_id)
+        if got is not None and got[0] is img:
+            return got[1]
+        alpha = imaging.alpha_of(img)
+        mask = None if alpha is None else imaging.alpha_hit_mask(alpha)[0]
+        if len(cache) > 32:
+            cache.clear()
+        cache[image_id] = (img, mask)
+        return mask
+
+    def _image_visible_near(self, s, bed_pt, tol):
+        """C'è una parte visibile dell'immagine s entro tol (mm del piano) dal punto? Senza trasparenza sempre sì."""
+        mask = self._image_hit_mask(s.image_id)
+        if mask is None:
+            return True
+        inv, ok = s.tf.inverted()
+        if not ok or s.w <= 0 or s.h <= 0:
+            return True
+        mh, mw = mask.shape
+        xs, ys = [], []
+        for dx in (-tol, tol):
+            for dy in (-tol, tol):
+                q = inv.map(QPointF(bed_pt.x() + dx, bed_pt.y() + dy))
+                # stessa convenzione di imaging.sample_to_grid: locale 0..w, 0..h con la Y in su, riga 0 in alto
+                xs.append(q.x() / s.w * mw)
+                ys.append((1.0 - q.y() / s.h) * mh)
+        c0, c1 = max(0, int(math.floor(min(xs)))), min(mw, int(math.ceil(max(xs))) + 1)
+        r0, r1 = max(0, int(math.floor(min(ys)))), min(mh, int(math.ceil(max(ys))) + 1)
+        if c0 >= c1 or r0 >= r1:
+            return False
+        return bool(mask[r0:r1, c0:c1].any())
+
     def hit_shape(self, bed_pt, tol_px=6):
         tol = self.px(tol_px)
         doc = self.editor.doc
@@ -1074,7 +1133,11 @@ class Canvas(QGraphicsView):
                 continue
             path = s.path()
             if isinstance(s, ImageShape):
-                return s
+                # 0.22.3: sulla parte trasparente il clic passa a quello che c'è sotto. Un'immagine già selezionata
+                # si prende da tutto il riquadro, come prima (per trascinarla)
+                if s in self.editor.selection or self._image_visible_near(s, bed_pt, tol):
+                    return s
+                continue
             if known and isinstance(s, GroupShape):
                 # 0.20.4: di un gruppo si guardano solo le foglie vicine al punto (stesso risultato: le altre non
                 # contengono il punto e il loro contorno è lontano). Un gruppo di migliaia di tracciati non si

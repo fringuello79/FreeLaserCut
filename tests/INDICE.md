@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 257. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 261. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (18)
 
@@ -68,7 +68,7 @@ Suite: 257. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
 - `test_v212_catalogo.py`: Catalogo: VEVOR A7 5W (come l'Atomstack A5 Pro) e Sculpfun iCube Ultra Dual 12W e 1.2W IR (area prudente 135 × 135, dichiarata 150 × 135, famiglia nel riconoscimento, nota sul raggio a 1064 nm, accelerazione 500, tabella dei materiali Sculpfun con interlinea 0,05), traduzioni
 
-## Foto e immagini (27)
+## Foto e immagini (29)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -97,6 +97,8 @@ Suite: 257. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v220_galleria.py`: Galleria dei lavori condivisi (in prova): comandi nel menu File, modulo, progetto ripulito e che cosa parte davvero, foto senza EXIF, risposte e file ostili, voti, segnalazioni, «I miei lavori», apertura come progetto nuovo
 - `test_v221_vuoti.py`: Vuoti nelle righe di foto e riempimenti: salto veloce solo se resta lungo dopo le rincorse, mai all'indietro (foto con l'effetto Matita)
 - `test_v221_vuoti.py` (Banco): Vuoti nelle righe di foto e riempimenti nell'interfaccia Banco
+- `test_v223_png_trasparenti.py`: Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza
+- `test_v223_png_trasparenti.py` (Banco): Immagini con lo sfondo trasparente nell'interfaccia Banco
 
 ## Lavoro e G-code (42)
 
@@ -143,7 +145,7 @@ Suite: 257. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v222_contorno.py`: Contorno con la partenza dalla posizione della testa: finito il giro la testa torna da dove è partita e il lavoro non si sposta (9 pallini, laser spento e puntino, rettangolo e convesso)
 - `test_v222_contorno.py` (Banco): Contorno con la partenza dalla testa nell'interfaccia Banco
 
-## Macchina, connessione e profili (53)
+## Macchina, connessione e profili (55)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -198,6 +200,8 @@ Suite: 257. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v201_carverall_jl9.py`: Carverall JL9 (X1 Pro) 20W nel catalogo: dati ufficiali, riconoscimento dall'area di lavoro
 - `test_v221_import.py` (Banco): DXF e SVG importati nell'interfaccia Banco
 - `test_v222_banco_rete.py`: Rete di sicurezza del Banco: dopo un avvio fallito si parte in Classica con la fascia, alla seconda la scelta diventa Classica; Officina sul secondo monitor spenta sul Mac; prova d'avvio di GitHub anche nel Banco
+- `test_v223_studio.py`: Studia la macchina (in prova): prove guidate su K40 (scheda M2 Nano) e Ruida con schede finte, in qualsiasi ordine; il laser non si accende mai (comandi permessi, chiavi sbagliate innocue), diario e rapporto, indirizzo nascosto, difetti rimessi apposta
+- `test_v223_studio.py` (Banco): Studia la macchina nell'interfaccia Banco
 
 ## Disegno e modifica (28)
 

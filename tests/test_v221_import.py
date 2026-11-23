@@ -113,6 +113,36 @@ ls, ld = layers_by_size(io_formats.import_svg(svg, Document())), layers_by_size(
 check("stesso disegno in SVG e in DXF (taglio rosso con un layer DXF): stessi livelli", ls == ld and ls[20.0] == RED,
       (ls, ld))
 
+# 0.22.3: un DXF R12 scritto come quello di un utente (23/11, file da un programma di un'altra marca): solo POLYLINE
+# chiuse con il colore numerato sulla linea, la tabella dei layer con le stesse due voci ripetute per ogni linea e
+# maniglie doppie. La 0.21.1 lo metteva tutto nel primo livello; deve dare rosso e blu come l'SVG
+def r12_poly(x, size, color, layer, handle):
+    pts = [(x, 0), (x + size, 0), (x + size, size), (x, size)]
+    out = ["0", "POLYLINE", "5", handle, "8", layer, "62", str(color), "66", "1", "10", "0", "20", "0", "30", "0",
+           "70", "1"]
+    for px, py in pts:
+        out += ["0", "VERTEX", "5", handle, "8", layer, "10", str(px), "20", str(py), "30", "0"]
+    return out + ["0", "SEQEND", "5", handle, "8", layer]
+
+
+r12 = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "9", "$INSUNITS", "70", "4", "0", "ENDSEC",
+       "0", "SECTION", "2", "TABLES", "0", "TABLE", "2", "LAYER", "70", "6"]
+for name, col in (("Layer_2", 1), ("Layer_1", 5)) * 3:  # voci ripetute, come nel file vero
+    r12 += ["0", "LAYER", "2", name, "70", "0", "62", str(col), "6", "CONTINUOUS"]
+r12 += ["0", "ENDTAB", "0", "ENDSEC", "0", "SECTION", "2", "ENTITIES"]
+r12 += r12_poly(0, 21, 1, "Layer_2", "7E") + r12_poly(30, 22, 5, "Layer_1", "7E") + r12_poly(60, 23, 5, "Layer_1", "7F")
+r12 += ["0", "ENDSEC", "0", "EOF"]
+p12 = os.path.join(D, "r12_ripetuto.dxf")
+with open(p12, "w", newline="\r\n") as fh:
+    fh.write("\n".join(r12) + "\n")
+try:
+    got = layers_by_size(io_formats.import_dxf(p12, Document()))
+except Exception as ex:  # noqa: BLE001
+    got = {"errore": repr(ex)}
+check("DXF R12 con layer ripetuti e maniglie doppie: la linea rossa sul livello rosso", got.get(21.0) == RED, got)
+check("…e le due blu sul livello blu", got.get(22.0) == BLUE and got.get(23.0) == BLUE, got)
+check("…tutte e tre importate, misure giuste", sorted(got) == [21.0, 22.0, 23.0], sorted(got))
+
 # ================================================================ 2. SVG: punti per pollice
 RECT = '<rect x="0" y="0" width="{w}" height="{w}" fill="none" stroke="#000"/>'
 

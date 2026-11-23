@@ -1022,7 +1022,14 @@ def _image_lines(leaf, tf, cs, s_levels, bed, compact=1):
     if not ok:
         return [], (1.0, 0.0), True
     grid = imaging.sample_to_grid(dark, inv, leaf.w, leaf.h, x0, y0, nx, ny, step)
-    grid = imaging.adjust(grid, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
+    # 0.22.3: con le parti trasparenti le regolazioni si fanno sul disegno: il trasparente non si incide mai, nemmeno
+    # in negativo o con luminosità e contrasto abbassati. Senza trasparenza (o regolazioni neutre) come prima.
+    alpha = None
+    if not imaging.neutral(leaf.brightness, leaf.contrast, leaf.gamma, cs.negative):
+        a = imaging.alpha_of(img)
+        if a is not None:
+            alpha = imaging.sample_to_grid(a, inv, leaf.w, leaf.h, x0, y0, nx, ny, step)
+    grid = imaging.adjust_alpha(grid, alpha, leaf.brightness, leaf.contrast, leaf.gamma, cs.negative)
     # 0.20.3: fuori dalla foto (e fuori dalla sagoma del ritaglio) il laser resta spento, anche in negativo o con
     # luminosità e contrasto: prima, con una foto ruotata, si incidevano gli angoli del riquadro che la contiene
     keep = imaging.grid_inside(inv, leaf.w, leaf.h, x0, y0, nx, ny, step)

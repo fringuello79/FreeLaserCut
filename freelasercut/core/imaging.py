@@ -137,6 +137,63 @@ def to_dark(pil_image):
     return 1.0 - lum
 
 
+# 0.22.3: immagini con le parti trasparenti (PNG con lo sfondo trasparente). Lo «scuro» di to_dark è già
+# moltiplicato per la trasparenza (trasparente = bianco = 0). Le regolazioni (negativo, luminosità, contrasto,
+# gamma) però vanno fatte sul disegno, non sul bianco messo al posto del trasparente: prima il negativo trasformava
+# lo sfondo trasparente in nero pieno, e lo incideva. Qui l'unico punto che lo sa fare; usato da tutti.
+ALPHA_MODES = ("RGBA", "LA", "P")  # gli stessi modi in cui to_dark usa la trasparenza
+
+
+def alpha_of(pil_image):
+    """PIL -> trasparenza 0..1 (float32, grande come l'immagine), oppure None se l'immagine non ha parti
+    trasparenti (nessun canale, o canale tutto pieno): con None ogni strada resta quella di prima."""
+    img = pil_image
+    if img is None or img.mode not in ALPHA_MODES:
+        return None
+    a = np.asarray(img.convert("RGBA").getchannel("A"))
+    if not a.size or int(a.min()) >= 255:
+        return None
+    return a.astype(np.float32) / 255.0
+
+
+def neutral(brightness=0.0, contrast=0.0, gamma=1.0, negative=False):
+    """Le regolazioni non cambiano niente (adjust lascia lo scuro com'è)."""
+    return not negative and not brightness and not contrast and (not gamma or abs(gamma - 1.0) <= 1e-3)
+
+
+def unpremultiply(dark, alpha):
+    """Scuro già moltiplicato per la trasparenza -> scuro del solo disegno (0 dove è del tutto trasparente)."""
+    a = alpha.astype(np.float32)
+    out = np.zeros(dark.shape, np.float32)
+    np.divide(dark.astype(np.float32), a, out=out, where=a > 1e-6)
+    return np.clip(out, 0.0, 1.0)
+
+
+def adjust_alpha(dark, alpha, brightness=0.0, contrast=0.0, gamma=1.0, negative=False):
+    """adjust() che rispetta le parti trasparenti: le regolazioni si fanno sul disegno e il risultato si rimoltiplica
+    per la trasparenza, così il trasparente resta sempre 0 (laser spento) e i bordi sfumati restano sfumati.
+    Senza trasparenza o con le regolazioni neutre è esattamente adjust() (stesso G-code di prima)."""
+    if alpha is None or neutral(brightness, contrast, gamma, negative):
+        return adjust(dark, brightness, contrast, gamma, negative)
+    d = adjust(unpremultiply(dark, alpha), brightness, contrast, gamma, negative)
+    return np.clip(d * alpha.astype(np.float32), 0.0, 1.0)
+
+
+def alpha_hit_mask(alpha, side=512, threshold=0.05):
+    """Trasparenza -> maschera ridotta (lato lungo <= side) delle parti che si vedono, per il clic sulla tela.
+    Ogni cella è «piena» se in quel blocco c'è almeno un pixel visibile (massimo, non media: una linea sottile
+    non sparisce). -> (maschera bool, fattore di riduzione)."""
+    vis = alpha > threshold
+    H, W = vis.shape
+    f = max(1, int(math.ceil(max(H, W) / float(side))))
+    if f == 1:
+        return vis, 1
+    hh, ww = int(math.ceil(H / f)), int(math.ceil(W / f))
+    pad = np.zeros((hh * f, ww * f), bool)
+    pad[:H, :W] = vis
+    return pad.reshape(hh, f, ww, f).any(axis=(1, 3)), f
+
+
 def sample_to_grid(dark, shape_tf_inv, shape_w, shape_h, x0, y0, nx, ny, step):
     """Campiona l'immagine sulla griglia del laser.
 
