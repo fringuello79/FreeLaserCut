@@ -28,7 +28,7 @@ import time
 
 from .da_gcode import ErroreRiga, Traduttore
 from .scrittore import (ATTENDI_FERMA, ATTENDI_FINE, DATI, MIL_PER_MM, Scrittore, durata_veloce, pacchetti,
-                        pacchetti_a_parole)
+                        pacchetti_flusso)
 
 OK, OCCUPATA, ERRORE_CRC, FINITO, FINITO_M3 = 206, 238, 207, 236, 204
 SALUTO = "\r\nGrbl 1.1f ['$' for help]\r\n[MSG:'$H'|'$X' to unlock]\r\n"
@@ -46,8 +46,8 @@ DIARIO_BYTE = 300  # byte di ogni lavoro (e delle prime frecce) scritti nel diar
 # Tabella dei comandi (documento di chiusura). emulato | ok (senza effetto) | errore
 COMANDI = {
     "?": "emulato: stato con la posizione dell'ultimo pezzo finito",
-    "!": "emulato: pacchetto PN (pausa) durante un lavoro; durante le frecce le ferma; da fermo niente",
-    "~": "emulato: secondo PN (ripresa)",
+    "!": "emulato: durante un lavoro non si manda altro (con il laser spento); durante le frecce le ferma",
+    "~": "emulato: si riprende a mandare",
     "Ctrl+X": "emulato: I, code svuotate; in movimento allarme 3 (posizione persa: serve $H); da fermo la posizione resta",
     "0x85": "emulato: nessun altro pezzetto delle frecce",
     "0x90-0x9D": "ok: ignorati (velocità e potenza le decide la scheda e la manopola)",
@@ -123,6 +123,7 @@ class K40Serial:
         self._inizio = bytearray()  # 0.22.7: i primi byte del lavoro in corso, per il diario
         self._frecce_scritte = 0
         self._annulli = 0  # 0.22.7: cresce a ogni 0x85 / «!» sulle frecce: una freccia in attesa non parte più
+        self._resto = b""  # 0.22.8: comandi del lavoro in corso che non riempiono ancora un pacchetto (vedi _manda)
         link.apri()
         try:
             link.inizia()
@@ -278,6 +279,7 @@ class K40Serial:
         self._coda.clear()
         self._rx.clear()
         self._urgente.clear()
+        self._resto = b""
         self._gen += 1
         self._stop_chiesti += 1
         self.hold = False
@@ -333,8 +335,9 @@ class K40Serial:
                     return
             elif not self.hold:
                 return
+            # 0.22.8: niente «PN» alla scheda (il suo pacchetto, riempito di «F», chiuderebbe il lavoro): come la pausa
+            # di MeerK40t, il ponte smette di mandare, solo dove il laser è spento; la scheda finisce quello che ha
             self.hold = on
-            self._urgente.append(b"PN")
             self._cv.notify_all()
         self._diario("pausa" if on else "ripresa")
 
@@ -704,16 +707,22 @@ class K40Serial:
             self._manda_pn(u, gen)
 
     def _manda(self, cmd, gen):
-        sicuro = True
-        for p, sicuro_dopo in pacchetti_a_parole(cmd):
-            if sicuro:  # fra un comando e l'altro: qui può entrare la pausa
+        """0.22.8: dentro un lavoro pacchetti pieni (la «F» di riempimento chiuderebbe il lavoro sulla scheda vera);
+        quello che non riempie un pacchetto aspetta i comandi dopo (pacchetti_flusso)."""
+        pk, self._resto = pacchetti_flusso(self._resto + bytes(cmd))
+        spento = True
+        for p in pk:
+            self._svuota_urgenti(gen)
+            while self.hold and spento:  # in pausa non si manda altro, ma solo dove il laser è spento
+                self._fermo(gen)
                 self._svuota_urgenti(gen)
-                while self.hold:  # in pausa non si manda altro (come MeerK40t): la ripresa trova sempre posto
-                    self._fermo(gen)
-                    self._svuota_urgenti(gen)
-                    self.attesa(0.02 * self.k)
-            sicuro = sicuro_dopo
+                self.attesa(0.02 * self.k)
             self._manda_pacchetto(p, gen)
+            for b in p[1:31]:
+                if b == 0x44:  # D
+                    spento = False
+                elif b == 0x55:  # U
+                    spento = True
             with self._cv:
                 self._byte_in_volo = max(0, self._byte_in_volo - 30)
                 self._cv.notify_all()

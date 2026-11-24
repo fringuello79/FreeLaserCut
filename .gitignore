@@ -22,3 +22,4 @@ dati_iniziali/
 build/AppDir/
 build/*.AppImage
 build/SHA256SUMS-linux.txt
+tests/k40_virtuale-log.txt

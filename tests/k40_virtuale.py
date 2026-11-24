@@ -2,17 +2,26 @@
 """K40 virtuale (strumento per Ale, rudimentale): apre FreeLaserCut con una K40 finta collegabile, e accanto una
 finestrina che mostra il piano 300 × 200 mm, la testa e i tratti «bruciati».
 
-Avvio (con FreeLaserCut chiuso):  python tests\\k40_virtuale.py        (tempo vero)
-                                   python tests\\k40_virtuale.py 5      (5 volte più veloce)
+Avvio: doppio clic su tests\\k40_virtuale.bat (usa il Python di FreeLaserCut installato), oppure
+       python tests\\k40_virtuale.py        (tempo vero)
+       python tests\\k40_virtuale.py 5      (5 volte più veloce)
+Si apre come copia a parte anche con FreeLaserCut già aperto.
 Nella tendina delle porte: «K40 VIRTUALE (scheda finta)» → Connetti. Il profilo diventa quello della K40: per tornare
 al proprio laser, «Laser in uso». La scheda finta è quella delle prove (tests/k40_scheda_finta.py): riceve i pacchetti
 come la vera e segna i «pericoli» (laser acceso senza dati, D fuori dal lavoro, testa fuori dal piano).
 Non tocca USB e non serve la macchina.
 """
+import faulthandler
 import os
 import sys
+import traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# tutto quello che succede va in tests/k40_virtuale-log.txt (con pythonw.exe non c'è una finestra dove leggerlo)
+_LOG = open(os.path.join(ROOT, "tests", "k40_virtuale-log.txt"), "w", encoding="utf-8", buffering=1)
+sys.stdout = sys.stderr = _LOG
+faulthandler.enable(_LOG)
+print("K40 virtuale: avvio con", sys.executable, sys.version)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 
@@ -145,6 +154,17 @@ def _main_con_vista(app=None, splash=None):
 mw.main = _main_con_vista
 
 if __name__ == "__main__":
-    from freelasercut.__main__ import boot
+    # 0.22.7: senza la «guardia» d'avvio, l'istanza unica e la schermata del logo (gli errori finirebbero in una
+    # finestra o in un registro a parte): qui tutto va in tests/k40_virtuale-log.txt
+    os.environ["FLC_MULTI"] = "1"
+    try:
+        from PySide6.QtWidgets import QApplication
 
-    boot()
+        print("K40 virtuale: Qt caricato")
+        _app = QApplication(sys.argv)
+        print("K40 virtuale: apro FreeLaserCut")
+        mw.main(_app, None)
+        print("K40 virtuale: FreeLaserCut chiuso normalmente")
+    except BaseException:  # noqa: BLE001 — si scrive tutto nel registro
+        traceback.print_exc()
+        raise

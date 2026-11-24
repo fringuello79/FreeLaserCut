@@ -173,7 +173,8 @@ for a, b, cc, d in c.b.accesi:  # i tratti spezzati fra un pacchetto e l'altro s
         seg.append((a, b, cc, d))
 seg = [(round(a / MIL, 1), round(b / MIL, 1), round(cc / MIL, 1), round(d / MIL, 1)) for a, b, cc, d in seg]
 lati = {(56.1, 68.4, 91.1, 68.4), (91.1, 68.4, 91.1, 33.4), (91.1, 33.4, 56.1, 33.4), (56.1, 33.4, 56.1, 68.4)}
-check("B bruciati esattamente i 4 lati del quadrato 35 × 35 (nell'ordine del G-code)", set(seg) == lati and len(seg) == 4,
+check("B bruciati esattamente i 4 lati del quadrato 35 × 35 (nell'ordine del G-code)",
+      set(seg) == lati and len(seg) == 4,
       seg)
 check("B la testa finisce dove il programma crede (posizione detta = posizione della scheda)",
       c.mpos() is not None and abs(c.mpos()[0] * MIL - c.b.x) <= 1 and abs(c.mpos()[1] * MIL - c.b.y) <= 1,
@@ -181,10 +182,57 @@ check("B la testa finisce dove il programma crede (posizione detta = posizione d
 check("B nessun «I» con la testa in moto, nessun pacchetto perso, nessun pericolo",
       c.b.interrotti == 0 and c.b.persi == 0 and not c.b.pericoli, (c.b.interrotti, c.b.persi, c.b.pericoli))
 check("B tempo del lavoro vicino a quello previsto a 10,17 mm/s (140 mm ≈ 14 s, più spostamento e attese)",
-      14 <= dur <= 30, round(dur, 1))
+      14 <= dur <= 45, round(dur, 1))  # + 0,5 s veri (25 qui) di silenzio prima di chiudere il lavoro
 fin = [v for v in c.d.voci if v.get("cosa") == "fine"]
 check("D il diario scrive i byte del lavoro (con «I» e il codice)", fin and "ICV" in fin[-1].get("dati", ""),
       fin[-1] if fin else None)
+c.chiudi()
+
+# ====================================================================== B2. 0.22.8: pacchetti pieni dentro il lavoro
+print("--- B2. pacchetti pieni dentro il lavoro (rapporto 03D4: la «F» di riempimento chiudeva il lavoro)")
+from PySide6.QtGui import QTransform  # noqa: E402
+
+from freelasercut.core import gcode  # noqa: E402
+from freelasercut.core.document import Document, EllipseShape  # noqa: E402
+from freelasercut.profile import MachineProfile as _MP  # noqa: E402
+
+_doc = Document()
+_cer = EllipseShape(30.3, 30.3)
+_cer.apply(QTransform.fromTranslate(93.0, 50.3))
+_doc.add(_cer)
+CERCHIO = gcode.generate(_doc, _MP.k40(), gcode.JobOptions(start_from="absolute", no_g55=True)).lines
+dati_c = b"".join(p[1] for p in da_gcode.traduci(CERCHIO)[0] if p[0] == S.DATI)
+pk, resto = S.pacchetti_flusso(dati_c)
+dentro = []
+lav = False
+for p in pk:
+    corpo = p[1:31]
+    for k in range(len(corpo)):
+        if corpo[k:k + 3] == b"S1E":
+            lav = True
+        if corpo[k:k + 4] == b"FNSE":
+            lav = False
+        if lav and corpo[k:k + 1] == b"F" and corpo[k:k + 4] != b"FNSE":
+            dentro.append(corpo)
+check("B2 nessuna «F» di riempimento dentro il lavoro (il cerchio di Evo, 131 tratti)", not dentro and resto == b"",
+      (dentro[:1], resto[:20]))
+pk2, resto2 = S.pacchetti_flusso(b"ICV1620661016001052NBRS1EDBzzzzz103Lzzzzz103Tzz")
+spento = True
+for p in pk2:
+    for b in p[1:31]:
+        spento = False if b == 0x44 else True if b == 0x55 else spento
+check("B2 a lavoro aperto si manda solo fin dove il laser è spento, il resto aspetta",
+      spento and resto2 and all(len(p) == 32 for p in pk2), (len(pk2), resto2))
+c = Cliente()
+c.casa()
+for r in CERCHIO:
+    c.cmd(r)
+c.fermo(60)
+cx, cy = (93.0 + 15.15), (200 - 50.3 - 15.15)
+lontani = [((a / MIL - cx) ** 2 + (b / MIL - cy) ** 2) ** 0.5 for a, b, _c, _d in c.b.accesi]
+check("B2 il cerchio sulla scheda finta: bruciato tutto sul cerchio (raggio 15,15 ± 0,3 mm), nessun pericolo",
+      lontani and all(abs(r - 15.15) < 0.3 for r in lontani) and not c.b.pericoli and "F" not in c.b.comandi,
+      (min(lontani or [0]), max(lontani or [0]), c.b.pericoli[:2]))
 c.chiudi()
 
 # ====================================================================== C. frecce
@@ -193,7 +241,8 @@ c = Cliente()
 c.casa()
 n0 = c.b.comandi.count("S1P")
 check("C passo 50: ok", c.cmd("$J=G91 G21 X50 F3000") == "ok")
-check("C …un solo spostamento veloce, testa a 50 mm, nessun «I» in moto", c.fermo() and c.b.comandi.count("S1P") - n0 == 1
+check("C …un solo spostamento veloce, testa a 50 mm, nessun «I» in moto",
+      c.fermo() and c.b.comandi.count("S1P") - n0 == 1
       and abs(c.b.x - round(50 * MIL)) <= 1 and c.b.interrotti == 0, (c.b.comandi.count("S1P") - n0, c.b.x / MIL))
 fr = [v for v in c.d.voci if v.get("cosa") == "freccia"]
 check("D il diario scrive i byte delle prime frecce", fr and fr[-1].get("dati", "").startswith("I")
@@ -356,8 +405,19 @@ c.fermo()
 P.K40Serial._continuo = vero_cont
 visti += c.b.x / MIL > 290
 c.chiudi()
-check("F 5 difetti rimessi apposta (senza «I», con la «C», attesa senza tempo minimo, «ok» subito sulle frecce, "
-      "«Continuo» in un pezzo): tutti visti", visti == 5, visti)
+# 6. pacchetti riempiti di «F» dentro il lavoro (come la 0.22.6)
+vero_flusso = P.pacchetti_flusso
+P.pacchetti_flusso = lambda testo: ([pk for pk, _ in S.pacchetti_a_parole(testo)], b"")
+c = Cliente()
+c.casa()
+for r in QUADRATO:
+    c.cmd(r)
+c.fermo(60)
+P.pacchetti_flusso = vero_flusso
+visti += any("riempimento" in x for x in c.b.pericoli)
+c.chiudi()
+check("F 6 difetti rimessi apposta (senza «I», con la «C», attesa senza tempo minimo, «ok» subito sulle frecce, "
+      "«Continuo» in un pezzo, «F» dentro il lavoro): tutti visti", visti == 6, visti)
 
 print()
 print(f"{sum(results)}/{len(results)} prove superate")

@@ -338,3 +338,34 @@ def pacchetti_a_parole(dati, max_passi=PASSI_PER_PACCHETTO):
     if cur or not out:
         chiudi(cur, True)
     return out
+
+
+FUORI_DAL_LAVORO = (b"FNSE", b"S1P", b"IPP")
+
+
+def pacchetti_flusso(testo):
+    """0.22.8 (rapporto FLC-20261124-2211-03D4): i comandi -> (pacchetti da mandare adesso, resto da tenere).
+
+    Dentro un lavoro (fra «S1E» e «FNSE») la scheda vera legge la «F» di riempimento come la fine del lavoro: con i
+    pacchetti riempiti di «F» a ogni comando (pacchetti_a_parole, 0.22.6) i lavori finivano subito e il resto
+    arrivava fuori dal lavoro (figura sbagliata, posizione persa). Come lo studio e come MeerK40t: dentro un lavoro i
+    pacchetti sono pieni, 30 byte di comandi di seguito; la «F» solo dopo «FNSE», «S1P» o «IPP».
+
+    Se il testo non finisce fuori dal lavoro, si manda fino all'ultimo multiplo di 30 byte in cui il laser è spento
+    (mai un pacchetto che lascia la scheda con il laser acceso e senza seguito) e il resto aspetta i comandi dopo."""
+    testo = bytes(testo)
+    if not testo:
+        return [], b""
+    if testo.endswith(FUORI_DAL_LAVORO):
+        return pacchetti(testo), b""
+    acceso, ultimo_spento = False, 0
+    for i in range(1, len(testo) + 1):
+        c = testo[i - 1:i]
+        if c == b"D":
+            acceso = True
+        elif c == b"U":
+            acceso = False
+        if i % 30 == 0 and not acceso:
+            ultimo_spento = i
+    taglio = ultimo_spento
+    return [b"\x00" + testo[k:k + 30] + bytes([crc8(testo[k:k + 30])]) for k in range(0, taglio, 30)], testo[taglio:]

@@ -1,5 +1,8 @@
 # Novità di FreeLaserCut
 
+## 0.22.8 — 24/11/2026
+**Per chi prova le funzioni in prova:** altre correzioni alla K40 collegata con la scheda M2 Nano: i lavori ora arrivano interi alla scheda. La pausa ferma il lavoro dove il laser è spento. Per chi non usa le funzioni in prova non cambia niente.
+
 ## 0.22.7 — 24/11/2026
 **Per chi prova le funzioni in prova:** correzioni alla K40 collegata con la scheda M2 Nano, dopo la prima prova sulla macchina vera: lavori, frecce, contorno e joystick. Con la K40, a fine lavoro la testa resta dov'è. Per chi non usa le funzioni in prova non cambia niente.
 

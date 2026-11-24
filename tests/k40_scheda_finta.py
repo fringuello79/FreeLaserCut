@@ -133,7 +133,9 @@ class SchedaFinta:
         if self.pausa:
             return False
         self._pend = [e for e in self._pend if e > now]
-        return now < self.occupata_fino or len(self._pend) >= self.posti
+        # 0.22.8: «occupata» solo finché ha ancora da eseguire: una scheda che ha finito tutto prende i pacchetti
+        # (prima la scheda finta restava «occupata» a vuoto e, con i pacchetti pieni, finiva i dati con il laser acceso)
+        return (now < self.occupata_fino and now < self.fino) or len(self._pend) >= self.posti
 
     def stato(self):
         with self.lock:
@@ -227,6 +229,14 @@ class SchedaFinta:
                     continue
                 if len(resto) < 4 and "FNSE".startswith(resto):
                     break  # forse un FNSE a cavallo di due pacchetti
+                if self.lavoro:
+                    # 0.22.8 (rapporto 03D4): sulla scheda vera una «F» di riempimento dentro il lavoro lo chiude:
+                    # quello che arriva dopo è fuori dal lavoro. Qui si fa lo stesso, e si segna
+                    self.pericoli.append("«F» di riempimento dentro il lavoro: lavoro chiuso a metà")
+                    self.comandi.append("F")
+                    self.lavoro = self.laser = False
+                    self._mode = None
+                    self.finito = True
                 i += 1  # riempimento
                 continue
             if c == "P":

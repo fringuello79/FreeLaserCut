@@ -254,8 +254,10 @@ check("A …il laser ha bruciato (D) e nessun pericolo", c.b.d_ricevute > d0 and
       c.b.pericoli)
 check("A …e alla fine il laser è spento e il lavoro chiuso", not c.b.laser and not c.b.lavoro)
 check("A …nessun pacchetto mandato mentre la scheda era occupata (li perderebbe)", c.b.persi == 0, c.b.persi)
-check("A …ogni pacchetto porta al massimo un paio di centimetri di lavoro (pausa e stop non aspettano una retta lunga)",
-      0 < c.b.max_passi <= 1100, c.b.max_passi)
+# 0.22.8: dentro il lavoro pacchetti pieni senza «F» (la «F» chiude il lavoro sulla scheda vera): non c'è più il tetto
+# di passi per pacchetto. Al massimo 7 comandi «Bzzz» (765 passi l'uno) in 30 byte
+check("A …nessun pacchetto con più di 30 byte di comandi di movimento (al massimo circa 14 cm)",
+      0 < c.b.max_passi <= 7 * 765, c.b.max_passi)
 comandi_puliti = list(c.b.comandi[c.b.comandi.index("IPP", 1) + 1:]) if c.b.comandi.count("IPP") > 1 else None
 
 # --- scheda lenta: il freno tiene ferma ogni riga più a lungo del «silenzio», ma il lavoro non viene chiuso e riaperto
@@ -342,9 +344,13 @@ check("A …dopo il silenzio il ponte lo chiude da solo (U e FNSE): laser spento
 c3.p.close()
 
 # --- pausa e ripresa
-_e = EllipseShape(180, 140)
-_e.apply(QTransform.fromTranslate(40, 30))
-lungo, _ = lavoro([_e])  # molti tratti corti: la pausa entra fra un comando e l'altro
+# 0.22.8: la pausa entra dove il laser è spento (fra una forma e l'altra): molte forme piccole
+_piccoli = []
+for _i in range(24):
+    _p = EllipseShape(8, 8)
+    _p.apply(QTransform.fromTranslate(20 + 11 * (_i % 12), 30 + 11 * (_i // 12)))
+    _piccoli.append(_p)
+lungo, _ = lavoro(_piccoli)
 c4 = Cliente(SchedaFinta(scala=0.3), scala_tempo=0.3)
 c4.casa()
 fatto = {}
@@ -352,13 +358,15 @@ th = threading.Thread(target=lambda: fatto.setdefault("r", c4.manda(lungo)), dae
 th.start()
 until(lambda: c4.b.lavoro, 10)
 c4.p.write(b"!")
-check("A pausa (!): pacchetto PN alla scheda e stato Hold", until(lambda: c4.b.comandi.count("PN") == 1, 3)
-      and until(lambda: c4.stato_nome() == "Hold", 2), (c4.b.comandi[-3:], c4.stato()))
+# 0.22.8: la pausa non manda «PN» (il suo pacchetto riempito di «F» chiuderebbe il lavoro): il ponte smette di mandare
+check("A pausa (!): stato Hold e nessun PN alla scheda", until(lambda: c4.stato_nome() == "Hold", 2)
+      and c4.b.comandi.count("PN") == 0, (c4.b.comandi[-3:], c4.stato()))
+time.sleep(0.3)  # il pacchetto che era già in invio finisce
 n_pause = c4.b.pacchetti
 time.sleep(0.4)
 check("A …in pausa il ponte non manda altro alla scheda", c4.b.pacchetti == n_pause, c4.b.pacchetti - n_pause)
 c4.p.write(b"~")
-check("A ripresa (~): secondo PN", until(lambda: c4.b.comandi.count("PN") == 2, 3))
+check("A ripresa (~): si riprende a mandare", until(lambda: c4.b.pacchetti > n_pause, 3))
 th.join(60)
 check("A …e il lavoro finisce, senza pericoli", fatto.get("r", ("",))[0] == "ok" and c4.fermo(60)
       and nessun_pericolo(c4.b), (fatto.get("r"), c4.b.pericoli, c4.stato(), c4.p.guasto, len(c4.p._coda)))
@@ -476,9 +484,11 @@ n_fnse = c.b.comandi.count("FNSE")
 c.cmd("M3 S500")
 c.cmd("G1 X20 Y5 F1200")
 c.cmd("M5 S0")
-_u = until(lambda: c.b.comandi[-1] == "U", 0.3)
+_u = until(lambda: not c.b.laser, 0.3)
 c.cmd("M2")
-check("A M5 da solo: «U» alla scheda subito, senza aspettare il movimento dopo", _u, c.b.comandi[-4:])
+# 0.22.8: la «U» può restare nel pacchetto non ancora pieno, ma solo se la scheda ha il laser già spento (il ponte
+# taglia i pacchetti solo dove il laser è spento)
+check("A M5 da solo: la scheda ha il laser spento subito, senza aspettare il movimento dopo", _u, c.b.comandi[-4:])
 check("A M2: il lavoro si chiude subito (FNSE), senza aspettare il silenzio di 0,5 s",
       until(lambda: c.b.comandi.count("FNSE") > n_fnse, 0.3))
 c.casa()
@@ -489,10 +499,10 @@ check("A «!» da fermi, senza lavoro: alla scheda niente PN", c.b.comandi.count
 c.cmd("M3 S500")
 c.cmd("G1 X30 Y0 F600")  # lavoro aperto, tratto acceso in sospeso, alimentatore fermo
 c.p.write(b"!")
-check("A «!» con il lavoro aperto ma niente in coda: la pausa vale lo stesso (PN e Hold)",
-      until(lambda: c.b.comandi.count("PN") == n_pn + 1, 1.0) and c.stato_nome() == "Hold", (c.b.comandi[-3:], c.stato()))
+check("A «!» con il lavoro aperto ma niente in coda: la pausa vale lo stesso (Hold, senza PN)",
+      until(lambda: c.stato_nome() == "Hold", 1.0) and c.b.comandi.count("PN") == n_pn, (c.b.comandi[-3:], c.stato()))
 c.p.write(b"~")
-check("A …e la ripresa manda il secondo PN", until(lambda: c.b.comandi.count("PN") == n_pn + 2, 1.0))
+check("A …e la ripresa toglie la pausa", until(lambda: c.stato_nome() != "Hold", 1.0))
 c.cmd("M5 S0")
 c.cmd("M2")
 c.fermo()
