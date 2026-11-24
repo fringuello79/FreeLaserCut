@@ -78,6 +78,7 @@ class SchedaFinta:
         self.accesi = []  # tratti bruciati (x0, y0, x1, y1) in passi
         self.comandi = []  # parole lette, in ordine (per le prove)
         self.d_ricevute = 0
+        self.interrotti = 0  # 0.22.7: «I» arrivati con la testa in moto
         self.aperta = False
         self._guardia = threading.Thread(target=self._guarda, daemon=True)
         self._vivo = True
@@ -257,6 +258,10 @@ class SchedaFinta:
                 if len(resto) < 3 and "IPP".startswith(resto):
                     break
                 self.comandi.append("I")
+                # 0.22.7: «I» mentre la testa è ancora in moto la ferma a metà (la posizione vera non è più quella
+                # che il programma crede): giusto solo per uno stop voluto. Le prove contano quante volte succede
+                if time.monotonic() < self.fino - 0.005 and not self.pausa:
+                    self.interrotti += 1
                 # «I»: cancella quello che c'è in memoria e ferma; poi può seguire uno spostamento veloce
                 self.lavoro = self.laser = False
                 self.fino = min(self.fino, time.monotonic())

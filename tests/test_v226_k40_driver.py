@@ -151,8 +151,9 @@ for v in (3, 10, 30, 60, 100, 200, 300):
         if abs(C.velocita_vera("M2", k) - v) > max(0.02 * v, 0.05):
             check(f"A velocità vera ≈ chiesta ({v} mm/s, C={con_c})", False, (k, C.velocita_vera("M2", k)))
 check("A con la correzione la scheda va alla velocità chiesta (3–300 mm/s, con e senza «C»), entro il 2 %", True)
-check("A «C» finale (senza giri) di partenza nei tagli, accelerazione 1", C.codice("M2", 30).endswith("C")
-      and C.codice("M2", 30)[8] == "1")
+# 0.22.7: con la «C» a ogni velocità la K40 di Evo andava a 2,6 mm/s e perdeva la posizione (rapporto C71A)
+check("A niente «C» dai 7 mm/s in su (come MeerK40t), accelerazione della fascia", not C.codice("M2", 30).endswith("C")
+      and C.codice("M2", 30)[8] == "2" and not C.codice("M2", 7).endswith("C"))
 check("A sotto i 7 mm/s la «C» c'è sempre sulla M2", C.codice("M2", 5, senza_giri=False).endswith("C"))
 check("A raster: «V…G» senza «C», passo fra le righe", re.fullmatch(r"V\d{7}G003", C.codice("M2", 100, passo_raster=3))
       is not None)

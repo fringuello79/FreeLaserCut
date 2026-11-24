@@ -198,20 +198,21 @@ check("A $H: casa (IPP), poi fermo a 0,0", c.casa() == "ok" and "IPP" in c.b.com
 # --- frecce
 n0 = c.b.comandi.count("S1P")
 check("A freccia 10 mm a destra: ok", c.cmd("$J=G91 G21 X10 F3000") == "ok")
-check("A …fatta a pezzetti di 2 mm (5 spostamenti veloci)", until(lambda: c.b.comandi.count("S1P") - n0 == 5, 10)
-      and c.fermo(), c.b.comandi.count("S1P") - n0)
+# 0.22.7: una freccia è uno spostamento veloce solo (con la 0.22.6 erano pezzetti da 2 mm: a scatti sulla K40 vera)
+check("A …fatta con un solo spostamento veloce", until(lambda: c.b.comandi.count("S1P") - n0 == 1, 10)
+      and c.fermo() and c.b.comandi.count("S1P") - n0 == 1, c.b.comandi.count("S1P") - n0)
 check("A …e la posizione è quella vera", c.mpos() == (10.0, 0.0) and abs(c.b.x - round(10 * MIL)) <= 1,
       (c.mpos(), c.b.x))
 check("A freccia fuori dal piano: error:15, niente alla scheda",
       (lambda p0: c.cmd("$J=G91 X-50 F3000") == "error:15" and c.b.pacchetti == p0)(c.b.pacchetti))
 check("A freccia con G53 (coordinate della macchina, come il contorno)", c.cmd("$J=G53 G21 X20 Y15 F3000") == "ok"
       and c.fermo() and c.mpos() == (20.0, 15.0), c.mpos())
-c.cmd("$J=G91 X150 F3000")
+c.cmd("$J=G53 G21 X299.5 Y15 F3000")  # «Continuo»: fino al bordo, a pezzi
 time.sleep(0.08)
 c.p.write(b"\x85")
 c.fermo()
 m = c.mpos()
-check("A freccia fermata (0x85): la testa si ferma prima della fine", m is not None and m[0] < 168, m)
+check("A «Continuo» fermato (0x85): la testa si ferma prima del bordo", m is not None and m[0] < 290, m)
 check("A …e la posizione detta è quella della scheda (nota, non persa)", m is not None
       and abs(m[0] * MIL - c.b.x) <= 1 and abs(m[1] * MIL - c.b.y) <= 1, (m, c.b.x, c.b.y))
 check("A …nessun pericolo con le frecce", nessun_pericolo(c.b), c.b.pericoli)
@@ -300,12 +301,12 @@ c.fermo()
 check("A cinque frecce da 1 mm mandate di fila (e una in Y): si sommano", vicino(c.mpos(), (5.0, 3.0))
       and abs(c.b.x - round(5 * MIL)) <= 2 and abs(c.b.y - round(3 * MIL)) <= 2, (c.mpos(), c.b.x, c.b.y))
 n_pn = c.b.comandi.count("PN")
-c.cmd("$J=G91 X100 F3000")
+c.cmd("$J=G53 G21 X299.5 F3000")  # «Continuo»
 time.sleep(0.05)
 c.p.write(b"!")
 c.fermo()
 check("A «!» durante le frecce: le ferma, e alla scheda nessun PN", c.b.comandi.count("PN") == n_pn
-      and c.mpos()[0] < 100 and abs(c.mpos()[0] * MIL - c.b.x) <= 1, (c.mpos(), c.b.comandi[-3:]))
+      and c.mpos()[0] < 290 and abs(c.mpos()[0] * MIL - c.b.x) <= 1, (c.mpos(), c.b.comandi[-3:]))
 # --- reset da fermi: la posizione resta buona
 m = c.mpos()
 c.p.write(b"\x18")

@@ -27,7 +27,8 @@ import threading
 import time
 
 from .da_gcode import ErroreRiga, Traduttore
-from .scrittore import ATTENDI_FERMA, ATTENDI_FINE, DATI, MIL_PER_MM, Scrittore, pacchetti, pacchetti_a_parole
+from .scrittore import (ATTENDI_FERMA, ATTENDI_FINE, DATI, MIL_PER_MM, Scrittore, durata_veloce, pacchetti,
+                        pacchetti_a_parole)
 
 OK, OCCUPATA, ERRORE_CRC, FINITO, FINITO_M3 = 206, 238, 207, 236, 204
 SALUTO = "\r\nGrbl 1.1f ['$' for help]\r\n[MSG:'$H'|'$X' to unlock]\r\n"
@@ -35,7 +36,12 @@ VERSIONE = "[VER:1.1f.K40:]\r\n[OPT:V,15,128]\r\n"
 PIANO = (300.0, 200.0)  # mm, dall'angolo di casa (dietro a sinistra): X verso destra, Y verso il davanti
 FRENO = 2000  # byte pronti e non ancora mandati oltre i quali l'«ok» aspetta
 TETTO_SOSPESO = 4 * 1024 * 1024
-PEZZETTO_FRECCE = 2.0  # mm: le frecce si fanno a pezzetti, così 0x85 ferma la testa entro questa distanza
+# 0.22.7: una freccia è UNO spostamento veloce (fluido, come la casa). Solo «Continuo» (freccia fino al bordo, fermata
+# con 0x85) va a pezzi, così al rilascio la testa si ferma entro un pezzo. Con la 0.22.6 erano pezzetti da 2 mm
+# ognuno con la sua fermata: frecce, contorno e joystick andavano a scatti sulla K40 di Evo.
+PEZZETTO_FRECCE = 10.0  # mm, solo per «Continuo»
+BORDO_CONTINUO = 1.0  # mm: una freccia che arriva a meno di così dal bordo del piano è «Continuo»
+DIARIO_BYTE = 300  # byte di ogni lavoro (e delle prime frecce) scritti nel diario
 
 # Tabella dei comandi (documento di chiusura). emulato | ok (senza effetto) | errore
 COMANDI = {
@@ -50,7 +56,7 @@ COMANDI = {
     "$$ $I $G $# $N": "finti, minimi",
     "$n=v": "ok: ricordato, la scheda non ha impostazioni",
     "$C": "emulato: si traduce tutto, alla scheda niente",
-    "$J=": "emulato: a laser spento, a pezzetti di 2 mm; F ignorata",
+    "$J=": "emulato: spostamento veloce a laser spento (fino al bordo: a pezzi); F ignorata",
     "G0 G1 X Y F S": "emulati (F in mm/min, S > 0 = laser acceso)",
     "G20 G21 G90 G91 G53 G54": "emulati",
     "G92 G92.1 G10 L2/L20 P1": "emulati (spostamento delle coordinate)",
@@ -114,6 +120,9 @@ class K40Serial:
         self._risincronizza = False  # dopo frecce e casa la posizione del traduttore va ripresa da quella vera
         self._ultima_riga = self.orologio()
         self._conta = {"pezzi": 0, "byte": 0, "veloci": 0}  # per il diario: un riassunto a fine lavoro, non ogni pezzo
+        self._inizio = bytearray()  # 0.22.7: i primi byte del lavoro in corso, per il diario
+        self._frecce_scritte = 0
+        self._annulli = 0  # 0.22.7: cresce a ogni 0x85 / «!» sulle frecce: una freccia in attesa non parte più
         link.apri()
         try:
             link.inizia()
@@ -305,6 +314,7 @@ class K40Serial:
         """(con il lucchetto) Le frecce in coda non partono; quella in corso (al massimo 2 mm) finisce."""
         self._coda.clear()
         self._dest = (self._in_volo[1], self._in_volo[2]) if self._tipo_in_volo() == "freccia" else None
+        self._annulli += 1
         self._cv.notify_all()
 
     def _ferma_frecce(self):
@@ -517,6 +527,18 @@ class K40Serial:
             vals = dict((k, float(v)) for k, v in _JOG.findall(testo))
             if "X" not in vals and "Y" not in vals:
                 return self._err(16)
+            # 0.22.7: una freccia aspetta che quelle prima siano partite (al massimo una in corso, nessuna in coda). Con
+            # la 0.22.6 l'«ok» arrivava subito: il joystick mandava pezzetti a raffica, la coda andava molto avanti alla
+            # testa e la direzione nuova arrivava solo a coda finita (rapporto C71A)
+            gen, annulli = self._gen, self._annulli
+            while self.is_open and gen == self._gen and any(p[0] == "freccia" for p in self._coda):
+                self._cv.wait(timeout=0.02)
+            if gen != self._gen or not self.is_open:
+                return None
+            if annulli != self._annulli:  # fermate (0x85 o «!») mentre aspettava: non parte
+                return self._ok()
+            if self.stato == "Alarm" or not self.pos_nota:
+                return self._err(9)
             u = 25.4 if "G20" in testo else 1.0
             occupato = bool(self._coda) or self._in_volo is not None
             x0, y0 = self._dest if (occupato and self._dest is not None) else self.pos  # le frecce si sommano
@@ -530,14 +552,24 @@ class K40Serial:
                 y = vals["Y"] * u + off[1] if "Y" in vals else y0
             if not self.dentro(x, y):
                 return self._err(15)
-            # a pezzetti: ogni pezzetto è uno spostamento veloce con la sua attesa
             lungo = ((x - x0) ** 2 + (y - y0) ** 2) ** 0.5
-            n = max(1, int(lungo // PEZZETTO_FRECCE) + (1 if lungo % PEZZETTO_FRECCE > 1e-9 else 0))
+            if self._continuo(x0, y0, x, y) and lungo > PEZZETTO_FRECCE:
+                n = int(lungo // PEZZETTO_FRECCE) + (1 if lungo % PEZZETTO_FRECCE > 1e-9 else 0)
+            else:
+                n = 1  # uno spostamento solo: fluido, come la casa
             self._coda.extend(("freccia", x0 + (x - x0) * i / n, y0 + (y - y0) * i / n) for i in range(1, n + 1))
             self._dest = (x, y)
             self._risincronizza = True
             self._cv.notify_all()
         self._ok()
+
+    def _continuo(self, x0, y0, x, y):
+        """La freccia va fino al bordo del piano su un asse che si muove: è «Continuo» (si ferma con 0x85)."""
+        b = BORDO_CONTINUO
+        for a, c, lim in ((x0, x, self.piano[0]), (y0, y, self.piano[1])):
+            if abs(c - a) > 1e-6 and (c <= b or c >= lim - b):
+                return True
+        return False
 
     # ================================================================ alimentatore (l'unico filo che parla alla scheda)
     def _alimentatore(self):
@@ -695,14 +727,18 @@ class K40Serial:
                 self.registro.append(pezzo[1])
             self._conta["pezzi"] += 1
             self._conta["byte"] += len(pezzo[1])
+            if len(self._inizio) < DIARIO_BYTE:
+                self._inizio += pezzo[1][:DIARIO_BYTE - len(self._inizio)]
         elif tipo == ATTENDI_FINE:
             prevista = float(pezzo[1]) if len(pezzo) > 1 else 0.0
             visti = self._attendi_fine(prevista * 3 + 15.0, gen)
             self._diario("fine", prevista=round(prevista, 3), s=round(self.orologio() - t0, 3), stati=visti[:20],
-                         **self._conta)
+                         dati=self._inizio.decode("ascii", "replace"), **self._conta)
             self._conta = {"pezzi": 0, "byte": 0, "veloci": 0}
+            self._inizio = bytearray()
         elif tipo == ATTENDI_FERMA:
-            visti = self._attendi_ferma(1.0, 30.0, gen)
+            stima = float(pezzo[1]) if len(pezzo) > 1 else 2.0
+            visti = self._attendi_ferma(1.0, max(30.0, 3 * stima), gen, minimo=stima)
             self._conta["veloci"] += 1
             if self._conta["veloci"] <= 5:  # i primi di ogni lavoro: bastano per capire come risponde la scheda
                 self._diario("ferma", s=round(self.orologio() - t0, 3), stati=visti[:20])
@@ -710,8 +746,9 @@ class K40Serial:
             with self._cv:
                 self.pos = [pezzo[1] / MIL_PER_MM, pezzo[2] / MIL_PER_MM]
         elif tipo == "casa":
+            stima = durata_veloce((abs(self.pos[0]) + abs(self.pos[1])) * MIL_PER_MM)
             self._manda(b"IPP", gen)
-            visti = self._attendi_ferma(1.0, 60.0, gen)
+            visti = self._attendi_ferma(1.0, max(60.0, 3 * stima), gen, minimo=max(2.0, stima))
             with self._cv:
                 self._fermo(gen)
                 self.pos, self.pos_nota, self._dest = [0.0, 0.0], True, None
@@ -720,13 +757,22 @@ class K40Serial:
             sc = Scrittore(self.scheda)
             sc.x, sc.y = round(self.pos[0] * MIL_PER_MM), round(self.pos[1] * MIL_PER_MM)
             sc.veloce(round(pezzo[1] * MIL_PER_MM), round(pezzo[2] * MIL_PER_MM))
+            dati, stima, visti = b"", 0.0, []
             for pz in sc.fine():
                 if pz[0] == DATI:
+                    dati += pz[1]
                     self._manda(pz[1], gen)
                 elif pz[0] == ATTENDI_FERMA:
-                    self._attendi_ferma(0.3, 10.0, gen, minimo=0.0)
+                    # 0.22.7: la M2 dice «pronta» anche mentre la testa va: si aspetta almeno il tempo stimato, poi
+                    # «pronta» ferma per 0,3 s. Un «I» mandato prima fermerebbe la testa a metà
+                    stima = float(pz[1]) if len(pz) > 1 else 0.5
+                    visti = self._attendi_ferma(0.3, max(10.0, 3 * stima), gen, minimo=stima)
             with self._cv:
                 self.pos = [pezzo[1], pezzo[2]]
+            if self._frecce_scritte < 5:  # le prime: bastano per capire come risponde la scheda
+                self._frecce_scritte += 1
+                self._diario("freccia", dati=dati.decode("ascii", "replace")[:DIARIO_BYTE], stima=round(stima, 3),
+                             s=round(self.orologio() - t0, 3), stati=visti[:20])
 
     def _attendi_fine(self, massimo, gen):
         t0 = self.orologio()
@@ -750,10 +796,10 @@ class K40Serial:
 
     def _attendi_ferma(self, stabile, massimo, gen, minimo=2.0):
         """Come lo studio (Scheda.aspetta_casa): la M2 dopo «S1P» e «IPP» non dice «finito», torna solo «pronta».
-        Fine = «pronta» ferma per `stabile` secondi dopo «occupata» (o dopo `minimo` secondi se «occupata» non si è
-        vista)."""
+        Fine = «pronta» ferma per `stabile` secondi e almeno `minimo` secondi dall'invio (0.22.7: sempre, anche se
+        «occupata» si è vista)."""
         t0 = self.orologio()
-        visti, ultimo, t_pronta, occupata = [], None, None, False
+        visti, ultimo, t_pronta = [], None, None
         prima = t0
         while self.orologio() - t0 < massimo * self.k:
             self._fermo(gen)
@@ -768,12 +814,10 @@ class K40Serial:
                 visti.append((round(ora, 3), s))
                 ultimo = s
                 t_pronta = ora if s == OK else None
-            if s == OCCUPATA:
-                occupata = True
             if s in (FINITO, FINITO_M3):
                 return visti
-            if s == OK and t_pronta is not None and ora - t_pronta >= stabile * self.k \
-                    and (occupata or ora >= minimo * self.k):
+            # 0.22.7: il tempo minimo vale sempre (la M2 vera può dire «pronta» con la testa ancora in moto)
+            if s == OK and t_pronta is not None and ora - t_pronta >= stabile * self.k and ora >= minimo * self.k:
                 return visti
             self.attesa(0.02 * self.k)
         raise IOError("la testa non si ferma (nessuna risposta «pronta» dalla scheda)")

@@ -1,5 +1,10 @@
 # Novità di FreeLaserCut
 
+## 0.22.7 — 24/11/2026
+**Per chi prova le funzioni in prova:** correzioni alla K40 collegata con la scheda M2 Nano, dopo la prima prova sulla macchina vera: lavori, frecce, contorno e joystick. Con la K40, a fine lavoro la testa resta dov'è. Per chi non usa le funzioni in prova non cambia niente.
+
+**Ringraziamenti:** a Evoluzione2, che ha provato la K40 per ore.
+
 ## 0.22.6 — 24/11/2026
 **Nuova veste grafica.** Logo e icona nuovi nel programma, negli installatori e sul sito. La schermata di avvio ha i colori del logo nuovo e il motto nella lingua del programma; finita l'incisione, i nomi dei ringraziamenti scorrono piano, una riga verso destra e una verso sinistra. La schermata resta almeno 4 secondi. L'incisione dei nomi ora resta fluida anche mentre il programma si carica: prima, quando si costruiva la finestra, il raggio si fermava un attimo e poi saltava avanti.
 

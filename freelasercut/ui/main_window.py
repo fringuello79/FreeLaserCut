@@ -4095,11 +4095,16 @@ class MainWindow(QMainWindow):
                                 current_pos=(head.x(), head.y()) if head is not None else (0.0, 0.0),
                                 work_origin=self.work_origin_on_bed(), laser_cmd="M4",
                                 no_g55=bool(getattr(self.profile, "no_g55", False)), g54_offset=self.ctl.wco,
-                                finish="origin" if lp.finish_origin.isChecked() else "stay",
+                                finish="origin" if lp.finish_origin.isChecked() and not self._k40_attiva() else "stay",
                                 optimize=lp.optimize.isChecked(), inner_first=lp.optimize.isChecked(),
                                 only_ids={s.id for s in self.editor.selection} if lp.only_sel.isChecked() else None,
                                 name=self.editor.doc.name, rotary=self.rotary_settings())
         return opts
+
+    def _k40_attiva(self):
+        """0.22.7: K40 collegata (funzione in prova): a fine lavoro la testa resta dov'è. Il ritorno automatico vicino a
+        casa è uno spostamento veloce calcolato: se la posizione non è quella giusta va a sbattere (rapporto C71A)."""
+        return bool(getattr(self.profile, "k40_board", "")) or self.ctl.port == K40_PORT
 
     def rotary_settings(self):
         """Impostazioni del rotativo (None se spento): restano nelle preferenze, non nel progetto."""

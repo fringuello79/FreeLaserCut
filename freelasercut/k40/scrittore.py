@@ -14,13 +14,23 @@ si aspetta sempre.
 Lettere (fonti in RICONOSCIMENTI-TECNICI.md):
 - versi: B destra, T sinistra, R avanti, L indietro; M diagonale nei versi dichiarati;
 - D laser acceso, U spento (solo dentro un lavoro);
-- lavoro: codice di velocità + «N» + versi + «S1E» … «FNSE»;
+- lavoro: «I» + codice di velocità + «N» + versi + «S1E» … «FNSE» (0.22.7: con la «I» davanti, come lo studio e come
+  MeerK40t quando entra nel lavoro dopo uno spostamento veloce);
 - spostamento veloce: «I» + versi e distanze + «S1P»; casa: «IPP».
 """
 
 MIL_PER_MM = 1000.0 / 25.4
 
 DATI, ATTENDI_FINE, ATTENDI_FERMA = "dati", "attendi_fine", "attendi_ferma"
+# 0.22.7: dopo «S1P» e «IPP» la M2 vera dice «pronta» anche mentre la testa si muove (diario del ponte, rapporto C71A):
+# la fine di uno spostamento veloce si stima dal tempo, con una velocità più bassa di quella vera (circa 50–68 mm/s)
+V_VELOCE_STIMA = 35.0  # mm/s
+MARGINE_VELOCE_S = 0.4
+
+
+def durata_veloce(passi):
+    """Secondi da aspettare (al minimo) dopo uno spostamento veloce lungo `passi`."""
+    return MARGINE_VELOCE_S + abs(passi) / MIL_PER_MM / V_VELOCE_STIMA
 
 
 def distanza(mil):
@@ -77,7 +87,7 @@ def passi_retta(dx, dy):
 class Scrittore:
     """Prepara i pezzi per la scheda. Le posizioni sono in passi, assolute."""
 
-    def __init__(self, scheda="M2", correggi=True, senza_giri=True):
+    def __init__(self, scheda="M2", correggi=True, senza_giri=False):
         from .codici import SCHEDE
 
         if scheda not in SCHEDE:
@@ -131,7 +141,7 @@ class Scrittore:
         if self.in_lavoro and self.v == v:
             return
         self.fine_lavoro()
-        self._scrivi(codice(self.scheda, v, correggi=self.correggi, senza_giri=self.senza_giri))
+        self._scrivi(b"I" + codice(self.scheda, v, correggi=self.correggi, senza_giri=self.senza_giri).encode())
         self._vx, self._vy = (1 if vx >= 0 else -1), (1 if vy >= 0 else -1)
         self._scrivi(b"N" + self._versi(self._vx, self._vy) + b"S1E")
         self.in_lavoro, self.v, self.laser = True, v, False
@@ -194,7 +204,8 @@ class Scrittore:
         if dy:
             self._scrivi((b"R" if dy > 0 else b"L") + distanza(abs(dy)).encode())
         self._scrivi(b"S1P")
-        self._chiudi_pezzo(ATTENDI_FERMA)
+        self._chiudi_pezzo()
+        self.pezzi.append((ATTENDI_FERMA, durata_veloce(abs(dx) + abs(dy))))
         self.x, self.y = x, y
 
     def casa(self):
@@ -202,7 +213,8 @@ class Scrittore:
         self.fine_lavoro()
         self._chiudi_pezzo()
         self._scrivi(b"IPP")
-        self._chiudi_pezzo(ATTENDI_FERMA)
+        self._chiudi_pezzo()
+        self.pezzi.append((ATTENDI_FERMA, durata_veloce(abs(self.x) + abs(self.y))))
         self.x = self.y = 0
 
 
@@ -261,6 +273,9 @@ def _parole(dati):
         c = d[i:i + 1]
         if d.startswith(b"IPP", i):
             j = i + 3
+        elif c == b"I" and d[i + 1:i + 2] in (b"C", b"V"):  # 0.22.7: entrata nel lavoro con la «I» davanti
+            k = d.find(b"S1E", i)
+            j = k + 3 if k >= 0 else n
         elif c == b"I":
             k = d.find(b"S1P", i)
             j = k + 3 if k >= 0 else i + 1

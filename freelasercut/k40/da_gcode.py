@@ -21,6 +21,9 @@ from .scrittore import ATTENDI_FINE, DATI, MIL_PER_MM, Scrittore
 
 _PAROLA = re.compile(r"([A-Z])\s*([-+]?(?:\d+\.?\d*|\.\d+))")
 SALTO_VELOCE_MM = 8.0  # spostamenti più corti si fanno dentro il lavoro, a laser spento, senza uscire
+# 0.22.7: niente lavori sotto i 7 mm/s finché i codici con la «C» (che servono sotto questa velocità) non sono provati
+# sulla K40 vera: una velocità più bassa diventa 7 mm/s
+V_MIN_LAVORO = 7.0  # mm/s
 
 
 def _parole(riga):
@@ -43,7 +46,7 @@ class Traduttore:
     trasforma(x_mm, y_mm) -> passi, come in traduci(); le coordinate qui sono quelle della macchina (dopo G92 e G54).
     dentro(x_mm, y_mm) -> False se il punto è fuori dal piano: la riga è rifiutata (ErroreRiga 15) e niente parte."""
 
-    def __init__(self, trasforma=None, scheda="M2", correggi=True, senza_giri=True, salto_veloce_mm=SALTO_VELOCE_MM,
+    def __init__(self, trasforma=None, scheda="M2", correggi=True, senza_giri=False, salto_veloce_mm=SALTO_VELOCE_MM,
                  dentro=None, x=0.0, y=0.0):
         if trasforma is None:
             def trasforma(x, y):
@@ -162,7 +165,7 @@ class Traduttore:
             else:
                 sc.veloce(tx, ty)
         else:
-            v = max(0.5, min(f / 60.0, 500.0))
+            v = max(V_MIN_LAVORO, min(f / 60.0, 500.0))
             if not acceso and sc.in_lavoro and v != sc.v and lungo < self.salto:
                 v = sc.v  # tratto spento e corto: cambiare velocità vorrebbe dire uscire dal lavoro e rientrare
             sc.vai(tx, ty, v, laser=acceso)
@@ -209,7 +212,7 @@ class Traduttore:
         return out
 
 
-def traduci(righe, trasforma=None, scheda="M2", correggi=True, senza_giri=True, salto_veloce_mm=SALTO_VELOCE_MM):
+def traduci(righe, trasforma=None, scheda="M2", correggi=True, senza_giri=False, salto_veloce_mm=SALTO_VELOCE_MM):
     """righe di G-code -> (pezzi, avvisi). Tutto in una volta (le prove e il salvataggio); vedi Traduttore."""
     t = Traduttore(trasforma, scheda, correggi, senza_giri, salto_veloce_mm)
     for riga in righe:

@@ -9,9 +9,10 @@ Valore = 65536 − (b + m · T), T = millisecondi per passo = 25,4 / (mm/s). m =
 B1; doppio per la B2). Sulla M2 vera la velocità è il 91,98 % di quella chiesta: con correggi=True si usa
 m = 11148 (verificato sulla K40 di Evo: 27,587 mm/s chiesti 30 → 0,03 % di scarto).
 
-Con la «C» finale (senza_giri=True) la scheda non fa la rincorsa all'inizio e alla fine del lavoro («twitch»: supera
-il punto, torna, piccolo colpo sull'altro asse, visto sulla K40 di Evo): accelerazione fissa 1, b = 8, m / 12. Sul
-raster la «C» non esiste. Le schede A, B e B1 non hanno equazioni per la «C»: lì si resta con la rincorsa.
+La «C» finale (codici «1/12 con tempi diversi»): solo sotto i 7 mm/s su B2, M2 e M3, come MeerK40t con le
+impostazioni di partenza. 0.22.7: con la «C» a ogni velocità (senza_giri=True, l'idea era togliere la rincorsa a
+inizio e fine lavoro) la K40 di Evo andava a circa 2,6 mm/s qualunque velocità si chiedesse e perdeva la posizione
+(rapporto FLC-20261124-2055-C71A): senza_giri resta solo per le prove e non si usa. Sul raster la «C» non esiste.
 """
 import math
 
@@ -56,7 +57,7 @@ def _sedici(valore):
     return "%03d%03d" % ((valore >> 8) & 0xFFFFFF, valore & 0xFF)
 
 
-def codice(scheda, v, passo_raster=0, correggi=True, senza_giri=True, orizzontale=True):
+def codice(scheda, v, passo_raster=0, correggi=True, senza_giri=False, orizzontale=True):
     """Codice di velocità (stringa ASCII). v in mm/s; passo_raster in passi (0 = taglio)."""
     if scheda not in SCHEDE:
         raise ValueError(f"scheda sconosciuta: {scheda}")

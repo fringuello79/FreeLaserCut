@@ -674,6 +674,8 @@ if __name__ == "__main__":
     run_suite("test_v226_rotativo_z.py", "Rotativo sul motore della Z nell'interfaccia Banco", "banco")
     run_suite("test_v226_k40_ponte.py", "K40 (M2 Nano) collegabile, funzione in prova: il ponte che parla GRBL alla scheda, con la scheda finta che segna ogni pericolo (laser acceso senza dati, D fuori dal lavoro, fuori dal piano): casa, frecce a pezzetti, lavori, pausa, stop, cavo staccato, verifica, verso degli assi")
     run_suite("test_v226_k40_ponte.py", "K40 (M2 Nano) collegabile nell'interfaccia Banco", "banco")
+    run_suite("test_v227_k40.py", "K40 collegata dopo la prima prova sulla macchina vera: lavori con «I» e senza «C», il quadrato di Evo sulla scheda finta, frecce e contorno con uno spostamento veloce, «Continuo» a pezzi, joystick con la coda corta, attese stimate, diario dei byte")
+    run_suite("test_v227_k40.py", "K40 collegata dopo la prima prova, nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()
