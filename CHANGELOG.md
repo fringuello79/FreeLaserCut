@@ -1,5 +1,28 @@
 # Novità di FreeLaserCut
 
+## 0.22.6 — 24/11/2026
+**Nuova veste grafica.** Logo e icona nuovi nel programma, negli installatori e sul sito. La schermata di avvio ha i colori del logo nuovo e il motto nella lingua del programma; finita l'incisione, i nomi dei ringraziamenti scorrono piano, una riga verso destra e una verso sinistra. La schermata resta almeno 4 secondi. L'incisione dei nomi ora resta fluida anche mentre il programma si carica: prima, quando si costruiva la finestra, il raggio si fermava un attimo e poi saltava avanti.
+
+**Rotativo sul motore della Z** (richiesta di Giuseppe). Per le macchine con l'interruttore che passa il motore del piano al rotativo: in *Laser → Rotativo* c'è *Collegato al posto di*: Y (come prima) o Z (solo se la Z è motorizzata). Con il rotativo sulla Z:
+- si parte solo dalla *Posizione attuale della testa*; l'asse Y resta libero per centrare la testa sull'oggetto;
+- prima di incidere serve *Prova: un giro*, a ogni collegamento: fa prima un passo piccolo e lento e chiede se si è mosso il rotativo; se si è mosso il piano ci si ferma (l'interruttore è ancora sul piano);
+- se le impostazioni della scheda cambiano dopo la prova (i passi della Z, `$102`) il lavoro non parte e chiede di rifarla;
+- a ogni partenza la finestra di avvio chiede se l'interruttore è su «Rotary»; prima dell'homing chiede conferma, perché il mandrino potrebbe girare;
+- autofocus, frecce della Z e «Abbassa Z a ogni passata» sono spenti, e lo dicono; il contorno gira l'oggetto come farà il lavoro;
+- spegnendolo, il programma ricorda di rimettere l'interruttore sul piano.
+Con il rotativo sulla Y o spento il G-code è quello di prima.
+
+**Strumento Nodi: comandi con il tasto destro.** Clic destro su un nodo: *Spezza qui*, *Elimina nodo*, *Nodo ad angolo*, *Nodo morbido*, *Raccorda l'angolo…*; su un tratto: *Inserisci un nodo qui*, *Nodo a metà del tratto*, *Raddrizza il tratto*, *Togli il tratto*. Nella Classica è il menu di sempre, con la lettera accanto a ogni voce; nel Banco è il menu radiale. Corretto un difetto: *Spezza* (B) su una forma chiusa veniva annullato subito («non taglia»). Ora due *Spezza* su due nodi dividono la forma in due pezzi, che *Separa* divide in oggetti.
+
+**Correzioni dai rapporti:**
+- **Verifica del G-code con le schede GrblHAL** (Ortur e simili): finita la verifica la scheda si riavvia per un paio di secondi; il programma partiva troppo presto, la credeva ancora in prova e il lavoro non partiva mai. Ora aspetta che sia ripartita.
+- **Cambia la larghezza delle fessure**: ogni clic sulle frecce apriva un errore. Corretto.
+- **Anteprima dei lavori molto grandi** (oltre 60.000 movimenti, dove l'anteprima diventa un'immagine): *Mostra trasferimenti* non si spegne più; di partenza è tolta e accanto c'è un avviso discreto, perché con lavori così grandi può rallentare.
+
+**Per chi prova le funzioni in prova:** «Studia la macchina» legge tutte le impostazioni note delle schede Ruida; la K40 con la scheda M2 Nano si può collegare per le prove. Il programma la mostra solo con le funzioni in prova sbloccate.
+
+**Ringraziamenti:** si aggiunge pier.
+
 ## 0.22.5 — 24/11/2026
 **Test materiale con la tua forma o con un pezzo della tua foto** (richiesta di Stefano Modena). Nella finestra del test c'è la voce *Nei quadrati*:
 - *Quadrati pieni*: come prima;
@@ -19,13 +42,7 @@
 
 L'edizione per Ventura sarà pubblicata dopo la prova su un Mac vero. Per Windows, Linux e i Mac recenti non cambia niente.
 
-**Per chi prova le funzioni in prova: «Studia la macchina» con la K40.** Grazie ai primi dati veri di una K40 con la scheda M2 Nano:
-- se la scheda ha il driver «libusb-win32» (quello che si installa con Zadig), FreeLaserCut ora ci parla: la libreria che serve è nell'installatore. Se non riesce a collegarsi, dice perché;
-- il pulsante **Fai tutte le prove della K40** le fa una dopo l'altra con un solo consenso (circa due minuti) e alla fine scrive i risultati spiegati, per esempio «la testa va al 92 % della velocità chiesta»;
-- nuova prova **K4 «Un solo lavoro»**: alla fine di ogni corsa la testa fa un piccolo giro; la prova misura se lo fa solo all'inizio e alla fine di un lavoro, come serve per tagliare bene;
-- il ritorno a casa non aspetta più fino a 25 secondi a vuoto, e controlla se la scheda dice «pronta» solo quando la testa è arrivata.
-
-Il laser non si accende mai durante queste prove.
+**Per chi prova le funzioni in prova:** «Studia la macchina» per la K40 ora si collega anche con il driver libusb-win32 e ha un pulsante che fa tutte le prove in una volta e riassume i risultati. Il laser resta sempre spento.
 
 **Ringraziamenti:** si aggiungono andreacanti e istevenep.
 
@@ -48,12 +65,7 @@ Le immagini senza parti trasparenti, e quelle trasparenti senza regolazioni, dan
 
 **DXF.** Provato su un file vero arrivato da un utente (scritto da un programma che ripete la tabella dei layer per ogni linea): dalla 0.22.2 il taglio rosso resta sul livello rosso come nell'SVG. Aggiunta una prova con un file fatto allo stesso modo.
 
-**Per chi prova le funzioni in prova: «Studia la macchina».** Un aiuto per insegnare a FreeLaserCut a guidare due famiglie di laser a CO2 che ancora non sa usare: le **K40 con la scheda M2 Nano** e i laser con la scheda **Ruida**. Si apre da *Strumenti*, dopo aver sbloccato le funzioni in prova, e propone alcune prove guidate: trovare la scheda, chiederle lo stato, leggerne la memoria (modello, misure del piano, posizione della testa) e, solo con il consenso, spostare la testa di pochi centimetri per misurare la velocità vera.
-- **Il laser non si accende mai.** I comandi che lo accendono non esistono in questa parte del programma, e ogni byte prima di partire passa da un controllo che lascia andare solo quelli della prova.
-- Le prove si fanno **in qualsiasi ordine, anche solo alcune**, e da persone diverse: ogni risultato si salva subito ed entra da solo in *Aiuto → Invia un rapporto all'assistenza*.
-- Nel rapporto ci sono solo dati della macchina: niente disegni, niente nomi di file; l'indirizzo di rete è nascosto.
-
-Non cambia niente per chi non usa le funzioni in prova. Le prove sono state controllate con schede simulate, non ancora su macchine vere: è proprio quello che chiediamo a chi ne ha una.
+**Per chi prova le funzioni in prova: «Studia la macchina».** Prove guidate per raccogliere i dati delle K40 con la scheda M2 Nano e dei laser con la scheda Ruida, che FreeLaserCut ancora non sa guidare. Il laser non si accende mai; nel rapporto all'assistenza finiscono solo dati della macchina. Per chi non usa le funzioni in prova non cambia niente.
 
 ## 0.22.2 — 22/11/2026
 Correzioni e ritocchi arrivati in giornata da chi sta provando la 0.22, più due miglioramenti nell'importazione di DXF e SVG. (La 0.22.1 non è uscita.)

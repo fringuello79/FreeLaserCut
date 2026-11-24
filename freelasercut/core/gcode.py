@@ -116,7 +116,7 @@ class JobOptions:
     no_g55: bool = False  # scheda senza G55: coordinate assolute in G54, togliendo l'offset G54 attuale
     g54_offset: tuple = (0.0, 0.0)  # offset G54 della scheda (WCO) quando no_g55
     name: str = ""
-    rotary: object = None  # dict: kind (roller | chuck), mm_per_rev, roller_d, object_d — None = piano normale
+    rotary: object = None  # dict: kind (roller | chuck), mm_per_rev, roller_d, object_d, axis (Y | Z) — None = piano normale
     # 0.17.2: foto con punti molto fitti e velocità alta: unisce i punti vicini in tratti più lunghi (meno comandi),
     # solo nei livelli dove la porta non ce la farebbe (vedi stream_vmax)
     compact_raster: bool = False
@@ -262,6 +262,8 @@ class GcodeJob:
     gen_ms: float = 0.0
     rotary_k: float = 1.0  # rotativo: Y macchina = riferimento + (Y piano - riferimento) × k
     rotary_ref: tuple = (0.0, 0.0)  # punto di riferimento sul piano (ancoraggio del disegno)
+    rotary_axis: str = ""  # 0.22.6: "Z" se il rotativo è sul motore della Z (le righe hanno Z al posto di Y)
+    refused: str = ""  # 0.22.6: il lavoro non si è preparato per questo motivo (da dire a chi prova ad avviarlo)
     preview: object = None  # gcode_preview.Preview delle righe generate (coordinate di uscita)
     pauses: list = field(default_factory=list)  # 0.20.2: pause fra i livelli [{index, label, msg}]
     # 0.17.2: per ogni livello Immagine {index, label, speed, seg (mm), bytes, compact (punti uniti, 1 = no)}
@@ -294,6 +296,20 @@ def rotary_scale(r):
     if d <= 0 or mm <= 0:
         return 1.0
     return mm / (math.pi * d)
+
+
+def rotary_axis(r):
+    """0.22.6: asse che comanda il rotativo ("Y" o "Z"), "" se spento."""
+    if not r:
+        return ""
+    return "Z" if str(r.get("axis", "Y")).upper() == "Z" else "Y"
+
+
+def y_to_z(line):
+    """0.22.6 (rotativo sul motore della Z): la Y della riga diventa Z. I commenti restano come sono."""
+    if not line or line.startswith(";") or "Y" not in line:
+        return line
+    return " ".join("Z" + t[1:] if t[:1] == "Y" else t for t in line.split(" "))
 
 
 def _fmt(v):
@@ -1146,9 +1162,21 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         return out_map(bx - place[0], by - place[1])
 
     rot_k = rotary_scale(opts.rotary)
+    rot_z = rotary_axis(opts.rotary) == "Z" and rot_k != 1.0
+    if rot_z and opts.start_from != "current":
+        # 0.22.6: con il rotativo sulla Z la scheda non sa dov'è l'oggetto sull'asse Z: si parte solo dalla testa
+        job.refused = tr("Rotativo sulla Z: in «Partenza» scegli «Posizione attuale della testa» (con le altre "
+                         "partenze il lavoro non si prepara)")
+        job.warnings.append(job.refused)
+        return job
     if rot_k != 1.0 and _plane_rot(profile):
         # 0.19.3: il rotativo scala l'asse Y della macchina, che con il piano ruotato non è più il verticale del
         # disegno. Non provato: meglio rifiutarlo che incidere fuori misura
+        if rot_z:  # sulla Z niente lavoro «senza rotativo»: si inciderebbe piatto su un oggetto rotondo
+            job.refused = tr("Con il piano ruotato il rotativo non si può usare: rimetti il piano non ruotato "
+                             "(Configurazione guidata della macchina)")
+            job.warnings.append(job.refused)
+            return job
         rot_k = 1.0
         job.warnings.insert(0, tr("Con il piano ruotato il rotativo non si può usare: il lavoro è preparato senza. "
                                   "Per il rotativo rimetti il piano non ruotato (Configurazione guidata della macchina)"))
@@ -1161,12 +1189,22 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
             ox, oy = flat_map(bx, by)
             return ox, ref_oy + (oy - ref_oy) * rot_k
         job.rotary_k, job.rotary_ref = rot_k, ref
-        job.warnings.append(tr("Rotativo attivo: asse Y × {0:.4f} (in anteprima il disegno resta com'è sul piano)", rot_k))
+        job.rotary_axis = "Z" if rot_z else "Y"
+        job.warnings.append(tr("Rotativo attivo: asse {1} × {0:.4f} (in anteprima il disegno resta com'è sul piano)",
+                               rot_k, job.rotary_axis))
     w = _Writer(placed_map, profile.s_max)
     w.travel_feed = profile.travel_speed() if hasattr(profile, "travel_speed") else None
     if getattr(profile, "scan_offsets", None):
         w.scan_offset = profile.scan_offset
     w.rot_k = rot_k
+    if getattr(profile, "power_knob", False):
+        # 0.22.6 (K40): la scheda accende e spegne soltanto; la potenza è quella della manopola
+        job.warnings.append(tr("Su questa macchina la potenza si regola con la manopola: il lavoro accende e spegne "
+                               "soltanto (la potenza dei livelli non conta)"))
+        grays = [cs.label() for cs in layers if cs.mode == "image" and getattr(cs, "dither", "") == "grayscale"]
+        if grays:
+            job.warnings.append(tr("{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): "
+                                   "scegli un retino o una soglia nelle impostazioni dell'immagine", ", ".join(grays)))
     title = opts.name or doc.name
     w.raw(f"; FreeLaserCut — {title}")
     w.raw(f"; macchina: {profile.name} · {profile.bed_x:g}×{profile.bed_y:g} mm · S max {profile.s_max:g}")
@@ -1286,8 +1324,11 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
                 if getattr(cs, "perforate", False):
                     polys = _apply_perforation(polys, cs.perf_cut, cs.perf_gap)
                 z_step = float(getattr(cs, "z_step", 0.0) or 0.0)
-                z_on = z_step > 0 and cs.passes > 1 and bool(getattr(profile, "z_motor", False))
-                if z_step > 0 and cs.passes > 1 and not z_on:
+                z_on = z_step > 0 and cs.passes > 1 and bool(getattr(profile, "z_motor", False)) and not rot_z
+                if z_step > 0 and cs.passes > 1 and rot_z:
+                    job.warnings.append(tr("{0}: con il rotativo sulla Z lo Z non si abbassa fra le passate (il motore "
+                                           "della Z gira l'oggetto)", cs.label()))
+                elif z_step > 0 and cs.passes > 1 and not z_on:
                     job.warnings.append(tr("{0}: lo Z si abbassa a ogni passata solo sui laser con l'asse Z motorizzato "
                                            "(Laser → profilo): qui resta fermo", cs.label()))
                 z_down = 0.0
@@ -1390,6 +1431,10 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
     job.preview = gcode_preview.parse(job.lines, profile=profile)  # riusata dall'interfaccia: una sola lettura
     orient_job_preview(job, profile, placed_map)
     job.seconds = job.preview.seconds
+    if rot_z:
+        # 0.22.6: il lavoro è fatto come con il rotativo sulla Y; solo qui la lettera Y diventa Z (G92 compreso).
+        # Anteprima, tempi e limiti restano quelli letti prima, con la Y: una riga per riga, stesse posizioni
+        job.lines = [y_to_z(l) for l in job.lines]
     return job
 
 

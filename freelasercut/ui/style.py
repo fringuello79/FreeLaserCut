@@ -3,6 +3,7 @@
 import os
 from functools import lru_cache
 
+from freelasercut import heartbeat  # noqa: E402
 from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
 from PySide6.QtGui import QFont, QFontDatabase, QIcon, QImage, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
@@ -35,6 +36,16 @@ def load_fonts():
     if "JetBrains Mono" not in fams:
         MONO_FONT = "Consolas"
     _loaded = True
+
+
+def app_icon():
+    """0.22.6: l'icona del programma. Il logo nuovo è un'immagine, non più un disegno: il file .ico ne porta una per
+    ogni misura (da 16 a 256 pixel, le piccole ritoccate a mano), e Qt sceglie quella giusta per la barra, il titolo
+    e le finestre. Se il .ico non si legge resta l'immagine a 256 pixel."""
+    icon = QIcon(os.path.join(ASSETS, "logo.ico"))
+    if not icon.availableSizes():
+        icon = QIcon(os.path.join(ASSETS, "logo.png"))
+    return icon
 
 
 TOOLTIP_DELAY_MS = 350  # Qt di serie: 700 ms
@@ -88,6 +99,7 @@ def _svg(name):
 
 
 def _render(name, color, size, stroke=None):
+    heartbeat.beat()  # 0.22.6: le icone si disegnano a centinaia mentre si costruisce la finestra
     src = _svg(name)
     pm = QPixmap(size, size)
     pm.fill(Qt.transparent)

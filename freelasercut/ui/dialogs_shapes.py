@@ -398,7 +398,9 @@ class SlotsDialog(QDialog):
         return self.old.value(), self.new.value(), self.tol.value()
 
     def _later(self, *_):
-        self.result.setText(tr("Calcolo l'anteprima…"))
+        # 0.22.6 (rapporti FLC-20261123-2251-0CF9 e FLC-20261124-0851-DEB9): qui la scritta è «found»; «result» è una
+        # funzione di QDialog e ogni clic sulle frecce dava l'errore «… has no attribute 'setText'»
+        self.found.setText(tr("Calcolo l'anteprima…"))
         self.ok.setEnabled(False)
         self._timer.start()
 

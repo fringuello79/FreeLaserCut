@@ -43,6 +43,42 @@ SCHEDE_NOTE = {0x65106510: "RDC6442S"}
 # lettura estesa: zone dove stanno le impostazioni della macchina, lo stato e i dati della scheda
 ZONE_ESTESE = ((0x0000, 0x0080), (0x0400, 0x0460), (0x0500, 0x0580))
 
+# 0.22.6: il numero di un'impostazione (quello delle fonti) e i due byte che viaggiano sul cavo non sono la stessa cosa.
+# Sul cavo ogni byte porta 7 bit: numero = (primo << 7) | secondo. Fino a 0x7F coincidono (piano_x 0x26 = 00 26), poi no:
+# il modello della scheda è l'impostazione 0x2FE e sul cavo è 05 7E; lo stato è la 0x200 (04 00). MEMORIA e ZONE_ESTESE
+# qui sopra sono scritti «come sul cavo»; le zone coprono le impostazioni 0x000-0x07F, 0x200-0x25F e 0x280-0x2FF.
+def sul_cavo(numero):
+    """Numero dell'impostazione -> indirizzo come va sul cavo (due byte da 7 bit)."""
+    if not 0 <= numero < 0x4000:
+        raise ValueError("impostazione non valida")
+    return ((numero >> 7) << 8) | (numero & 0x7F)
+
+
+def numero_impostazione(cavo):
+    """Indirizzo come sul cavo -> numero dell'impostazione."""
+    hi, lo = cavo >> 8, cavo & 0xFF
+    if not (0 <= hi < 0x80 and lo < 0x80):
+        raise ValueError("indirizzo non valido")
+    return (hi << 7) | lo
+
+
+# Impostazioni conosciute dalle fonti che stanno FUORI dalle zone: velocità e accelerazioni di lavoro, ritorno a casa,
+# ritardi, contatori. R4 le legge una per una (sola lettura), così il primo rapporto di una macchina le porta tutte.
+IMPOSTAZIONI_NOTE = (
+    0x080, 0x090, 0x0A0, 0x0B0, 0x0C0, 0x0C1, 0x0C2, 0x0C3, 0x0C4, 0x0C5, 0x0C6, 0x0C7, 0x0C8, 0x0C9, 0x0CA, 0x0CB,
+    0x0CC, 0x0CD, 0x0CE, 0x0CF, 0x0D0, 0x0D8, 0x0D9, 0x0DA, 0x0E7, 0x100, 0x101, 0x102, 0x103, 0x104, 0x105, 0x107,
+    0x108, 0x109, 0x10A, 0x10B, 0x10C, 0x10D, 0x10E, 0x10F, 0x115, 0x116, 0x117, 0x119, 0x11A, 0x11B, 0x11C, 0x11F,
+    0x121, 0x122, 0x124, 0x125, 0x126, 0x128, 0x129, 0x12A, 0x12B, 0x12C, 0x12D, 0x12E, 0x131, 0x132, 0x134, 0x135,
+    0x137, 0x138, 0x139, 0x13B, 0x13D, 0x13F, 0x140, 0x141, 0x142, 0x143, 0x144, 0x145, 0x146, 0x147, 0x148, 0x149,
+    0x14A, 0x14B, 0x14C, 0x14D, 0x14E, 0x14F, 0x150, 0x151, 0x152, 0x153, 0x154, 0x155, 0x156, 0x157, 0x158, 0x159,
+    0x15A, 0x15B, 0x15C, 0x15D, 0x15E, 0x15F, 0x160, 0x161, 0x162, 0x163, 0x164, 0x165, 0x166, 0x169, 0x16A, 0x16B,
+    0x16C, 0x16D, 0x16E, 0x170, 0x171, 0x172, 0x173, 0x174, 0x175, 0x176, 0x177, 0x178, 0x179, 0x17A, 0x17B, 0x17C,
+    0x17D, 0x17E, 0x17F, 0x180, 0x188, 0x189, 0x18A, 0x18B, 0x18C, 0x18D, 0x18F, 0x190, 0x191, 0x192, 0x193, 0x194,
+    0x195, 0x196, 0x197, 0x198, 0x199, 0x19A, 0x19B, 0x19C, 0x19D, 0x19E, 0x19F, 0x1A0, 0x1A1, 0x1A2, 0x1A3, 0x1A4,
+    0x1A5, 0x1A6, 0x1A7, 0x1AC, 0x1AD, 0x1AE, 0x1AF, 0x1B1, 0x1B2, 0x260, 0x313, 0x31C, 0x320, 0x321, 0x33B, 0x340,
+    0x591, 0x5C0,
+)
+
 
 # ---------------------------------------------------------------- rimescolamento e numeri
 def rimescola(b, chiave=0x88):
@@ -413,7 +449,8 @@ def prova_r3(diario, link, chiave=None, ferma=None, attesa=time.sleep):
 
 
 def prova_r4(diario, link, chiave=None, ferma=None, avanzamento=None):
-    """Lettura estesa (sola lettura) delle zone di memoria della macchina."""
+    """Lettura estesa (sola lettura) delle zone di memoria della macchina e, dalla 0.22.6, delle impostazioni note
+    fuori dalle zone. Nel diario gli indirizzi restano scritti come sul cavo (vedi numero_impostazione)."""
     chiave = 0x88 if chiave is None else chiave
     sch = Scheda(link, chiave)
     try:
@@ -424,6 +461,9 @@ def prova_r4(diario, link, chiave=None, ferma=None, avanzamento=None):
     try:
         letti, vuoti = {}, 0
         tutti = [a for lo, hi in ZONE_ESTESE for a in range(lo, hi)]
+        zona = set(tutti)
+        fuori = [a for a in map(sul_cavo, IMPOSTAZIONI_NOTE) if a not in zona]  # 0.22.6
+        tutti += fuori
         for i, addr in enumerate(tutti):
             if ferma is not None and ferma():
                 break
@@ -435,7 +475,7 @@ def prova_r4(diario, link, chiave=None, ferma=None, avanzamento=None):
             if avanzamento:
                 avanzamento(i + 1, len(tutti))
         diario.risultato("R4", "ok" if letti else "nessuna risposta", collegamento=link.nome, chiave="%02X" % chiave,
-                         letti=letti, senza_risposta=vuoti, totale=len(tutti))
+                         letti=letti, senza_risposta=vuoti, totale=len(tutti), fuori_zona=len(fuori))
         return letti
     finally:
         sch.chiudi()

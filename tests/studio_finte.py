@@ -146,7 +146,7 @@ class LihuiyuFinta:
                 self.occupata_fino = self.clock() + 0.5
                 self.flusso = s[m.end():]
                 continue
-            m = re.match(r"ICV(\d{3})(\d{3})(\d)(\d{3})?(\d{6})?C?NBRS1E((?:[BT][a-z|0-9]+){2,})FNSE-", s)
+            m = re.match(r"ICV(\d{3})(\d{3})(\d)(\d{3})?(\d{6})?C?NBRS1E((?:[BT][a-z|0-9]+){2,})FNSE", s)
             if m:  # 0.22.5: più corse in un solo lavoro
                 val = int(m.group(1)) * 256 + int(m.group(2))
                 g = int(m.group(3))
@@ -162,7 +162,7 @@ class LihuiyuFinta:
                 self.occupata_fino = self._dopo() + tot / (v * self.fattore) + self.extra * giri
                 self.flusso = s[m.end():]
                 continue
-            m = re.match(r"ICV(\d{3})(\d{3})(\d)(\d{3})?(\d{6})?C?NBRS1E([BT])([a-z|0-9]+?)FNSE-", s)
+            m = re.match(r"ICV(\d{3})(\d{3})(\d)(\d{3})?(\d{6})?C?NBRS1E([BT])([a-z|0-9]+?)FNSE", s)
             if m:
                 val = int(m.group(1)) * 256 + int(m.group(2))
                 g = int(m.group(3))

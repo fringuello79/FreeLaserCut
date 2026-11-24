@@ -377,12 +377,28 @@ class SelectTool(Tool):
 # ======================================================================= nodi
 class _NodeItem:
     """Una forma che si sta modificando a nodi: la forma e i suoi sottopercorsi (coordinate del piano)."""
-    __slots__ = ("shape", "subs", "began")
+    __slots__ = ("shape", "subs", "began", "broken")
 
     def __init__(self, shape):
         self.shape = shape
         self.subs = nodes.from_path(shape.path())
         self.began = False  # già trasformata in tracciato in questo passo di modifica
+        self.broken = False  # 0.22.6: «Spezza» ha aperto un percorso chiuso: rileggendolo resta aperto (_keep_open)
+
+
+def _keep_open(edited, reread):
+    """0.22.6 (rapporto FLC-20261123-1822-0573, «non taglia»): rileggendo il tracciato, un percorso che finisce dove
+    comincia torna «chiuso». Così «Spezza» (B) su una forma chiusa veniva annullato appena fatto. Qui un percorso che la
+    modifica ha lasciato aperto resta aperto (stessi punti, ultimo nodo sopra il primo); la geometria non cambia."""
+    if len(edited) != len(reread):
+        return reread
+    out = []
+    for a, b in zip(edited, reread):
+        if (not a.closed and b.closed and len(a.nodes) == len(b.nodes) + 1
+                and all(math.dist(x.pt(), y.pt()) < 1e-4 for x, y in zip(a.nodes, b.nodes))):
+            b = nodes.SubPath([n.copy() for n in a.nodes], False)
+        out.append(b)
+    return out
 
 
 class NodeTool(Tool):
@@ -405,6 +421,7 @@ class NodeTool(Tool):
         self._band_add = False
         self._last = None
         self._txn = False  # passo di modifica aperto (begin)
+        self._ctx = None  # 0.22.6: (punto, nodo, tratto) dell'ultimo clic destro, per il comando scelto dal menu
 
     # ---- compatibilità: la forma e il nodo «principali»
     @property
@@ -450,6 +467,7 @@ class NodeTool(Tool):
         if self.sel:
             self.cur = self.sel[-1][0]
         self.hover = self.hover_seg = None
+        self._ctx = None
 
     def _valid(self, ref):
         k, si, ni = ref
@@ -496,7 +514,8 @@ class NodeTool(Tool):
             self._txn = False
             for it in self.items:
                 it.began = False
-                it.subs = nodes.from_path(it.shape.path())
+                reread = nodes.from_path(it.shape.path())
+                it.subs = _keep_open(it.subs, reread) if it.broken else reread
             self.sel = [r for r in self.sel if self._valid(r)]
 
     # ---- ricerca sotto il mouse
@@ -532,6 +551,7 @@ class NodeTool(Tool):
     def press(self, e, p):
         if e.button() != Qt.LeftButton:
             return
+        self._ctx = None
         shift, ctrl, _ = _mods(e)
         add = shift or ctrl
         tf = self.cv.bed_to_view_tf()
@@ -585,6 +605,8 @@ class NodeTool(Tool):
             self.band = (self.band[0], e.position())
             return
         if self.drag is None:
+            if self._ctx is not None and (e.position() - self._ctx[0]).manhattanLength() > 240:
+                self._ctx = None  # il mouse è andato altrove: il clic destro di prima non vale più
             tf = self.cv.bed_to_view_tf()
             self.hover = self._hit(e.position(), tf) if self.items else None
             self.hover_seg = None if self.hover else (self._hit_seg(p) if self.items else None)
@@ -768,6 +790,59 @@ class NodeTool(Tool):
                     nodes.delete_node(subs, si, ni)
         return self._op(do, [r[0] for r in refs])
 
+    # ---- menu del tasto destro (0.22.6, rapporto FLC-20261123-1822-0573: i comandi dei nodi c'erano solo da tastiera)
+    def context_target(self, view_pt):
+        """Tasto destro: il nodo sotto il mouse diventa quello scelto (se non lo era già); senza nodo, il tratto sotto
+        il mouse è quello del menu. -> (c'è almeno un nodo scelto, c'è un tratto sotto il mouse)"""
+        self._ctx = None
+        if self._stale():
+            self._load(keep=True)
+        if not self.items:
+            return False, False
+        view_pt = QPointF(view_pt)
+        tf = self.cv.bed_to_view_tf()
+        h = self._hit(view_pt, tf)
+        if h is not None and h[0] == "node":
+            ref = (h[1], h[2], h[3])
+            if ref not in self.sel:
+                self.sel = [ref]
+            self.hover, self.hover_seg = ("node",) + ref, None
+            self._ctx = (view_pt, self.hover, None)
+            return True, False
+        inv, ok = tf.inverted()
+        bed = inv.map(view_pt) if ok else None
+        self.hover = None
+        self.hover_seg = self._hit_seg(bed) if bed is not None else None
+        if self.hover_seg is not None:
+            self.sel = []  # il comando è per il tratto (D toglie il tratto, non i nodi scelti prima)
+            self._ctx = (view_pt, None, self.hover_seg)
+            return False, True
+        return False, False
+
+    def command(self, k, shift=False):
+        """Lo stesso comando del tasto k (dal menu): stessa strada della tastiera, niente di diverso. Vale per il nodo
+        o il tratto del clic destro, anche se nel frattempo il mouse si è mosso sopra il menu."""
+        ctx, self._ctx = self._ctx, None
+        if ctx is not None and not self._stale():
+            node, seg = ctx[1], ctx[2]
+            if node is not None and not self._valid(node[1:]):
+                node = None
+            if seg is not None and not (self._valid((seg[0], seg[1], seg[2])) and self._valid((seg[0], seg[1], seg[3]))):
+                seg = None
+            self.hover, self.hover_seg = node, seg
+        class _Key:
+            def __init__(self, key, mods):
+                self._k, self._m = key, mods
+
+            def key(self):
+                return self._k
+
+            def modifiers(self):
+                return self._m
+        done = self.key(_Key(k, Qt.ShiftModifier if shift else Qt.NoModifier))
+        self.cv.viewport().update()
+        return done
+
     def key(self, e):
         k = e.key()
         shift = bool(e.modifiers() & Qt.ShiftModifier)
@@ -795,6 +870,7 @@ class NodeTool(Tool):
             kk, si, ni = one
             self.cur = kk
             self.sel = []
+            self.items[kk].broken = True  # il percorso aperto qui resta aperto anche se finisce dove comincia
             return self._op(lambda: nodes.break_at(self.items[kk].subs, si, ni), [kk])
         if one and k == Qt.Key_A:
             kk, si, ni = one

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 
 from ..core import ops, text as textmod
 from ..core import shapes_lib
+from .. import heartbeat
 from ..core.document import (
     DITHER_LABELS, DITHERS, IMAGE_STARTS, LAYER_COLORS, MODE_LABELS, MODES, EllipseShape, GroupShape, ImageShape, PathShape,
     CodeShape, PolygonShape, RectShape, SpecialShape, TextPathShape, TextShape,
@@ -551,6 +552,7 @@ class FontCombo(QComboBox):
 
 
 def _spin(lo, hi, val, dec=1, step=1.0, suffix=""):
+    heartbeat.beat()
     w = QDoubleSpinBox()
     w.setRange(lo, hi)
     w.setDecimals(dec)
@@ -1662,7 +1664,9 @@ class PropertiesPanel(QScrollArea):
         fam.insertSeparator(fam.count())
         fam.addItem(tr("— Font di sistema —"))
         fam.model().item(fam.count() - 1).setEnabled(False)
+        heartbeat.beat()
         for name in textmod.system_families():
+            heartbeat.beat()  # 0.22.6: con centinaia di caratteri installati questo giro dura: la schermata d'avvio batte
             fam.addItem(name, name)
             fam.setItemData(fam.count() - 1, QFont(name, 10), Qt.FontRole)
         i = fam.findData(d["family"])

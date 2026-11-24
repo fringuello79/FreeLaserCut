@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QSizePoli
                                QVBoxLayout, QWidget)
 
 from ..theme import C
+from .. import heartbeat
 from . import style
 from freelasercut.i18n import tr  # noqa: E402
 from freelasercut import fontscale  # noqa: E402
@@ -413,6 +414,7 @@ def hline():
 
 
 def row(*widgets, stretch=True, spacing=6):
+    heartbeat.beat()
     w = QWidget()
     h = QHBoxLayout(w)
     h.setContentsMargins(0, 0, 0, 0)

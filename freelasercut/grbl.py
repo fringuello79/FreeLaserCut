@@ -28,6 +28,7 @@ from .sim import SimSerial
 from . import netport
 
 SIM_PORT = "SIMULATORE"
+K40_PORT = "K40"  # 0.22.6, funzione in prova: la K40 con la scheda M2 Nano, attraverso il ponte (k40/ponte.py)
 RX_BUFFER = 127
 # 0.20.6 (rapporto FLC-20261118-1316-895B, Atomstack in Wi-Fi): sulle porte di rete, con schede che non parlano
 # direttamente in rete (un modulo Wi-Fi gira le righe alla scheda sul filo), le righe si mandano a pacchi più piccoli.
@@ -38,6 +39,9 @@ NET_GARBLED = (1, 2)  # errori di una riga arrivata rovinata (lettera mancante, 
 POINTER_MAX = 20.0  # % massimo del puntino (oltre POINTER_WARN FreeLaserCut avvisa)
 POINTER_WARN = 5.0
 POLL_INTERVAL = 0.2
+# 0.22.6 (rapporto FLC-20261123-1214-08D5, Ortur con GrblHAL): uscendo dalla verifica alcune schede rispondono «ok» e poi
+# si riavviano per un paio di secondi. Fino a questo tempo dopo la fine della verifica uno stato «Check» è quello vecchio
+CHECK_SETTLE_S = 10.0
 # 0.18.7: «Lucciola», il laser lasciato acceso al minimo per vedere dove punta. Tetto di potenza in base ai watt
 # ottici del laser (mai oltre il 2%; più il laser è potente, più il tetto scende), spegnimento da solo dopo GLOW_S.
 GLOW_S = 300.0
@@ -240,6 +244,11 @@ class GrblController(QObject):
         self.user_pause_msg = ""
         self._check = None  # verifica in corso: {"total", "done", "errors"}
         self.board_settings = {}  # ultimo $$ letto dalla scheda {numero: "valore"}
+        # 0.22.6: rotativo sul motore della Z (lo imposta la finestra principale). Con True l'autofocus e le frecce
+        # della Z non partono (girerebbero l'oggetto o, con l'interruttore sbagliato, il piano)
+        self.rotary_z = False
+        self.home_guard = None  # 0.22.6: funzione chiamata prima dell'homing; se ritorna False l'homing non parte
+        self.reset_count = 0  # 0.22.6: reset chiesti da noi (Stop compreso): chi aspetta di partire se ne accorge
         self.board_info = []  # ultimo $I
         self._backup_done = False  # copia delle impostazioni già fatta in questa connessione
         self._travel_retry = False  # $130/$131 non credibili: ho già riletto $$ una volta
@@ -277,6 +286,8 @@ class GrblController(QObject):
         try:
             if port == SIM_PORT:
                 ser = SimSerial(travel=self.sim_travel)  # 0.21.2: None = la corsa di sempre (450 × 440)
+            elif port == K40_PORT:
+                ser = self._open_k40()
             elif netport.is_net(port):  # Wi-Fi / cavo di rete (FluidNC, grblHAL, ESP3D: telnet)
                 ser = netport.NetSerial.from_port(port)
             else:
@@ -322,13 +333,43 @@ class GrblController(QObject):
         return True
 
     WAKE_AFTER_S = 2.5
+    k40_links = None  # prove: funzione che dà i collegamenti grezzi (la scheda finta); None = quelli veri
+    k40_board = "M2"
+    k40_time_scale = 1.0
+
+    def _open_k40(self):
+        """0.22.6: apre la K40 con il primo collegamento che risponde (driver del programma originale o libusb)."""
+        from .k40.ponte import K40Serial
+        from .studio import lihuiyu
+
+        links = self.k40_links() if self.k40_links is not None else lihuiyu.collegamenti()
+        diario = None
+        try:
+            from .studio import Diario
+
+            diario = Diario("k40", extra={"ponte": True})
+        except Exception:  # noqa: BLE001 — senza diario si lavora lo stesso
+            diario = None
+        errors = []
+        for link in links:
+            try:
+                return K40Serial(link, scheda=self.k40_board, diario=diario, scala_tempo=self.k40_time_scale)
+            except Exception as ex:  # noqa: BLE001
+                errors.append(f"{getattr(link, 'nome', type(link).__name__)}: {ex}")
+        why = lihuiyu.MOTIVI.get(lihuiyu.perche_nessun_collegamento(), "")
+        raise RuntimeError(tr("nessun collegamento con la K40") + (f" ({'; '.join(errors)})" if errors else "")
+                           + (f" — {why}" if why else ""))
+
+    def virtual_port(self):
+        """Porta che non è un cavo seriale: simulatore, rete o K40 (niente riavvii dalla porta, copie, velocità)."""
+        return self.port in (SIM_PORT, K40_PORT) or netport.is_net(self.port or "")
 
     def _wake_if_silent(self, t0):
         """Alcune schede ESP32 (per esempio con il chip USB CH9102) dopo l'apertura della porta restano mute finché non
         si preme il loro pulsante di reset. Se in questi secondi la scheda non ha mai risposto, le mando un reset
         morbido (Ctrl+X, come il pulsante «reset» di GRBL): una scheda muta non sta eseguendo niente per noi.
         Una volta sola; niente in Wi-Fi e con il simulatore. Se non basta, la finestra principale lo dice."""
-        if not self.connected or self.port == SIM_PORT or netport.is_net(self.port or ""):
+        if not self.connected or self.virtual_port():
             return False
         if self.status_time > t0 or self.last_reply > t0:
             return False
@@ -430,7 +471,7 @@ class GrblController(QObject):
         if not line or not self.connected:
             return
         if (tag is None and not self._backup_done and _WRITE_RE.match(line) and self.board_settings
-                and self.port != SIM_PORT):
+                and self.port not in (SIM_PORT, K40_PORT)):
             # prima di cambiare un'impostazione della scheda: copia di tutte le impostazioni ($$)
             self._backup_done = True
             try:
@@ -495,6 +536,8 @@ class GrblController(QObject):
         self.send_line(f"${number}={value}")
 
     def home(self):
+        if self.home_guard is not None and not self.home_guard():
+            return
         self._home_alarm = False
         self.send_line("$H")
 
@@ -502,6 +545,7 @@ class GrblController(QObject):
         self.send_line("$X")
 
     def soft_reset(self):
+        self.reset_count += 1
         self.realtime(0x18)
         self._clear_queues()
         # 0.21.2: il reset spegne il laser sulla scheda; prima FreeLaserCut continuava a credere accesi Puntino e
@@ -590,7 +634,26 @@ class GrblController(QObject):
         self.send_line(f"$J=G53 G21 X{x:.3f} Y{y:.3f} F{feed:.0f}")
 
     # ------------------------------------------------------- invio di un lavoro
+    def ready_after_check(self):
+        """0.22.6: dopo una verifica, la scheda è davvero ripartita? Serve uno stato letto DOPO la fine della verifica e
+        che non sia più «Check». Con GRBL classico succede in pochi decimi di secondo; la Ortur con GrblHAL del rapporto
+        08D5 risponde «ok» e poi si riavvia per circa 2 s: partire prima voleva dire righe perse e un $C in più."""
+        if not self.connected or self.stale_check_exit:
+            return False
+        return self.status_time > self._check_end_t and self.last_status.get("state") not in ("Check", None)
+
+    def check_settling(self):
+        """0.22.6: la verifica è appena finita e l'ultimo stato «Check» può essere quello di prima: non è una scheda
+        rimasta in modalità di prova."""
+        return (self.last_status.get("state") == "Check" and not self.stale_check_exit
+                and 0 < time.time() - self._check_end_t < CHECK_SETTLE_S and self.status_time <= self._check_end_t)
+
     def stream_job(self, lines):
+        if self.check_settling():
+            # 0.22.6: niente $C in più (rimetterebbe la scheda in prova): si aspetta che la scheda sia ripartita
+            self.job_finished.emit(False, tr("La scheda sta ancora ripartendo dopo la verifica: riprova tra qualche "
+                                             "secondo."))
+            return
         if self.last_status.get("state") == "Check" or self.stale_check_exit:
             self.exit_stale_check()
             self.job_finished.emit(False, tr("La scheda era ancora in modalità di prova: la sto facendo uscire. "
@@ -731,7 +794,7 @@ class GrblController(QObject):
         """Velocità della porta per la stima dei comandi al secondo (gcode.stream_vmax): quella aperta, o default se
         la macchina non è collegata. None in Wi-Fi e con il simulatore (lì la porta seriale non c'è)."""
         if self.connected:
-            if self.port == SIM_PORT or netport.is_net(self.port or ""):
+            if self.virtual_port():
                 return None
             return self.baud
         return default
@@ -763,6 +826,10 @@ class GrblController(QObject):
         if on:
             if self._job_active:
                 return False
+            if self.port == K40_PORT:  # 0.22.6: la K40 non accende il laser da ferma (e la potenza è sulla manopola)
+                self.message.emit(tr("Sulla K40 il puntino non c'è: la potenza si regola con la manopola e il laser "
+                                     "si accende solo durante il lavoro"))
+                return False
             pct = max(0.1, min(pct, max_pct))
             self.send_line(f"M3 S{pct / 100.0 * s_max:.1f}")
             self.send_line("G1 F1000")
@@ -791,7 +858,7 @@ class GrblController(QObject):
         self._fire_timer.start()
         return True
 
-    def frame_path(self, points, feed=6000, laser_pct=0.0, s_max=1000.0, travel_feed=None, back=None):
+    def frame_path(self, points, feed=6000, laser_pct=0.0, s_max=1000.0, travel_feed=None, back=None, axes="XY"):
         """Percorre una spezzata in coordinate macchina: a laser spento con il jog (interrompibile),
         oppure con un filo di laser per vedere il contorno sul materiale. 0.21.2: travel_feed = «Spostamenti a
         vuoto più lenti» del profilo: il Contorno non va più veloce di così, e l'andata al primo punto è un G1 S0.
@@ -799,33 +866,38 @@ class GrblController(QObject):
         parte dalla posizione della testa: senza, la testa restava sull'angolo e il lavoro si spostava."""
         if not points:
             return
+        # 0.22.6: axes="XZ" con il rotativo sul motore della Z: il secondo numero di ogni punto va alla Z
+        a, b = axes[0], axes[1]
         if travel_feed:
             feed = min(feed, travel_feed)
         if laser_pct <= 0:
             for x, y in list(points) + ([back] if back is not None else []):
-                self.send_line(f"$J=G53 G21 X{x:.3f} Y{y:.3f} F{feed:.0f}")
+                self.send_line(f"$J=G53 G21 {a}{x:.3f} {b}{y:.3f} F{feed:.0f}")
             return
         x0, y0 = points[0]
         if travel_feed:
-            self.send_line(f"G53 G1 X{x0:.3f} Y{y0:.3f} S0 F{feed:.0f}")
+            self.send_line(f"G53 G1 {a}{x0:.3f} {b}{y0:.3f} S0 F{feed:.0f}")
         else:
-            self.send_line(f"G53 G0 X{x0:.3f} Y{y0:.3f}")
+            self.send_line(f"G53 G0 {a}{x0:.3f} {b}{y0:.3f}")
         self.send_line(f"M3 S{min(laser_pct, POINTER_MAX) / 100.0 * s_max:.1f}")
         for x, y in points[1:]:
-            self.send_line(f"G53 G1 X{x:.3f} Y{y:.3f} F{feed:.0f}")
+            self.send_line(f"G53 G1 {a}{x:.3f} {b}{y:.3f} F{feed:.0f}")
         self.send_line("M5 S0")
         if back is not None:  # il ritorno sempre dopo aver spento il laser
             if travel_feed:
-                self.send_line(f"G53 G1 X{back[0]:.3f} Y{back[1]:.3f} S0 F{feed:.0f}")
+                self.send_line(f"G53 G1 {a}{back[0]:.3f} {b}{back[1]:.3f} S0 F{feed:.0f}")
             else:
-                self.send_line(f"G53 G0 X{back[0]:.3f} Y{back[1]:.3f}")
+                self.send_line(f"G53 G0 {a}{back[0]:.3f} {b}{back[1]:.3f}")
 
     # ------------------------------------------------------------- autofocus
     @property
     def autofocusing(self):
         return self._af is not None
 
-    def jog_z(self, dz, feed=300):
+    def jog_z(self, dz, feed=300, force=False):
+        """force: la «Prova: un giro» del rotativo sulla Z (le frecce della Z invece con il rotativo non partono)."""
+        if self.rotary_z and not force:
+            return
         if dz:
             self.send_line(f"$J=G91 G21 Z{dz:.3f} F{feed:.0f}")
 
@@ -844,6 +916,9 @@ class GrblController(QObject):
                      self.last_status.get("state", "?"))
         elif af.pin_state(self.last_status.get("pins")) == "touch":
             why = af.explain_alarm(4)
+        if self.rotary_z:  # prima di tutto: il motore della Z ora gira l'oggetto, la sonda non lo toccherebbe mai
+            why = tr("Il rotativo è sul motore della Z: l'autofocus non si può usare. Spegni il rotativo e rimetti "
+                     "l'interruttore sul piano.")
         if why:
             self.autofocus_done.emit(False, why, None)
             return False
@@ -964,6 +1039,7 @@ class GrblController(QObject):
             self.message.emit(tr("La scheda non ha risposto alle ultime {0} righe della verifica (risposte perse, "
                                  "succede con alcune schede con l'USB nativo): le considero controllate.", len(lost)))
             chk["exiting"] = True
+            self._reset_asked_t = time.time()  # 0.22.6: il reset (o riavvio) dell'uscita dalla verifica lo chiediamo noi
             self.send_line("$C", tag="check_exit")
             return
         if stalled:
@@ -1266,7 +1342,7 @@ class GrblController(QObject):
                 self._travel_retry = False
             if ok and cmd.data:
                 self.board_settings = dict(cmd.data)
-                if not self._backup_done and self.auto_backup and self.port != SIM_PORT and not bad:
+                if not self._backup_done and self.auto_backup and self.port not in (SIM_PORT, K40_PORT) and not bad:
                     try:  # una copia a ogni connessione (se i valori sono cambiati dall'ultima)
                         from . import board_backup
 
@@ -1326,6 +1402,9 @@ class GrblController(QObject):
             if chk["done"] >= chk["total"] and not chk["exiting"]:
                 # uscita dal check mode: GRBL fa un reset morbido e lo segnala col banner
                 chk["exiting"] = True
+                # 0.22.6: alcune schede (Ortur con GrblHAL) rispondono «ok» e il saluto arriva solo dopo un riavvio di
+                # qualche secondo, a verifica già chiusa: anche quel saluto è la risposta alla nostra uscita
+                self._reset_asked_t = time.time()
                 self.send_line("$C", tag="check_exit")
         elif cmd.tag == "check_exit" and self._check is not None:
             chk = self._check

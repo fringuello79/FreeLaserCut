@@ -744,8 +744,8 @@ check("G licenza della libreria aggiunta (GLib, LGPL 2.1)", "glib-LGPL-2.1.txt" 
 # ====================================================================== H. ringraziamenti
 print("--- H. ringraziamenti")
 N = len(thanks.NAMES)
-check("H un solo elenco: 26 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1, Daniel Z. e solboricua dalla 0.21.2, universalecinema-boop e Paul H. dalla 0.22.2, Michele S. e LaserJack dalla 0.22.4, andreacanti e istevenep dalla 0.22.5), nessun doppione, «Roberto C.» senza "
-      "cognome, Deborah", N == 26 and thanks.NAMES[-14:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir", "Daniel Z.", "solboricua", "universalecinema-boop", "Paul H.", "Michele S.", "LaserJack", "andreacanti", "istevenep") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
+check("H un solo elenco: 27 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1, Daniel Z. e solboricua dalla 0.21.2, universalecinema-boop e Paul H. dalla 0.22.2, Michele S. e LaserJack dalla 0.22.4, andreacanti e istevenep dalla 0.22.5, pier dalla 0.22.6), nessun doppione, «Roberto C.» senza "
+      "cognome, Deborah", N == 27 and thanks.NAMES[-15:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir", "Daniel Z.", "solboricua", "universalecinema-boop", "Paul H.", "Michele S.", "LaserJack", "andreacanti", "istevenep", "pier") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
       and not any("cappellero" in n.lower() for n in thanks.NAMES) and thanks.NAMES[0] == "Stefano Modena")
 it = thanks.endless()
 seq = [next(it) for _ in range(N * 6)]
@@ -931,8 +931,9 @@ for lang in ("it", "en", "es", "fr", "pt"):
 i18n.set_language(lang0)
 check("H «Grazie a» nelle cinque lingue, senza due punti; i nomi non si traducono e cambiano sempre grandezza",
       leads == {"it": "Grazie a", "en": "Thanks to", "es": "Gracias a", "fr": "Merci à", "pt": "Obrigado a"}, str(leads))
-check("H tempi: una riga in 1,6 s, righe sfalsate di 0,115 s (12 righe), tutto in circa 3 secondi",
-      splash.ROW_S == 1.6 and splash.STAGGER_S == 0.115 and 2.9 <= splash.ENGRAVE_S <= 3.2 and splash.MIN_SHOW_S == 3.0)
+check("H tempi: una riga in 1,6 s, righe sfalsate di 0,115 s (12 righe), tutto in circa 3 secondi; dalla 0.22.6 la "
+      "schermata resta almeno 4 secondi",
+      splash.ROW_S == 1.6 and splash.STAGGER_S == 0.115 and 2.9 <= splash.ENGRAVE_S <= 3.2 and splash.MIN_SHOW_S == 4.0)
 check("H avanzamento di una riga: 0 prima di partire, 1 alla fine, sfalsato",
       splash.row_progress(0.0, 0) == 0 and close(splash.row_progress(0.8, 0), 0.5) and splash.row_progress(1.6, 0) == 1
       and splash.row_progress(0.115 * 11, 11) == 0 and splash.row_progress(9.0, 11) == 1)
@@ -969,7 +970,9 @@ check("H le righe partono una dopo l'altra (a mezzo secondo le ultime non sono a
 left, right = f1[:, :(splash.W // 3) * 4], f1[:, (splash.W * 2 // 3) * 4:]
 check("H si incide da sinistra a destra: a metà della prima riga la destra è ancora vuota",
       (left[10:36] != f0[10:36, :(splash.W // 3) * 4]).any() and not (right[10:36] != f0[10:36, (splash.W * 2 // 3) * 4:]).any())
-check("H finita l'incisione la schermata resta ferma (stato finale uguale a qualsiasi tempo dopo)", np.array_equal(f4, f9))
+# 0.22.6: finita l'incisione i nomi scorrono piano (prima la schermata restava ferma); i dettagli in test_v226_veste_grafica
+check("H finita l'incisione i nomi scorrono: la schermata non è più ferma, ma appena finita è ancora quella incisa",
+      not np.array_equal(f4, f9) and np.array_equal(arr(splash.render(splash.ENGRAVE_S)), arr(splash.render(splash.ENGRAVE_S + 0.01))))
 band = slice(249, 300)
 check("H la fascia in basso non cambia mai", np.array_equal(f0[band], f4[band]) and np.array_equal(f0[band], f2[band]))
 low = splash.Splash(splash._pixmap(1.0), min_show=0.0, clock=lambda: 2.0)
@@ -1051,8 +1054,15 @@ sp_._t0 = sp_._clock() - 60
 sp_._last = -1.0
 sp_.pulse()
 fr = sp_.frames
-time.sleep(0.04)
-check("H a incisione finita non si ridisegna più a ogni modulo", sp_.pulse() is False and sp_.frames == fr and sp_.engraved())
+time.sleep(0.06)
+check("H a incisione finita si continua a ridisegnare (0.22.6: i nomi scorrono), ma non più di 25 volte al secondo",
+      sp_.engraved() and sp_.pulse() is True and sp_.frames == fr + 1 and sp_.pulse() is False and sp_.frames == fr + 1)
+sp_._final = True
+time.sleep(0.06)
+check("H sui PC lenti (stato finale) a incisione finita non si ridisegna più a ogni modulo",
+      sp_.pulse() is False and sp_.frames == fr + 1)
+sp_._final = False
+fr = sp_.frames
 sp_.say("ciao")
 check("H un messaggio nuovo ridisegna sempre", sp_.frames == fr + 1 and sp_._msg == "ciao")
 sp_.pulse = lambda: (_ for _ in ()).throw(RuntimeError("guasto"))

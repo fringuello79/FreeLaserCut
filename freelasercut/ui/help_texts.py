@@ -218,6 +218,8 @@ HELP = {
     "rotary": (tr("Rotativo"), tr("Accessorio a rulli o a mandrino collegato al posto dell'asse Y, per bicchieri, borracce e "
                "cilindri. FreeLaserCut scala l'asse Y e corregge la velocità: si disegna come su un foglio."),
                [(tr("Asse Y per un giro"), tr("si trova con la prova di un giro")),
+                (tr("Sulla Z"), tr("per le macchine con l'interruttore che passa il motore del piano al rotativo: partenza "
+                                   "dalla testa, prova del giro a ogni collegamento, autofocus e frecce della Z spenti")),
                 (tr("Diametro"), tr("del rullo (rulli) o dell'oggetto (mandrino)"))]),
     "grid_array": (tr("Serie a griglia"), tr("Copie in righe e colonne, con spaziatura, sfalsamento e numerazione automatica "
                    "dei testi variabili."), None),
@@ -516,6 +518,24 @@ HELP = {
                     (tr("Maiusc+J"), tr("collega due estremi selezionati con un tratto dritto")),
                     (tr("Ctrl+clic su un'altra forma"), tr("la aggiunge: si possono collegare due tracciati")),
                     (tr("Disponi → Allinea / Distribuisci"), tr("con dei nodi scelti, agiscono sui nodi"))]),
+    # 0.22.6 (rapporto 0573): i comandi dei nodi, anche nel menu del tasto destro dello strumento Nodi
+    "node_break": (tr("Spezza qui"), tr("Strumento Nodi, clic destro su un nodo: un tracciato chiuso si apre lì, uno aperto "
+                   "diventa due pezzi. Poi «Separa» li divide in oggetti. Da tastiera: B."), None),
+    "node_delete": (tr("Elimina nodo"), tr("Toglie i nodi scelti; il tracciato passa dai nodi vicini. Da tastiera: D."), None),
+    "node_corner": (tr("Nodo ad angolo"), tr("Il nodo diventa uno spigolo: le due maniglie si muovono ognuna per conto suo. "
+                    "Da tastiera: C."), None),
+    "node_smooth": (tr("Nodo morbido"), tr("Il nodo diventa una curva senza spigolo: le maniglie restano in linea. Da "
+                    "tastiera: S."), None),
+    "node_fillet": (tr("Raccorda l'angolo…"), tr("Arrotonda lo spigolo del nodo con il raggio che scrivi. Da tastiera: A."),
+                    None),
+    "node_insert": (tr("Inserisci un nodo qui"), tr("Strumento Nodi, clic destro su un tratto: aggiunge un nodo nel punto del "
+                    "clic, senza cambiare la forma. Da tastiera: I."), None),
+    "node_mid": (tr("Nodo a metà del tratto"), tr("Aggiunge un nodo a metà del tratto, senza cambiare la forma. Da tastiera: "
+                 "M."), None),
+    "node_straight": (tr("Raddrizza il tratto"), tr("Il tratto curvo diventa una retta fra i suoi due nodi. Da tastiera: L."),
+                      None),
+    "node_cut_seg": (tr("Togli il tratto"), tr("Toglie il tratto fra due nodi: un tracciato chiuso si apre lì, uno aperto "
+                     "diventa due pezzi. Da tastiera: D su un tratto."), None),
     "node_join": (tr("Unisci nodi"), tr("Con lo strumento Nodi e due estremi di linee aperte selezionati: li fonde in un "
                   "punto solo a metà strada (tasto J). Se sono i due estremi della stessa linea, la chiude; se sono di due "
                   "forme, diventano una forma sola sul livello del primo nodo selezionato."), None),

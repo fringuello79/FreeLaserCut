@@ -142,8 +142,8 @@ check("B Ferma durante K2: la scheda riceve «I», il diario dice «fermata»", 
 # ====================================================================== C. un solo lavoro con più corse
 c = L.cmd_lavoro_unico("M2", 30.0, (50, -50, 100, -100))
 check("C comando del lavoro unico: una entrata, quattro corse, una uscita",
-      c.startswith(b"I" + L.codice_velocita("M2", 30).encode() + b"NBRS1E") and c.endswith(b"FNSE-")
-      and c.count(b"S1E") == 1 and c.count(b"FNSE-") == 1, c)
+      c.startswith(b"I" + L.codice_velocita("M2", 30).encode() + b"NBRS1E") and c.endswith(b"FNSE")
+      and c.count(b"S1E") == 1 and c.count(b"FNSE") == 1, c)
 check("C dentro solo lettere permesse (niente accensione del laser)", b"D" not in c and L.controlla(c) == c)
 try:
     L.cmd_lavoro_unico("M2", 30.0, (50, 0))

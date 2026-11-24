@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (20)
+## Wi-Fi, rete e telefono (21)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -25,6 +25,7 @@ Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v209_rapporti.py` (Banco): Wi-Fi dei router recenti, porte a mano e homing della camera della testa nell'interfaccia Banco
 - `test_v225_telefono.py`: Telefono: frecce e joystick per muovere la testa (solo se permesso sul PC, a macchina ferma, laser spento, arresto da solo se il telefono tace), pagina con comandi in rilievo
 - `test_v225_telefono.py` (Banco): Telefono: frecce e joystick nell'interfaccia Banco
+- `test_v226_ruida_estesa.py`: Studia la macchina, Ruida: la lettura estesa legge anche le impostazioni note fuori dalle zone (numero dell'impostazione e byte sul cavo), solo letture, in rete e su USB
 
 ## Telecamera e guardia fiamme (15)
 
@@ -104,7 +105,7 @@ Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v223_png_trasparenti.py`: Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza
 - `test_v223_png_trasparenti.py` (Banco): Immagini con lo sfondo trasparente nell'interfaccia Banco
 
-## Lavoro e G-code (42)
+## Lavoro e G-code (49)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -148,6 +149,13 @@ Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v221_import.py`: DXF con i colori numerati e del layer (il taglio rosso non si perde); SVG senza unità a 72, 90 o 96 dpi (Illustrator)
 - `test_v222_contorno.py`: Contorno con la partenza dalla posizione della testa: finito il giro la testa torna da dove è partita e il lavoro non si sposta (9 pallini, laser spento e puntino, rettangolo e convesso)
 - `test_v222_contorno.py` (Banco): Contorno con la partenza dalla testa nell'interfaccia Banco
+- `test_v226_k40_driver.py`: Driver K40 (M2 Nano), primo pezzo: codici di velocità con e senza la rincorsa, rette a passi, dal G-code ai comandi della scheda, letti da un lettore indipendente
+- `test_v226_verifica_grblhal.py`: Verifica del G-code con le schede GrblHAL che si riavviano uscendo dalla prova (Ortur): il lavoro parte quando la scheda è ripartita, senza $C in più, senza righe perse, con l'homing tenuto
+- `test_v226_verifica_grblhal.py` (Banco): Verifica del G-code con GrblHAL nell'interfaccia Banco
+- `test_v226_rapporti.py`: Dai rapporti del 24/11: anteprima dei lavori grandi con i trasferimenti a scelta, «Spezza» sulle forme chiuse, comandi dei nodi col tasto destro
+- `test_v226_rotativo_z.py`: Rotativo sul motore della Z (interruttore della macchina): Y che diventa Z, prova del giro con il passo piccolo, conferme, passi della Z controllati, homing, contorno in X e Z, autofocus e frecce della Z spenti; simulatore con le impostazioni del rotativo di Giuseppe
+- `test_v226_rotativo_z.py` (Banco): Rotativo sul motore della Z nell'interfaccia Banco
+- `test_v226_k40_ponte.py`: K40 (M2 Nano) collegabile, funzione in prova: il ponte che parla GRBL alla scheda, con la scheda finta che segna ogni pericolo (laser acceso senza dati, D fuori dal lavoro, fuori dal piano): casa, frecce a pezzetti, lavori, pausa, stop, cavo staccato, verifica, verso degli assi
 
 ## Macchina, connessione e profili (60)
 
@@ -243,7 +251,7 @@ Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (48)
+## Interfaccia (51)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -293,8 +301,11 @@ Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v224_caratteri.py`: Grandezza dei caratteri dell'interfaccia: stessi pixel sugli schermi a 72 punti per pollice (Mac), scelta in Impostazioni e nelle Preferenze (85–150%), ogni foglio di stile e ogni carattere passa dallo stesso punto
 - `test_v224_caratteri.py` (Banco): Grandezza dei caratteri nell'interfaccia Banco
 - `test_v225_qt69.py`: Pacchetto per i Mac Intel con macOS 13 Ventura (pull request #29): menu tenuti vivi e guida senza filtro sempre acceso con PySide6 6.9, linea centrale giusta anche senza numba
+- `test_v226_veste_grafica.py` (Banco): Nuova veste grafica nell'interfaccia Banco
+- `test_v226_rapporti.py` (Banco): Dai rapporti del 24/11 nell'interfaccia Banco
+- `test_v226_k40_ponte.py` (Banco): K40 (M2 Nano) collegabile nell'interfaccia Banco
 
-## Avvio, installazione, aggiornamenti e assistenza (9)
+## Avvio, installazione, aggiornamenti e assistenza (10)
 
 - `test_v104_aggiorna.py`: Aggiornamento dal programma: Release di GitHub, SHA-256, installatore /AGGIORNA
 - `test_v178.py`: Ricevitore dei rapporti attivo: pulsante Invia
@@ -305,3 +316,4 @@ Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v1816_prove.py`: Prove su GitHub: una volta sola per versione, quattro suite insieme, secondo tentativo da sole
 - `test_v1816_avvio.py`: Guardia d'avvio: gli errori prima della finestra vengono scritti e mostrati, anche senza Qt
 - `test_v190_cpu.py`: Processori vecchi: istruzioni lette all'avvio e librerie compatibili
+- `test_v226_veste_grafica.py`: Nuova veste grafica: icona con una misura per ogni uso e angoli trasparenti, logo nuovo in finestra, sito e installatori, schermata di avvio blu e arancio con il motto nella lingua del programma, almeno 4 secondi, nomi che scorrono a righe alternate

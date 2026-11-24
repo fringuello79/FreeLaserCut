@@ -14,10 +14,10 @@ from PySide6.QtWidgets import (
     QWidgetAction,
 )
 
-from .. import __version__, diag as _diag, gcode_preview
+from .. import __version__, diag as _diag, gcode_preview, heartbeat
 from ..core import gcode, geom, io_formats, materials, ops, resume, variables
 from ..core.document import Document, GroupShape, ImageShape, PathShape, origins, set_origin
-from ..grbl import SIM_PORT, GrblController, list_serial_ports
+from ..grbl import K40_PORT, SIM_PORT, GrblController, list_serial_ports
 from ..grbl_codes import STATE_COLORS
 from ..profile import MachineProfile, config_dir, migrate_qsettings
 from ..theme import C, QSS, css, tc
@@ -165,7 +165,7 @@ class MainWindow(QMainWindow):
         self._pending_start = None
         self._interrupted = None  # (righe, riga raggiunta) per la ripresa
         self.setWindowTitle(tr("FreeLaserCut"))
-        self.setWindowIcon(QIcon(os.path.join(ASSETS, "logo.svg")))
+        self.setWindowIcon(style.app_icon())
         self.setDockNestingEnabled(True)
         scr = QGuiApplication.primaryScreen().availableGeometry() if QGuiApplication.primaryScreen() else None
         if scr is not None:  # mai più grande dello schermo (barra in basso e tavolozza resterebbero nascoste)
@@ -192,8 +192,10 @@ class MainWindow(QMainWindow):
         cv.addWidget(self.canvas, 1)
         self.setCentralWidget(central)
 
+        heartbeat.beat()
         self._build_actions()
         self._build_menus()
+        heartbeat.beat()
         self._build_toolbars()
         self._build_docks()
         from .fire_ui import FireGuard
@@ -203,9 +205,12 @@ class MainWindow(QMainWindow):
         from .phone_ui import PhoneControl
 
         self.phone = PhoneControl(self)  # controllo dal telefono (spento di partenza, solo per la sessione)
+        heartbeat.beat()
         self._build_statusbar()
         self._wire()
+        heartbeat.beat()
         self.refresh_ports()
+        heartbeat.beat()
         self.on_connection(False, "")
         self._update_title()
         if self.qs.value("auto_connect", "true") in (True, "true"):
@@ -269,6 +274,7 @@ class MainWindow(QMainWindow):
 
     # ================================================================ azioni
     def _a(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False):
+        heartbeat.beat()
         a = QAction(text, self)
         if icon:
             a.setIcon(style.icon(icon))
@@ -353,6 +359,18 @@ class MainWindow(QMainWindow):
             "join": A(tr("Unisci estremi"), e.auto_join, "Alt+J", "join"),
             # 0.19.5: i tasti J e Maiusc+J li gestisce lo strumento Nodi; qui solo scritti accanto alla voce del menu
             "node_join": A(tr("Unisci nodi") + "\tJ", lambda: self._node_join("merge"), None, "join"),
+            # 0.22.6 (rapporto 0573): i comandi dei nodi anche dal tasto destro, non solo con le lettere
+            "node_break": A(tr("Spezza qui") + "\tB", lambda: self._node_cmd(Qt.Key_B), None, None,
+                            tr("Spezza il tracciato nel nodo: un tracciato chiuso si apre, uno aperto diventa due pezzi "
+                               "(poi «Separa» li divide in oggetti)")),
+            "node_delete": A(tr("Elimina nodo") + "\tD", lambda: self._node_cmd(Qt.Key_D), None, None),
+            "node_corner": A(tr("Nodo ad angolo") + "\tC", lambda: self._node_cmd(Qt.Key_C), None, None),
+            "node_smooth": A(tr("Nodo morbido") + "\tS", lambda: self._node_cmd(Qt.Key_S), None, None),
+            "node_fillet": A(tr("Raccorda l'angolo…") + "\tA", lambda: self._node_cmd(Qt.Key_A), None, None),
+            "node_insert": A(tr("Inserisci un nodo qui") + "\tI", lambda: self._node_cmd(Qt.Key_I), None, None),
+            "node_mid": A(tr("Nodo a metà del tratto") + "\tM", lambda: self._node_cmd(Qt.Key_M), None, None),
+            "node_straight": A(tr("Raddrizza il tratto") + "\tL", lambda: self._node_cmd(Qt.Key_L), None, None),
+            "node_cut_seg": A(tr("Togli il tratto") + "\tD", lambda: self._node_cmd(Qt.Key_D), None, None),
             "node_connect": A(tr("Collega nodi") + "\t" + tr("Maiusc+J"), lambda: self._node_join("connect"), None,
                               "join"),
             "break": A(tr("Scomponi"), e.break_apart, "Alt+B", "break"),
@@ -1158,6 +1176,7 @@ class MainWindow(QMainWindow):
         d.setObjectName(name or title)
         from .widgets import shrinkable
 
+        heartbeat.beat()
         shrinkable(widget)
         if not isinstance(widget, QScrollArea):  # se lo spazio non basta il pannello scorre, non si schiaccia
             sa = QScrollArea()
@@ -1488,6 +1507,7 @@ class MainWindow(QMainWindow):
                                                                   [(tr("Sblocca"), ctl.unlock), (tr("Homing"), ctl.home)]))
         ctl.message.connect(lambda m: self.statusBar().showMessage(m, 5000))
         ctl.homed_changed.connect(self.on_homed)
+        ctl.home_guard = self._home_guard  # 0.22.6: rotativo sulla Z
         ctl.settings_ready.connect(self._auto_identify)
         ctl.settings_ready.connect(self._check_board_travel)  # 0.21.2
         ctl.travel_suspect.connect(self._travel_suspect)
@@ -2690,6 +2710,7 @@ class MainWindow(QMainWindow):
         have = {d for d, _l, _k in ports}
         # 0.20.9 (Gianni, 1D5D): porte scritte a mano, per quelle che il sistema non elenca
         ports += [(d, tr("{0} (scritta a mano)", d), False) for d in self.manual_ports() if d not in have]
+        ports += self._k40_ports()
         ports.append((SIM_PORT, tr("Simulatore (senza macchina)"), False))
         for dev, label, likely in ports:
             self.port_combo.addItem(("★  " if likely else "") + label, dev)
@@ -2812,7 +2833,50 @@ class MainWindow(QMainWindow):
             self.qs.setValue("port", port)
         self.btn_connect.setEnabled(True)
 
+    k40_seen = None  # prove: funzione che dice se la K40 è collegata (al posto di studio.lihuiyu.trova)
+
+    def _k40_ports(self):
+        """0.22.6, funzione in prova: la voce «K40» solo con le funzioni in prova sbloccate e la scheda 1a86:5512
+        vista. Senza sblocco non si cerca nemmeno (niente chiamate USB)."""
+        from .. import admin
+
+        if not admin.unlocked(self.qs):
+            return []
+        try:
+            if self.k40_seen is not None:
+                seen = self.k40_seen()
+            else:
+                from ..studio import lihuiyu
+
+                seen = lihuiyu.vista_veloce()  # senza PowerShell: l'elenco delle porte si rifà spesso
+        except Exception:  # noqa: BLE001
+            seen = False
+        return [(K40_PORT, tr("K40 (scheda M2 Nano, USB) — in prova"), True)] if seen else []
+
+    def _k40_profile(self):
+        """0.22.6: collegando la K40 il profilo diventa quello della K40 (salvato fra i profili, come gli altri)."""
+        if getattr(self.profile, "k40_board", ""):
+            return
+        p = MachineProfile.k40()
+        try:
+            if os.path.exists(p.path()):
+                saved = MachineProfile.load(p.path())
+                if saved.k40_board:
+                    p = saved
+            path = p.save()
+            self.qs.setValue("profile_path", path)
+        except (OSError, ValueError, TypeError):
+            pass
+        self.on_profile(p)
+        self.machine.profile = p
+        self.statusBar().showMessage(tr("K40 collegata: uso il profilo «{0}» (300 × 200 mm, potenza dalla manopola)",
+                                        p.name), 10000)
+
     def on_connection(self, ok, msg):
+        if ok and self.ctl.port == K40_PORT:
+            self._k40_profile()
+        if not ok:
+            self.rotary_z_tested = False  # 0.22.6: dopo uno scollegamento l'interruttore può essere stato spostato
         # 0.17.6: con il simulatore il profilo della macchina vera può cambiare solo in memoria (per provare la
         # configurazione guidata): staccando il simulatore torna quello salvato
         if ok:
@@ -3223,7 +3287,14 @@ class MainWindow(QMainWindow):
         nt = cv.tools.get("nodes")
         if cv.tool is nt and nt is not None and nt.items:
             # 0.19.5: strumento Nodi: prima le voci dei nodi (la selezione delle forme resta quella dello strumento)
-            keys = ["node_join", "node_connect", "-"]
+            # 0.22.6: e i comandi del nodo o del tratto su cui si è fatto clic
+            on_node, on_seg = nt.context_target(view_pt) if view_pt is not None else (bool(nt.sel), False)
+            keys = []
+            if on_node:
+                keys += ["node_break", "node_delete", "node_corner", "node_smooth", "node_fillet", "-"]
+            elif on_seg:
+                keys += ["node_insert", "node_mid", "node_straight", "node_cut_seg", "-"]
+            keys += ["node_join", "node_connect", "-"]
             if len(nt.sel) >= 2:  # 0.19.6: Allinea e Distribuisci sui nodi scelti
                 keys += ["align_left", "align_hcenter", "align_right", "align_top", "align_vcenter", "align_bottom",
                          "-", "dist_h", "dist_v", "-"]
@@ -3271,6 +3342,14 @@ class MainWindow(QMainWindow):
         if len(self.editor.doc.plates) > 1:  # 0.19.6: anche dal tasto destro
             keys[-2:-2] = ["plate_move"]
         return keys + head
+
+    def _node_cmd(self, key):
+        """0.22.6: un comando dei nodi dal menu del tasto destro (lo stesso della lettera)."""
+        nt = self.canvas.tools.get("nodes")
+        if nt is None or self.canvas.tool is not nt:
+            self.statusBar().showMessage(tr("Usa lo strumento Nodi (N) e fai clic destro su un nodo o su un tratto"), 5000)
+            return False
+        return nt.command(key)
 
     def _node_join(self, mode):
         """Voci «Unisci nodi» / «Collega nodi»: passano allo strumento Nodi (servono due estremi selezionati)."""
@@ -3723,6 +3802,10 @@ class MainWindow(QMainWindow):
         from ..grbl import glow_limits
 
         self.laser.set_glow_limits(*glow_limits(p.optical_power))  # 0.18.7: tetto della Lucciola per questo laser
+        if hasattr(self.laser, "set_power_knob"):
+            self.laser.set_power_knob(bool(getattr(p, "power_knob", False)))  # 0.22.6: K40
+        if getattr(self, "acts", None) and hasattr(self, "move"):
+            self.update_rotary_state()  # 0.22.6: il rotativo sulla Z vale solo con la Z motorizzata del profilo
         self._sync_axes()
         if (self.canvas.bed_x, self.canvas.bed_y) != (p.bed_x, p.bed_y):
             self.canvas.set_bed(p.bed_x, p.bed_y)
@@ -4023,8 +4106,63 @@ class MainWindow(QMainWindow):
         qs = self.qs
         if qs.value("rotary_on", "false") not in (True, "true"):
             return None
+        axis = "Z" if str(qs.value("rotary_axis", "Y")) == "Z" and getattr(self.profile, "z_motor", False) else "Y"
         return {"kind": qs.value("rotary_kind", "roller"), "mm_per_rev": float(qs.value("rotary_mm_rev", 100.0)),
-                "roller_d": float(qs.value("rotary_roller_d", 25.0)), "object_d": float(qs.value("rotary_object_d", 70.0))}
+                "roller_d": float(qs.value("rotary_roller_d", 25.0)), "object_d": float(qs.value("rotary_object_d", 70.0)),
+                "axis": axis}
+
+    def rotary_on_z(self):
+        r = self.rotary_settings()
+        return bool(r) and r.get("axis") == "Z"
+
+    def _board_num(self, n):
+        try:
+            return float(self.ctl.board_settings.get(n))
+        except (TypeError, ValueError):
+            return None
+
+    def _home_guard(self):
+        """0.22.6: con il rotativo sulla Z e l'homing acceso ($22=1) l'homing può far girare il mandrino fino
+        all'allarme: si chiede prima. Ritorna True se l'homing può partire."""
+        n22 = self._board_num(22)  # non letto = non si sa: si chiede lo stesso
+        if not self.rotary_on_z() or (n22 is not None and n22 < 1):
+            return True
+        from .dialogs_rotary import ask
+
+        return ask(self, tr("Homing con il rotativo sulla Z"),
+                   tr("Il rotativo è sul motore della Z: durante l'homing il mandrino potrebbe girare fino "
+                      "all'allarme.<br>Fai l'homing lo stesso?"), (tr("Fai l'homing"), tr("Annulla"))) == 0
+
+    def rotary_z_problems(self, job):
+        """0.22.6: controlli del rotativo sulla Z prima di partire. Ritorna (bloccanti, avvisi)."""
+        block, warn = [], []
+        if getattr(job, "rotary_axis", "") != "Z":
+            return block, warn
+        if not getattr(self, "rotary_z_tested", False):
+            block.append(tr("Rotativo sulla Z: prima fai «Prova: un giro» (Laser → Rotativo) con la macchina "
+                            "collegata. Serve anche a vedere che l'interruttore sia su «Rotary»."))
+        z102 = self._board_num(102)
+        saved = self.qs.value("rotary_z_102", None)
+        try:
+            saved = float(saved) if saved not in (None, "") else None
+        except (TypeError, ValueError):
+            saved = None
+        if z102 is None:
+            block.append(tr("Rotativo sulla Z: non ho le impostazioni della scheda ($$). Scollega e ricollega la "
+                            "macchina, poi riprova."))
+        elif saved is None or abs(z102 - saved) > 1e-3:
+            block.append(tr("Rotativo sulla Z: le impostazioni della scheda sono cambiate dalla taratura (passi della "
+                            "Z, $102 = {0:g}): rifai «Prova: un giro».", z102))
+        if (self._board_num(20) or 0) >= 1:
+            warn.append(tr("Rotativo sulla Z: i limiti software sono accesi ($20=1): se il giro è più lungo della corsa "
+                           "della Z ($132) la scheda si ferma in allarme"))
+        z_rate = self._board_num(112)
+        feeds = [float(t[1:]) for l in job.lines if l.startswith("G1")  # ogni tratto può essere lungo il giro
+                 for t in l.split() if t[:1] == "F" and t[1:].replace(".", "", 1).isdigit()]
+        if z_rate and feeds and max(feeds) > z_rate * 1.01:
+            warn.append(tr("Rotativo sulla Z: la scheda muove la Z al massimo a {0:g} mm/min ($112), il lavoro chiede "
+                           "fino a {1:g}: i tratti lungo il giro andranno più piano (e più scuri)", z_rate, max(feeds)))
+        return block, warn
 
     def rotary_dialog(self, *_):
         from .dialogs_rotary import RotaryDialog
@@ -4034,8 +4172,18 @@ class MainWindow(QMainWindow):
 
     def update_rotary_state(self):
         r = self.rotary_settings()
+        rz = bool(r) and r.get("axis") == "Z"
+        self.ctl.rotary_z = rz
+        if not rz:
+            self.rotary_z_tested = False
         if hasattr(self, "sb_rotary"):
             self.sb_rotary.setVisible(r is not None)
+            self.sb_rotary.setText(tr("⟳ Rotativo sulla Z") if rz else tr("⟳ Rotativo attivo"))
+            self.sb_rotary.setToolTip(tr("Il motore della Z comanda il rotativo (autofocus e frecce della Z spenti). "
+                                         "Clic per le impostazioni") if rz
+                                      else tr("L'asse Y comanda il rotativo. Clic per le impostazioni"))
+        if hasattr(self, "move") and hasattr(self.move, "_z_visible"):
+            self.move._z_visible()
         a = self.acts.get("rotary")
         if a is not None:
             a.setChecked(r is not None)
@@ -4150,7 +4298,9 @@ class MainWindow(QMainWindow):
         elif st in ("Run", "Jog", "Hold", "Door", "Home") and self.ctl.connected:
             block.append(tr("La macchina non è ferma (contorno, spostamento o pausa in corso): aspetta che si fermi, poi "
                             "riprova."))
-        if job is None or not job.lines or job.bounds is None:
+        if job is not None and getattr(job, "refused", ""):
+            block.append(job.refused)  # 0.22.6: il lavoro non si è preparato, e il motivo è questo
+        elif job is None or not job.lines or job.bounds is None:
             block.append(tr("Il lavoro è vuoto: nessuna forma su livelli con uscita attiva."))
         else:
             for w in job.warnings:
@@ -4162,6 +4312,10 @@ class MainWindow(QMainWindow):
             warn.append(tr("Non hai fatto l'homing in questa sessione: la posizione sul piano potrebbe non corrispondere."))
         if not self.profile.laser_mode:
             warn.append(tr("La modalità laser della scheda è disattivata ($32=0): attivala nella scheda Macchina."))
+        if job is not None and job.lines:
+            rb, rw = self.rotary_z_problems(job)
+            block += rb
+            warn += rw
         return block, warn
 
     def _soft_limit_problem(self, job):
@@ -4184,6 +4338,10 @@ class MainWindow(QMainWindow):
             box = (m.left(), m.top(), m.right(), m.bottom())
         if box is None:
             return None
+        if getattr(job, "rotary_axis", "") == "Z":
+            # 0.22.6: con il rotativo sulla Z la Y della macchina non si muove (il giro lo fa la Z): della Y conta solo
+            # dov'è la testa adesso
+            box = (box[0], job.rotary_ref[1], box[2], job.rotary_ref[1])
         neg = self.profile.negative_space
         if neg is None:
             neg = self.ctl.negative_space
@@ -4216,6 +4374,11 @@ class MainWindow(QMainWindow):
         job = job if isinstance(job, gcode.GcodeJob) else self.build_job()
         if job is None:
             return
+        if (getattr(job, "rotary_axis", "") == "Z" and self.ctl.connected
+                and time.time() - getattr(self, "_rz_settings_t", 0.0) > 3.0):
+            # 0.22.6: i passi della Z si rileggono adesso dalla scheda (possono essere cambiati da un altro programma)
+            self._reread_settings(lambda: self.start_job(job if plate is None else None))
+            return
         block, warn = self.preflight(job)
         if block:
             QMessageBox.warning(self, tr("Non posso avviare il lavoro"), "\n".join("• " + b for b in block))
@@ -4242,6 +4405,8 @@ class MainWindow(QMainWindow):
         txt = (f"<b>Tempo stimato {_hms(job.seconds)}</b> · {b.width():.1f} × {b.height():.1f} mm · {len(job.lines)} righe<br><br>"
                + ("".join(f"⚠ {w}<br>" for w in warn) + "<br>" if warn else "")
                + stream
+               + (tr("<b>⟳ Rotativo sulla Z: l'interruttore della macchina è su «Rotary»? Il piano non deve "
+                     "muoversi.</b><br><br>") if getattr(job, "rotary_axis", "") == "Z" else "")
                + tr("Prima di partire:<br>• occhiali protettivi per 450 nm indossati da chi è vicino<br>"
                  "• materiale fissato e a fuoco (lente 50 mm)<br>• air assist e aspirazione fumi attivi<br>"
                  "• non lasciare la macchina incustodita"))
@@ -4283,6 +4448,36 @@ class MainWindow(QMainWindow):
                 self.laser.update_running()
         else:
             self._run(job.lines, plate)
+
+    def _reread_settings(self, then, wait_ms=4000, fail=None):
+        """0.22.6: rilegge $$ e poi chiama then(); se la scheda non risponde lo dice (o chiama fail(testo)) e non
+        chiama then."""
+        ctl = self.ctl
+        done = [False]
+
+        def finish(ok):
+            if done[0]:
+                return
+            done[0] = True
+            try:
+                ctl.settings_ready.disconnect(got)
+            except (RuntimeError, TypeError):
+                pass
+            if ok:
+                self._rz_settings_t = time.time()
+                then()
+            else:
+                msg = tr("La scheda non ha mandato le impostazioni ($$): riprova")
+                self.statusBar().showMessage(msg, 8000)
+                if fail is not None:
+                    fail(msg)
+
+        def got(_settings):
+            QTimer.singleShot(0, lambda: finish(True))
+
+        ctl.settings_ready.connect(got)
+        ctl.request_settings()
+        QTimer.singleShot(wait_ms, lambda: finish(False))
 
     def _run(self, lines, plate=None):
         """plate: uid del piano di lavoro da cui viene il lavoro (None: G-code esterno, prove)."""
@@ -4336,11 +4531,34 @@ class MainWindow(QMainWindow):
         if job is not None and not errors:
             self.statusBar().showMessage(tr("Verifica superata: avvio il lavoro"), 4000)
             plate = getattr(self, "_pending_plate", None)
-            QTimer.singleShot(1200, lambda: self._run(job.lines, plate))  # la scheda ha appena fatto il reset del check mode
+            # la scheda ha appena fatto il reset del check mode. 0.22.6 (rapporto 08D5): si parte quando è davvero
+            # ripartita, non dopo un tempo fisso (una Ortur con GrblHAL ci mette circa 2 s)
+            resets = self.ctl.reset_count
+            QTimer.singleShot(1200, lambda: self._run_after_check(job.lines, plate, None, resets))
             return
         n = len(self.job.lines) if self.job else 0
         self.laser.eta.setText(tr("Verifica superata") if not errors else tr("Verifica: {0} errori", len(errors)))
         CheckResultDialog(errors, n, self).exec()
+
+    CHECK_START_WAIT_S = 10.0  # 0.22.6: al massimo così, dopo la verifica, si aspetta che la scheda sia ripartita
+
+    def _run_after_check(self, lines, plate, t0=None, resets=None):
+        """0.22.6: dopo una verifica superata il lavoro parte appena la scheda ha mandato uno stato nuovo e non è più in
+        prova. Se nel frattempo la macchina si è scollegata, è partito altro o è stato premuto Stop, non parte niente."""
+        t0 = time.monotonic() if t0 is None else t0
+        ctl = self.ctl
+        stopped = resets is not None and ctl.reset_count != resets
+        if not ctl.connected or ctl.job_active or ctl.checking or stopped:
+            self.laser.update_running()
+            if stopped:
+                self.statusBar().showMessage(tr("Avvio annullato"), 5000)
+            return
+        if ctl.ready_after_check() or time.monotonic() - t0 > self.CHECK_START_WAIT_S:
+            self._run(lines, plate)
+            return
+        if time.monotonic() - t0 > 1.5:
+            self.statusBar().showMessage(tr("Verifica superata: aspetto che la scheda riparta…"), 3000)
+        QTimer.singleShot(200, lambda: self._run_after_check(lines, plate, t0, resets))
 
     def _reverify(self, then_start, tries=3):
         """Rifà il lavoro (per esempio senza G55) e lo fa verificare di nuovo alla scheda."""
@@ -4676,11 +4894,23 @@ class MainWindow(QMainWindow):
         """laser_off=True (0.21.2, dal joystick fisico): il Contorno sempre a laser spento."""
         if not self.ctl.connected or self.ctl.job_active:
             return
+        if getattr(self.profile, "power_knob", False) and kind.endswith("_laser") and not laser_off:
+            laser_off = True  # 0.22.6 (K40): la potenza è sulla manopola, un filo di laser non si può chiedere
+            self.statusBar().showMessage(tr("Su questa macchina la potenza si regola con la manopola: contorno a laser "
+                                            "spento"), 6000)
         if isinstance(job, gcode.GcodeJob):
             self.show_external_job(job)
         else:
             job = self.build_job()
+        if job is not None and getattr(job, "refused", ""):
+            self.statusBar().showMessage(job.refused, 10000)  # 0.22.6: perché il contorno non parte
         if job is None or job.bounds is None:
+            return
+        rz_block, _rz_warn = self.rotary_z_problems(job)
+        if rz_block:
+            # 0.22.6: anche il contorno muove la Z. Senza la prova del giro (interruttore su «Rotary»? passi della Z
+            # giusti?) potrebbe muovere il piano: non parte, come il lavoro
+            QMessageBox.warning(self, tr("Contorno"), "\n".join("• " + b for b in rz_block))
             return
         pv = self.job_preview
         ox, oy = self._preview_offset(job)
@@ -4701,9 +4931,21 @@ class MainWindow(QMainWindow):
         bed_pts = [(min(max(x, 0.0), self.profile.bed_x), min(max(y, 0.0), self.profile.bed_y)) for x, y in bed_pts]
         bed_pts = bed_pts + bed_pts[1:] * (self.laser.frame_repeats() - 1)
         mpts = [self.profile.to_machine(x, y) for x, y in bed_pts]
+        axes = "XY"
         if getattr(job, "rotary_k", 1.0) != 1.0:  # rotativo: il contorno gira l'oggetto come farà il lavoro
             _, ry = self.profile.to_machine(*job.rotary_ref)
-            mpts = [(mx, ry + (my - ry) * job.rotary_k) for mx, my in mpts]
+            if getattr(job, "rotary_axis", "") == "Z":
+                # 0.22.6: rotativo sulla Z. Il lavoro parte dalla testa (G92): la Z di adesso è l'inizio del giro.
+                # Il contorno va in X e Z; la Y non si muove
+                m = (self.ctl.last_status or {}).get("MPos")
+                if not m or len(m) < 3:
+                    self.statusBar().showMessage(tr("Non so ancora dov'è la testa: aspetta un attimo e riprova"), 6000)
+                    return
+                z0 = float(m[2])
+                mpts = [(mx, z0 + (my - ry) * job.rotary_k) for mx, my in mpts]
+                axes = "XZ"
+            else:
+                mpts = [(mx, ry + (my - ry) * job.rotary_k) for mx, my in mpts]
         laser = self.laser.fire_pct.value() if kind.endswith("_laser") and not laser_off else 0.0
         # 0.22.2 (maurodani76): con la partenza dalla posizione della testa, finito il giro la testa torna da dove è
         # partita. Prima restava sul primo angolo e il lavoro, che segue la testa, si spostava a ogni contorno (non
@@ -4712,9 +4954,9 @@ class MainWindow(QMainWindow):
         if self.laser.start_from.currentData() == "current":
             m = (self.ctl.last_status or {}).get("MPos")
             if m and len(m) >= 2:
-                back = (float(m[0]), float(m[1]))
+                back = (float(m[0]), float(m[1])) if axes == "XY" else (float(m[0]), float(m[2]))
         self.ctl.frame_path(mpts, max(self.move.feed.value(), 3000), laser, self.profile.s_max,
-                            travel_feed=self.profile.travel_speed(), back=back)  # 0.21.2
+                            travel_feed=self.profile.travel_speed(), back=back, axes=axes)  # 0.21.2
         self.statusBar().showMessage(tr("Contorno con il puntino al %g%%: Stop per interrompere") % laser if laser
                                      else tr("Contorno a laser spento"), 5000)
 
@@ -5625,7 +5867,7 @@ def main(app=None, splash=None):
     app.setApplicationName("FreeLaserCut")
     linux.after_qapp(app)
     apply_look(app)
-    app.setWindowIcon(QIcon(os.path.join(ASSETS, "logo.svg")))
+    app.setWindowIcon(style.app_icon())
     say(tr("Preparo il motore delle immagini…"))
     try:
         from ..core import imaging

@@ -358,6 +358,14 @@ class PreviewDialog(QDialog):
         top.addWidget(QLabel(tr("Materiale")))
         top.addWidget(self.material)
         top.addWidget(self.travel)
+        # 0.22.6 (rapporto FLC-20261124-0851-DEB9, scelta di Ale): nei lavori molto grandi la spunta resta usabile; una
+        # scritta discreta dice che può rallentare, e decide chi guarda
+        self.travel_note = QLabel()
+        self.travel_note.setObjectName("muted")
+        self.travel_note.setVisible(False)
+        top.addWidget(self.travel_note)
+        self._rast_travel = []  # (primo movimento del blocco, tratti) dei trasferimenti nell'anteprima a immagine
+        self._rast_travel_built = False
         top.addStretch(1)
         self.zoom_lbl = QLabel("")
         self.zoom_lbl.setObjectName("muted")
@@ -418,7 +426,7 @@ class PreviewDialog(QDialog):
         self._real_item = None
         self.r_real.toggled.connect(self._mode)
         self.material.currentIndexChanged.connect(lambda _: self._mode())
-        self.travel.toggled.connect(lambda x: [it.setVisible(x and self.r_lines.isChecked()) for it in self.travel_items])
+        self.travel.toggled.connect(self._travel_toggled)
         total = pv.seconds
         self.stats.setText(tr("Totale {0} · inciso {1:.2f} m · trasferimenti {2:.2f} m", _fmt(total), pv.cut_len / 1000, pv.travel_len / 1000))
         self._seek(self.slider.value())
@@ -521,9 +529,10 @@ class PreviewDialog(QDialog):
         """Lavori enormi (foto): i percorsi diventano un'immagine; il cursore del tempo mostra i pixel
         bruciati fino al tratto scelto. Con milioni di tratti vettoriali la finestra si bloccava."""
         r = gcode_preview.rasterize(self.pv.segs, px_per_mm=8.0, max_px=2400, s_max=s_max)
-        self.travel.setChecked(False)
-        self.travel.setEnabled(False)
-        self.travel.setToolTip(tr("Con lavori molto grandi (foto) i trasferimenti non si mostrano"))
+        self.travel.setChecked(False)  # di partenza spenti, come prima; accenderli è una scelta
+        self.travel.setToolTip(tr("Lavoro molto grande: mostrare i trasferimenti può rallentare l'anteprima e il PC"))
+        self.travel_note.setText(tr("lavoro grande: i trasferimenti possono rallentare"))
+        self.travel_note.setVisible(True)
         if r is None:
             return
         power, index, (x0, y0, w, h) = r
@@ -537,6 +546,42 @@ class PreviewDialog(QDialog):
         it.setZValue(5)
         self.scene.addItem(it)
         self._rast["item"] = it
+
+    def _travel_toggled(self, on):
+        if on and self._rast is not None and not self._rast_travel_built:
+            self._build_raster_travel()
+        self._seek(self.slider.value())
+
+    def _build_raster_travel(self):
+        """0.22.6: i trasferimenti di un lavoro molto grande, solo quando la persona li chiede (a blocchi, come i
+        lavori piccoli, così il cursore del tempo li mostra fino al punto giusto)."""
+        from PySide6.QtWidgets import QApplication
+
+        self._rast_travel_built = True
+        segs = self.pv.segs
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            pen = QPen(QColor(C["muted"]), 1, Qt.DashLine)
+            pen.setCosmetic(True)
+            for k in range(0, len(segs), self.chunk):
+                trav = QPainterPath()
+                last_t = None
+                part = segs[k:k + self.chunk]
+                for (x0, y0, x1, y1, _pw, b, _f) in part[part[:, 5] == 0]:  # solo i tratti a laser spento
+                    if last_t != (x0, y0):
+                        trav.moveTo(x0, -y0)
+                    trav.lineTo(x1, -y1)
+                    last_t = (x1, y1)
+                if trav.isEmpty():
+                    continue
+                ti = QGraphicsPathItem(trav)
+                ti.setPen(pen)
+                ti.setOpacity(0.5)
+                ti.setZValue(6)
+                self.scene.addItem(ti)
+                self._rast_travel.append((k, ti))
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def _show_raster(self, k, visible):
         R = self._rast
@@ -563,6 +608,8 @@ class PreviewDialog(QDialog):
             for it in items:
                 it.setVisible(vis)
             self.travel_items[i].setVisible(vis and self.travel.isChecked())
+        for k0, it in self._rast_travel:  # 0.22.6: anteprima a immagine
+            it.setVisible(not real and self.travel.isChecked() and k0 < k)
         if n and k > 0:
             s = self.pv.segs[min(k, n) - 1]
             self.head.setPos(s[2], -s[3])

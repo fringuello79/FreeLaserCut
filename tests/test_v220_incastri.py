@@ -29,7 +29,7 @@ app = QApplication([])
 from freelasercut.core import slots  # noqa: E402
 from freelasercut.core.document import EllipseShape, PathShape  # noqa: E402
 from freelasercut.ui import help_texts  # noqa: E402
-from freelasercut.ui.dialogs_shapes import ThicknessDialog, _shape_polys  # noqa: E402
+from freelasercut.ui.dialogs_shapes import SlotsDialog, ThicknessDialog, _shape_polys  # noqa: E402
 from freelasercut.ui.main_window import MainWindow  # noqa: E402
 
 results = []
@@ -413,6 +413,33 @@ check("…le forme nel progetto hanno le misure nuove", m_after[6.0] and not m_a
 w.editor.undo()
 m_back = measures([_shape_polys(s) for s in w.editor.doc.shapes])
 check("Annulla: tutto come prima", m_back[4.0] == before[4.0] and not m_back[6.0], dict(m_back))
+# 0.22.6 (rapporti FLC-20261123-2251-0CF9 e FLC-20261124-0851-DEB9): «Cambia la larghezza delle fessure» dava un errore
+# a ogni clic sulle frecce (la scritta si chiama «found», non «result»)
+errs = []
+old_hook = sys.excepthook
+sys.excepthook = lambda *a: errs.append(a[1])
+try:
+    w.editor.select(list(w.editor.doc.shapes))
+    sd = SlotsDialog(w, w.editor.editable())
+    n0 = sd.updates
+    sd.old.setValue(4.0)
+    sd.old.stepBy(1)
+    sd.old.stepBy(-1)
+    app.processEvents()
+    check("0.22.6 fessure: clic sulle frecce senza errori, «Calcolo l'anteprima…» e «OK» spento mentre si clicca",
+          not errs and "Calcolo" in sd.found.text() and not sd.ok.isEnabled() and sd.updates == n0,
+          (errs, sd.found.text()))
+    settle()
+    check("0.22.6 fessure: poi un conto solo e il numero delle fessure trovate", not errs and sd.updates == n0 + 1
+          and "Fessure trovate" in sd.found.text(), (errs, sd.updates - n0, sd.found.text()))
+    sd.new.stepBy(1)
+    sd.tol.stepBy(1)
+    settle()
+    check("0.22.6 fessure: anche la larghezza nuova e la tolleranza", not errs and sd.updates == n0 + 2, errs)
+    sd.reject()
+finally:
+    sys.excepthook = old_hook
+w.canvas.overlay_paths = []
 w.editor.select([])
 check("senza selezione il comando lo dice", w.thickness_dialog(4, 6) is None
       and "Seleziona" in w.statusBar().currentMessage())

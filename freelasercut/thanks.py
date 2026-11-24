@@ -34,6 +34,7 @@ NAMES = (
     "LaserJack",  # 0.22.4: rapporto del 23/11 (Atomstack X30 Pro)
     "andreacanti",  # 0.22.5: chiesto da Ale (23/11 sera)
     "istevenep",  # 0.22.5: pacchetto per i Mac Intel con macOS 13 Ventura (pull request #29)
+    "pier",  # 0.22.6: rapporto 08D5 (verifica del G-code con la Ortur, GrblHAL)
 )
 # 0.22.2 (Ale, 22/11): i co-sviluppatori. L'UNICO posto in cui stanno; li mostrano Aiuto → Informazioni, la targa dei
 # ringraziamenti, il README e il sito (una prova controlla che siano gli stessi). Restano anche nell'elenco qui sopra.

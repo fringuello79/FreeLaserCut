@@ -102,8 +102,8 @@ got = {k: L.codice_velocita(*k) for k in REG}
 check("A codici di velocità come quelli registrati dal programma originale (6 casi, tolleranza dello studio)",
       all(near_code(got[k], v) for k, v in REG.items()), got)
 c = L.cmd_a_velocita("M2", 10, 100)
-check("A spostamento a velocità: I, codice, NBRS1E, B + distanza, FNSE-",
-      re.fullmatch(rb"ICV\d{16}NBRS1EBz{15}112FNSE-", c) is not None and near_code(c[1:19].decode(), REG[("M2", 10)]), c)
+check("A spostamento a velocità: I, codice, NBRS1E, B + distanza, FNSE",
+      re.fullmatch(rb"ICV\d{16}NBRS1EBz{15}112FNSE", c) is not None and near_code(c[1:19].decode(), REG[("M2", 10)]), c)
 check("A spostamento a sinistra con T", L.cmd_a_velocita("M2", 30, -50).split(b"NBRS1E")[1].startswith(b"T"))
 check("A spostamento veloce: I … S1P", L.cmd_passo_veloce(10, -5) == b"IL197Bz139S1P", L.cmd_passo_veloce(10, -5))
 bad = 0
@@ -244,7 +244,7 @@ mv = [c for c in rf.ricevuti if c[:2] == b"\xD9\x10"]
 check("E i due spostamenti sono rapidi senza luce (opzione 02)", len(mv) == 2 and all(c[2] == 2 for c in mv))
 R.prova_r4(dr, R.Rete("127.0.0.1", porta=rf.porta, ascolto=0, attesa=0.05), 0x88)
 check("E R4: lettura estesa, con i valori letti e quanti senza risposta", last(dr, "R4")["letti"]
-      and last(dr, "R4")["totale"] == 128 + 96 + 128)
+      and last(dr, "R4")["totale"] == 128 + 96 + 128 + len(R.IMPOSTAZIONI_NOTE))  # 0.22.6: più quelle fuori zona
 check("E la scheda finta non ha mai ricevuto comandi pericolosi", not rf.pericoli)
 rf.chiudi()
 r38 = RuidaFinta(0x38)

@@ -15,6 +15,9 @@ Come funziona, perché non si blocchi e non blocchi niente:
   avanti; se il PC è lento, quando arriva il momento si vede già lo stato finale;
 - l'incisione dura circa 3 secondi (ogni riga 1,6 s, righe sfalsate di 0,17 s); se il caricamento dura di più la
   schermata resta con i nomi già incisi;
+- 0.22.6: finita l'incisione i nomi scorrono piano, una riga verso destra e quella sotto verso sinistra (Ale, 24/11).
+  Non si ridisegna nessun testo: si copiano spostate le stesse immagini delle righe, e quello che esce da un bordo
+  rientra dall'altro. Anche lo scorrimento dipende solo dal tempo. Sui PC lenti (stato finale) i nomi restano fermi;
 - l'attesa minima (wait_min) si fa solo a finestra principale già costruita: non tocca i messaggi d'errore dell'avvio
   né la scelta dell'interfaccia al primo avvio. Senza schermo (prove automatiche, piattaforme offscreen e minimal)
   non c'è attesa.
@@ -25,12 +28,12 @@ import threading
 import time
 
 from PySide6.QtCore import QEventLoop, QPointF, QRectF, Qt
-from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QGuiApplication, QImage, QLinearGradient, QPainter,
-                           QPainterPath, QPen, QPixmap, QRadialGradient)
+from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QGuiApplication, QImage, QImageReader, QLinearGradient,
+                           QPainter, QPainterPath, QPen, QPixmap, QRadialGradient)
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QSplashScreen
 
-from . import __author__, display_version, thanks
+from . import __author__, display_version, heartbeat, thanks
 from freelasercut.i18n import tr  # noqa: E402
 
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -73,8 +76,20 @@ ROW_S = 1.6  # una riga si scopre da sinistra a destra in questo tempo
 STAGGER_S = 0.115  # ogni riga parte dopo la precedente (12 righe: tutto in circa 3 secondi, come prima)
 COOL_S = 0.12  # il caldo in fondo alla riga si spegne in questo tempo
 ENGRAVE_S = ROW_S + STAGGER_S * (ROWS - 1) + COOL_S  # tutta l'incisione: circa 3,1 secondi
-MIN_SHOW_S = 3.0  # sui PC veloci la schermata resta almeno così (Ale, 16/11)
+MIN_SHOW_S = 4.0  # sui PC veloci la schermata resta almeno così (Ale: 3 s dal 16/11, 4 s dal 24/11 per lo scorrimento)
 FRAME_S = 1 / 40  # non più di 40 ridisegni al secondo
+# 0.22.6: scorrimento dei nomi a incisione finita
+SCROLL_PX_S = 9.0  # pixel al secondo: piano
+SCROLL_EASE_S = 1.2  # parte dolcemente in questo tempo
+SCROLL_GAP = 26.0  # spazio fra la fine di una riga e il suo ricominciare
+SCROLL_PERIOD = (W - 2 * SIDE) + SCROLL_GAP  # dopo tanti pixel la riga è di nuovo uguale a se stessa
+SCROLL_FRAME_S = 1 / 25  # durante lo scorrimento bastano 25 ridisegni al secondo: il caricamento non deve rallentare
+# 0.22.6: nuova veste grafica (logo «metallo e neon»): il logo con la scritta è un'immagine, il motto lo scrive il
+# programma nella sua lingua
+LOGO_W, LOGO_TOP = 486.0, 34.0  # larghezza e posizione del logo con la scritta
+LOGO_WORD = (0.317, 1.0)  # dove sta la scritta dentro l'immagine (da sinistra, in parti della larghezza)
+MOTTO_Y = 0.80  # il motto: sotto la riga luminosa della scritta (in parti dell'altezza dell'immagine)
+MOTTO_PX, MOTTO_SPACING = 11, 2.6
 SLOW_FRAME_S = 0.15  # un ridisegno più lento di così, due volte: PC troppo lento, si passa allo stato finale
 ORANGE = "#FF8A3D"  # 0.20.0: il numero di versione in risalto, con l'arancio della fine del raggio
 
@@ -189,6 +204,21 @@ def row_progress(t, i):
     return min(1.0, max(0.0, (t - i * STAGGER_S) / ROW_S))
 
 
+def scroll_distance(t):
+    """0.22.6: di quanti pixel hanno scorso le righe dopo t secondi dall'apertura (0 finché l'incisione non è finita).
+    Partenza dolce: nei primi SCROLL_EASE_S la velocità cresce da 0 a SCROLL_PX_S."""
+    u = t - ENGRAVE_S
+    if u <= 0:
+        return 0.0
+    return SCROLL_PX_S * (u * u / (2 * SCROLL_EASE_S) if u < SCROLL_EASE_S else u - SCROLL_EASE_S / 2)
+
+
+def row_shift(i, dist):
+    """Spostamento della riga i (0 = la prima): le pari verso destra, le dispari verso sinistra. Sempre fra 0 e
+    SCROLL_PERIOD: uscita da un bordo, la riga rientra dall'altro."""
+    return (dist if i % 2 == 0 else -dist) % SCROLL_PERIOD
+
+
 def _dpr():
     screen = QGuiApplication.primaryScreen()
     return screen.devicePixelRatio() if screen else 1.0
@@ -215,11 +245,15 @@ def _pixmap(dpr=None):
     p.setRenderHint(QPainter.Antialiasing)
     card = _card_path()
     bg = QLinearGradient(0, 0, W, H)
-    bg.setColorAt(0.0, QColor("#18285A"))
-    bg.setColorAt(0.55, QColor("#0D1532"))
-    bg.setColorAt(1.0, QColor("#22104A"))
+    bg.setColorAt(0.0, QColor("#0B2259"))  # 0.22.6: blu notte, senza il viola
+    bg.setColorAt(0.5, QColor("#040C28"))
+    bg.setColorAt(1.0, QColor("#0A1338"))
     p.fillPath(card, bg)
-    p.setPen(QPen(QColor(110, 155, 255, 110), 1.2))
+    edge = QLinearGradient(0, 0, W, H)  # bordo: blu in alto a sinistra, arancio in basso a destra, come il logo
+    edge.setColorAt(0.0, QColor(41, 170, 255, 170))
+    edge.setColorAt(0.6, QColor(41, 120, 255, 90))
+    edge.setColorAt(1.0, QColor(255, 138, 30, 170))
+    p.setPen(QPen(edge, 1.3))
     p.drawPath(card)
     p.end()
     return pm
@@ -230,23 +264,74 @@ def _foreground(dpr=None):
     pm = _blank(dpr or _dpr())
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
-    logo = os.path.join(ASSETS, "logo_scritta.svg")
-    r = QSvgRenderer(logo)
-    if r.isValid():
-        vb = r.viewBoxF()
-        w = 470.0
-        h = w * vb.height() / max(vb.width(), 1)
-        r.render(p, QRectF((W - w) / 2, 40, w, h))
+    p.setRenderHint(QPainter.SmoothPixmapTransform)
+    if not _draw_logo(p, pm.devicePixelRatio()):
+        r = QSvgRenderer(os.path.join(ASSETS, "logo_scritta.svg"))  # il logo di prima, se l'immagine nuova manca
+        if r.isValid():
+            vb = r.viewBoxF()
+            w = 470.0
+            h = w * vb.height() / max(vb.width(), 1)
+            r.render(p, QRectF((W - w) / 2, 40, w, h))
     # "raggio" in basso: una linea che sfuma dal blu all'arancio
     beam = QLinearGradient(60, 0, W - 60, 0)
-    beam.setColorAt(0.0, QColor(79, 180, 255, 0))
-    beam.setColorAt(0.35, QColor("#4FB4FF"))
-    beam.setColorAt(0.7, QColor("#8A6BFF"))
-    beam.setColorAt(1.0, QColor(255, 122, 46, 0))
+    beam.setColorAt(0.0, QColor(41, 170, 255, 0))
+    beam.setColorAt(0.3, QColor("#29AAFF"))
+    beam.setColorAt(0.62, QColor("#2E7CF6"))
+    beam.setColorAt(0.86, QColor("#FF8A1E"))
+    beam.setColorAt(1.0, QColor(255, 138, 30, 0))
     p.fillRect(QRectF(60, 250, W - 120, 2), beam)
     _version_badge(p)
     p.end()
     return pm
+
+
+def logo_rect(size):
+    """Dove va il logo con la scritta: largo LOGO_W, centrato, con le proporzioni dell'immagine (size = (l, a))."""
+    w, h = size
+    return QRectF((W - LOGO_W) / 2, LOGO_TOP, LOGO_W, LOGO_W * h / max(w, 1))
+
+
+def motto_font(text, room, family=FONT_FAMILY):
+    """Il carattere del motto: maiuscolo spaziato. Le traduzioni più lunghe stringono prima gli spazi fra le lettere
+    e poi rimpiccioliscono, finché il motto sta in `room` pixel. -> (QFont, larghezza)"""
+    f = QFont(family)
+    f.setWeight(QFont.DemiBold)
+    width = 0.0
+    for px, sp in ((MOTTO_PX, MOTTO_SPACING), (MOTTO_PX, 1.8), (MOTTO_PX, 1.0), (10, 1.0), (10, 0.4), (9, 0.4), (8, 0.2)):
+        f.setPixelSize(px)
+        f.setLetterSpacing(QFont.AbsoluteSpacing, sp)
+        width = QFontMetricsF(f).horizontalAdvance(text) - sp  # dopo l'ultima lettera lo spazio non conta
+        if width <= room:
+            break
+    return f, width
+
+
+def motto_text():
+    return tr("SOFTWARE LIBERO PER INCISIONE LASER")
+
+
+def _draw_logo(p, dpr=1.0):
+    """0.22.6: il logo nuovo con la scritta (immagine con il fondo trasparente) e sotto il motto, nella lingua del
+    programma. -> False se l'immagine non c'è o non si legge (allora si disegna il logo di prima)."""
+    reader = QImageReader(os.path.join(ASSETS, "logo_scritta.png"))
+    size = reader.size()
+    if not size.isValid():
+        return False
+    rect = logo_rect((size.width(), size.height()))
+    # si legge già della misura che serve: niente immagine grande in memoria e un solo rimpicciolimento, fatto bene
+    want_w = min(size.width(), int(round(rect.width() * dpr)))
+    reader.setScaledSize(size.scaled(want_w, 10 ** 6, Qt.KeepAspectRatio))
+    img = reader.read()
+    if img.isNull():
+        return False
+    p.drawImage(rect, img)
+    x0, x1 = rect.left() + LOGO_WORD[0] * rect.width(), rect.left() + LOGO_WORD[1] * rect.width()
+    text = motto_text()
+    f, _w = motto_font(text, x1 - x0)
+    p.setFont(f)
+    p.setPen(QColor("#DCE8FF"))
+    p.drawText(QRectF(x0, rect.top() + MOTTO_Y * rect.height(), x1 - x0, 18), Qt.AlignHCenter | Qt.AlignVCenter, text)
+    return True
 
 
 def _strip(dpr, h):
@@ -352,10 +437,12 @@ class Splash(QSplashScreen):
         if self._hook is None:
             self._hook = _Pulse(self)
             sys.meta_path.insert(0, self._hook)
+            heartbeat.hook = self.pulse  # 0.22.6: anche la costruzione della finestra fa battere la schermata
 
     def remove_pulse(self):
         h, self._hook = self._hook, None
         if h is not None:
+            heartbeat.hook = None
             h.splash = None
             try:
                 sys.meta_path.remove(h)
@@ -364,12 +451,14 @@ class Splash(QSplashScreen):
 
     def pulse(self):
         """Ridisegna, se è passato abbastanza dall'ultima volta. Solo dal thread dell'interfaccia, mai dentro un
-        altro ridisegno, mai a schermata nascosta, e niente più quando l'incisione è finita (resta com'è).
+        altro ridisegno, mai a schermata nascosta. 0.22.6: a incisione finita si continua, più piano (i nomi
+        scorrono); niente più solo sui PC lenti, dove la schermata è già nello stato finale e resta ferma.
         -> True se ha ridisegnato."""
         if self._busy or threading.get_ident() != self._tid:
             return False
         now = self._clock()
-        if now - self._last < FRAME_S or (self._last >= 0 and self._last - self._t0 > ENGRAVE_S):
+        done = self._last >= 0 and self._last - self._t0 > ENGRAVE_S  # l'ultimo ridisegno era già a incisione finita
+        if now - self._last < (SCROLL_FRAME_S if done else FRAME_S) or (done and self._final):
             return False
         if not self.isVisible():
             return False
@@ -392,10 +481,10 @@ class Splash(QSplashScreen):
 
     def wait_min(self):
         """Sui PC veloci: tiene la schermata finché non sono passati min_show secondi dall'apertura, con l'incisione
-        che va avanti. Da chiamare a finestra principale già costruita, prima di mostrarla. Senza schermo, a
+        (e poi lo scorrimento dei nomi) che va avanti. Da chiamare a finestra principale già costruita, prima di mostrarla. Senza schermo, a
         schermata nascosta o con il tempo già passato non aspetta. -> secondi aspettati."""
         start = self._clock()
-        # l'attesa arriva alla fine dell'incisione (3,1 s), così la schermata non sparisce a metà dell'ultima riga
+        # l'attesa arriva almeno alla fine dell'incisione (3,1 s), così la schermata non sparisce a metà dell'ultima riga
         until = max(self.min_show, ENGRAVE_S) if self.min_show > 0 else 0.0
         while self.isVisible() and not self._final and self._clock() - self._t0 < until:
             self._last = -1.0
@@ -429,11 +518,18 @@ class Splash(QSplashScreen):
         p.setClipPath(_card_path())
         # la fascia in basso (raggio, messaggio, versione) resta sempre libera: nemmeno l'alone ci arriva
         p.setClipRect(QRectF(0, 0, W, BAND_TOP), Qt.IntersectClip)
+        dist = 0.0 if self._final else scroll_distance(t)  # 0.22.6: PC lento = nomi fermi
         for i, (row, (cold, hot_pm)) in enumerate(zip(self.rows, self._strips)):
             f = row_progress(t, i)
             if f <= 0 or not row.items:
                 continue
             y = row.top - STRIP_PAD
+            if dist > 0:  # incisione finita: la riga intera, spostata; tre copie perché rientri dall'altro bordo
+                dx = row_shift(i, dist)
+                h = cold.height() / cold.devicePixelRatio()
+                for k in (-1, 0, 1):
+                    p.drawPixmap(QRectF(dx + k * SCROLL_PERIOD, y, W, h), cold, QRectF(cold.rect()))
+                continue
             x = f * W  # il fronte dell'incisione, da un bordo all'altro della schermata
             self._piece(p, cold, 0.0, x, y)
             done = t - i * STAGGER_S - ROW_S  # da quanto la riga è finita (negativo: in corso)

@@ -17,7 +17,7 @@ import time
 import unicodedata
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, QSettings, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QFont, QGuiApplication, QIcon, QKeySequence, QPainter, QPen, QRegion
+from PySide6.QtGui import QAction, QColor, QFont, QGuiApplication, QKeySequence, QPainter, QPen, QRegion
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMenu, QPushButton, QScrollArea, QSlider, QSpinBox, QStyledItemDelegate,
@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from freelasercut.i18n import tr  # noqa: E402
 from freelasercut import fontscale  # noqa: E402
 from .. import units
+from .. import heartbeat
 
 from . import style
 from ..theme import css, tc
@@ -359,6 +360,7 @@ def _clean(text):
 
 
 def _label(text, name=None, wrap=False):
+    heartbeat.beat()
     lab = QLabel(text)
     if name:
         lab.setObjectName(name)
@@ -1593,7 +1595,9 @@ class Banco(QObject):
         self.officina_screen = None
         self._rpress = None
         cv = win.canvas
+        heartbeat.beat()
         win.setStyleSheet(win.styleSheet() + fontscale.css(BANCO_QSS))
+        heartbeat.beat()
         # --- via la disposizione classica (i comandi restano tutti, anche le scorciatoie)
         # con la barra dei menu e le barre nascoste Qt non attiverebbe più le loro scorciatoie:
         # le azioni vengono agganciate anche alla finestra, così Ctrl+S, Ctrl+K, R, E… restano tutte vive
@@ -1638,7 +1642,9 @@ class Banco(QObject):
         win.props.setStyleSheet("QScrollArea { background: transparent; border: none; }")
         pl.addWidget(win.props, 1)
         win.props.show()
+        heartbeat.beat()
         self.officina = Officina(win)
+        heartbeat.beat()
         for d in win.docks.values():
             win.removeDockWidget(d)
             d.hide()
@@ -1655,21 +1661,35 @@ class Banco(QObject):
         win.addAction(self.act_officina)
         self.extra_actions = [(self.act_officina, tr("Banco"))]
         # --- barra superiore
+        heartbeat.beat()
         self._build_top()
+        heartbeat.beat()
         # --- sovrapposizioni sul piano
+        heartbeat.beat()
         self.rail = LayerRail(win)
+        heartbeat.beat()
         self.right = QWidget(cv)
         rv = QVBoxLayout(self.right)
         rv.setContentsMargins(0, 0, 0, 0)
         rv.setSpacing(10)
         rv.addWidget(self.props_card, 0)
         rv.addStretch(1)  # il vuoto sta in mezzo: il percorso del lavoro resta appoggiato in basso
+        heartbeat.beat()
         self.flow = JobFlow(win)
+        heartbeat.beat()
         rv.addWidget(self.flow, 0)
+        heartbeat.beat()
         self._build_island()
+        heartbeat.beat()
+        heartbeat.beat()
         self.ctx = ContextBar(win)
+        heartbeat.beat()
+        heartbeat.beat()
         self.cockpit = Cockpit(win)
+        heartbeat.beat()
+        heartbeat.beat()
         self.palette = CommandPalette(win)
+        heartbeat.beat()
         # --- collegamenti
         self._closing = False
         cv.installEventFilter(self)
@@ -1710,7 +1730,7 @@ class Banco(QObject):
         h.setContentsMargins(12, 6, 12, 6)
         h.setSpacing(10)
         logo = QLabel()
-        logo.setPixmap(QIcon(os.path.join(style.ASSETS, "logo.svg")).pixmap(26, 26))
+        logo.setPixmap(style.app_icon().pixmap(26, 26))
         h.addWidget(logo)
         col = QVBoxLayout()
         col.setSpacing(0)
@@ -2016,6 +2036,18 @@ class Banco(QObject):
     def radial_items(self, view_pt=None):
         win, ed, cv = self.win, self.win.editor, self.win.canvas
         a = win.acts
+        nt = cv.tools.get("nodes")
+        if view_pt is not None and nt is not None and cv.tool is nt and nt.items:
+            # 0.22.6 (rapporto 0573): con lo strumento Nodi, tasto destro su un nodo o su un tratto = i suoi comandi
+            on_node, on_seg = nt.context_target(view_pt)
+            if on_node:
+                return tr("Nodo"), [(tr("Spezza"), a["node_break"]), (tr("Elimina"), a["node_delete"]),
+                                    (tr("Angolo"), a["node_corner"]), (tr("Morbido"), a["node_smooth"]),
+                                    (tr("Raccorda"), a["node_fillet"]), (tr("Unisci"), a["node_join"]),
+                                    (tr("Collega"), a["node_connect"])]
+            if on_seg:
+                return tr("Tratto"), [(tr("Inserisci nodo"), a["node_insert"]), (tr("Nodo a metà"), a["node_mid"]),
+                                      (tr("Raddrizza"), a["node_straight"]), (tr("Togli il tratto"), a["node_cut_seg"])]
         if view_pt is not None:
             hit = cv.hit_shape(cv.to_bed(view_pt))
             if hit is not None and hit not in ed.selection:

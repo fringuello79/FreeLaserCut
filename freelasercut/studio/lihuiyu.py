@@ -11,7 +11,7 @@ scheda). La scheda riceve pacchetti di 32 byte: 0x00, 30 byte di comandi (riempi
 Linguaggio: lettere maiuscole per le direzioni (B destra, T sinistra, L su, R giù, M diagonale), distanze in millesimi
 di pollice scritte con lettere minuscole e cifre, codici di velocità che cominciano con «CV» o «V».
 Lo studio manda solo: IPP (vai a casa), I (interrompi), lo spostamento veloce «I … S1P» e lo spostamento a velocità
-nota «I CV… NBRS1E … FNSE-» (anche con più corse dentro, 0.22.5). Il comando che accende il laser («D») non esiste in questo file, e controlla() rifiuta
+nota «I CV… NBRS1E … FNSE» (anche con più corse dentro, 0.22.5). Il comando che accende il laser («D») non esiste in questo file, e controlla() rifiuta
 qualsiasi lettera che non sia nell'elenco.
 
 Su Windows la scheda si usa dal driver che installa il programma originale della macchina (niente da installare);
@@ -188,7 +188,7 @@ def cmd_a_velocita(scheda, v, dx_mm):
     if not dx:
         raise ValueError("spostamento nullo")
     out = (b"I" + codice_velocita(scheda, v).encode() + b"NBRS1E" + (b"B" if dx > 0 else b"T")
-           + distanza(abs(dx)).encode() + b"FNSE-")
+           + distanza(abs(dx)).encode() + b"FNSE")
     return controlla(out)
 
 
@@ -201,7 +201,7 @@ def cmd_lavoro_unico(scheda, v, corse_mm):
     out = b"I" + codice_velocita(scheda, v).encode() + b"NBRS1E"
     for c in corse:
         out += (b"B" if c > 0 else b"T") + distanza(abs(c)).encode()
-    return controlla(out + b"FNSE-")
+    return controlla(out + b"FNSE")  # 0.22.6: senza «-» (non è per la scheda)
 
 
 def nome_stato(s):
@@ -228,6 +228,24 @@ def trova(run=None):
     # altri programmi liberi) invece di quello del programma originale: si parla con lei con pyusb (rapporto del 23/11)
     out["driver_libusb"] = any(d.get("pid") == "5512" and "libusb" in str(d.get("classe", "")).lower() for d in devs)
     return out
+
+
+def vista_veloce():
+    """0.22.6: la scheda c'è? Risposta in pochi millesimi, per l'elenco delle porte (trova() su Windows chiede a
+    PowerShell e ci mette secondi). Vede la scheda solo se c'è anche un modo di parlarle: il driver del programma
+    originale, oppure pyusb con libusb."""
+    try:
+        if sys.platform.startswith("win") and WinDriver.elenco():
+            return True
+        if sys.platform.startswith("linux") and not any(d.get("pid") == "5512" for d in _usb_linux()):
+            return False
+        if _pyusb_ok():
+            import usb.core
+
+            return usb.core.find(idVendor=VID, idProduct=PID) is not None
+    except Exception:  # noqa: BLE001 — manca libusb, permessi…: per l'elenco vuol dire «non c'è»
+        pass
+    return False
 
 
 MOTIVI = {

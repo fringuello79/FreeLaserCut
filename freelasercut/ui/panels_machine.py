@@ -4,6 +4,7 @@ import json
 import os
 import time
 
+from freelasercut import heartbeat  # noqa: E402
 from PySide6.QtCore import QSettings, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMenu,
@@ -23,6 +24,7 @@ START_MODES = [("absolute", tr("Coordinate assolute")), ("current", tr("Posizion
 
 
 def _btn(text, icon=None, obj=None, tip=None, checkable=False):
+    heartbeat.beat()
     b = QPushButton(text)
     if icon:
         b.setIcon(style.icon(icon, "#FFFFFF" if obj in ("primary", "danger") else None))
@@ -334,7 +336,25 @@ class LaserPanel(QWidget):
         if dlg.exec() == QDialog.Accepted:
             self.fire_pct.setValue(dlg.pct)
 
+    def set_power_knob(self, on):
+        """0.22.6 (K40): potenza dalla manopola della macchina. Puntino e Lucciola spenti, e lo dicono."""
+        self._power_knob = bool(on)
+        why = tr("Su questa macchina la potenza si regola con la manopola e il laser si accende solo durante il "
+                 "lavoro: puntino e Lucciola non ci sono")
+        for w, tip in ((self.b_fire, "_tip_fire"), (self.b_glow, "_tip_glow")):
+            if not hasattr(self, tip):
+                setattr(self, tip, w.toolTip())
+            if on:
+                w.setEnabled(False)
+                w.setToolTip(why)
+            else:
+                if w.toolTip() == why:  # solo se era il nostro: il suggerimento della Lucciola cambia con il laser
+                    w.setToolTip(getattr(self, tip))
+                w.setEnabled(self.ctl.connected)
+
     def fire_changed(self, on):
+        if on and getattr(self, "_power_knob", False):
+            return
         if on and not self.ctl.connected:
             return
         self.ctl.fire(on, self.fire_pct.value(), s_max=self.s_max)
@@ -379,6 +399,7 @@ class LaserPanel(QWidget):
         """Accende la Lucciola. False (e pulsante spento) se non si può o se l'avviso non viene accettato."""
         c = self.ctl
         ok = c.connected and not c.job_active and not c.checking and c.last_status.get("state") not in ("Alarm", "Door")
+        ok = ok and not getattr(self, "_power_knob", False)  # 0.22.6 (K40): niente laser acceso da fermo
         if ok and not self._glow_warned:
             ok = confirm_glow(self, self.glow_pct.value())
             self._glow_warned = self._glow_warned or ok
@@ -483,6 +504,9 @@ class LaserPanel(QWidget):
         self.b_stop.setEnabled(ok and busy)
         for b in (self.b_start, self.b_frame, self.b_frame_more, self.b_verify, self.b_run, self.b_fire, self.b_glow):
             b.setEnabled(ok and not busy)
+        if getattr(self, "_power_knob", False):  # 0.22.6 (K40): puntino e Lucciola restano spenti
+            self.b_fire.setEnabled(False)
+            self.b_glow.setEnabled(False)
         for w in (self.ov_speed, self.ov_power):
             w.setEnabled(ok)
 
@@ -734,6 +758,7 @@ class MovePanel(QWidget):
                   self.b_af]:
             w.setEnabled(ok)
         self.pad.set_connected(ok)
+        self._z_visible()  # 0.22.6: le frecce della Z restano spente con il rotativo sulla Z
 
     def _z_visible(self, *_):
         p = self.get_profile()
@@ -743,6 +768,14 @@ class MovePanel(QWidget):
         af = bool(getattr(p, "af_probe", False))
         if self.b_af.isHidden() == af:
             self.b_af.setVisible(af)
+        # 0.22.6: con il rotativo sul motore della Z frecce della Z e autofocus restano visibili ma spenti, e lo dicono
+        rz = bool(getattr(self.ctl, "rotary_z", False))
+        why = tr("Il rotativo è sul motore della Z: spegnilo (Laser → Rotativo) per usare la Z") if rz else ""
+        for w, tip in ((self.b_zup, "_tip_zup"), (self.b_zdown, "_tip_zdown"), (self.b_af, "_tip_af")):
+            if not hasattr(self, tip):
+                setattr(self, tip, w.toolTip())
+            w.setEnabled(self.ctl.connected and not rz)
+            w.setToolTip(why or getattr(self, tip))
 
     def _jog_z(self, sign):
         if not self.ctl.connected:

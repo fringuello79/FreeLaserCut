@@ -57,6 +57,11 @@ class SimSerial:
         self.g55_stalls = False  # in verifica: error:2 su G55 e poi silenzio (OMTech K40); "mute" (0.19.2): solo
         #                          silenzio, e l'error:2 arriva al «$C» di uscita, come nel rapporto del 12/11/2026
         self.g55_job = None  # 0.19.2, nel lavoro: "error" = error:2 su G55; "mute" = da G55 in poi nessuna risposta
+        # 0.22.6 (rapporto FLC-20261123-1214-08D5, Ortur con GrblHAL): uscendo dalla verifica la scheda risponde subito
+        # [MSG:5:Disabled] e «ok», poi si riavvia: per questi secondi non risponde a niente (né «?» né righe, che vanno
+        # perse) e alla fine manda il suo saluto. La posizione resta. 0 = come GRBL classico (reset e saluto subito)
+        self.check_exit_reboot_s = 0.0
+        self._mute_until = 0.0
         self._g55_job_mute = False
         self._g55_mute = False
         self.drop_check_after = None  # in verifica, dopo N righe le risposte smettono di arrivare
@@ -166,6 +171,8 @@ class SimSerial:
     def write(self, data):
         for b in data:
             if b == ord("?"):
+                if time.monotonic() < self._mute_until:
+                    continue  # 0.22.6: si sta riavviando
                 self._status()
             elif b == 0x18:
                 self._reset()
@@ -758,6 +765,10 @@ class SimSerial:
     def _process(self, line, gen):
         if self._critical:
             return  # stato critico: nessuna risposta finché non arriva Ctrl-X
+        if time.monotonic() < self._mute_until:
+            self.lost_lines = getattr(self, "lost_lines", 0) + 1
+            self.lost = getattr(self, "lost", []) + [line]
+            return  # 0.22.6: si sta riavviando: la riga va persa
         if self.wifi is not None and self._wifi_line(line):
             return
         up = line.upper().replace(" ", "")
@@ -821,6 +832,21 @@ class SimSerial:
                 self._cpos = list(self.pos)
                 self._emit("[MSG:Enabled]\r\n")
                 return self._ok()
+            if self.check_exit_reboot_s > 0:  # 0.22.6: come la Ortur con GrblHAL del rapporto 08D5
+                self._emit("[MSG:5:Disabled]\r\n")
+                self._ok()
+                self._mute_until = time.monotonic() + self.check_exit_reboot_s
+
+                def back():
+                    self._mute_until = 0.0
+                    self.check_mode = False
+                    self._cpos = None
+                    self.state = "Idle"
+                    self._emit("Ortur Laser Master 3 Ready!\r\nGrblHAL 1.1f ['$' or '$HELP' for help]\r\n")
+                t = threading.Timer(self.check_exit_reboot_s, back)
+                t.daemon = True
+                t.start()
+                return
             self._emit("[MSG:Disabled]\r\n")
             self._ok()
             self._reset()  # come GRBL: uscire dal check mode fa un reset

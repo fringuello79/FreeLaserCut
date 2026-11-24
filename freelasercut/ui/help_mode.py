@@ -13,6 +13,7 @@ per tutto il resto la scheda si compone dal suggerimento del controllo e dalle s
 """
 import html
 
+from freelasercut import heartbeat  # noqa: E402
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal
 from PySide6.QtGui import QCursor, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
@@ -104,6 +105,8 @@ class HelpMode(QObject):
             # sbagliato (per esempio come QStandardItem): chiedergli ev.type() faceva chiudere il programma
             return False
         t = ev.type()
+        if heartbeat.hook is not None and t != QEvent.Paint:
+            heartbeat.beat()  # 0.22.6: all'avvio anche gli eventi di Qt fanno battere la schermata d'avvio
         if t == QEvent.KeyPress:
             if ev.key() == Qt.Key_F1 and ev.modifiers() & Qt.ShiftModifier:
                 self.toggle()

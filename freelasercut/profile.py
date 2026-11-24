@@ -98,6 +98,10 @@ class MachineProfile:
     scan_offsets: list = field(default_factory=list)
     # la scheda non conosce G55 (es. firmware Acmer): il sistema «assoluto» si fa in G54 togliendo il suo offset
     no_g55: bool = False
+    # 0.22.6 (funzione in prova): K40 con la scheda Lihuiyu («M2» ecc.; "" = non è una K40) e potenza dalla manopola
+    # della macchina (il programma accende e spegne soltanto: niente puntino, niente scala di grigi)
+    k40_board: str = ""
+    power_knob: bool = False
     # assi invertiti rispetto al piano di FreeLaserCut (0,0 davanti a sinistra): per esempio macchine con l'origine
     # dietro, o motori montati al contrario. Il piano resta come lo vedi; cambiano coordinate inviate e jog.
     invert_x: bool = False
@@ -570,6 +574,24 @@ class MachineProfile:
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
         return path
+
+    @classmethod
+    def k40(cls, board="M2"):
+        """0.22.6: profilo della K40 (scheda M2 Nano) collegata con il ponte. 300 × 200 mm, casa dietro a sinistra,
+        coordinate positive (X verso destra, Y verso il davanti), solo G54."""
+        p = cls(name=tr("K40 (scheda M2 Nano)"), model="K40 (M2 Nano)", source=tr("valori di targa"))
+        p.bed_x, p.bed_y = 300.0, 200.0
+        p.no_g55 = True
+        p.rx_buffer = 128
+        p.origin_corner = "bl"
+        p.negative_space = False
+        p.invert_x, p.invert_y = False, True
+        p.tested_x = p.tested_y = True
+        p.k40_board, p.power_knob = str(board or "M2"), True
+        p.z_motor = False
+        p.af_probe = False
+        p.laser_mode = True
+        return p
 
     @classmethod
     def load(cls, path):
