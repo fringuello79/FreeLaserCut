@@ -112,8 +112,11 @@ def _thin(img):
                     b = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9
                     if b < 2 or b > 6:
                         continue
-                    a = ((p2 == 0 and p3 == 1) + (p3 == 0 and p4 == 1) + (p4 == 0 and p5 == 1) + (p5 == 0 and p6 == 1)
-                         + (p6 == 0 and p7 == 1) + (p7 == 0 and p8 == 1) + (p8 == 0 and p9 == 1) + (p9 == 0 and p2 == 1))
+                    # int(): senza numba (Mac Intel) i confronti danno booleani di numpy, che sommati fanno «o» e non
+                    # contano: lo scheletro spariva quasi tutto e la linea centrale restava vuota (0.22.5)
+                    a = (int(p2 == 0 and p3 == 1) + int(p3 == 0 and p4 == 1) + int(p4 == 0 and p5 == 1)
+                         + int(p5 == 0 and p6 == 1) + int(p6 == 0 and p7 == 1) + int(p7 == 0 and p8 == 1)
+                         + int(p8 == 0 and p9 == 1) + int(p9 == 0 and p2 == 1))
                     if a != 1:
                         continue
                     if step == 0:

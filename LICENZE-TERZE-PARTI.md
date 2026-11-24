@@ -32,6 +32,7 @@ I testi completi sono nella cartella `licenze-terze-parti/` (e, nell'installazio
 | pyclipper (Clipper di Angus Johnson) | MIT / Boost | `pyclipper-MIT.txt` |
 | svgelements | MIT | `svgelements-MIT.txt` |
 | pyserial | BSD 3-Clause | `pyserial-BSD-3-Clause.txt` |
+| pyusb (dalla 0.22.5, per parlare con le schede USB delle K40 in «Studia la macchina») | BSD 3-Clause | `pyusb-BSD-3-Clause.txt` |
 | Hershey-Fonts (font a linea singola Hershey) | MIT | `Hershey-Fonts-MIT.txt` |
 | pyparsing | MIT | `pyparsing-MIT.txt` |
 | typing_extensions | PSF License 2.0 | `typing_extensions-PSF.txt` |

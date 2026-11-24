@@ -1,6 +1,7 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
 """Laser → Controllo dal telefono: accende la pagina per il telefono, mostra il codice QR e la mini guida."""
 import io
+import math
 import time
 
 import cv2
@@ -21,7 +22,13 @@ class PhoneControl(QObject):
     stop_requested = Signal()
     photo_received = Signal(bytes)
     plate_received = Signal(bytes)  # 0.19.0: la foto del piano di lavoro
+    step_requested = Signal(float, float, float)  # 0.22.5: freccia dal telefono (dx, dy, passo in mm)
+    joy_requested = Signal(float, float)  # 0.22.5: joystick dal telefono (x, y fra -1 e 1; 0, 0 = fermo)
+    halt_requested = Signal()  # 0.22.5: «■» dal telefono: ferma la testa
     changed = Signal()
+
+    STEPS = (0.1, 1.0, 10.0, 50.0)
+    JOY_TIMEOUT_MS = 600  # senza notizie dal telefono per più di così (rete persa, pagina chiusa) il joystick si ferma
 
     def __init__(self, win):
         super().__init__(win)
@@ -35,6 +42,16 @@ class PhoneControl(QObject):
         self.stop_requested.connect(self._do_stop)
         self.photo_received.connect(self._do_photo)
         self.plate_received.connect(self._do_plate)
+        self.step_requested.connect(self._do_step)
+        self.joy_requested.connect(self._do_joy)
+        self.halt_requested.connect(lambda: self._do_halt(cancel=True))
+        self.joy = None  # JoyJog tutto suo (creato alla prima richiesta)
+        self._plan = None  # frecce: (x, y, fine prevista) dell'ultimo spostamento mandato, finché la testa non è ferma
+        self._hold_until = 0.0  # dopo «■» la posizione letta è vecchia per un attimo: le frecce aspettano
+        self.joy_watch = QTimer(self)
+        self.joy_watch.setSingleShot(True)
+        self.joy_watch.setInterval(self.JOY_TIMEOUT_MS)
+        self.joy_watch.timeout.connect(lambda: self._do_halt(tr("Joystick fermato: il telefono non risponde")))
         self.timer = QTimer(self)
         self.timer.setInterval(500)
         self.timer.timeout.connect(self.refresh)
@@ -48,7 +65,8 @@ class PhoneControl(QObject):
         if self.running:
             return True
         self.server = phone.PhoneServer(lambda: self.snapshot, self._frame, self._pause, self._stop, self._photo,
-                                        token=self.server.token if self.server else None, plate=self._plate)
+                                        token=self.server.token if self.server else None, plate=self._plate,
+                                        move=self._move)
         self.server.start()
         self.refresh()
         self.timer.start()
@@ -59,7 +77,41 @@ class PhoneControl(QObject):
         if self.server is not None:
             self.server.close()
         self.timer.stop()
+        self.joy_watch.stop()
+        if self.joy is not None and self.joy.active:
+            self.joy.stop()
         self.changed.emit()
+
+    # ---------------------------------------------------------------- 0.22.5: muovere la testa dal telefono
+    def move_enabled(self):
+        """Permesso sul PC (Controllo dal telefono → «Permetti di muovere la testa dal telefono»). Spento di partenza."""
+        qs = getattr(self.win, "qs", None)
+        return bool(qs is not None and str(qs.value("phone_move", "false")).lower() in ("true", "1"))
+
+    def set_move_enabled(self, on):
+        qs = getattr(self.win, "qs", None)
+        if qs is not None:
+            qs.setValue("phone_move", bool(on))
+        if not on and self.joy is not None and self.joy.active:
+            self._do_halt()
+        self.refresh()
+
+    def move_check(self):
+        """-> (si può muovere?, perché no). Solo nel thread principale."""
+        ctl = self.ctl
+        st = str(ctl.last_status.get("state", "") or "")
+        if not self.move_enabled():
+            return False, tr("Muovere la testa dal telefono è spento: si accende sul PC, in Controllo dal telefono.")
+        if not ctl.connected:
+            return False, tr("Macchina non connessa")
+        if ctl.job_active:
+            return False, tr("Durante un lavoro la testa non si muove dal telefono.")
+        if getattr(ctl, "fire_active", False):
+            # Puntino o Lucciola accesi dal PC: il raggio c'è, anche se debole. Dal telefono non lo si porta in giro.
+            return False, tr("Sul PC è acceso il Puntino o la Lucciola: spegnilo per muovere la testa dal telefono.")
+        if getattr(ctl, "checking", False) or st.split(":")[0] in ("Alarm", "Door", "Hold", "Sleep"):
+            return False, tr("Macchina non pronta: sbloccala o aspetta dal PC ({0}).", st)
+        return True, ""
 
     def new_code(self):
         if self.server is not None:
@@ -104,10 +156,22 @@ class PhoneControl(QObject):
         detail = tr("Stato della scheda: {0}", st) if ctl.connected and st else ""
         if active and fire == "attiva":
             detail += ("  ·  " if detail else "") + tr("guardia fiamme attiva")
+        move_ok, move_note = self.move_check()
+        head = None
+        try:
+            hp = self.win.canvas.head_pos()
+            head = [round(float(hp.x()), 2), round(float(hp.y()), 2)] if hp is not None and ctl.connected else None
+        except Exception:  # noqa: BLE001
+            head = None
+        if move_ok and head is None:
+            move_ok, move_note = False, tr("Posizione della testa non ancora nota: aspetta un attimo o fai l'homing")
+        if not move_ok and self.joy is not None and self.joy.active:
+            self._do_halt(tr("Joystick fermato: la macchina non è più pronta"))
         self.snapshot = {"title": title, "detail": detail, "state": st, "connected": bool(ctl.connected),
                          "job_active": active, "paused": paused, "done": done if active else 0,
                          "total": total if active else 0, "elapsed": elapsed, "left": left, "alarm": alarm,
-                         "camera": bool(cam), "fire": fire or ""}
+                         "camera": bool(cam), "fire": fire or "", "move_ok": move_ok, "move_note": move_note,
+                         "pos": head}
 
     # ---------------------------------------------------------------- chiamate dal thread del server
     def _frame(self):
@@ -138,6 +202,34 @@ class PhoneControl(QObject):
         self.stop_requested.emit()
         return True, tr("Lavoro fermato, laser spento.")
 
+    def _move(self, kind, data):
+        """Dal thread del server: controlla la richiesta e la passa al thread principale. Laser mai acceso."""
+        s = self.snapshot
+        if kind == "ferma":
+            if not self.move_enabled():  # funzione spenta sul PC: dal telefono non parte nessun comando, nemmeno questo
+                return False, s.get("move_note") or tr("Macchina non pronta")
+            self.halt_requested.emit()
+            return True, tr("Testa ferma.")
+        if not s.get("move_ok"):
+            return False, s.get("move_note") or tr("Macchina non pronta")
+        try:
+            if kind == "passo":
+                dx, dy = int(data.get("dx", 0)), int(data.get("dy", 0))
+                step = float(data.get("step", 10))
+                if dx not in (-1, 0, 1) or dy not in (-1, 0, 1) or (dx == 0 and dy == 0) or step not in self.STEPS:
+                    raise ValueError
+                self.step_requested.emit(float(dx), float(dy), step)
+                return True, ""
+            if kind == "joystick":
+                x, y = float(data.get("x", 0)), float(data.get("y", 0))
+                if not (math.isfinite(x) and math.isfinite(y)):
+                    raise ValueError
+                self.joy_requested.emit(max(-1.0, min(1.0, x)), max(-1.0, min(1.0, y)))
+                return True, ""
+        except (TypeError, ValueError, AttributeError, OverflowError):
+            pass
+        return False, tr("Richiesta non valida")
+
     def _photo(self, data):
         self.photo_received.emit(bytes(data))
         return tr("Foto arrivata sul PC: il risultato è nel Test materiale.")
@@ -161,6 +253,80 @@ class PhoneControl(QObject):
             self.ctl.stop_job()
             self._log("stop dal telefono")
             self.win.statusBar().showMessage(tr("Lavoro fermato dal telefono"), 15000)
+
+    def _feed(self):
+        try:
+            return float(self.win.move.feed.value())
+        except Exception:  # noqa: BLE001
+            return 3000.0
+
+    def _do_step(self, dx, dy, step):
+        ok, _why = self.move_check()  # di nuovo qui: fra la richiesta e adesso può essere partito un lavoro
+        if not ok:
+            return
+        # dentro il piano, come il joystick: su una macchina senza limiti software più tocchi da 50 mm non devono
+        # portare la testa contro il telaio
+        from .jogpad import JoyJog, reach_box
+
+        try:
+            hp = self.win.canvas.head_pos()
+            x0, y0, x1, y1 = reach_box(self.ctl, self.win.profile)
+        except Exception:  # noqa: BLE001
+            hp = None
+        if hp is None:
+            return
+        m = JoyJog.MARGIN
+        now = time.monotonic()
+        if now < self._hold_until:
+            return
+        hx, hy = float(hp.x()), float(hp.y())
+        if self._plan is not None and now < self._plan[2] + JoyJog.SETTLE + JoyJog.POS_SLACK:
+            # la posizione letta dalla scheda arriva in ritardo (ogni 0,2 s): con più tocchi di fila si parte da dove
+            # la testa sta andando, non da dove risultava, se no la somma dei tocchi supererebbe il bordo
+            hx, hy = self._plan[0], self._plan[1]
+        mx = min(hx + dx * step, max(hx, x1 - m)) if dx > 0 else max(hx + dx * step, min(hx, x0 + m)) if dx < 0 else hx
+        my = min(hy + dy * step, max(hy, y1 - m)) if dy > 0 else max(hy + dy * step, min(hy, y0 + m)) if dy < 0 else hy
+        if abs(mx - hx) < 0.005 and abs(my - hy) < 0.005:
+            self._log("freccia dal telefono: la testa è già al bordo del piano")
+            return
+        feed = max(self._feed(), 1.0)
+        self.ctl.jog(mx - hx, my - hy, feed)
+        start = max(now, self._plan[2]) if self._plan is not None else now
+        self._plan = (mx, my, start + math.hypot(mx - hx, my - hy) / (feed / 60.0))
+        self._log(f"freccia dal telefono ({dx:+.0f}, {dy:+.0f}) × {step:g} mm")
+
+    def _do_joy(self, x, y):
+        ok, _why = self.move_check()
+        if not ok or (abs(x) < 1e-3 and abs(y) < 1e-3):
+            self._do_halt()
+            return
+        if self.joy is None:
+            from .jogpad import JoyJog
+
+            self.joy = JoyJog(self.ctl, lambda: self.win.profile, self.win.canvas.head_pos, self._feed, self)
+        if not self.joy.active:
+            if not self.joy.start():
+                return
+            self._log("joystick dal telefono")
+        self.joy.set_vector(x, y)
+        self.joy_watch.start()
+
+    def _do_halt(self, reason="", cancel=False):
+        """Ferma il joystick del telefono. cancel=True (solo «■» premuto sul telefono, con la funzione accesa): ferma
+        anche lo spostamento di una freccia ancora in corso."""
+        self.joy_watch.stop()
+        fermato = False
+        if self.joy is not None and self.joy.active:
+            self.joy.stop(reason)
+            fermato = True
+        elif cancel and self.move_enabled() and self.ctl.connected and not self.ctl.job_active:
+            self.ctl.jog_cancel()
+            fermato = True
+        if fermato:
+            self._plan = None  # la testa si è fermata a metà strada: si riparte dalla posizione vera, appena arriva
+            self._hold_until = time.monotonic() + 0.6
+        if reason:
+            self._log(reason)
 
     def _do_photo(self, data):
         self._log(f"foto del test dal telefono ({len(data) // 1024} kB)")
@@ -203,7 +369,11 @@ def guide_html():
         "<i>privata</i> in Windows e che il firewall non blocchi FreeLaserCut.</p>") + tr(
         "<p><b>Foto del piano di lavoro</b> (0.19.0): dal telefono puoi anche fotografare il piano dall'alto e "
         "mandare la foto. Sul PC indichi i 4 angoli dell'area di lavoro e la foto finisce sotto il piano, per "
-        "posizionare i pezzi (pannello Camera, voce «Foto del piano dal telefono»).</p>")
+        "posizionare i pezzi (pannello Camera, voce «Foto del piano dal telefono»).</p>") + tr(
+        "<p><b>Muovere la testa</b> (0.22.5): se spunti <i>Permetti di muovere la testa dal telefono</i>, sulla pagina "
+        "compaiono le frecce (un passo per tocco: 0,1, 1, 10 o 50 mm) e un joystick (la testa si muove finché lo "
+        "tieni). Il laser resta sempre spento, durante un lavoro non funziona, e se il telefono perde la rete la "
+        "testa si ferma da sola. Usalo solo se vedi la macchina.</p>")  # con Puntino o Lucciola accesi non si muove
 
 
 class PhoneDialog(QDialog):
@@ -217,6 +387,12 @@ class PhoneDialog(QDialog):
         self.chk.setChecked(ctrl.running)
         self.chk.toggled.connect(self._toggle)
         v.addWidget(self.chk)
+        self.chk_move = QCheckBox(tr("Permetti di muovere la testa dal telefono (frecce e joystick, laser spento)"))
+        self.chk_move.setToolTip(tr("Solo con la macchina ferma e senza lavori. Chi tiene il telefono deve vedere la "
+                                    "macchina: la testa si muove davvero."))
+        self.chk_move.setChecked(ctrl.move_enabled())
+        self.chk_move.toggled.connect(ctrl.set_move_enabled)
+        v.addWidget(self.chk_move)
         h = QHBoxLayout()
         self.qr = QLabel()
         self.qr.setFixedSize(230, 230)

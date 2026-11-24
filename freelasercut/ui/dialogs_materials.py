@@ -353,6 +353,85 @@ class MaterialLibraryDialog(QDialog):
 
 
 # ===================================================================== test materiale
+def _qimage_of(pil):
+    """PIL -> QImage in grigi (per le miniature)."""
+    from PySide6.QtGui import QImage
+
+    g = pil.convert("L")
+    data = g.tobytes()
+    img = QImage(data, g.width, g.height, g.width, QImage.Format_Grayscale8)
+    return img.copy()
+
+
+class _ZonePicker(QWidget):
+    """0.22.5: miniatura della foto con la zona del test. Clic o trascinamento: sposta la zona."""
+
+    changed = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.setMinimumSize(200, 130)
+        self.setCursor(Qt.CrossCursor)
+        self.thumb = None  # QImage
+        self.size_frac = 0.35  # lato della zona / lato corto della foto
+        self.zone = (0.0, 0.0, 1.0, 1.0)  # frazioni, origine in alto a sinistra
+
+    def set_image(self, qimg):
+        self.thumb = qimg
+        self.update()
+
+    def _place(self):
+        if self.thumb is None or self.thumb.isNull():
+            return QRectF()
+        W, H = self.thumb.width(), self.thumb.height()
+        k = min((self.width() - 8) / W, (self.height() - 8) / H)
+        return QRectF((self.width() - W * k) / 2, (self.height() - H * k) / 2, W * k, H * k)
+
+    def zone_at(self, fx, fy):
+        """Zona quadrata (sulla foto) centrata in (fx, fy), dentro la foto."""
+        if self.thumb is None or self.thumb.isNull():
+            return
+        W, H = self.thumb.width(), self.thumb.height()
+        side = min(W, H) * self.size_frac
+        zw, zh = side / W, side / H
+        x0 = min(max(fx - zw / 2, 0.0), 1.0 - zw)
+        y0 = min(max(fy - zh / 2, 0.0), 1.0 - zh)
+        self.zone = (x0, y0, x0 + zw, y0 + zh)
+        self.update()
+        self.changed.emit()
+
+    def _pick(self, pos):
+        r = self._place()
+        if r.isEmpty():
+            return
+        self.zone_at((pos.x() - r.left()) / r.width(), (pos.y() - r.top()) / r.height())
+
+    def mousePressEvent(self, e):
+        self._pick(e.position())
+
+    def mouseMoveEvent(self, e):
+        if e.buttons() & Qt.LeftButton:
+            self._pick(e.position())
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(C["bg"]))
+        r = self._place()
+        if r.isEmpty():
+            p.end()
+            return
+        p.drawImage(r, self.thumb)
+        x0, y0, x1, y1 = self.zone
+        z = QRectF(r.left() + x0 * r.width(), r.top() + y0 * r.height(), (x1 - x0) * r.width(), (y1 - y0) * r.height())
+        p.fillRect(QRectF(r.left(), r.top(), r.width(), z.top() - r.top()), QColor(0, 0, 0, 110))
+        p.fillRect(QRectF(r.left(), z.bottom(), r.width(), r.bottom() - z.bottom()), QColor(0, 0, 0, 110))
+        p.fillRect(QRectF(r.left(), z.top(), z.left() - r.left(), z.height()), QColor(0, 0, 0, 110))
+        p.fillRect(QRectF(z.right(), z.top(), r.right() - z.right(), z.height()), QColor(0, 0, 0, 110))
+        p.setPen(QPen(QColor(C["accent_hi"]), 2))
+        p.drawRect(z)
+        p.end()
+
+
 class _GridPreview(QWidget):
     """Schema della griglia: celle sfumate per energia, ordine di incisione numerato."""
 
@@ -361,6 +440,8 @@ class _GridPreview(QWidget):
         self.setMinimumSize(300, 260)
         self.spec = mtest.TestSpec()
         self.pick = None  # (riga, colonna) scelta come migliore
+        self.thumb = None  # 0.22.5: miniatura del pezzo di foto (QImage) o
+        self.outline = None  # …della forma (QPainterPath, Y in giù), disegnata in ogni quadrato
 
     def paintEvent(self, e):
         p = QPainter(self)
@@ -386,8 +467,11 @@ class _GridPreview(QWidget):
                 col = QColor.fromRgbF(0.86 - 0.62 * d, 0.70 - 0.55 * d, 0.50 - 0.42 * d)
                 rect = QRectF(x0 + c * cell + gap / 2, y0 + (rows - 1 - r) * cell + gap / 2, cell - gap, cell - gap)
                 p.setPen(Qt.NoPen)
-                p.setBrush(col)
-                p.drawRoundedRect(rect, 3, 3)
+                if self.thumb is not None or self.outline is not None:
+                    self._draw_content(p, rect, d)
+                else:
+                    p.setBrush(col)
+                    p.drawRoundedRect(rect, 3, 3)
                 if self.pick == (r, c):
                     p.setPen(QPen(QColor(C["accent_hi"]), 2.5))
                     p.setBrush(Qt.NoBrush)
@@ -405,18 +489,50 @@ class _GridPreview(QWidget):
         p.drawText(QRectF(x0, y0 + rows * cell + 16, cols * cell, 16), Qt.AlignRight, units.speed_unit())
         p.end()
 
+    def _draw_content(self, p, rect, d):
+        """Il contenuto del quadrato, più scuro dove l'energia è più alta (come verrà più o meno sul materiale)."""
+        p.save()
+        p.setBrush(QColor(236, 214, 178))
+        p.drawRoundedRect(rect, 3, 3)
+        if self.thumb is not None and not self.thumb.isNull():
+            W, H = self.thumb.width(), self.thumb.height()
+            k = min(rect.width() / W, rect.height() / H)
+            t = QRectF(rect.center().x() - W * k / 2, rect.center().y() - H * k / 2, W * k, H * k)
+            p.setOpacity(0.25 + 0.75 * d)
+            p.setCompositionMode(QPainter.CompositionMode_Multiply)
+            p.drawImage(t, self.thumb)
+        elif self.outline is not None:
+            b = self.outline.boundingRect()
+            k = min(rect.width() / max(b.width(), 1e-9), rect.height() / max(b.height(), 1e-9)) * 0.96
+            from PySide6.QtGui import QTransform
+
+            tf = QTransform().translate(rect.center().x(), rect.center().y()).scale(k, k).translate(
+                -b.center().x(), -b.center().y())
+            col = QColor.fromRgbF(0.86 - 0.62 * d, 0.70 - 0.55 * d, 0.50 - 0.42 * d)
+            if self.spec.mode == "line":
+                p.setPen(QPen(col.darker(130), 1.5))
+                p.setBrush(Qt.NoBrush)
+            else:
+                p.setPen(Qt.NoPen)
+                p.setBrush(col.darker(115))
+            p.drawPath(tf.map(self.outline))
+        p.restore()
+
 
 class MaterialTestDialog(QDialog):
     """Imposta la griglia. Il dialogo resta aperto: Anteprima / Contorno / Avvia passano dalla finestra principale."""
 
     action = Signal(str, object)  # ("preview"|"frame"|"start"|"save", GcodeJob)
 
-    def __init__(self, profile, head_bed=None, seed=None, parent=None):
+    def __init__(self, profile, head_bed=None, seed=None, parent=None, selection=None):
         super().__init__(parent)
         self.setWindowTitle(tr("Test materiale"))
         self.profile = profile
         self.head_bed = head_bed
         self.job = None
+        # 0.22.5: selection() -> (forme selezionate, documento): da lì la forma o la foto da mettere nei quadrati
+        self.selection = selection
+        self._src = None  # ("shape", [Poly]) oppure ("image", leaf, tf, PIL, impostazioni del livello)
         h = QHBoxLayout(self)
         left = QVBoxLayout()
         h.addLayout(left, 0)
@@ -426,6 +542,27 @@ class MaterialTestDialog(QDialog):
         self.mode = QComboBox()
         self.mode.addItem(tr("Riempimento (incisione)"), "fill")
         self.mode.addItem(tr("Linea (taglio / contorno)"), "line")
+        # 0.22.5 (Stefano Modena): nei quadrati la forma scelta o un pezzo di foto, invece del quadrato pieno
+        self.content = QComboBox()
+        self.content.addItem(tr("Quadrati pieni"), "square")
+        self.content.addItem(tr("Forma selezionata sul piano"), "shape")
+        self.content.addItem(tr("Pezzo della foto selezionata"), "image")
+        self.content.setToolTip(tr("Seleziona sul piano una forma o una foto, poi scegli qui: ogni quadrato del test "
+                                   "la incide rimpicciolita, con la sua potenza e la sua velocità"))
+        self.b_take = QPushButton(tr("Prendi dalla selezione"))
+        self.b_take.setToolTip(tr("Usa la forma o la foto selezionata adesso sul piano"))
+        self.b_take.clicked.connect(self.take_selection)
+        self.zone = _ZonePicker()
+        self.zone.setToolTip(tr("Clicca o trascina sulla foto per scegliere il pezzo da incidere nei quadrati"))
+        self.zone_size = _ispin(10, 100, 35, " %")
+        self.zone_size.setToolTip(tr("Grandezza del pezzo di foto, rispetto al lato corto della foto"))
+        self.b_auto = QPushButton(tr("Zona con più grigi"))
+        self.b_auto.setToolTip(tr("Trova da solo il pezzo della foto con più toni di grigio diversi: lì si vede "
+                                  "meglio quale potenza e quale velocità rendono"))
+        self.b_auto.clicked.connect(self.auto_zone)
+        self.zone_note = QLabel(tr("Risoluzione, retino e regolazioni della foto vengono dal suo livello: il test "
+                                   "cambia solo potenza e velocità."))
+        self.zone_note.setWordWrap(True)
         self.p_min, self.p_max = _dspin(0.5, 100, 10, 1, 5, " %"), _dspin(0.5, 100, 100, 1, 5, " %")
         self.rows = _ispin(1, 10, 5)
         self.s_min, self.s_max = units.SpeedSpin(10, 36000, 1000, 250), units.SpeedSpin(10, 36000, 10000, 250)
@@ -485,6 +622,21 @@ class MaterialTestDialog(QDialog):
         posr.addWidget(self.b_head)
         f.addRow(tr("Titolo"), self.title)
         f.addRow(tr("Tipo"), self.mode)
+        cr0 = QHBoxLayout()
+        cr0.addWidget(self.content, 1)
+        cr0.addWidget(self.b_take)
+        f.addRow(tr("Nei quadrati"), cr0)
+        self.zone_box = QWidget()
+        zl = QVBoxLayout(self.zone_box)
+        zl.setContentsMargins(0, 0, 0, 0)
+        zl.addWidget(self.zone)
+        zr = QHBoxLayout()
+        zr.addWidget(QLabel(tr("Grandezza")))
+        zr.addWidget(self.zone_size)
+        zr.addWidget(self.b_auto, 1)
+        zl.addLayout(zr)
+        zl.addWidget(self.zone_note)
+        f.addRow("", self.zone_box)
         f.addRow(tr("Potenza"), pr)
         f.addRow(tr("Velocità"), sr)
         f.addRow(tr("Quadrato"), cr)
@@ -558,6 +710,9 @@ class MaterialTestDialog(QDialog):
         for w in (self.rows, self.cols, self.passes):
             w.valueChanged.connect(self._changed)
         self.mode.currentIndexChanged.connect(self._mode_changed)
+        self.content.currentIndexChanged.connect(self._content_changed)
+        self.zone.changed.connect(self._changed)
+        self.zone_size.valueChanged.connect(self._zone_size_changed)
         self.labels.toggled.connect(self._changed)
         self.labels.toggled.connect(self._labels_toggled)
         for w in (self.label_power, self.label_speed):
@@ -569,7 +724,7 @@ class MaterialTestDialog(QDialog):
         self.title.textChanged.connect(self._changed)
         if seed is not None:
             self.seed(seed)
-        self._mode_changed()
+        self._content_changed()
 
     def seed(self, m):
         """Griglia intorno ai valori di un materiale: potenza ±40%, velocità ±50%."""
@@ -593,10 +748,102 @@ class MaterialTestDialog(QDialog):
 
     def _mode_changed(self):
         fill = self.mode.currentData() == "fill"
-        self.interval.setEnabled(fill)
-        self.markers.setEnabled(fill)
-        self.b_photo.setEnabled(fill)
+        image = self.content.currentData() == "image"
+        self.mode.setEnabled(not image)
+        self.interval.setEnabled(fill and not image)
+        square = self.content.currentData() == "square"
+        self.markers.setEnabled(fill and square)
+        self.b_photo.setEnabled(fill and square)
         self._changed()
+
+    # ---------------------------------------------------------------- 0.22.5: forma o foto nei quadrati
+    def take_selection(self):
+        """Prende dalla selezione del piano la forma (o le forme) o la foto. -> True se c'era qualcosa da prendere."""
+        from ..core import geom
+        from ..core.document import ImageShape
+
+        shapes, doc = self.selection() if self.selection is not None else ([], None)
+        shapes = list(shapes or [])
+        images, polys = [], []
+        for sh in shapes:
+            for leaf, tf in sh.leaves():
+                if isinstance(leaf, ImageShape):
+                    images.append((leaf, tf))
+                else:
+                    polys.extend(geom.flatten(tf.map(leaf.local_path()), 0.02))
+        want = self.content.currentData()
+        if images and doc is not None and (want == "image" or not polys):
+            leaf, tf = images[0]
+            pil = doc.images.get(leaf.image_id)
+            if pil is not None:
+                cs = doc.layer(leaf.layer) if hasattr(doc, "layer") else None
+                self._src = ("image", leaf, tf, pil, cs)
+                small = pil.copy()
+                small.thumbnail((360, 360))
+                self.zone.set_image(_qimage_of(small))
+                self.auto_zone()
+                self._set_content("image")
+                return True
+        if polys:
+            self._src = ("shape", polys)
+            self._set_content("shape")
+            return True
+        self._src = None
+        self._set_content("square")
+        self.info.setText(tr("Seleziona prima sul piano una forma o una foto, poi premi «Prendi dalla selezione»."))
+        return False
+
+    def _set_content(self, kind):
+        i = self.content.findData(kind)
+        if self.content.currentIndex() != i:
+            self.content.blockSignals(True)
+            self.content.setCurrentIndex(i)
+            self.content.blockSignals(False)
+        self._content_changed(take=False)
+
+    def _content_changed(self, *_, take=True):
+        kind = self.content.currentData()
+        if take and kind != "square" and (self._src is None or self._src[0] != kind):
+            if not self.take_selection():
+                return
+            return
+        self.zone_box.setVisible(kind == "image")
+        self._mode_changed()
+
+    def _zone_size_changed(self, v):
+        self.zone.size_frac = v / 100.0
+        x0, y0, x1, y1 = self.zone.zone
+        self.zone.zone_at((x0 + x1) / 2, (y0 + y1) / 2)
+
+    def auto_zone(self):
+        """Mette la zona dove la foto ha più toni di grigio."""
+        if self._src is None or self._src[0] != "image":
+            return
+        from ..core import imaging
+
+        pil = self._src[3]
+        small = pil.copy()
+        small.thumbnail((480, 480))
+        x0, y0, x1, y1 = mtest.best_gray_region(imaging.to_dark(small), self.zone_size.value() / 100.0)
+        self.zone.size_frac = self.zone_size.value() / 100.0
+        self.zone.zone_at((x0 + x1) / 2, (y0 + y1) / 2)
+
+    def cell_content(self):
+        """CellContent per il test, o None con i quadrati pieni."""
+        kind = self.content.currentData()
+        if kind == "square" or self._src is None or self._src[0] != kind:
+            return None
+        if kind == "shape":
+            return mtest.CellContent(kind="shape", polys=self._src[1])
+        _k, leaf, tf, pil, cs = self._src
+        x0, y0, x1, y1 = self.zone.zone
+        W, H = pil.size
+        box = (int(round(x0 * W)), int(round(y0 * H)), max(int(round(x1 * W)), int(round(x0 * W)) + 1),
+               max(int(round(y1 * H)), int(round(y0 * H)) + 1))
+        piece = pil.crop(box)
+        return mtest.CellContent(kind="image", image=piece, w=leaf.w * (box[2] - box[0]) / W,
+                                 h=leaf.h * (box[3] - box[1]) / H, lin=(tf.m11(), tf.m12(), tf.m21(), tf.m22()),
+                                 brightness=leaf.brightness, contrast=leaf.contrast, gamma=leaf.gamma, cs=cs)
 
     def _at_head(self):
         if self.head_bed is not None:
@@ -610,11 +857,30 @@ class MaterialTestDialog(QDialog):
                               interval=self.interval.value(), passes=self.passes.value(), x0=self.x0.value(),
                               y0=self.y0.value(), labels=self.labels.isChecked(), border=self.border.isChecked(),
                               title=self.title.text().strip(), markers=self.markers.isChecked(),
-                              label_power=self.label_power.value(), label_speed=self.label_speed.value())
+                              label_power=self.label_power.value(), label_speed=self.label_speed.value(),
+                              content=self.cell_content())
 
     def _changed(self, *_):
         s = self.spec()
         self.grid.spec = s
+        self.grid.thumb, self.grid.outline = None, None
+        if s.content is not None and s.content.kind == "image":
+            self.grid.thumb = _qimage_of(s.content.image.copy().resize(
+                (max(1, min(160, s.content.image.width)), max(1, min(160, s.content.image.height)))))
+        elif s.content is not None:
+            from PySide6.QtGui import QPainterPath
+
+            path = QPainterPath()
+            for poly in s.content.polys:
+                if not poly.pts:
+                    continue
+                path.moveTo(poly.pts[0][0], -poly.pts[0][1])  # Y in giù sullo schermo
+                for x, y in poly.pts[1:]:
+                    path.lineTo(x, -y)
+                if poly.closed:
+                    path.closeSubpath()
+            self.grid.outline = path
+        self.grid.update()
         self.job = None
         for cb, vals, fmt in ((self.pick_r, mtest._steps(s.p_min, s.p_max, s.rows), "{:g} %"),
                               (self.pick_c, mtest._steps(s.s_min, s.s_max, s.cols), None)):
@@ -660,7 +926,7 @@ class MaterialTestDialog(QDialog):
 
     def remember_spec(self):
         """Griglia dell'ultimo test inciso (o salvato): serve per leggere la sua foto anche dopo."""
-        self._qs().setValue("material_test_last", json.dumps(asdict(self.spec())))
+        self._qs().setValue("material_test_last", json.dumps(asdict(replace(self.spec(), content=None))))
 
     def photo_spec(self):
         """Griglia con cui leggere la foto: l'ultima incisa con i riferimenti, altrimenti quella della finestra."""

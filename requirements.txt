@@ -11,3 +11,4 @@ numba>=0.59
 segno>=1.6
 python-barcode>=0.15
 pygame-ce>=2.5; python_version < "3.15"  # joystick fisico (facoltativo: senza, il programma va lo stesso)
+pyusb>=1.2  # 0.22.5: Studia la macchina, K40 (scheda M2 Nano) con il driver libusb (facoltativo)

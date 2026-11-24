@@ -259,6 +259,8 @@ class ViewOnly(QObject):
             self.on = False
 
     def eventFilter(self, obj, ev):
+        if not isinstance(ev, QEvent):  # 0.22.5: PySide6 6.9 (vedi help_mode.eventFilter): evento col tipo sbagliato
+            return False
         try:
             if ev.type() in self.BLOCK and self.stops(obj, ev):
                 self.blocked += 1

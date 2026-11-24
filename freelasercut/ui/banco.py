@@ -1981,7 +1981,7 @@ class Banco(QObject):
 
     # ---------------------------------------------------------- eventi sul piano: tasto destro, trascinamenti
     def eventFilter(self, obj, e):
-        if self._closing:
+        if self._closing or not isinstance(e, QEvent):  # 0.22.5: PySide6 6.9, vedi help_mode.eventFilter
             return False
         try:
             cv = self.win.canvas

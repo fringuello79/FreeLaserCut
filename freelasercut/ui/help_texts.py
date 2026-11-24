@@ -334,7 +334,9 @@ HELP = {
     "variables": (tr("Testo variabile"), tr("Numeri di serie, data e ora, campi da un file CSV dentro i testi."), None),
     "materials": (tr("Libreria materiali"), tr("Valori pronti per il Longer B1 40W (incisioni e tagli) più le tue voci: "
                   "scegli il materiale e applicalo al livello."), None),
-    "material_test": (tr("Test materiale"), tr("Incide una griglia potenza × velocità con le etichette per trovare i valori giusti."), None),
+    "material_test": (tr("Test materiale"), tr("Incide una griglia potenza × velocità con le etichette per trovare i valori giusti. Nei quadrati puoi "
+                                                   "mettere anche la forma selezionata sul piano, o il pezzo di una foto con più grigi: "
+                                                   "così vedi subito quali valori rendono meglio proprio quella foto."), None),
     "relief": (tr("Rilievo 3D su tavola (in prova)"), tr(
         "Scolpisce la tavola intera a strati, a testa ferma: da un'immagine in grigi (bianco o nero in alto) o da un "
         "modello .stl/.obj visto dall'alto. Prima del lavoro c'è il test di profondità obbligatorio: una piccola scala "

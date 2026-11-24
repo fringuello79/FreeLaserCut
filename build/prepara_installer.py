@@ -44,6 +44,7 @@ PACKAGES = [
     "Hershey-Fonts==2.1.0",
     "numba==0.68.1",
     "pygame-ce==2.5.8",  # 0.21.2: solo per leggere il joystick fisico (SDL2); LGPL 2.1, libreria separata
+    "pyusb==1.3.1",  # 0.22.5: Studia la macchina, K40 con il driver libusb-win32 (solo Python, BSD-3)
 ]
 
 # 0.19.0: librerie «di prima» per i processori senza le istruzioni x86-64-v2 (fino al 2008-2011 circa), che NumPy

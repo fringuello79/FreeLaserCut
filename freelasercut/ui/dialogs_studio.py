@@ -22,10 +22,17 @@ def prove_k40():
     return [
         ("K0", tr("Trova la scheda"), tr("Guarda se la scheda è collegata e con quale driver. Non le manda niente.")),
         ("K1", tr("Stato della scheda"), tr("Chiede lo stato alla scheda per due secondi. La testa non si muove.")),
-        ("K2", tr("Ritorno a casa"), tr("La testa va nell'angolo dei finecorsa, a laser spento. Chiede il consenso.")),
+        ("K2", tr("Ritorno a casa"), tr("La testa va a casa, poi 10 cm a destra e di nuovo a casa, a laser spento, "
+                                       "per vedere quando la scheda dice «pronta». Chiede il consenso.")),
         ("K3", tr("Velocità vera"), tr("Da casa, 50 e 100 mm verso destra e ritorno, a 10 e a 30 mm/s, a laser spento, "
                                       "col cronometro (circa un minuto). Chiede il consenso.")),
+        ("K4", tr("Un solo lavoro"), tr("Le stesse corse a 30 mm/s, prima una per volta e poi tutte di fila in un solo "
+                                       "lavoro, a laser spento (circa mezzo minuto). Dice se il piccolo giro a fine "
+                                       "corsa c'è solo all'inizio e alla fine del lavoro. Chiede il consenso.")),
     ]
+
+
+TUTTE_K40 = ("K0", "K1", "K2", "K3", "K4")
 
 
 def prove_ruida():
@@ -46,9 +53,15 @@ def consenso_testo(codice):
                "del laser)\n•  spegni il laser dal pannello (interruttore del laser o chiave del tubo)\n•  togli gli "
                "oggetti dal piano e tieni a portata il pulsante di emergenza\n\n")
     return {
-        "K2": prima + tr("La testa andrà nell'angolo dei finecorsa, a laser spento. Procedo?"),
+        "K2": prima + tr("La testa andrà nell'angolo dei finecorsa, poi 10 cm a destra e di nuovo nell'angolo, a "
+                         "laser spento. Servono 10 cm liberi a destra di casa. Procedo?"),
         "K3": prima + tr("La testa andrà a casa e poi si sposterà verso destra di 50 e di 100 mm e tornerà, a 10 e a "
                          "30 mm/s, a laser spento. Servono 10 cm liberi a destra di casa. Procedo?"),
+        "K4": prima + tr("La testa andrà a casa e poi si sposterà verso destra di 50 e di 100 mm e tornerà, a 30 mm/s, "
+                         "a laser spento. Servono 10 cm liberi a destra di casa. Procedo?"),
+        "K*": prima + tr("Farò una dopo l'altra tutte le prove della K40 (circa due minuti). La testa andrà a casa e "
+                         "si sposterà verso destra fino a 10 cm e tornerà, a laser spento. Servono 10 cm liberi a "
+                         "destra di casa. Puoi fermare tutto con «Ferma». Procedo?"),
         "R3": prima + tr("La testa si sposterà di 10 mm lungo X e tornerà dov'era, senza luce e a laser spento. "
                          "Procedo?"),
     }[codice]
@@ -142,6 +155,14 @@ class StudioDialog(QDialog):
         self.k40_label.setPlaceholderText(tr("come è scritto sulla scheda, per esempio 6C6879-LASER-M2:9"))
         f.addRow(tr("Scritta sulla scheda:"), self.k40_label)
         v.addLayout(f)
+        h = QHBoxLayout()
+        self.b_tutte = QPushButton(tr("Fai tutte le prove della K40"))
+        self.b_tutte.setToolTip(tr("K0, K1, K2, K3 e K4 una dopo l'altra, con un solo consenso (circa due minuti). "
+                                   "Alla fine trovi nel registro qui sotto i risultati spiegati."))
+        self.b_tutte.clicked.connect(lambda: self.run("K*"))
+        h.addWidget(self.b_tutte)
+        h.addStretch(1)
+        v.addLayout(h)
         g = QGridLayout()
         self._rows(g, prove_k40())
         v.addLayout(g)
@@ -210,7 +231,7 @@ class StudioDialog(QDialog):
         """Fa una prova. -> False se non è partita (già in corso, consenso negato, dati mancanti)."""
         if self.busy():
             return False
-        if code in lihuiyu.MUOVE | ruida.MUOVE:
+        if code in lihuiyu.MUOVE | ruida.MUOVE | {"K*"}:
             if QMessageBox.question(self, tr("Studia la macchina"), consenso_testo(code)) != QMessageBox.Yes:
                 self._log(tr("{0}: non fatta (nessun consenso).", code))
                 return False
@@ -221,7 +242,7 @@ class StudioDialog(QDialog):
             return False
         self._stop.clear()
         self._set_running(code, True)
-        self._log(tr("{0}: comincio.", code))
+        self._log(tr("Tutte le prove della K40: comincio.") if code == "K*" else tr("{0}: comincio.", code))
         if sync:
             self._work(code, job)
             return True
@@ -238,12 +259,30 @@ class StudioDialog(QDialog):
             if code == "K0":
                 return lambda: lihuiyu.prova_k0(d, self.k40_run)
             links = self.k40_links()
-            if code == "K1":
-                return lambda: lihuiyu.prova_k1(d, links)
-            if code == "K2":
-                return lambda: lihuiyu.prova_k2(d, links, stop)
             scheda = self.scheda_k40()
-            return lambda: lihuiyu.prova_k3(d, links, scheda, stop)
+            def fidati():  # K2 fatta in questo diario ha detto che «pronta» arriva quando la testa è a casa
+                r = next((x for x in reversed(d.righe) if x.get("prova") == "K2"), {})
+                return r.get("verdetto") == "pronta_dopo_arrivo"
+
+            uno = {"K1": lambda: lihuiyu.prova_k1(d, links),
+                   "K2": lambda: lihuiyu.prova_k2(d, links, stop, scheda),
+                   "K3": lambda: lihuiyu.prova_k3(d, links, scheda, stop, fidati_di_pronta=fidati()),
+                   "K4": lambda: lihuiyu.prova_k4(d, links, scheda, stop, fidati_di_pronta=fidati())}
+            if code != "K*":
+                return uno[code]
+            self._da_riga = len(d.righe)  # i risultati di questo giro, non quelli di prima
+
+            def tutte():  # 0.22.5: una dopo l'altra; si ferma alla prima che non trova la scheda o se premi Ferma
+                lihuiyu.prova_k0(d, self.k40_run)
+                for c in TUTTE_K40[1:]:
+                    if stop():
+                        raise InterruptedError
+                    self._ponte_riga(tr("{0}: comincio.", c))
+                    uno[c]()
+                    r = next((x for x in reversed(d.righe) if x.get("prova") == c), {})
+                    if r.get("esito") not in ESITI_OK:
+                        break
+            return tutte
         link = self.ruida_link()
         d = self.diario("ruida")
         d.scrivi("scelte", collegamento=link.nome, pannello=studio.pulisci_etichetta(self.ruida_model.text()),
@@ -277,7 +316,8 @@ class StudioDialog(QDialog):
             if macchina in self.diari:
                 self.diari[macchina].risultato(code, "errore", errore=exc)
         d = self.diari.get("k40" if code.startswith("K") else "ruida")
-        last = next((r for r in reversed(d.righe) if r.get("prova") == code), None) if d else None
+        cerca = TUTTE_K40[-1] if code == "K*" else code
+        last = next((r for r in reversed(d.righe) if r.get("prova") == cerca), None) if d else None
         esito = (last or {}).get("esito", "errore")
         if threading.current_thread() is threading.main_thread():
             self._finita(code, esito, exc)
@@ -287,7 +327,18 @@ class StudioDialog(QDialog):
             except RuntimeError:  # finestra già chiusa: il risultato è comunque nel diario
                 pass
 
+    def _ponte_riga(self, testo):
+        if threading.current_thread() is threading.main_thread():
+            self._log(testo)
+        else:
+            try:
+                self._ponte.riga.emit(testo)
+            except RuntimeError:
+                pass
+
     def _finita(self, code, esito, exc):
+        if code == "K*":
+            return self._finite_tutte(exc)
         self._set_running(code, False)
         st, _b = self.rows[code]
         if exc == "fermata":
@@ -299,7 +350,31 @@ class StudioDialog(QDialog):
         else:
             st.setText("✗ " + tr("non riuscita"))
             self._log(tr("{0}: non riuscita ({1}). Il risultato è salvato comunque: anche questo serve.", code,
-                         exc or esito))
+                         exc or esito) + self._riassunto(code))
+        self._thread = None
+
+    def _finite_tutte(self, exc):
+        """Dopo «Fai tutte le prove»: ogni riga col suo stato e, nel registro, i risultati spiegati in parole."""
+        self._set_running("K*", False)
+        d = self.diari.get("k40")
+        righe = d.righe[getattr(self, "_da_riga", 0):] if d else []
+        spiegati = []
+        for c in TUTTE_K40:
+            st, _b = self.rows[c]
+            r = next((x for x in reversed(righe) if x.get("prova") == c), None)
+            if r is None:
+                st.setText(tr("fermata") if exc == "fermata" else tr("non fatta"))
+                continue
+            ok = r.get("esito") in ESITI_OK
+            st.setText(("✓ " + tr("fatta")) if ok else ("✗ " + tr("non riuscita")))
+            spiegati.append(f"{c}: " + (tr("fatta.") if ok else tr("non riuscita ({0}).", r.get("esito", ""))) +
+                            self._riassunto(c))
+        if exc == "fermata":
+            spiegati.append(tr("Prove fermate."))
+        elif exc:
+            spiegati.append(tr("Errore: {0}", exc))
+        self._log(tr("Risultati:") + "\n" + "\n".join(spiegati) + "\n" +
+                  tr("Ora premi «Invia un rapporto all'assistenza»: dentro ci sono tutti i dati."))
         self._thread = None
 
     def _riassunto(self, code):
@@ -309,9 +384,41 @@ class StudioDialog(QDialog):
             return " " + tr("Scheda trovata.") if r.get("trovata") else ""
         if code == "K1" and r.get("nomi"):
             return " " + tr("Stato: {0}.", ", ".join(r["nomi"]))
+        if code == "K2" and r.get("verdetto") == "pronta_dopo_arrivo":
+            return " " + tr("La scheda dice «pronta» quando la testa è arrivata a casa (da 10 cm: {0} s in più).",
+                            str(r.get("differenza_s", "")).replace(".", ","))
+        if code == "K2" and r.get("verdetto") == "pronta_subito":
+            return " " + tr("La scheda dice «pronta» subito, anche se la testa è ancora per strada: FreeLaserCut "
+                            "dovrà aspettare un tempo fisso dopo il ritorno a casa.")
         if code == "K3" and r.get("velocita_vera"):
-            return " " + tr("Velocità misurate: {0}.", ", ".join(
+            testo = " " + tr("Velocità misurate: {0}.", ", ".join(
                 f"{k} → {v} mm/s" for k, v in r["velocita_vera"].items()))
+            if r.get("rapporto"):
+                medio = sum(r["rapporto"].values()) / len(r["rapporto"])
+                testo += " " + tr("La testa va al {0} % della velocità chiesta.", f"{medio * 100:.0f}")
+            return testo
+        if code == "K4" and r.get("verdetto"):
+            giri = str(r.get("giri", "")).replace(".", ",")
+            return " " + {
+                "solo_inizio_fine": tr("Il giro a fine corsa c'è solo all'inizio e alla fine del lavoro (giri contati: "
+                                       "{0}). Bene: nei tagli veri non sposta il pezzo.", giri),
+                "a_ogni_corsa": tr("Il giro a fine corsa c'è a ogni cambio di verso anche dentro un solo lavoro (giri "
+                                   "contati: {0}). Va studiato prima di tagliare.", giri),
+                "non_chiaro": tr("Dai tempi non si capisce se il giro c'è solo all'inizio e alla fine (giri contati: "
+                                 "{0}). Conviene rifare la prova.", giri),
+            }.get(r["verdetto"], "")
+        if code.startswith("K") and r.get("motivo"):
+            testo = {
+                "libusb_senza_pyusb": tr("La scheda c'è e ha il driver libusb-win32 (quello che si installa con "
+                                         "Zadig), ma per parlarle FreeLaserCut ha bisogno della libreria pyusb, che "
+                                         "su questo computer manca. Nessun comando è partito."),
+                "nessun_driver": tr("La scheda c'è, ma non ha un driver con cui FreeLaserCut sappia parlarle. "
+                                    "Nessun comando è partito."),
+                "senza_pyusb": tr("Su questo sistema per parlare con la scheda serve la libreria pyusb, che manca. "
+                                  "Nessun comando è partito."),
+                "non_vista": tr("La scheda non si vede: è accesa e collegata con il cavo USB?"),
+            }.get(r["motivo"], "")
+            return (" " + testo) if testo else ""
         if code == "R1" and r.get("chiave"):
             return " " + tr("Chiave: {0}.", r["chiave"])
         if code == "R2" and r.get("letti"):
@@ -320,10 +427,12 @@ class StudioDialog(QDialog):
 
     def _set_running(self, code, on):
         self.b_stop.setEnabled(on)
+        self.b_tutte.setEnabled(not on)
         for c, (st, b) in self.rows.items():
             b.setEnabled(not on)
         if on:
-            self.rows[code][0].setText(tr("in corso…"))
+            for c in (TUTTE_K40 if code == "K*" else (code,)):
+                self.rows[c][0].setText(tr("in corso…"))
 
     def ferma(self):
         self._stop.set()

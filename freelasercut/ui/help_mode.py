@@ -99,6 +99,10 @@ class HelpMode(QObject):
 
     # ------------------------------------------------------------------ eventi
     def eventFilter(self, obj, ev):
+        if not isinstance(ev, QEvent):
+            # 0.22.5: con PySide6 6.9 (pacchetto per macOS 13 Ventura) ogni tanto un evento arriva qui con il tipo
+            # sbagliato (per esempio come QStandardItem): chiedergli ev.type() faceva chiudere il programma
+            return False
         t = ev.type()
         if t == QEvent.KeyPress:
             if ev.key() == Qt.Key_F1 and ev.modifiers() & Qt.ShiftModifier:

@@ -60,13 +60,22 @@ def _mil(text):
 
 class LihuiyuFinta:
     """Collegamento finto verso una M2 Nano. fattore: velocità vera / velocità chiesta; extra: secondi di rincorsa
-    per ogni spostamento."""
+    per ogni spostamento.
+    0.22.5: casa_finito=False fa come la M2 Nano vera (dopo «IPP» torna «pronta», non «lavoro finito»); casa_v (mm/s)
+    fa durare il ritorno a casa secondo la distanza; casa_subito dice «pronta» dopo 0,5 s anche se la testa è lontana;
+    giro_per_corsa mette il giro di rincorsa a ogni corsa anche dentro un solo lavoro (se no una volta per lavoro);
+    occupata_in_moto=False fa come la M2 vera nei rapporti: mentre la testa si muove lo stato è «pronta» e i comandi
+    che arrivano si mettono in coda."""
 
     nome = "scheda finta"
     BASI_M = (60416.0, 60416.0, 59904.0, 59392.0)
 
     def __init__(self, orologio, fattore=0.92, extra=0.35, crc_sbagliati=0, muta=False, sempre_occupata=False,
-                 non_si_apre=False):
+                 non_si_apre=False, casa_finito=True, casa_v=None, casa_subito=False, giro_per_corsa=False,
+                 occupata_in_moto=True):
+        self.casa_finito, self.casa_v, self.casa_subito = casa_finito, casa_v, casa_subito
+        self.occupata_in_moto = occupata_in_moto  # False: come la M2 vera, «pronta» mentre si muove e prende altri comandi
+        self.giro_per_corsa = giro_per_corsa
         self.clock = orologio
         self.fattore, self.extra = fattore, extra
         self.crc_sbagliati = crc_sbagliati
@@ -122,14 +131,35 @@ class LihuiyuFinta:
             m = re.match(r"IPP", s)
             if m:
                 self.comandi.append(("casa",))
+                lontano_mm = abs(self.x_mil) * 25.4 / 1000.0
+                if self.casa_subito or self.casa_v is None:
+                    durata = 0.5 if self.casa_subito else 1.2
+                else:
+                    durata = 0.4 + lontano_mm / self.casa_v
                 self.x_mil = 0
-                self.occupata_fino = self.clock() + 1.2
+                self.occupata_fino = self.clock() + durata
                 self.flusso = s[m.end():]
                 continue
             m = re.match(r"I([LRBT][a-z|0-9]+)+S1P", s)
             if m:
                 self.comandi.append(("veloce", m.group(0)))
                 self.occupata_fino = self.clock() + 0.5
+                self.flusso = s[m.end():]
+                continue
+            m = re.match(r"ICV(\d{3})(\d{3})(\d)(\d{3})?(\d{6})?C?NBRS1E((?:[BT][a-z|0-9]+){2,})FNSE-", s)
+            if m:  # 0.22.5: più corse in un solo lavoro
+                val = int(m.group(1)) * 256 + int(m.group(2))
+                g = int(m.group(3))
+                v = 25.4 / ((val - self.BASI_M[g - 1]) / -12120.0)
+                corse = re.findall(r"([BT])([a-z|0-9]+)", m.group(6))
+                tot = 0.0
+                for verso, dist in corse:
+                    mil = _mil(dist)
+                    self.x_mil += mil if verso == "B" else -mil
+                    tot += mil * 25.4 / 1000.0
+                self.comandi.append(("lavoro", round(v, 3), [(verso, round(_mil(dd) * 0.0254, 3)) for verso, dd in corse]))
+                giri = len(corse) if self.giro_per_corsa else 1
+                self.occupata_fino = self._dopo() + tot / (v * self.fattore) + self.extra * giri
                 self.flusso = s[m.end():]
                 continue
             m = re.match(r"ICV(\d{3})(\d{3})(\d)(\d{3})?(\d{6})?C?NBRS1E([BT])([a-z|0-9]+?)FNSE-", s)
@@ -142,7 +172,7 @@ class LihuiyuFinta:
                 mm = mil * 25.4 / 1000.0
                 self.x_mil += mil if m.group(6) == "B" else -mil
                 self.comandi.append(("velocita", round(v, 3), round(mm, 3), m.group(6)))
-                self.occupata_fino = self.clock() + mm / (v * self.fattore) + self.extra
+                self.occupata_fino = self._dopo() + mm / (v * self.fattore) + self.extra
                 self.flusso = s[m.end():]
                 continue
             if re.fullmatch(r"I", s.rstrip("F")):
@@ -152,14 +182,20 @@ class LihuiyuFinta:
             break
         self.flusso = self.flusso if self.flusso.strip("F") else ""
 
+    def _dopo(self):
+        """Quando comincia il comando appena arrivato: subito, o in coda dopo quello in corso."""
+        return max(self.clock(), self.occupata_fino)
+
     def stato(self):
         if self.muta:
             return b"", {"lettura": ""}
         if self.ultimo == 207:
             s = 207
         elif self.sempre_occupata or self.clock() < self.occupata_fino:
-            s = 238
-        elif self.comandi and self.comandi[-1][0] in ("velocita", "casa") and not self.flusso:
+            s = 238 if self.occupata_in_moto or (self.comandi and self.comandi[-1][0] == "casa") else 206
+        elif self.comandi and self.comandi[-1][0] in ("velocita", "lavoro") and not self.flusso:
+            s = 236
+        elif self.comandi and self.comandi[-1][0] == "casa" and self.casa_finito and not self.flusso:
             s = 236
         else:
             s = 206

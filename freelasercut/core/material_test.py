@@ -43,6 +43,116 @@ class TestSpec:
     border_speed: float = 600.0
     title: str = ""
     markers: bool = False  # quattro riferimenti agli angoli per leggere la foto del test (solo riempimento)
+    content: object = None  # 0.22.5: CellContent (forma o pezzo di foto in ogni quadrato); None = quadrati pieni
+
+
+@dataclass
+class CellContent:
+    """0.22.5 (richiesta di Stefano Modena): in ogni quadrato del test, al posto del quadrato pieno, la forma scelta o
+    un pezzo della foto, rimpicciolito per entrare nel quadrato. Per le foto: si sceglie la zona con più grigi, così un
+    solo test dice quali potenza e velocità rendono meglio proprio quella foto.
+
+    kind «shape»: polys = poligoni sul piano (mm), come sono disegnati; si riempiono (Riempimento) o si seguono (Linea).
+    kind «image»: image = pezzo della foto (PIL), w × h in mm locali; lin = parte lineare della trasformazione della
+    foto (m11, m12, m21, m22: rotazione e specchio restano), brightness/contrast/gamma della foto; cs = impostazioni
+    del suo livello (risoluzione, retino, negativo…): del test cambiano solo potenza, velocità e passate."""
+    kind: str = "shape"
+    polys: list = None
+    image: object = None
+    w: float = 0.0
+    h: float = 0.0
+    lin: tuple = (1.0, 0.0, 0.0, 1.0)
+    brightness: float = 0.0
+    contrast: float = 0.0
+    gamma: float = 1.0
+    cs: object = None
+
+
+def best_gray_region(dark, frac=0.35, n=12):
+    """La zona quadrata (lato = frac del lato corto) con più toni di grigio diversi. dark: scuro 0..1 (righe dall'alto).
+    -> (x0, y0, x1, y1) in frazioni della foto, origine in alto a sinistra. Punteggio: quanti dei 16 toni ci sono e
+    quanto sono distribuiti (entropia), più lo scarto: un cielo uniforme o un nero pieno non vincono mai."""
+    import numpy as np
+
+    a = np.asarray(dark, dtype=np.float32)
+    if a.ndim != 2 or a.size == 0:
+        return (0.0, 0.0, 1.0, 1.0)
+    H, W = a.shape
+    k = max(1, int(max(H, W) / 240))
+    if k > 1:
+        a = a[: H - H % k or H, : W - W % k or W]
+        a = a.reshape(a.shape[0] // k, k, a.shape[1] // k, k).mean(axis=(1, 3))
+    h, w = a.shape
+    side = max(2, int(round(min(h, w) * min(max(frac, 0.05), 1.0))))
+    q = np.clip((a * 16).astype(np.int32), 0, 15)
+    best, out = -1.0, (0, 0)
+    ys = sorted({int(round(i * (h - side) / max(n - 1, 1))) for i in range(n)}) if h > side else [0]
+    xs = sorted({int(round(i * (w - side) / max(n - 1, 1))) for i in range(n)}) if w > side else [0]
+    for y in ys:
+        for x in xs:
+            win = q[y:y + side, x:x + side]
+            hist = np.bincount(win.ravel(), minlength=16).astype(np.float64)
+            pr = hist / max(hist.sum(), 1.0)
+            ent = -float(np.sum(pr[pr > 0] * np.log2(pr[pr > 0])))  # 0..4
+            score = ent + 2.0 * float(a[y:y + side, x:x + side].std())
+            if score > best + 1e-9:
+                best, out = score, (x, y)
+    x, y = out
+    return (x / w, y / h, min(1.0, (x + side) / w), min(1.0, (y + side) / h))
+
+
+def _fit(rect, cx, cy, size):
+    """QTransform che porta il rettangolo rect (piano) dentro il quadrato (cx, cy, lato size), centrato, senza
+    deformarlo, con un margine piccolo (si vede dove finisce un quadrato e comincia l'altro)."""
+    room = size * 0.96
+    k = room / max(rect.width(), rect.height(), 1e-9)
+    tx = cx + (size - rect.width() * k) / 2 - rect.left() * k
+    ty = cy + (size - rect.height() * k) / 2 - rect.top() * k
+    return QTransform(k, 0.0, 0.0, k, tx, ty)
+
+
+def _cell_shape_polys(content, x, y, size):
+    from PySide6.QtCore import QPointF
+
+    pts = [pt for p in content.polys for pt in p.pts]
+    xs, ys = [pt[0] for pt in pts], [pt[1] for pt in pts]
+    r = QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+    tf = _fit(r, x, y, size)
+    out = []
+    for p in content.polys:
+        q = [tf.map(QPointF(px, py)) for px, py in p.pts]
+        out.append(geom.Poly([(v.x(), v.y()) for v in q], p.closed))
+    return out
+
+
+def _cell_image(content, x, y, size):
+    """(leaf, tf) della foto rimpicciolita dentro il quadrato, orientata come sul piano."""
+    from .document import ImageShape
+
+    leaf = ImageShape(None, content.w, content.h)
+    leaf._doc_image = content.image
+    leaf.brightness, leaf.contrast, leaf.gamma = content.brightness, content.contrast, content.gamma
+    m11, m12, m21, m22 = content.lin
+    lin = QTransform(m11, m12, m21, m22, 0.0, 0.0)
+    r = lin.map(leaf.photo_path()).boundingRect()
+    return leaf, lin * _fit(r, x, y, size)
+
+
+def content_ok(content):
+    """La forma o la foto scelta si può usare? -> testo dell'errore, o "" se va bene."""
+    if content is None:
+        return ""
+    if content.kind == "image":
+        if content.image is None or content.w <= 0 or content.h <= 0:
+            return tr("Foto non disponibile: selezionala di nuovo sul piano")
+        return ""
+    pts = [pt for p in (content.polys or []) for pt in p.pts]
+    if len(pts) < 2:
+        return tr("Forma vuota: selezionala di nuovo sul piano")
+    xs, ys = [pt[0] for pt in pts], [pt[1] for pt in pts]
+    if max(xs) - min(xs) < 1e-6 and max(ys) - min(ys) < 1e-6:
+        return tr("Forma troppo piccola")
+    return ""
 
 
 MARK = 8.0  # lato di un riferimento (mm): 6 × 6 quadretti
@@ -65,7 +175,7 @@ def layout(spec: TestSpec):
     pitch = spec.cell + spec.gap
     W = lab + spec.cols * pitch - spec.gap
     H = lab + spec.rows * pitch - spec.gap + (7.0 if spec.title else 0.0)
-    use_marks = bool(spec.markers) and spec.mode == "fill"
+    use_marks = bool(spec.markers) and spec.mode == "fill" and spec.content is None
     if use_marks:
         x0c = spec.x0 + MARK + MARK_GAP + 3.0
         y0c = spec.y0 + MARK + MARK_GAP + 4.0
@@ -163,16 +273,38 @@ def build(spec: TestSpec, profile):
             cells.append((p / max(s, 1.0), p, s, x, y))
     cells.sort()  # dal più leggero al più pesante: un problema si vede subito, sui primi quadrati
     cut0 = w.cut
+    content = spec.content
+    err = content_ok(content)
+    if err:
+        job.warnings.append(err)
+        content = None
     for _, p, s, x, y in cells:
         cs = CutSettings(mode=spec.mode, speed=s, power_max=p, interval=spec.interval, overscan=2.0, bidirectional=True)
-        poly = geom.Poly([(x, y), (x + spec.cell, y), (x + spec.cell, y + spec.cell), (x, y + spec.cell)], True)
+        if content is not None and content.kind == "image":
+            # 0.22.5: pezzo della foto con le impostazioni del suo livello; del test solo potenza, velocità e passate
+            from .gcode import _image_lines
+
+            base = content.cs or CutSettings(mode="image")
+            ratio = (base.power_min / base.power_max) if base.power_max > 0 else 0.0
+            ci = replace(base, mode="image", speed=s, power_max=p, power_min=min(p, p * ratio), passes=1)
+            leaf, tf = _cell_image(content, x, y, spec.cell)
+            lines, rot, first = _image_lines(leaf, tf, ci, 64, bed)
+            for _ in range(max(1, spec.passes)):
+                _emit_scan(w, lines, rot, ci, bed, 6.0, first_forward=first, scan_fix=rot == (1.0, 0.0))
+            continue
+        if content is not None:
+            polys = _cell_shape_polys(content, x, y, spec.cell)
+        else:
+            polys = [geom.Poly([(x, y), (x + spec.cell, y), (x + spec.cell, y + spec.cell), (x, y + spec.cell)], True)]
         for _ in range(max(1, spec.passes)):
             if spec.mode == "line":
-                _emit_polys(w, [poly], cs)
+                _emit_polys(w, polys, cs)
             else:
-                lines, rot = _scanlines([poly], spec.interval, 0.0)
-                _emit_scan(w, [(yy, [(a, b, p) for a, b in segs]) for yy, segs in lines], rot, cs, bed, 6.0)
-    job.layers.append(LayerStats(0, "celle", spec.mode, len(cells), w.cut - cut0, 0))
+                lines, rot = _scanlines(polys, spec.interval, 0.0)
+                if lines:  # una forma solo aperta (una linea) non ha niente da riempire
+                    _emit_scan(w, [(yy, [(a, b, p) for a, b in segs]) for yy, segs in lines], rot, cs, bed, 6.0)
+    kind = spec.mode if content is None or content.kind != "image" else "image"
+    job.layers.append(LayerStats(0, "celle", kind, len(cells), w.cut - cut0, 0))
     if spec.labels:
         lc = CutSettings(mode="line", speed=spec.label_speed, power_max=spec.label_power)
         polys = []

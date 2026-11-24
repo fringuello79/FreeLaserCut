@@ -11,7 +11,7 @@ scheda). La scheda riceve pacchetti di 32 byte: 0x00, 30 byte di comandi (riempi
 Linguaggio: lettere maiuscole per le direzioni (B destra, T sinistra, L su, R giù, M diagonale), distanze in millesimi
 di pollice scritte con lettere minuscole e cifre, codici di velocità che cominciano con «CV» o «V».
 Lo studio manda solo: IPP (vai a casa), I (interrompi), lo spostamento veloce «I … S1P» e lo spostamento a velocità
-nota «I CV… NBRS1E … FNSE-». Il comando che accende il laser («D») non esiste in questo file, e controlla() rifiuta
+nota «I CV… NBRS1E … FNSE-» (anche con più corse dentro, 0.22.5). Il comando che accende il laser («D») non esiste in questo file, e controlla() rifiuta
 qualsiasi lettera che non sia nell'elenco.
 
 Su Windows la scheda si usa dal driver che installa il programma originale della macchina (niente da installare);
@@ -192,6 +192,18 @@ def cmd_a_velocita(scheda, v, dx_mm):
     return controlla(out)
 
 
+def cmd_lavoro_unico(scheda, v, corse_mm):
+    """0.22.5: più spostamenti orizzontali dentro un solo lavoro (una sola entrata nel modo compatto e una sola uscita),
+    a laser spento. corse_mm: per esempio (50, -50, 100, -100); > 0 verso destra."""
+    corse = [round(c * MIL_PER_MM) for c in corse_mm]
+    if not corse or any(c == 0 for c in corse):
+        raise ValueError("spostamento nullo")
+    out = b"I" + codice_velocita(scheda, v).encode() + b"NBRS1E"
+    for c in corse:
+        out += (b"B" if c > 0 else b"T") + distanza(abs(c)).encode()
+    return controlla(out + b"FNSE-")
+
+
 def nome_stato(s):
     return NOMI_STATO.get(s, f"sconosciuto ({s})")
 
@@ -212,7 +224,32 @@ def trova(run=None):
         out["errore"] = f"{type(ex).__name__}: {ex}"
     devs = out.get("dispositivi") or []
     out["trovata"] = bool(out.get("driver_originale")) or any(d.get("pid") == "5512" for d in devs)
+    # 0.22.5: su Windows la scheda può avere il driver «libusb-win32» (quello che si installa con Zadig per usarla con
+    # altri programmi liberi) invece di quello del programma originale: si parla con lei con pyusb (rapporto del 23/11)
+    out["driver_libusb"] = any(d.get("pid") == "5512" and "libusb" in str(d.get("classe", "")).lower() for d in devs)
     return out
+
+
+MOTIVI = {
+    "libusb_senza_pyusb": "scheda vista con il driver libusb-win32, ma su questo computer manca la libreria pyusb",
+    "nessun_driver": "scheda vista ma senza un driver con cui parlarle (né quello del programma originale né libusb)",
+    "senza_pyusb": "su questo sistema per parlare con la scheda serve la libreria pyusb, che manca",
+    "non_vista": "scheda non vista: è accesa e collegata con il cavo USB?",
+}
+
+
+def perche_nessun_collegamento(visto=None):
+    """Quando non c'è nessun modo di parlare con la scheda: il motivo (codice di MOTIVI). `visto` è il risultato di
+    trova(), se c'è già."""
+    v = visto if visto is not None else trova()
+    pid_ok = v.get("trovata")
+    if sys.platform.startswith("win"):
+        if v.get("driver_libusb") and not v.get("pyusb"):
+            return "libusb_senza_pyusb"
+        return "nessun_driver" if pid_ok else "non_vista"
+    if not v.get("pyusb"):
+        return "senza_pyusb"
+    return "non_vista" if not pid_ok else "nessun_driver"
 
 
 def _pyusb_ok():
@@ -460,7 +497,11 @@ class LibUsb:
         import usb.core
 
         if self.dev is None:
-            self.dev = usb.core.find(idVendor=VID, idProduct=PID)
+            try:
+                self.dev = usb.core.find(idVendor=VID, idProduct=PID)
+            except usb.core.NoBackendError:
+                raise OSError("pyusb c'è, ma manca la libreria libusb del sistema (su Windows libusb0.dll, che "
+                              "installa il driver libusb-win32)") from None
         if self.dev is None:
             raise OSError("scheda non trovata con libusb")
         if sys.platform.startswith("linux"):
@@ -569,10 +610,35 @@ class Scheda:
             self.attesa(0.02)
         return None, visti
 
+    def aspetta_casa(self, massimo, ferma=None, stabile=1.0):
+        """0.22.5: fine del ritorno a casa. La M2 Nano vera dopo «IPP» non manda «lavoro finito»: torna solo «pronta»
+        (rapporti FLC-20261123-1937-1187 e -2036-E7DF), e aspettare «finito» faceva perdere 25 s. Fine = «finito», oppure
+        «pronta» ferma per `stabile` secondi dopo «occupata» (o dopo 2 s, se «occupata» non si è vista).
+        -> (secondi al primo «pronta» rimasto fermo, sequenza degli stati, come è finita)"""
+        t0 = self.orologio()
+        visti, ultimo, t_pronta, occupata = [], None, None, False
+        while self.orologio() - t0 < massimo:
+            if ferma is not None and ferma():
+                raise InterruptedError
+            s, _d = self.stato()
+            ora = self.orologio() - t0
+            if s != ultimo:
+                visti.append((round(ora, 3), s))
+                ultimo = s
+                t_pronta = ora if s == OK else None
+            if s == OCCUPATA:
+                occupata = True
+            if s in (FINITO, FINITO_M3):
+                return ora, visti, "finito"
+            if s == OK and t_pronta is not None and ora - t_pronta >= stabile and (occupata or ora >= 2.0):
+                return t_pronta, visti, "pronta" if occupata else "pronta senza occupata"
+            self.attesa(0.02)
+        return None, visti, "tempo scaduto"
+
 
 # ---------------------------------------------------------------- le prove
-PROVE = ("K0", "K1", "K2", "K3")
-MUOVE = {"K2", "K3"}  # queste chiedono il consenso
+PROVE = ("K0", "K1", "K2", "K3", "K4")
+MUOVE = {"K2", "K3", "K4"}  # queste chiedono il consenso
 VELOCITA_PROVA = (10.0, 30.0)
 DISTANZE_PROVA = (50.0, 100.0)
 
@@ -583,7 +649,7 @@ def prova_k0(diario, run=None):
     return dati
 
 
-def _apri(links, diario, prova):
+def _apri(links, diario, prova, visto=None):
     errori = []
     for link in links:
         sch = Scheda(link)
@@ -597,7 +663,15 @@ def _apri(links, diario, prova):
                 link.chiudi()
             except Exception:  # noqa: BLE001
                 pass
-    diario.risultato(prova, "non collegata", errori=errori, collegamenti=[link.nome for link in links])
+    extra = {}
+    if not links:
+        try:
+            m = perche_nessun_collegamento(visto)
+        except Exception as ex:  # noqa: BLE001
+            m, extra["errore_ricerca"] = "", f"{type(ex).__name__}: {ex}"
+        extra["motivo"] = m
+        extra["motivo_testo"] = MOTIVI.get(m, "")
+    diario.risultato(prova, "non collegata", errori=errori, collegamenti=[link.nome for link in links], **extra)
     return None, {"errori": errori}
 
 
@@ -624,34 +698,85 @@ def prova_k1(diario, links, secondi=2.0):
         sch.chiudi()
 
 
-def prova_k2(diario, links, ferma=None):
-    """Va a casa (IPP) e registra gli stati nel tempo."""
+CASA_SICURA_S = 8.0  # K3, K4: attesa minima dopo «vai a casa» quando non si sa se «pronta» vuol dire «arrivata»
+
+
+def _a_casa(sch, ferma=None, fidati=False):
+    """Casa prima di una misura (K3, K4). La M2 vera a testa ferma a casa dice «pronta» dopo mezzo secondo; non
+    sappiamo ancora se, partendo da lontano, lo dice solo all'arrivo (è quello che misura K2). Finché non si sa, se
+    «pronta» arriva presto si aspettano comunque CASA_SICURA_S secondi dall'invio: una corsa partita mentre la testa
+    sta ancora tornando falserebbe i tempi. fidati=True (K2 appena fatta ha detto «pronta dopo l'arrivo»): niente
+    attesa in più."""
+    t0 = sch.orologio()
+    sch.manda(cmd_casa())
+    sec, visti, come = sch.aspetta_casa(25, ferma)
+    if not fidati and come != "finito":
+        while sch.orologio() - t0 < CASA_SICURA_S:
+            if ferma is not None and ferma():
+                raise InterruptedError
+            sch.attesa(0.05)
+    sch.attesa(0.5)
+    return sec, visti, come
+
+
+LONTANO_MM = 100.0  # K2: da quanto lontano si torna a casa la seconda volta
+SOGLIA_ARRIVO_S = 0.5  # K2: se da lontano «pronta» arriva almeno questo dopo che da vicino, aspetta l'arrivo
+
+
+def prova_k2(diario, links, ferma=None, scheda="M2", lontano_mm=LONTANO_MM):
+    """Ritorno a casa (0.22.5): tre volte. La prima porta la testa a casa da dove si trova; la seconda parte da casa
+    (tempo «da vicino»); poi la testa va 100 mm a destra a 30 mm/s e torna a casa (tempo «da lontano»). Se da lontano
+    «pronta» arriva più tardi, la scheda dice «pronta» quando la testa è arrivata; se arriva subito, lo dice prima e il
+    programma dovrà aspettare. Laser spento."""
     sch, info = _apri(links, diario, "K2")
     if sch is None:
         return None
+    tempi, visti_tutti = {}, {}
     try:
-        sch.manda(cmd_casa())
         try:
-            sec, visti = sch.aspetta_fine(25, ferma)
+            for nome in ("prima", "vicino", "lontano"):
+                if nome == "lontano":
+                    sch.manda(cmd_a_velocita(scheda, 30.0, lontano_mm))
+                    sch.aspetta_fine(3 * lontano_mm / 30.0 + 15, ferma)
+                    sch.attesa(0.3)
+                sch.manda(cmd_casa())
+                sec, visti, come = sch.aspetta_casa(30, ferma)
+                tempi[nome] = None if sec is None else round(sec, 3)
+                visti_tutti[nome] = {"stati_nel_tempo": visti[:60], "fine": come}
+                if sec is None:
+                    break
+                sch.attesa(0.3)
         except InterruptedError:
             _interrompi(sch)
-            diario.risultato("K2", "fermata", **info)
+            diario.risultato("K2", "fermata", **info, tempi=tempi, casa=visti_tutti)
             raise
-        if sec is None:  # dopo il ritorno a casa alcune schede tornano solo «pronta»
-            esito = "fatto (senza «finito»)" if visti and visti[-1][1] == OK else "nessuna fine vista"
-        else:
+        esito, verdetto, extra = "nessuna fine vista", "", {}
+        if tempi.get("vicino") is not None and tempi.get("lontano") is not None:
             esito = "ok"
-        diario.risultato("K2", esito, **info, secondi=sec, stati_nel_tempo=visti[:60], errori_crc=sch.errori_crc)
-        return sec, visti
+            diff = tempi["lontano"] - tempi["vicino"]
+            extra["differenza_s"] = round(diff, 3)
+            if diff >= SOGLIA_ARRIVO_S:
+                verdetto = "pronta_dopo_arrivo"
+                extra["velocita_ritorno_circa"] = round(lontano_mm / diff, 1)  # mm/s, con le rampe dentro
+            else:
+                verdetto = "pronta_subito"
+        fine = (visti_tutti.get("lontano") or visti_tutti.get("prima") or {}).get("fine", "")
+        diario.risultato("K2", esito, **info, tempi=tempi, casa=visti_tutti, verdetto=verdetto, fine=fine,
+                         lontano_mm=lontano_mm, errori_crc=sch.errori_crc, **extra)
+        ultimi = (visti_tutti.get("lontano") or visti_tutti.get("prima") or {}).get("stati_nel_tempo", [])
+        return tempi.get("lontano"), ultimi
+    except InterruptedError:  # è un OSError: già scritto «fermata», va solo passato su
+        raise
     except OSError as ex:
         diario.risultato("K2", "errore di collegamento", **info, errore=f"{type(ex).__name__}: {ex}",
-                         errori_crc=sch.errori_crc)
+                         tempi=tempi, errori_crc=sch.errori_crc)
         return None
     finally:
         sch.chiudi()
 
 
-def prova_k3(diario, links, scheda, ferma=None, velocita=VELOCITA_PROVA, distanze=DISTANZE_PROVA, casa=True):
+def prova_k3(diario, links, scheda, ferma=None, velocita=VELOCITA_PROVA, distanze=DISTANZE_PROVA, casa=True,
+             fidati_di_pronta=False):
     """Velocità vera: da casa, andata e ritorno a laser spento a velocità note, cronometrando fino a «finito».
     Con due distanze alla stessa velocità, la differenza dei tempi toglie le rincorse: velocità = Δd / Δt."""
     sch, info = _apri(links, diario, "K3")
@@ -660,9 +785,7 @@ def prova_k3(diario, links, scheda, ferma=None, velocita=VELOCITA_PROVA, distanz
     misure = []
     try:
         if casa:
-            sch.manda(cmd_casa())
-            sch.aspetta_fine(25, ferma)
-            sch.attesa(0.5)
+            _a_casa(sch, ferma, fidati_di_pronta)  # 0.22.5: prima aspettava «finito», che dopo la casa non arriva
         for v in velocita:
             for d in distanze:
                 for verso in (1, -1):
@@ -673,19 +796,25 @@ def prova_k3(diario, links, scheda, ferma=None, velocita=VELOCITA_PROVA, distanz
                     sch.manda(cmd)
                     sec, visti = sch.aspetta_fine(3 * d / v + 15, ferma)
                     tot = None if sec is None else sch.orologio() - t0
+                    # 0.22.5: due tempi. «secondi» parte prima dell'invio dei pacchetti, «dopo_invio_s» quando l'ultimo
+                    # è arrivato alla scheda. Per la velocità conta il secondo: sulla K40 vera l'invio è durato da
+                    # 0,1 a 0,45 s, a caso (rapporto FLC-20261123-1937-1187), e sporcava la misura a 10 mm/s.
                     misure.append({"v": v, "mm": d, "verso": verso, "codice": codice_velocita(scheda, v),
-                                   "secondi": None if tot is None else round(tot, 3), "stati": visti[:20]})
-        stime = {}
+                                   "secondi": None if tot is None else round(tot, 3),
+                                   "dopo_invio_s": None if sec is None else round(sec, 3), "stati": visti[:20]})
+        stime, rapporti = {}, {}
         for v in velocita:
-            t = {d: [m["secondi"] for m in misure if m["v"] == v and m["mm"] == d and m["secondi"] is not None]
+            t = {d: [m["dopo_invio_s"] for m in misure if m["v"] == v and m["mm"] == d and m["dopo_invio_s"] is not None]
                  for d in distanze}
             if all(t.values()) and len(distanze) >= 2:
                 d1, d2 = distanze[0], distanze[-1]
                 dt = sum(t[d2]) / len(t[d2]) - sum(t[d1]) / len(t[d1])
                 vero = (round(d2 * MIL_PER_MM) - round(d1 * MIL_PER_MM)) / MIL_PER_MM  # in millesimi interi
                 stime[str(v)] = round(vero / dt, 3) if dt > 0 else None
+                if stime[str(v)]:
+                    rapporti[str(v)] = round(stime[str(v)] / v, 4)  # velocità vera / velocità chiesta
         diario.risultato("K3", "ok" if stime else "tempi non misurati", **info, scheda=scheda, misure=misure,
-                         velocita_vera=stime, errori_crc=sch.errori_crc)
+                         velocita_vera=stime, rapporto=rapporti, errori_crc=sch.errori_crc)
         return stime
     except InterruptedError:
         _interrompi(sch)
@@ -693,6 +822,82 @@ def prova_k3(diario, links, scheda, ferma=None, velocita=VELOCITA_PROVA, distanz
         raise
     except OSError as ex:
         diario.risultato("K3", "errore di collegamento", **info, scheda=scheda, misure=misure,
+                         errore=f"{type(ex).__name__}: {ex}", errori_crc=sch.errori_crc)
+        return None
+    finally:
+        sch.chiudi()
+
+
+CORSE_K4 = (50.0, -50.0, 100.0, -100.0)
+V_K4 = 30.0
+
+
+def giri_nel_lavoro(tempi_separati, tempo_unico, corse=CORSE_K4):
+    """K4: quante volte la testa fa il «giro» (supera il punto, torna, piccolo colpo in Y) nel lavoro unico.
+    Dalle corse separate: velocità vera v = Δd/Δt fra la corsa lunga e la corta, e un giro g = tempo della corta - d/v.
+    Nel lavoro unico: (tempo - somma delle distanze / v) / g. Circa 1: il giro c'è solo all'inizio e alla fine;
+    circa quante le corse: c'è a ogni cambio di verso. -> (giri, v, g) oppure None se i tempi non bastano."""
+    corti = [t for c, t in zip(corse, tempi_separati) if abs(c) == min(abs(x) for x in corse) and t is not None]
+    lunghi = [t for c, t in zip(corse, tempi_separati) if abs(c) == max(abs(x) for x in corse) and t is not None]
+    if not corti or not lunghi or tempo_unico is None:
+        return None
+    d1, d2 = min(abs(x) for x in corse), max(abs(x) for x in corse)
+    t1, t2 = sum(corti) / len(corti), sum(lunghi) / len(lunghi)
+    if t2 <= t1:
+        return None
+    v = (round(d2 * MIL_PER_MM) - round(d1 * MIL_PER_MM)) / MIL_PER_MM / (t2 - t1)
+    g = t1 - d1 / v
+    if g <= 0.05:
+        return None
+    totale = sum(round(abs(c) * MIL_PER_MM) for c in corse) / MIL_PER_MM
+    return round((tempo_unico - totale / v) / g, 2), round(v, 3), round(g, 3)
+
+
+def prova_k4(diario, links, scheda, ferma=None, v=V_K4, corse=CORSE_K4, fidati_di_pronta=False):
+    """Un solo lavoro (0.22.5). Sulla K40 vera, alla fine di ogni corsa di K3 la testa supera il punto di circa 4 mm,
+    torna e fa un piccolo colpo in Y (video di Evo, 23/11). K3 entra ed esce dal modo compatto a ogni corsa; un taglio
+    vero entra una volta sola. Qui: le stesse corse prima una per lavoro, poi tutte in un solo lavoro, cronometrate.
+    Dai tempi si conta quante volte la testa fa il giro nel lavoro unico. Laser spento."""
+    sch, info = _apri(links, diario, "K4")
+    if sch is None:
+        return None
+    separate, unico = [], {}
+    try:
+        try:
+            _a_casa(sch, ferma, fidati_di_pronta)
+            for c in corse:
+                if ferma is not None and ferma():
+                    raise InterruptedError
+                sch.manda(cmd_a_velocita(scheda, v, c))
+                sec, visti = sch.aspetta_fine(3 * abs(c) / v + 15, ferma)
+                separate.append({"mm": c, "dopo_invio_s": None if sec is None else round(sec, 3), "stati": visti[:20]})
+                sch.attesa(0.3)
+            cmd = cmd_lavoro_unico(scheda, v, corse)
+            t0 = sch.orologio()
+            sch.manda(cmd)
+            sec, visti = sch.aspetta_fine(3 * sum(abs(c) for c in corse) / v + 20, ferma)
+            unico = {"dopo_invio_s": None if sec is None else round(sec, 3),
+                     "secondi": None if sec is None else round(sch.orologio() - t0, 3), "stati": visti[:20]}
+        except InterruptedError:
+            _interrompi(sch)
+            diario.risultato("K4", "fermata", **info, scheda=scheda, separate=separate, unico=unico)
+            raise
+        calc = giri_nel_lavoro([m["dopo_invio_s"] for m in separate], unico.get("dopo_invio_s"), corse)
+        extra, verdetto = {}, ""
+        if calc is not None:
+            giri, vv, g = calc
+            extra = {"giri": giri, "velocita_vera": vv, "giro_s": g}
+            n = len(corse)
+            verdetto = ("solo_inizio_fine" if 0.5 <= giri <= 1.6 else "a_ogni_corsa" if n - 0.6 <= giri <= n + 1
+                        else "non_chiaro")
+        diario.risultato("K4", "ok" if calc is not None else "tempi non misurati", **info, scheda=scheda, v=v,
+                         corse=list(corse), separate=separate, unico=unico, verdetto=verdetto,
+                         errori_crc=sch.errori_crc, **extra)
+        return calc
+    except InterruptedError:  # è un OSError: già scritto «fermata», va solo passato su
+        raise
+    except OSError as ex:
+        diario.risultato("K4", "errore di collegamento", **info, scheda=scheda, separate=separate, unico=unico,
                          errore=f"{type(ex).__name__}: {ex}", errori_crc=sch.errori_crc)
         return None
     finally:

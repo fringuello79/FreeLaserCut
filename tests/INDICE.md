@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 273. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (18)
+## Wi-Fi, rete e telefono (20)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -23,6 +23,8 @@ Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v208_mac.py`: Versione per macOS (anteprima): pacchetto con permessi di camera e rete locale, avvio isolato, numba solo su Apple Silicon, permesso della camera chiesto dal filo della finestra, avviso di errore all'avvio
 - `test_v209_rapporti.py`: Rapporti del 19/11: Wi-Fi con WPA2/WPA3 insieme e router recenti, rete propria del laser; porte CH341 su Linux e porta scritta a mano; camera della testa ferma senza homing; Prepara foto con una forma che ritaglia la foto come dalla pagina principale
 - `test_v209_rapporti.py` (Banco): Wi-Fi dei router recenti, porte a mano e homing della camera della testa nell'interfaccia Banco
+- `test_v225_telefono.py`: Telefono: frecce e joystick per muovere la testa (solo se permesso sul PC, a macchina ferma, laser spento, arresto da solo se il telefono tace), pagina con comandi in rilievo
+- `test_v225_telefono.py` (Banco): Telefono: frecce e joystick nell'interfaccia Banco
 
 ## Telecamera e guardia fiamme (15)
 
@@ -60,13 +62,15 @@ Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v195_varie.py`: Nesting manuale che sporge dai pannelli, elenco delle scorciatoie, Sculpfun E1 dalla scheda e tabella Sculpfun, Riconosci → Applica che tiene angolo e assi
 - `test_v195_varie.py` (Banco): Nesting manuale e scorciatoie nell'interfaccia Banco
 
-## Materiali (5)
+## Materiali (7)
 
 - `test_v03.py`: Materiali, test materiale, vettorizzazione, testo variabile e curvo
 - `test_v160.py`: Materiali imparati: la curva del tuo legno dalle foto dei test, toni e anteprima
 - `test_v160.py` (Banco): Materiali imparati nell'interfaccia Banco
 - `test_v192_analisi.py`: Scorciatoie valide, ordine dei tagli, preparazione del lavoro con Annulla, materiali per potenza, Preferenze, ricerca comandi, anteprime
 - `test_v212_catalogo.py`: Catalogo: VEVOR A7 5W (come l'Atomstack A5 Pro) e Sculpfun iCube Ultra Dual 12W e 1.2W IR (area prudente 135 × 135, dichiarata 150 × 135, famiglia nel riconoscimento, nota sul raggio a 1064 nm, accelerazione 500, tabella dei materiali Sculpfun con interlinea 0,05), traduzioni
+- `test_v225_test_forma.py`: Test materiale con la forma selezionata o con il pezzo di una foto (la zona con più grigi trovata da sola), richiesta di Stefano Modena
+- `test_v225_test_forma.py` (Banco): Test materiale con la forma o la foto nell'interfaccia Banco
 
 ## Foto e immagini (29)
 
@@ -145,7 +149,7 @@ Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v222_contorno.py`: Contorno con la partenza dalla posizione della testa: finito il giro la testa torna da dove è partita e il lavoro non si sposta (9 pallini, laser spento e puntino, rettangolo e convesso)
 - `test_v222_contorno.py` (Banco): Contorno con la partenza dalla testa nell'interfaccia Banco
 
-## Macchina, connessione e profili (56)
+## Macchina, connessione e profili (60)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -203,6 +207,10 @@ Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v223_studio.py`: Studia la macchina (in prova): prove guidate su K40 (scheda M2 Nano) e Ruida con schede finte, in qualsiasi ordine; il laser non si accende mai (comandi permessi, chiavi sbagliate innocue), diario e rapporto, indirizzo nascosto, difetti rimessi apposta
 - `test_v223_studio.py` (Banco): Studia la macchina nell'interfaccia Banco
 - `test_v224_atomstack.py`: Atomstack X30 Pro / S30 Pro / A30 Pro: modelli nel catalogo e scheda riconosciuta dalla versione del firmware (la marca non la scrive), con X20 Pro e X40 Pro fra i candidati
+- `test_v225_k40_libusb.py`: Studia la macchina, K40 con il driver libusb-win32: motivo scritto quando non c'è collegamento, pyusb nell'installatore, prove K1–K3 attraverso pyusb (finto) fino alla scheda finta
+- `test_v225_k40_libusb.py` (Banco): Studia la macchina, K40 con il driver libusb-win32, nell'interfaccia Banco
+- `test_v225_k40_giro.py`: Studia la macchina, K40: ritorno a casa senza i 25 s di attesa e con «pronta» confrontato da vicino e da lontano, prova K4 «un solo lavoro» che conta i giri a fine corsa, pulsante «Fai tutte le prove» con i risultati spiegati
+- `test_v225_k40_giro.py` (Banco): Studia la macchina, K40, prove guidate nell'interfaccia Banco
 
 ## Disegno e modifica (28)
 
@@ -235,7 +243,7 @@ Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (47)
+## Interfaccia (48)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -284,6 +292,7 @@ Suite: 264. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v220_incastri.py` (Banco): Adatta gli incastri allo spessore nell'interfaccia Banco
 - `test_v224_caratteri.py`: Grandezza dei caratteri dell'interfaccia: stessi pixel sugli schermi a 72 punti per pollice (Mac), scelta in Impostazioni e nelle Preferenze (85–150%), ogni foglio di stile e ogni carattere passa dallo stesso punto
 - `test_v224_caratteri.py` (Banco): Grandezza dei caratteri nell'interfaccia Banco
+- `test_v225_qt69.py`: Pacchetto per i Mac Intel con macOS 13 Ventura (pull request #29): menu tenuti vivi e guida senza filtro sempre acceso con PySide6 6.9, linea centrale giusta anche senza numba
 
 ## Avvio, installazione, aggiornamenti e assistenza (9)
 

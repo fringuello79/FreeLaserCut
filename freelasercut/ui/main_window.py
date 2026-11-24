@@ -4946,7 +4946,8 @@ class MainWindow(QMainWindow):
             return self._mt_dlg
         head = self.canvas.head_pos()
         dlg = MaterialTestDialog(self.profile, (head.x(), head.y()) if head is not None else None,
-                                 seed if isinstance(seed, materials.Material) else None, self)
+                                 seed if isinstance(seed, materials.Material) else None, self,
+                                 selection=lambda: (list(self.editor.selection), self.editor.doc))
         dlg.setModal(False)
         dlg.setAttribute(Qt.WA_DeleteOnClose)
 

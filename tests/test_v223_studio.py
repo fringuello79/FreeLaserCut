@@ -383,8 +383,8 @@ check("H scheda nella guida «?»", help_texts.lookup("study_machine") is not No
       and "non si accende mai" in help_texts.lookup("study_machine")[1])
 dlg = win.study_machine_dialog()
 spin()
-check("H la finestra si apre una volta sola, con le due schede e otto prove", dlg is not None
-      and win.study_machine_dialog() is dlg and dlg.tabs.count() == 2 and len(dlg.rows) == 8)
+check("H la finestra si apre una volta sola, con le due schede e nove prove (K4 dalla 0.22.5)", dlg is not None
+      and win.study_machine_dialog() is dlg and dlg.tabs.count() == 2 and len(dlg.rows) == 9)
 check("H avviso in testa: il laser non si accende mai", "non si accende" in dlg.banner.text())
 fw = LihuiyuFinta(clk)
 dlg.k40_links = lambda: [fw]

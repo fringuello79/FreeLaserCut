@@ -1,5 +1,34 @@
 # Novità di FreeLaserCut
 
+## 0.22.5 — 24/11/2026
+**Test materiale con la tua forma o con un pezzo della tua foto** (richiesta di Stefano Modena). Nella finestra del test c'è la voce *Nei quadrati*:
+- *Quadrati pieni*: come prima;
+- *Forma selezionata sul piano*: in ogni quadrato la forma rimpicciolita, riempita o seguita;
+- *Pezzo della foto selezionata*: in ogni quadrato lo stesso pezzo della foto, con risoluzione, retino e regolazioni del suo livello; cambiano solo potenza e velocità. Il pezzo si sceglie cliccando sulla miniatura, oppure con *Zona con più grigi* lo trova il programma: è il punto della foto dove si vede meglio quali valori rendono.
+
+**Telefono: muovere la testa e pagina nuova.** La pagina del *Controllo dal telefono* ha un aspetto nuovo, sempre leggero, con i comandi in rilievo e una luce di stato. C'è la sezione *Muovi la testa*: frecce (un passo per tocco: 0,1, 1, 10 o 50 mm) e joystick (la testa si muove finché lo tieni).
+- Di partenza è **spenta**: si accende sul PC, nella finestra *Controllo dal telefono*, con *Permetti di muovere la testa dal telefono*.
+- Funziona solo con la macchina ferma e senza lavori, e con il laser spento: se sul PC è acceso il Puntino o la Lucciola, dal telefono la testa non si muove. Le frecce si fermano al bordo del piano.
+- La testa si ferma da sola quando lasci il joystick, con ■, se chiudi la pagina e se il telefono perde la rete (in meno di un secondo).
+- Dal telefono resta impossibile avviare o riprendere un lavoro.
+
+**Mac Intel con macOS 13 Ventura** (contributo di istevenep). Da qui si può costruire un'edizione di FreeLaserCut per i Mac Intel con macOS 13, che non aprono la versione normale. Provando tutto con le sue librerie sono venuti fuori tre difetti, corretti:
+- nell'interfaccia Classica alcuni menu sparivano;
+- ogni tanto il programma si chiudeva da solo (guida «Che cos'è?», nesting manuale);
+- **sui Mac Intel la linea centrale di *Vettorizza* restava vuota**, anche con la versione normale: ora funziona.
+
+L'edizione per Ventura sarà pubblicata dopo la prova su un Mac vero. Per Windows, Linux e i Mac recenti non cambia niente.
+
+**Per chi prova le funzioni in prova: «Studia la macchina» con la K40.** Grazie ai primi dati veri di una K40 con la scheda M2 Nano:
+- se la scheda ha il driver «libusb-win32» (quello che si installa con Zadig), FreeLaserCut ora ci parla: la libreria che serve è nell'installatore. Se non riesce a collegarsi, dice perché;
+- il pulsante **Fai tutte le prove della K40** le fa una dopo l'altra con un solo consenso (circa due minuti) e alla fine scrive i risultati spiegati, per esempio «la testa va al 92 % della velocità chiesta»;
+- nuova prova **K4 «Un solo lavoro»**: alla fine di ogni corsa la testa fa un piccolo giro; la prova misura se lo fa solo all'inizio e alla fine di un lavoro, come serve per tagliare bene;
+- il ritorno a casa non aspetta più fino a 25 secondi a vuoto, e controlla se la scheda dice «pronta» solo quando la testa è arrivata.
+
+Il laser non si accende mai durante queste prove.
+
+**Ringraziamenti:** si aggiungono andreacanti e istevenep.
+
 ## 0.22.4 — 23/11/2026
 **Grandezza dei caratteri.** Due cose, nate dalla stessa segnalazione («sul portatile le scritte sono molto piccole»):
 - **Sul Mac le scritte erano più piccole che su Windows**, di un quarto: il Mac conta le grandezze dei caratteri in un altro modo e FreeLaserCut non ne teneva conto. Ora menu, pannelli e finestre hanno le scritte alte uguali su Mac, Windows e Linux. Chi usa il Mac le vedrà più grandi già al primo avvio, in tutte e due le interfacce.
