@@ -88,7 +88,8 @@ else:
     # voci aggiunte dopo la 0.20.1 (vicino ai modelli della stessa famiglia): fuori dal confronto
     LATER = {"Creality Falcon A1 Pro 20W", "VEVOR A7 5W", "Sculpfun iCube Ultra Dual 12W",
              "Sculpfun iCube Ultra Dual 1.2W IR",  # 0.21.2
-             "Atomstack X30 Pro / S30 Pro / A30 Pro"}  # 0.22.4
+             "Atomstack X30 Pro / S30 Pro / A30 Pro",  # 0.22.4
+             "Atomstack Hurricane 55W CO2"}  # 0.22.9
     cat_now = [c for c in machines.CATALOG if c[0] not in LATER]
     check("tutte le voci di prima identiche e nello stesso ordine, più la JL9 in fondo",
           tuple(cat_now[:-1]) == tuple(old) and cat_now[-1][0] == JL9,

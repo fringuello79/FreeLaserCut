@@ -195,8 +195,16 @@ check("…e il rifiuto si spiega una volta sola (niente secondo messaggio d'erro
 c.sim.state = "Idle"
 until(lambda: c.last_status.get("state") == "Idle", 10)
 done.clear(); sent.clear()
+scritte = []  # 0.23.2: le righe della verifica non vanno più in console (line_sent): si guarda cosa arriva alla scheda
+_scrivi = c.sim.write
+c.sim.write = lambda data: (scritte.extend(l for l in bytes(data).decode(errors="replace").split("\n") if l.strip()),
+                            _scrivi(data))[1]
 check("a macchina ferma la verifica parte: prima $C, le righe solo dopo il suo «ok»",
-      c.check_job(JOB) and until(lambda: done, 10) and done[-1] == [] and sent[0] == "$C" and "G90 G21" in sent, sent[:3])
+      c.check_job(JOB) and until(lambda: done, 10) and done[-1] == [] and sent[0] == "$C" and
+      "$C" in scritte and "G90 G21" in scritte and scritte.index("$C") < scritte.index("G90 G21"), (sent[:3], scritte[:4]))
+check("…e le righe della verifica non riempiono la console (0.23.2, la finestra restava ferma con le foto)",
+      not any(l.startswith(("G1", "M4", "G90")) for l in sent), sent[:5])
+c.sim.write = _scrivi
 long_line = "G1 X1 Y1 ; " + "x" * 10 + " " + "Y1 " * 60
 too = ["G90", "G1 " + " ".join(f"X{i}" for i in range(200))]
 until(lambda: c.last_status.get("state") == "Idle" and not c.busy and not c.checking, 10)

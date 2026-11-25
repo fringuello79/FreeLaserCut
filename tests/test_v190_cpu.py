@@ -124,7 +124,10 @@ main_src = open(os.path.join(ROOT, "freelasercut", "__main__.py"), encoding="utf
 body = main_src.split("def boot():")[1]
 check("all'avvio è la prima cosa: prima della prova di avvio (--self-test), della guardia e di qualsiasi libreria",
       body.index("guard.compat_libs()") < body.index("--self-test") < body.index("guard.install()") < body.index("from PySide6")
-      and "import numpy" not in main_src and "PySide6" not in main_src.split("def boot():")[0])
+      # 0.22.9: NumPy si carica solo dentro _heavy_libs, che parte dopo la guardia (splash.preload)
+      and "import numpy" not in main_src.replace(main_src.split("def _heavy_libs():")[1].split("\ndef ")[0], "")
+      and body.index("guard.install()") < body.index("preload(_heavy_libs)")
+      and "PySide6" not in main_src.split("def boot():")[0])
 BROKEN = os.path.join(TMP, "compat-rotta")
 os.makedirs(os.path.join(BROKEN, "numpy"))
 with open(os.path.join(BROKEN, "numpy", "__init__.py"), "w") as fh:

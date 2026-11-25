@@ -1,5 +1,16 @@
 # Novità di FreeLaserCut
 
+## 0.23.2 — 25/11/2026
+**K40: le foto non fanno più sbattere la testa a fine riga** (segnalato da Evoluzione2, con i video). Le foto e i riempimenti andavano alla scheda M2 Nano come tante linee, e a ogni fine riga la testa invertiva il verso a piena velocità: si sentiva un colpo per riga. Ora usano il modo raster della scheda, quello fatto apposta per le foto: a fine riga è la scheda a rallentare, girare e scendere di una riga. I punti bruciati sono gli stessi di prima. Spariscono anche gli spostamenti strani a «L» fra una riga e l'altra quando le righe hanno lunghezze molto diverse (prima, per ogni riga che ripartiva a più di 8 mm, il lavoro si chiudeva e si riapriva).
+- A meno di 5 mm dal bordo sinistro o destro del piano le righe restano come prima, per prudenza: la rampa della scheda potrebbe portare la testa oltre la fine della riga.
+- Le foto incise in un verso solo (non avanti e indietro) restano come prima.
+- Confronto con MeerK40t: con le impostazioni di partenza MeerK40t fa andare la K40 al 92 % della velocità scritta, FreeLaserCut alla velocità scritta. Per avere lo stesso risultato, in MeerK40t scrivi una velocità più alta del 9 % circa (o accendi la correzione della velocità nelle sue impostazioni).
+- Velocità massima della K40 portata a 250 mm/s (15 000 mm/min): prima il programma non faceva scrivere più di 100 mm/s. Le foto, ora nel modo raster, possono andare più veloci. Le linee la scheda non le fa oltre i 240 mm/s: lì il programma si ferma a 240. Per linee e tagli restano consigliate velocità basse (K40 Whisperer propone 10 mm/s per tagliare e 20 per incidere a linee).
+
+**La finestra non si blocca più dopo «Avvia» con le foto grandi** (segnalato da Evoluzione2). «Avvia» fa prima la verifica, e le sue righe finivano una per una nella console: con una foto da 27 000 righe la finestra restava ferma anche 30 secondi. Ora della verifica si vedono l'avanzamento, gli errori e il risultato, come per il lavoro.
+
+**Ringraziamenti:** a Evoluzione2, per le prove sulla sua K40, i video e i rapporti.
+
 ## 0.23.1 — 25/11/2026
 **«Adatta gli incastri allo spessore» funziona con i file di Boxes.py** (segnalato da Stefano Modena). Con i file fatti con Boxes.py e con la bruciatura impostata, la finestra diceva di non trovare incastri e, scrivendo lo spessore a mano, cambiava solo la larghezza delle tacche e non la loro profondità. Il motivo: in quei file gli angoli sono piccole curve e negli angoli interni c'è un piccolo occhiello, e il programma non vedeva più il bordo dritto accanto alle tacche. Ora lo spessore si trova da solo, le tacche si scavano, le linguette si allungano e i fori si allargano. Curve e occhielli si spostano insieme al loro angolo. Lo stesso vale per i pezzi disegnati a mano con qualche nodo un po' fuori posto sugli angoli. Ricorda: lo spessore del disegno è la profondità delle tacche e la lunghezza delle linguette; se scrivi la larghezza di una tacca, il programma la tratta come una fessura e la allarga o la stringe.
 

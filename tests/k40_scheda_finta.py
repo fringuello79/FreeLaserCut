@@ -79,6 +79,15 @@ class SchedaFinta:
         self.comandi = []  # parole lette, in ordine (per le prove)
         self.d_ricevute = 0
         self.interrotti = 0  # 0.22.7: «I» arrivati con la testa in moto
+        # 0.23.2: modo raster («V…G…»): a ogni inversione del verso orizzontale la scheda scende di `passo` passi
+        # (come l'emulatore di MeerK40t). Nel lavoro normale un'inversione sopra i 15 mm/s è un colpo (`colpi`)
+        self._passo_codice = 0
+        self.passo = 0
+        self.colpi = []
+        self.inversioni_raster = 0
+        self.lavori_raster = 0
+        self.accesi_raster = []  # i tratti bruciati dentro un lavoro raster
+        self.accesi_v = []
         self.aperta = False
         self._guardia = threading.Thread(target=self._guarda, daemon=True)
         self._vivo = True
@@ -187,6 +196,9 @@ class SchedaFinta:
             self._passi_pkt += n
         if self.laser and self.lavoro:
             self.accesi.append((x0, y0, self.x, self.y))
+            if self.passo:
+                self.accesi_raster.append((x0, y0, self.x, self.y))
+            self.accesi_v.append(round(self.v, 1))  # 0.23.2: velocità di ogni tratto bruciato
         self._occupa(((dx * n) ** 2 + (dy * n) ** 2) ** 0.5 / MIL / max(v, 0.1))
 
     @staticmethod
@@ -223,6 +235,7 @@ class SchedaFinta:
                 if resto.startswith("FNSE"):
                     self.comandi.append("FNSE")
                     self.lavoro = self.laser = False
+                    self.passo = 0
                     self._mode = None
                     self.finito = True
                     i += 4
@@ -289,6 +302,8 @@ class SchedaFinta:
                     i += 1
                     continue
                 self.v = velocita(m.group(0))
+                g = re.search(r"G(\d{3})$", m.group(0))
+                self._passo_codice = int(g.group(1)) if g and m.group(0).startswith("V") else 0
                 self.comandi.append(m.group(0))
                 i += len(m.group(0))
                 continue
@@ -300,6 +315,8 @@ class SchedaFinta:
                     break
                 if resto.startswith("S1E"):
                     self.lavoro, self._mode = True, "lavoro"
+                    self.passo = self._passo_codice
+                    self.lavori_raster += 1 if self.passo else 0
                     self.comandi.append("S1E")
                     if self.occupata_per:
                         self.occupata_fino = time.monotonic() + self.occupata_per
@@ -328,6 +345,16 @@ class SchedaFinta:
                 n, j = self._distanza(t, i + 1)
                 if n is None:
                     break
+                if c in "BT" and self.lavoro and (1 if c == "B" else -1) != self.vx:
+                    if self.passo:  # modo raster: la scheda scende di una riga, a laser spento
+                        if self.laser:
+                            self.pericoli.append(f"laser acceso nell'inversione raster a {self.x},{self.y}")
+                        acceso, self.laser = self.laser, False
+                        self.inversioni_raster += 1
+                        self._muovi(0, self.vy, self.passo, self.v)
+                        self.laser = acceso
+                    elif self.v > 15.0:
+                        self.colpi.append((self.x, self.y, round(self.v, 1)))
                 if c == "B":
                     self.vx = 1
                 elif c == "T":

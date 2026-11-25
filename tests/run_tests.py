@@ -692,6 +692,8 @@ if __name__ == "__main__":
     run_suite("test_v230_distanze_fisse_ui.py", "Disegno, distanze fisse nell'interfaccia Banco", "banco")
     run_suite("test_v231_punto.py", "Lavoro e G-code, punto di partenza (9 pallini): con la partenza dal disegno un clic sposta solo il rombo e non rifà l'anteprima del lavoro (con una foto ci voleva qualche secondo); con la partenza dalla testa o dall'origine, con il rotativo e cambiando partenza si rifà")
     run_suite("test_v231_punto.py", "Lavoro e G-code, punto di partenza nell'interfaccia Banco", "banco")
+    run_suite("test_v232_k40_raster.py", "Macchina K40 (scheda M2 Nano): foto e riempimenti nel modo raster della scheda, niente colpi a fine riga; stessi punti bruciati del lavoro normale (foto, riempimenti, casi apposta, 300 G-code a caso), uscita dal modo raster quando serve, ponte con stop, passo fra le righe")
+    run_suite("test_v232_verifica_console.py", "Lavoro e G-code, verifica ($C): le righe e i loro «ok» non vanno uno per uno nella console (la finestra restava ferma con le foto grandi)")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

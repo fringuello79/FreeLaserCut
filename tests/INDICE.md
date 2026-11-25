@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 303. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (21)
 
@@ -73,7 +73,7 @@ Suite: 303. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_test_forma.py`: Test materiale con la forma selezionata o con il pezzo di una foto (la zona con più grigi trovata da sola), richiesta di Stefano Modena
 - `test_v225_test_forma.py` (Banco): Test materiale con la forma o la foto nell'interfaccia Banco
 
-## Foto e immagini (30)
+## Foto e immagini (32)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -105,6 +105,8 @@ Suite: 303. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v223_png_trasparenti.py`: Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza
 - `test_v223_png_trasparenti.py` (Banco): Immagini con lo sfondo trasparente nell'interfaccia Banco
 - `test_v231_punto.py`: Lavoro e G-code, punto di partenza (9 pallini): con la partenza dal disegno un clic sposta solo il rombo e non rifà l'anteprima del lavoro (con una foto ci voleva qualche secondo); con la partenza dalla testa o dall'origine, con il rotativo e cambiando partenza si rifà
+- `test_v232_k40_raster.py`: Macchina K40 (scheda M2 Nano): foto e riempimenti nel modo raster della scheda, niente colpi a fine riga; stessi punti bruciati del lavoro normale (foto, riempimenti, casi apposta, 300 G-code a caso), uscita dal modo raster quando serve, ponte con stop, passo fra le righe
+- `test_v232_verifica_console.py`: Lavoro e G-code, verifica ($C): le righe e i loro «ok» non vanno uno per uno nella console (la finestra restava ferma con le foto grandi)
 
 ## Lavoro e G-code (55)
 

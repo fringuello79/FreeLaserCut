@@ -22,6 +22,7 @@ Limite noto: un blocco del PC a metà di un tratto acceso già partito non si pu
 guida questa scheda).
 """
 import collections
+import os
 import re
 import threading
 import time
@@ -111,13 +112,14 @@ class K40Serial:
         self.hold = False
         self.check = False
         self.impostazioni = {130: "300.000", 131: "200.000", 30: "1000", 32: "1", 22: "1", 20: "1", 23: "0",
-                             110: "6000.000", 111: "6000.000"}
+                             110: "15000.000", 111: "15000.000"}  # 0.23.2: 250 mm/s (era 6000)
         self.errori_crc = 0
         self.guasto = None
         self.t = None  # Traduttore del lavoro in corso
         self._salvato = None  # quello vero, durante la verifica
         self._g54 = [0.0, 0.0]  # spostamento di G54: resta anche dopo un reset, come in GRBL
         self._risincronizza = False  # dopo frecce e casa la posizione del traduttore va ripresa da quella vera
+        self._raster_scritti = 0  # 0.23.2: righe del diario sul modo raster (le prime bastano)
         self._ultima_riga = self.orologio()
         self._conta = {"pezzi": 0, "byte": 0, "veloci": 0}  # per il diario: un riassunto a fine lavoro, non ogni pezzo
         self._inizio = bytearray()  # 0.22.7: i primi byte del lavoro in corso, per il diario
@@ -263,7 +265,10 @@ class K40Serial:
         def tr_(x, y):
             return round(x * MIL_PER_MM), round(y * MIL_PER_MM)
         old = self.t
-        t = Traduttore(tr_, self.scheda, dentro=self.dentro, x=self.pos[0], y=self.pos[1])
+        # 0.23.2: le righe delle foto nel modo raster della scheda; FLC_K40_RASTER=0 lo spegne (per le prove)
+        raster = os.environ.get("FLC_K40_RASTER", "1").strip() != "0"
+        t = Traduttore(tr_, self.scheda, dentro=self.dentro, x=self.pos[0], y=self.pos[1], piano=self.piano,
+                       raster=raster)
         t.g54 = list(self._g54)
         if old is not None:  # spostamenti delle coordinate e modi restano (come in GRBL)
             t.g92, t.g54 = list(old.g92), list(old.g54)
@@ -421,9 +426,14 @@ class K40Serial:
                 # (e la coda viene svuotata), mai a metà
                 self._coda.extend(t.pronti())
                 self._cv.notify_all()
+            raster, t.diario_raster = t.diario_raster, []
         if codice is not None:
             self._diario("riga_rifiutata", codice=codice)
             return self._err(codice)
+        for cosa, dati in raster:  # 0.23.2: entrate e uscite dal modo raster delle foto
+            if self._raster_scritti < 40:
+                self._raster_scritti += 1
+                self._diario("raster_" + cosa, **dati)
         self._freno(gen)
         if gen == self._gen:  # dopo uno stop niente «ok» in ritardo: sfaserebbe le risposte di chi manda
             self._ok()

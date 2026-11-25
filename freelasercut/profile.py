@@ -581,6 +581,8 @@ class MachineProfile:
         coordinate positive (X verso destra, Y verso il davanti), solo G54."""
         p = cls(name=tr("K40 (scheda M2 Nano)"), model="K40 (M2 Nano)", source=tr("valori di targa"))
         p.bed_x, p.bed_y = 300.0, 200.0
+        # 0.23.2: 250 mm/s (la fabbrica dichiara 300–350 per le foto; le linee il ponte le tiene a 240, vedi scrittore)
+        p.max_rate_x = p.max_rate_y = 15000.0
         p.no_g55 = True
         p.rx_buffer = 128
         p.origin_corner = "bl"

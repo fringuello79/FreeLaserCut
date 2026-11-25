@@ -26,6 +26,8 @@ DATI, ATTENDI_FINE, ATTENDI_FERMA = "dati", "attendi_fine", "attendi_ferma"
 # la fine di uno spostamento veloce si stima dal tempo, con una velocità più bassa di quella vera (circa 50–68 mm/s)
 V_VELOCE_STIMA = 35.0  # mm/s
 MARGINE_VELOCE_S = 0.4
+V_MAX_LINEE = 240.0  # 0.23.2: mm/s, il massimo del modo a linee (vettoriale); le foto nel modo raster vanno oltre
+DURATA_INVERSIONE = 0.3  # 0.23.2: secondi in più per ogni inversione raster (rampa della scheda), solo per le attese
 
 
 def durata_veloce(passi):
@@ -104,6 +106,7 @@ class Scrittore:
         # a metà (dopo «U», dopo l'entrata nel lavoro, dopo un tratto spento) e dove è la testa lì
         self._sicuro = 0
         self._sicuro_xy = (0, 0)
+        self.passo = 0  # 0.23.2: passo fra le righe del lavoro raster in corso (0 = lavoro normale)
         self._durata = 0.0  # secondi previsti del lavoro in corso
         self.durate = []  # secondi previsti di ogni lavoro chiuso, in ordine
 
@@ -138,10 +141,13 @@ class Scrittore:
         """Entra nel lavoro alla velocità v (mm/s). Se si è già dentro a un'altra velocità, chiude e riapre."""
         from .codici import codice
 
-        if self.in_lavoro and self.v == v:
+        if self.in_lavoro and self.v == v and not self.passo:
             return
         self.fine_lavoro()
-        self._scrivi(b"I" + codice(self.scheda, v, correggi=self.correggi, senza_giri=self.senza_giri).encode())
+        # 0.23.2: nel modo a linee la scheda non va oltre V_MAX_LINEE (MeerK40t, laserspeed: sopra i 240 mm/s il codice
+        # non è valido e ripiega su 19 mm/s). Le foto, nel modo raster, possono andare più veloci.
+        vc = min(float(v), V_MAX_LINEE)
+        self._scrivi(b"I" + codice(self.scheda, vc, correggi=self.correggi, senza_giri=self.senza_giri).encode())
         self._vx, self._vy = (1 if vx >= 0 else -1), (1 if vy >= 0 else -1)
         self._scrivi(b"N" + self._versi(self._vx, self._vy) + b"S1E")
         self.in_lavoro, self.v, self.laser = True, v, False
@@ -153,6 +159,7 @@ class Scrittore:
             return
         self._scrivi(b"FNSE")
         self.in_lavoro, self.v, self.laser = False, None, False
+        self.passo = 0
         self.durate.append(self._durata)
         self._chiudi_pezzo(ATTENDI_FINE)
 
@@ -187,6 +194,62 @@ class Scrittore:
                 self._vy = sy
         self.x, self.y = x, y
         self._durata += (dx * dx + dy * dy) ** 0.5 / MIL_PER_MM / max(float(v), 0.1)
+        self._segna_sicuro()
+
+    # ------------------------------------------------------------ 0.23.2: righe in modalità raster
+    # Rapporto di Evoluzione2 (25/11/2026, foto sulla K40): nel lavoro «normale» la scheda non rallenta quando la testa
+    # cambia verso, e a ogni fine riga la testa sbatte. Per le foto la scheda ha un modo apposta (codice «V…G» con il
+    # passo fra le righe): ogni volta che il verso orizzontale si inverte la scheda scende da sola di una riga, con la
+    # sua rampa. Comandi come li scrivono i programmi che guidano la K40 da anni (fonti in RICONOSCIMENTI-TECNICI.md):
+    # «I» + «V…G…» + «N» + verso verticale + verso orizzontale + «S1E» (prima il verticale: l'asse dichiarato per
+    # ultimo è quello delle righe), poi solo righe orizzontali; il laser è sempre spento quando il verso si inverte.
+    def inizia_raster(self, v, passo, vy, vx):
+        """Entra nel lavoro raster: righe orizzontali a v (mm/s), la scheda scende di `passo` passi (verso vy = ±1) a
+        ogni inversione; la prima riga va nel verso vx (±1)."""
+        from .codici import codice
+
+        self.fine_lavoro()
+        self._scrivi(b"I" + codice(self.scheda, v, passo_raster=passo, correggi=self.correggi).encode())
+        self._vx, self._vy = (1 if vx >= 0 else -1), (1 if vy >= 0 else -1)
+        self._scrivi(b"N" + (b"L" if self._vy < 0 else b"R") + (b"T" if self._vx < 0 else b"B") + b"S1E")
+        self.in_lavoro, self.v, self.laser = True, v, False
+        self.passo = int(passo)
+        self._durata = 0.0
+        self._segna_sicuro()
+
+    def raster_x(self, x, laser):
+        """Riga orizzontale fino a x (passi), nel lavoro raster. Se il verso si inverte la scheda scende di una riga:
+        il laser si spegne prima, e un tratto acceso subito dopo l'inversione si accende solo dopo («T», «D», «T…»)."""
+        x = int(x)
+        dx = x - self.x
+        if dx == 0:
+            return
+        sx = 1 if dx > 0 else -1
+        lettera = b"B" if sx > 0 else b"T"
+        if sx != self._vx:
+            self._laser(False)
+            self._vx = sx
+            self.y += self._vy * self.passo
+            self._durata += self.passo / MIL_PER_MM / max(float(self.v), 0.1) + DURATA_INVERSIONE
+            if laser:
+                self._scrivi(lettera)  # inversione (e discesa di una riga) senza strada, poi il laser
+        self._laser(bool(laser))
+        self._scrivi(lettera + distanza(abs(dx)).encode())
+        self.x = x
+        self._durata += abs(dx) / MIL_PER_MM / max(float(self.v), 0.1)
+        self._segna_sicuro()
+
+    def raster_diagonale(self, n):
+        """Nel lavoro raster, a laser spento: n passi in diagonale, avanti nel verso della riga e giù nel verso delle
+        righe (quando la riga dopo è più lontana di un passo: mezzi passi accumulati, righe vuote saltate)."""
+        n = int(n)
+        if n <= 0:
+            return
+        self._laser(False)
+        self._scrivi(b"M" + distanza(n).encode())
+        self.x += self._vx * n
+        self.y += self._vy * n
+        self._durata += n * 1.4143 / MIL_PER_MM / max(float(self.v), 0.1)
         self._segna_sicuro()
 
     # ------------------------------------------------------------ fuori dal lavoro

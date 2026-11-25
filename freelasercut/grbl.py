@@ -525,7 +525,9 @@ class GrblController(QObject):
             for cmd in to_send:
                 cmd.t = now
                 self._write_raw((cmd.line + "\n").encode())
-                if cmd.tag not in ("job", "joy"):  # 0.19.5: i pezzetti del joystick non riempiono la console
+                # 0.19.5: i pezzetti del joystick non riempiono la console. 0.23.2 (Evoluzione2, rapporto 5831): nemmeno
+                # le righe della verifica: con una foto da 27 000 righe la finestra restava ferma due volte per 29 s
+                if cmd.tag not in ("job", "joy", "check"):
                     self.line_sent.emit(_mask(cmd.line))  # console, registro, comando a distanza: mai la password
 
     def realtime(self, byte):
@@ -1226,8 +1228,8 @@ class GrblController(QObject):
             self.last_reply = time.time()
             with self._lock:
                 head = self._inflight.popleft() if self._inflight else None
-            if head is not None and head.tag != "job" and (head.tag != "joy" or not is_ok):
-                self.line_received.emit(line)
+            if head is not None and head.tag not in ("job", "check") and (head.tag != "joy" or not is_ok):
+                self.line_received.emit(line)  # 0.23.2: gli «ok» della verifica come quelli del lavoro: non uno per uno
             if is_err:
                 code = _code(line)
                 text = ERRORS.get(code, "Errore sconosciuto")
