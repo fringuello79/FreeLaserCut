@@ -156,6 +156,8 @@ def parse_status(text, last_wco):
                 st["buffer"] = [int(v) for v in val.split(",")]
             elif key == "Pn":
                 st["pins"] = val
+            elif key == "A":  # 0.23.0: accessori accesi (S/C mandrino, F aria M8, M nebbia M7)
+                st["acc"] = val
         except ValueError:
             pass
     if "WCO" not in st and "MPos" in st and "WPos" in st:
@@ -208,6 +210,7 @@ class GrblController(QObject):
     user_resumed = Signal()  # la pausa è finita (Riprendi da qualsiasi parte)
     board_rebooted = Signal()  # 0.21.2: la scheda si è riavviata da sola (banner senza un reset chiesto da noi)
     note = Signal(str)  # 0.21.2: un fatto da scrivere nel registro della comunicazione («#»), da qualsiasi filo
+    air_changed = Signal(bool)  # 0.23.0: la scheda dice che l'aria (M7/M8) è accesa o spenta
 
     def __init__(self):
         super().__init__()
@@ -261,6 +264,9 @@ class GrblController(QObject):
         self.axis_sign = (1.0, 1.0)  # dal profilo: -1 sugli assi invertiti
         self.axis_rot = 0  # 0.19.3, dal profilo: quarti di giro del piano mostrato rispetto alla macchina
         self.air_cmds = ("M8", "M9")  # dal profilo: comandi che accendono e spengono l'aria
+        self.air_board = None  # 0.23.0: aria accesa secondo la scheda (campo A: del report); None = non si sa
+        self.air_acc = None  # lettere del campo A: dell'ultimo report che lo diceva
+        self._air_sync = False  # il pulsante si sta allineando alla scheda: non mandare niente
         self.stale_check_exit = False  # sto facendo uscire la scheda da un check mode rimasto acceso
         self.trusted_buffer = False  # scheda nota: uso tutto il buffer dichiarato in [OPT]
         self.check_stalled = False  # l'ultima verifica non ha ricevuto tutte le risposte
@@ -283,6 +289,7 @@ class GrblController(QObject):
 
     def connect_port(self, port, baud=115200):
         self.disconnect_port()
+        self.air_board = self.air_acc = None  # 0.23.0: dell'aria della scheda nuova non si sa ancora niente
         self._reset_asked_t = time.time()  # 0.21.2: le schede Arduino si riavviano all'apertura della porta: è voluto
         try:
             if port == SIM_PORT:
@@ -614,11 +621,42 @@ class GrblController(QObject):
         self.send_line(f"$J=G90 G21 X0 Y0 F{feed:.0f}")
 
     def air(self, on):
+        if self._air_sync:  # 0.23.0: il pulsante segue la scheda, non è la persona che lo preme
+            return
         cmd = self.air_cmds[0] if on else self.air_cmds[1]  # 0.18.5: dal profilo (M8, M7 o nessun comando)
-        if cmd:
-            self.send_line(cmd)
-        else:
+        if not cmd:
             self.message.emit(tr("Nel profilo della macchina l'aria è «nessun comando»: accendila a mano."))
+            return
+        if self._job_active and cmd in ("M7", "M8", "M9") and self.connected:
+            # 0.23.0 (rapporto 8595, Sculpfun S9): con un lavoro in corso o in pausa M9 finiva in coda dietro a tutte
+            # le righe del lavoro e l'aria si spegneva solo alla fine (in pausa mai). GRBL 1.1 ha due comandi immediati
+            # che invertono l'aria (0xA0 = M8, 0xA1 = M7), validi a macchina ferma, durante il lavoro e in pausa.
+            self._air_realtime(on)
+            return
+        self.send_line(cmd)
+
+    def _air_realtime(self, on):
+        """0.23.0: accende o spegne l'aria subito, senza passare dalla coda. Si inverte solo quello che va invertito:
+        se la scheda ha già detto com'è l'aria (campo A:), si guarda quello; se no si va con il pulsante."""
+        flood = self.air_cmds[0] != "M7"
+        if on:
+            if self.air_board is True:
+                return
+            codes = [0xA0 if flood else 0xA1]
+        else:
+            if self.air_board is False:
+                return
+            acc = self.air_acc or ""
+            codes = [c for ch, c in (("F", 0xA0), ("M", 0xA1)) if ch in acc] or [0xA0 if flood else 0xA1]
+        for c in codes:
+            self.realtime(c)
+        # quello che si è chiesto vale subito (due pressioni di fila prima del report non si perdono); il report
+        # successivo della scheda conferma o corregge
+        self.air_board = bool(on)
+        self.air_acc = ("F" if flood else "M") if on else ""
+        self._air_rt_t = time.time()  # un report partito prima del comando direbbe ancora l'aria di prima
+        self.note.emit(f"aria {'accesa' if on else 'spenta'} con il comando immediato "
+                       f"{' '.join(hex(c) for c in codes)} (righe in coda: lavoro in corso o in pausa)")
 
     @property
     def wco(self):
@@ -1148,6 +1186,14 @@ class GrblController(QObject):
             st = parse_status(line, self._wco)
             self._wco = st["WCO"]
             self.last_status = st
+            if ("acc" in st or "ov" in st) and time.time() - getattr(self, "_air_rt_t", 0.0) > 0.4:
+                # 0.23.0: GRBL dice gli accessori insieme a Ov (senza A: = tutto spento)
+                acc = st.get("acc") or ""
+                on = "F" in acc or "M" in acc
+                self.air_acc = acc
+                if on != self.air_board:
+                    self.air_board = on
+                    self.air_changed.emit(on)
             if (st["state"] == "Check" and self._check is None and not self.stale_check_exit
                     and time.time() - self._check_end_t > 3.0):  # subito dopo una verifica il report può essere vecchio
                 self.exit_stale_check()

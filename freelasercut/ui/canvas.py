@@ -517,6 +517,9 @@ class Canvas(QGraphicsView):
         # 0.20.9: guide tirate fuori dai righelli (core/guides.py): si vedono, ci si aggancia
         self.show_guides = True
         self.snap_guides = True
+        self.show_ties = True  # 0.23.0: quote delle distanze fisse (solo a schermo)
+        self.ties_create = False  # 0.23.0: Misura propone «Fissa questa distanza» (funzioni in prova sbloccate)
+        self._tie_hits = []
         self._guide_drag = None  # {"kind": "h"|"v", "index": int|None, "pos": mm, "out": bool}
         self.dither_preview = False
         self.show_ghosts = True  # gli oggetti degli altri piani di lavoro, in grigio
@@ -664,6 +667,10 @@ class Canvas(QGraphicsView):
     def refresh_live(self, shapes):
         """Aggiornamento veloce durante i trascinamenti: le forme date sono state solo spostate, ruotate o scalate
         (è cambiata la loro trasformazione, non la sagoma). Se cambia la sagoma si passa da sync (editor.live)."""
+        moved = self.editor.solve_ties()[0]  # 0.23.0: chi ha una distanza fissa segue dal vivo
+        if moved:
+            by = {s.id: s for s in self.editor.doc.shapes}
+            shapes = list(shapes) + [by[i] for i in moved if i in by]
         for s in shapes:
             it = self.items_by_id.get(s.id)
             if it is not None:
@@ -1196,6 +1203,15 @@ class Canvas(QGraphicsView):
         self.setFocus()
         if e.button() == Qt.LeftButton and self.guide_press(e.position()):
             return
+        if e.button() == Qt.RightButton and self.tool in (self.tools.get("select"), self.tools.get("nodes")):
+            from . import ties_ui
+
+            h = ties_ui.hit(self, e.position())  # 0.23.0: tasto destro sulla quota di una distanza fissa
+            if h is not None:
+                self._rpress = None
+                ties_ui.menu(self, h[0], h[1], e.globalPosition().toPoint())
+                self.viewport().update()
+                return
         # lo strumento va guardato ADESSO: la Linea col tasto destro chiude il tracciato e passa a Selezione
         menu_ok = e.button() == Qt.RightButton and self.tool in (self.tools.get("select"), self.tools.get("nodes"))
         self._rpress = e.position() if menu_ok else None
@@ -1276,6 +1292,14 @@ class Canvas(QGraphicsView):
         self.viewport().update()
 
     def mouseDoubleClickEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            from . import ties_ui
+
+            h = ties_ui.hit(self, e.position())  # 0.23.0: doppio clic sulla quota = nuovo valore
+            if h is not None:
+                ties_ui.edit_value(self, h[0], h[1])
+                self.viewport().update()
+                return
         self.tool.double_click(e, self.to_bed(e.position()))
         self.viewport().update()
 
@@ -1774,6 +1798,9 @@ class Canvas(QGraphicsView):
                 p.setPen(pen)
                 for path in self.overlay_paths:
                     p.drawPath(tf.map(path))
+        from . import ties_ui
+
+        ties_ui.draw(self, p, tf)  # 0.23.0: quote delle distanze fisse, sotto quello che disegna lo strumento
         self.tool.draw(p, tf)
         if self.snap_hint is not None:
             pt, label = self.snap_hint

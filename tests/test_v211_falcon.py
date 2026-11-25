@@ -251,7 +251,23 @@ check("riepilogo: l'angolo scelto e le frecce non vanno d'accordo, lo dice", "At
       and "frecce" in d.summary.text(), d.summary.text()[-200:])
 d.accept()
 p = w.profile
-check("…con Fine vale la prova delle frecce, e angolo e assi restano coerenti",
+# 0.23.0 (rapporto BCAB): non vince più in silenzio la prova delle frecce. Si chiede; di partenza vale l'angolo scelto
+check("…con Fine, di partenza, vale l'angolo scelto: Y invertito e da riprovare, angolo e assi coerenti",
+      (p.invert_y, p.tested_y, p.origin_corner) == (True, False, "bl") and p.corner_conflict() is None,
+      (p.invert_y, p.tested_y, p.origin_corner))
+rp = roberto()
+rp.save()
+w.set_active_profile(rp)
+d = SetupWizard(w)
+d._ask_conflict = lambda c, a: "arrows"
+d.go(1)
+d.picker.choose("bl")
+d.go(2)
+d.fix(1)
+d.go(5)
+d.accept()
+p = w.profile
+check("…con la risposta «come dicono le frecce»: vale la prova delle frecce, coerente",
       (p.invert_y, p.tested_y, p.origin_corner) == (False, True, "fl") and p.corner_conflict() is None,
       (p.invert_y, p.tested_y, p.origin_corner))
 
@@ -333,8 +349,10 @@ spin(0.3)
 check("…anche verso il davanti (giù)", not any(s.startswith("$J") for s in sent) and not d.tested[1])
 d.jog("right")
 spin(0.2)
-check("la freccia che allontana parte e vale come prova", any(s.startswith("$J") and "X10.000" in s for s in sent)
-      and d.tested[0], sent)
+check("la freccia che allontana parte, ma vale come prova solo con la risposta (0.23.0)",
+      any(s.startswith("$J") and "X10.000" in s for s in sent) and not d.tested[0] and d.confirm_box.isVisibleTo(d), sent)
+d._confirm(True)
+check("…«Sì, è andata lì»: ora X è provato", d.tested[0] and not d.confirm_box.isVisibleTo(d))
 until(lambda: w.ctl.last_status.get("state") == "Idle", 5)
 spin(0.4)
 del sent[:]

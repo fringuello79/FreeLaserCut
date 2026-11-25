@@ -674,7 +674,7 @@ check(tag + "…dopo Fine: Y invertito, X resta provato, Y torna «da provare»,
 check(tag + "…e il pallino verde dello 0 è in alto a sinistra sul piano (prima era sempre in basso a sinistra)",
       w.canvas.machine_zero == (0.0, p.bed_y), str(w.canvas.machine_zero))
 check(tag + "…«casa» a fine lavoro è lì: in alto a sinistra", p.home_point() == (10.0, p.bed_y - 10.0), str(p.home_point()))
-d = SetupWizard(w); d.go(1); d.picker.choose("bl"); d.go(2); d.jog("down"); spin(0.5); d.go(5); d.accept()  # «giù» si allontana dal bordo
+d = SetupWizard(w); d.go(1); d.picker.choose("bl"); d.go(2); d.jog("down"); spin(0.5); d._confirm(True); d.go(5); d.accept()  # «giù» si allontana dal bordo
 p = w.profile
 check(tag + "confermato con la freccia: Y provato e invertito, l'angolo resta dietro a sinistra",
       (p.invert_y, p.tested_y) == (True, True) and p.corner_now() == "bl")
@@ -682,9 +682,11 @@ d = SetupWizard(w); d.go(1); d.picker.choose("bl"); d.go(5); d.accept()
 p = w.profile
 check(tag + "indicare di nuovo lo stesso angolo non toglie niente: assi provati come prima",
       (p.invert_x, p.invert_y, p.tested_x, p.tested_y) == (False, True, True, True))
-d = SetupWizard(w); d.go(1); d.picker.choose("bl"); d.go(2); d.jog("up"); spin(0.3); d.fix(1); d.go(5); d.accept()
+# 0.23.0 (rapporto BCAB): angolo scelto e frecce in contrasto -> la finestra chiede quale vale (qui: le frecce)
+d = SetupWizard(w); d._ask_conflict = lambda c, a: "arrows"
+d.go(1); d.picker.choose("bl"); d.go(2); d.jog("up"); spin(0.3); d.fix(1); d.go(5); d.accept()
 p = w.profile
-check(tag + "le frecce fatte dopo hanno l'ultima parola: «correggi» rimette Y normale e lo 0 risulta davanti a sinistra",
+check(tag + "contrasto, risposta «come dicono le frecce»: Y normale e lo 0 risulta davanti a sinistra",
       (p.invert_y, p.tested_y) == (False, True) and p.corner_now() == "fl")
 d = SetupWizard(w); d.go(1); d.go(2); d.go(3); d.go(5); d.accept()
 p = w.profile

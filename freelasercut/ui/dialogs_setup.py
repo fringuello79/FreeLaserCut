@@ -4,10 +4,12 @@
 Poche domande: il modello, l'angolo in cui sta lo 0 della macchina e, se il laser è collegato, la prova delle
 frecce. Da lì FreeLaserCut ricava il verso degli assi, così testa e lavoro compaiono nel punto giusto del piano.
 Alla fine: nomi sotto i comandi oppure modalità esperto. Si può rifare quando si vuole."""
+import os
+
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (
-    QButtonGroup, QComboBox, QDialog, QRadioButton, QGridLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout,
+    QButtonGroup, QComboBox, QDialog, QMessageBox, QRadioButton, QGridLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout,
     QWidget,
 )
 
@@ -369,6 +371,20 @@ class SetupWizard(QDialog):
         g.addWidget(self.fix_x, 3, 0, 1, 3)
         g.addWidget(self.fix_y, 4, 0, 1, 3)
         v.addWidget(self.arrows_box)
+        # 0.23.0 (rapporto BCAB di Sengir, Falcon A1): una freccia vale come prova solo con una risposta. Fino alla
+        # 0.22.9 bastava premerla: con la scheda che si riavviava a metà spostamento, o senza guardare, l'asse
+        # risultava «provato» nel verso sbagliato e con «Fine» cancellava l'angolo scelto.
+        self.confirm_box = QWidget()
+        cr = QHBoxLayout(self.confirm_box)
+        cr.setContentsMargins(0, 0, 0, 0)
+        self.b_yes = QPushButton(tr("Sì, è andata lì"))
+        self.b_yes.clicked.connect(lambda: self._confirm(True))
+        self.b_no = QPushButton(tr("No, è andata al contrario"))
+        self.b_no.clicked.connect(lambda: self._confirm(False))
+        cr.addWidget(self.b_yes)
+        cr.addWidget(self.b_no)
+        self.confirm_box.setVisible(False)
+        v.addWidget(self.confirm_box)
         self.b_home = QPushButton(tr("Homing"))
         self.b_home.setToolTip(tr("La macchina è bloccata (allarme): con l'homing si sblocca e trova lo 0"))
         self.b_home.clicked.connect(lambda: self.main.ctl.home())
@@ -377,8 +393,13 @@ class SetupWizard(QDialog):
         self.arrows_lab = _text("")
         v.addWidget(self.arrows_lab)
         self._last_axis = None
+        self._pending = None  # asse della freccia appena premuta, in attesa di «Sì» o «No»
         # spostamento rifiutato dalla scheda (fuori area, macchina bloccata): non vale come prova, e lo dico
         self.main.ctl.error_raised.connect(self._jog_refused)
+        # 0.23.0: allarme o scheda che si riavvia durante lo spostamento (il Falcon A1 lo fa quando la testa tocca un
+        # finecorsa): la testa non ha fatto il passo intero, quindi non vale come prova
+        self.main.ctl.alarm_raised.connect(self._jog_broken)
+        self.main.ctl.board_rebooted.connect(self._jog_broken)
         v.addStretch(1)
         self.stack.addWidget(w)
 
@@ -651,6 +672,9 @@ class SetupWizard(QDialog):
 
     def go(self, i):
         i = max(0, min(self.stack.count() - 1, i))
+        if getattr(self, "_pending", None) is not None and i != 2:  # 0.23.0: freccia senza risposta: non vale
+            self._pending = None
+            self.confirm_box.setVisible(False)
         if i == 2:
             self._enter_arrows()
         if i == 3:
@@ -734,16 +758,45 @@ class SetupWizard(QDialog):
             return
         self._apply_sign()
         self._last_axis = 0 if dx else 1
-        self._tested_before = self.tested[self._last_axis]
         self.main.ctl.jog(dx, dy, JOG_FEED)
-        self.tested[self._last_axis] = True
-        self.arrows_lab.setText(tr("È andata dove indica la freccia? Se sì, prova anche l'altro asse; se no, premi "
-                                   "«correggi»."))
+        # 0.23.0: non vale ancora come prova: serve la risposta (Sì / No)
+        self._pending = self._last_axis
+        self._pending_key = key
+        self.confirm_box.setVisible(True)
+        self.arrows_lab.setText(tr("Hai premuto {0}: la testa è andata da quella parte? Rispondi qui sotto.",
+                                   self.b_arrow[key].text()))
+
+    def _confirm(self, ok):
+        """0.23.0: la risposta alla freccia appena premuta. Solo così l'asse diventa «provato»."""
+        axis = self._pending
+        self._pending = None
+        self.confirm_box.setVisible(False)
+        if axis is None:
+            return
+        if ok:
+            self.tested[axis] = True
+            self.arrows_lab.setText(tr("Bene: {0} è giusto. Prova anche l'altro asse, poi «Avanti».",
+                                       tr("sinistra–destra") if axis == 0 else tr("fondo–davanti")))
+        else:
+            self.fix(axis)
+
+    def _jog_broken(self, *_args):
+        """0.23.0: allarme o riavvio della scheda con una freccia in attesa di risposta: non è una prova."""
+        if self.stack.currentIndex() != 2 or self._pending is None:
+            return
+        self._pending = None
+        self.confirm_box.setVisible(False)
+        self.b_home.setVisible(True)
+        self.arrows_lab.setText(tr("La scheda si è fermata durante lo spostamento (allarme o riavvio): la testa non ha "
+                                   "fatto il passo intero, quindi non vale come prova. Su alcune macchine succede quando "
+                                   "la testa tocca un finecorsa: fai l'<b>Homing</b>, poi usa la freccia che la "
+                                   "allontana dall'angolo."))
 
     def _jog_refused(self, code, _text, line):
         if self.stack.currentIndex() != 2 or not str(line).startswith("$J=") or self._last_axis is None:
             return
-        self.tested[self._last_axis] = getattr(self, "_tested_before", False)  # non si è mosso: non è una prova
+        self._pending = None  # non si è mosso: non è una prova
+        self.confirm_box.setVisible(False)
         if code == 15:
             self.arrows_lab.setText(tr("La macchina ha rifiutato lo spostamento: la testa uscirebbe dall'area di lavoro. "
                                        "Non è un verso sbagliato: usa la freccia opposta, che la allontana dal bordo."))
@@ -752,6 +805,9 @@ class SetupWizard(QDialog):
                                        "Controlla che sia pronta e riprova.", code))
 
     def fix(self, axis):
+        if self._pending == axis:
+            self._pending = None
+            self.confirm_box.setVisible(False)
         self.inv[axis] = not self.inv[axis]
         self.tested[axis] = True
         self._apply_sign()
@@ -786,8 +842,8 @@ class SetupWizard(QDialog):
         warn = ""
         if self._axes_disagree():
             warn = "<br>" + tr("<b>Attenzione:</b> hai scelto lo 0 {0}, ma con la prova delle frecce risulta {1}. Se con "
-                               "l'homing la testa va {0}, torna indietro e rifai la prova delle frecce; con «Fine» vale "
-                               "quello delle frecce.", corner_name(self.picker.corner), corner_name(corner))
+                               "l'homing la testa va {0}, torna indietro e rifai la prova delle frecce; con «Fine» ti "
+                               "chiedo quale dei due vale.", corner_name(self.picker.corner), corner_name(corner))
         self.summary.setText(tr("<b>Macchina:</b> {0}<br><b>Lo 0 è</b> {1}.<br><b>Assi:</b> X {2}, Y {3} ({4}).",
                                 self.main.profile.name if self._same_model() else self.model.currentText(), corner_name(corner),
                                 tr("invertito") if ix else tr("normale"), tr("invertito") if iy else tr("normale"),
@@ -803,10 +859,18 @@ class SetupWizard(QDialog):
                                                  "m7": tr("si accende con la prova 2 (M7)"),
                                                  "none": tr("nessun comando (a mano, o non c'è)")}[k])
 
+    def _corner_given(self):
+        """0.23.0: c'è un angolo dello 0 indicato dalla persona? Cliccato adesso, oppure scelto le volte prima (la
+        finestra si apre su quello). «Non lo so» non conta."""
+        if self.picker.touched:
+            return True
+        return (not self._unknown and self._same_model()
+                and str(self.main.profile.origin_corner or "") in CORNERS)
+
     def _axes_disagree(self):
         """0.21.1: l'angolo scelto e gli assi come saranno salvati dicono due cose diverse? (solo se si sa già se le
         coordinate sono negative: senza, l'angolo degli assi non è sicuro)"""
-        if not self.picker.touched or not self._same_model() or self.main.profile.negative_space is None:
+        if not self._corner_given() or not self._same_model() or self.main.profile.negative_space is None:
             return False
         ix, iy = self._final_axes()
         q = MachineProfile(invert_x=ix, invert_y=iy, negative_space=self.main.profile.negative_space)
@@ -814,6 +878,24 @@ class SetupWizard(QDialog):
 
     def _axes_disagree_saved(self, p):
         return p.negative_space is not None and p.corner_now() != self.picker.corner
+
+    def _ask_conflict(self, chosen, arrows):
+        """0.23.0: angolo scelto e prova delle frecce in contrasto, alla fine. -> "corner" (vale l'angolo scelto: gli
+        assi lo seguono) o "arrows" (vale la prova delle frecce). Di partenza, e chiudendo la domanda, vale l'angolo:
+        dov'è la testa dopo l'homing si vede a occhio, la prova delle frecce si può sbagliare (rapporto BCAB)."""
+        if os.environ.get("FLC_NO_DIALOGS"):
+            return "corner"
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("Dov'è lo 0?"))
+        box.setText(tr("Hai scelto lo 0 <b>{0}</b>, ma la prova delle frecce lo mette <b>{1}</b>.<br>Dove va la testa "
+                       "quando fai l'homing?", corner_name(chosen), corner_name(arrows)))
+        b_corner = box.addButton(tr("{0} (come ho scelto)", corner_name(chosen).capitalize()), QMessageBox.AcceptRole)
+        box.addButton(tr("{0} (come dicono le frecce)", corner_name(arrows).capitalize()), QMessageBox.RejectRole)
+        box.setDefaultButton(b_corner)
+        box.exec()
+        clicked = box.clickedButton()
+        return "corner" if clicked is None or clicked is b_corner else "arrows"
 
     def help_level_choice(self):
         return next((lv for lv, b in self.levels.items() if b.isChecked()), "normale")
@@ -824,6 +906,11 @@ class SetupWizard(QDialog):
         for slot in (self._jog_refused, self._air_refused):
             try:
                 self.main.ctl.error_raised.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        for sig in (self.main.ctl.alarm_raised, self.main.ctl.board_rebooted):  # 0.23.0
+            try:
+                sig.disconnect(self._jog_broken)
             except (RuntimeError, TypeError):
                 pass
 
@@ -851,10 +938,17 @@ class SetupWizard(QDialog):
         p.invert_x, p.invert_y = bool(ix), bool(iy)
         p.tested_x, p.tested_y = bool(self.tested[0]), bool(self.tested[1])
         p.axes_tested = all(self.tested)
-        if self.picker.touched:
-            # serve per gli assi non provati, quando l'homing dirà di più. 0.21.1: se la prova delle frecce dice un
-            # altro angolo (e il riassunto l'ha detto), vale quello delle frecce: mai più angolo e assi in contrasto
-            p.origin_corner = p.corner_now() if self._axes_disagree_saved(p) else self.picker.corner
+        if self._corner_given():
+            # serve per gli assi non provati, quando l'homing dirà di più. Mai salvati in contrasto (0.21.1).
+            # 0.23.0 (rapporto BCAB, Falcon A1): fino alla 0.22.9 vinceva in silenzio la prova delle frecce e l'angolo
+            # scelto si perdeva per sempre (diventava quello delle frecce, e il contrasto non si vedeva più). Ora si
+            # chiede; di partenza vale l'angolo, e gli assi in contrasto lo seguono e tornano «da provare».
+            if not self._axes_disagree_saved(p):  # d'accordo, o coordinate non ancora note: come prima
+                p.origin_corner = self.picker.corner
+            elif self._ask_conflict(self.picker.corner, p.corner_now()) == "arrows":
+                p.origin_corner = p.corner_now()
+            else:
+                p.follow_corner(self.picker.corner)
         elif self._unknown:
             p.origin_corner = ""
         air = self.air_choice()

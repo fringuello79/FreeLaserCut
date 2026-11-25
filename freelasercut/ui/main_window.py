@@ -443,6 +443,11 @@ class MainWindow(QMainWindow):
             "distance": A(tr("Distanza esatta…"), self.distance_dialog, None, None,
                           tr("Mette un oggetto a una distanza precisa da un altro: spazio fra i bordi, fra i centri o fra "
                              "i bordi scelti")),
+            # 0.23.0 (in prova): distanze fisse
+            "ties_clear": A(tr("Togli le distanze fisse"), self.clear_ties, None, None,
+                            tr("Gli oggetti selezionati smettono di seguire il loro riferimento")),
+            "ties_show": A(tr("Distanze fisse"), self._toggle_ties, None, None,
+                           tr("Mostra le quote delle distanze fisse sul piano (non si incidono)"), checkable=True),
             "grid_array": A(tr("Serie a griglia…"), self.grid_array_dialog, "Alt+A", "grid_array"),
             "circ_array": A(tr("Serie circolare…"), self.circ_array_dialog, None, "circ_array"),
             "along_path": A(tr("Copia lungo un tracciato…"), self.along_path_dialog),
@@ -647,7 +652,7 @@ class MainWindow(QMainWindow):
         c.light_bed = self.acts["light_bed"].isChecked()
         self.acts["show_trail"].setChecked(on("show_trail", True))
         c.set_trail_shown(self.acts["show_trail"].isChecked())
-        for k, attr in (("guides_show", "show_guides"), ("guides_snap", "snap_guides")):
+        for k, attr in (("guides_show", "show_guides"), ("guides_snap", "snap_guides"), ("ties_show", "show_ties")):
             self.acts[k].setChecked(on(attr, True))
             setattr(c, attr, self.acts[k].isChecked())
         self.acts["snap_obj"].setChecked(on("snap_objects", True))
@@ -791,7 +796,7 @@ class MainWindow(QMainWindow):
                           (tr("Allinea"), ["align_left", "align_hcenter", "align_right", "-", "align_top", "align_vcenter",
                                        "align_bottom", "-", "align_center"]),
                           (tr("Distribuisci"), ["dist_h", "dist_v", "dist_hc", "dist_vc"]),
-                          (tr("Stessa misura"), ["same_w", "same_h"]), "distance",
+                          (tr("Stessa misura"), ["same_w", "same_h"]), "distance", "ties_clear",
                           (tr("Sposta sul piano"), [anchors_move]), (tr("Porta la testa sulla selezione"), [anchors_head]), "-",
                           "grid_array", "circ_array", "along_path", "-", "nest", "common_lines", "-", "front", "back"])
         m = mb.addMenu(tr("&Strumenti"))
@@ -819,7 +824,8 @@ class MainWindow(QMainWindow):
             "autofocus", "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev", "show_trail", "-", "guides_show",
-                                           "guides_snap", "guides_add", "guides_clear", "-", "clear_mosaic"])
+                                           "guides_snap", "guides_add", "guides_clear", "ties_show", "-",
+                                           "clear_mosaic"])
         self.m_view.addSeparator()
         self.m_panels = self.m_view.addMenu(tr("Pannelli"))
         self.m_view.addAction(tr("Ripristina la disposizione dei pannelli"), lambda: self.reset_layout())
@@ -924,7 +930,7 @@ class MainWindow(QMainWindow):
         if cur == "banco":
             m.addSeparator()
             for k in ("light_bed", "snap_obj", "snap_grid", "dither_prev", "guides_show", "guides_snap", "guides_add",
-                      "guides_clear"):
+                      "guides_clear", "ties_show"):
                 m.addAction(self.acts[k])
 
     def preferences_dialog(self, *_, section=None):
@@ -1522,6 +1528,7 @@ class MainWindow(QMainWindow):
         self.laser.run_file_requested.connect(self.run_gcode_file)
         ctl.connection_changed.connect(self.on_connection)
         ctl.status_changed.connect(self.on_status)
+        ctl.air_changed.connect(self._air_from_board)  # 0.23.0: il pulsante Aria segue la scheda
         ctl.alarm_raised.connect(lambda code, t: self.show_banner(f"⚠  Allarme {code}: {t}", "alarm",
                                                                   [(tr("Sblocca"), ctl.unlock), (tr("Homing"), ctl.home)]))
         ctl.message.connect(lambda m: self.statusBar().showMessage(m, 5000))
@@ -2729,6 +2736,31 @@ class MainWindow(QMainWindow):
 
         return run_puzzle(self)
 
+    def _air_from_board(self, on):
+        """0.23.0 (rapporto 8595): la scheda dice com'è davvero l'aria (campo A: del report): il pulsante Aria (e la
+        sua copia nel Banco) la segue, senza mandare comandi."""
+        b = getattr(getattr(self, "laser", None), "b_air", None)
+        if b is None or b.isChecked() == bool(on):
+            return
+        self.ctl._air_sync = True
+        try:
+            b.setChecked(bool(on))
+        finally:
+            self.ctl._air_sync = False
+
+    def clear_ties(self, *_):
+        """0.23.0: Disponi → Togli le distanze fisse (della selezione). -> quante tolte."""
+        n = self.editor.remove_ties()
+        self.editor.message.emit(tr("Tolte {0} distanze fisse", n) if n else
+                                 tr("Gli oggetti selezionati non hanno distanze fisse"))
+        return n
+
+    def _toggle_ties(self, on):
+        """0.23.0: quote delle distanze fisse visibili o no (resta nelle preferenze)."""
+        self.canvas.show_ties = bool(on)
+        self.qs.setValue("show_ties", bool(on))
+        self.canvas.viewport().update()
+
     def distance_dialog(self, *_):
         """Disponi → Distanza esatta (0.17.16). Ritorna la finestra (già chiusa) o None se la selezione non va bene."""
         from .dialogs_distance import make_distance_dialog
@@ -3493,6 +3525,11 @@ class MainWindow(QMainWindow):
         self.acts["relief"].setVisible(admin.unlocked(self.qs))
         self.acts["cook"].setVisible(admin.unlocked(self.qs))  # 0.20.7: Free Laser Cook, in prova
         self.acts["study_machine"].setVisible(admin.unlocked(self.qs))  # 0.22.3: Studia la macchina, in prova
+        # 0.23.0: distanze fisse, in prova. Senza codice non si creano, ma quelle di un progetto aperto guidano e si
+        # vedono lo stesso (si possono anche cambiare o togliere dal tasto destro sulla quota)
+        for k in ("ties_clear", "ties_show"):
+            self.acts[k].setVisible(admin.unlocked(self.qs))
+        self.canvas.ties_create = admin.unlocked(self.qs)
         # 0.19.2: MakerHub non è più fra le funzioni in prova: le sue voci si vedono sempre
         # 0.19.5: nemmeno Stampa e taglia (resta in prova solo il Rilievo 3D)
 

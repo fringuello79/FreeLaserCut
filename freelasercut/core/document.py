@@ -17,7 +17,7 @@ from dataclasses import asdict, dataclass, field
 from PySide6.QtCore import QPointF, QRectF
 from PySide6.QtGui import QPainterPath, QTransform
 
-from . import geom, text as textmod, variables
+from . import geom, text as textmod, ties, variables
 from freelasercut.i18n import tr  # noqa: E402
 
 FORMAT_VERSION = 1
@@ -269,6 +269,7 @@ class Shape:
         self.role = ""  # 0.18.5: compito speciale della forma («pc1» / «pc2» = crocette di Stampa e taglia)
         self.origin = ""  # 0.20.0: nome del file da cui è stata importata (vuoto = disegnata qui)
         self.gray = None  # 0.20.7: grigio del riempimento letto dal file (0 = nero … 255 = bianco), None = nessuno
+        self.ties = []  # 0.23.0: distanze fisse di questa forma verso le forme di riferimento (core/ties.py)
         self._cache = None
 
     # geometria
@@ -324,6 +325,9 @@ class Shape:
             d["origin"] = self.origin
         if self.gray is not None:  # 0.20.7: solo se c'è
             d["gray"] = self.gray
+        if self.ties:  # 0.23.0: solo se ci sono (le versioni precedenti ignorano la chiave)
+            d["ties"] = [dict(t, **({"er": list(t["er"]), "es": list(t["es"]), "u": list(t["u"])}
+                                     if t["axis"] == "p" else {})) for t in self.ties]
         return d
 
     def _load_common(self, d):
@@ -337,6 +341,7 @@ class Shape:
         origin = d.get("origin", "")
         self.origin = origin if isinstance(origin, str) else ""
         self.gray = clean_gray(d.get("gray"))
+        self.ties = ties.clean(d.get("ties"))
 
     def clone(self, new_id=True):
         c = shape_from_dict(self.to_dict(), getattr(self, "_doc_images", None))
@@ -962,6 +967,7 @@ def renew_ids(shape):
     """Id nuovi alla forma e a tutto quello che contiene, gruppi dentro i gruppi compresi: una copia non deve mai
     avere lo stesso id dell'originale (separando i gruppi due forme diverse avrebbero lo stesso id)."""
     shape.id = uuid.uuid4().hex[:12]
+    shape.ties = []  # 0.23.0: una copia non eredita le distanze fisse (sono dell'originale)
     for ch in getattr(shape, "children", None) or ():
         renew_ids(ch)
     return shape
@@ -1010,6 +1016,7 @@ def _to_file(shape, to_frame):
     d = shape.to_dict()
     if to_frame is None:
         return d
+    ties.map_dict_tree(d, to_frame)  # 0.23.0: le distanze fisse girano con il piano
     now = geom.transform_to_list(shape.tf)
     kept = getattr(shape, "_door_tf", None)
     if kept is not None and kept[0] == now:
@@ -1026,6 +1033,7 @@ def _from_file(shapes, to_plane):
     for s in shapes:
         in_file = geom.transform_to_list(s.tf)
         s.set_transform(s.tf * to_plane)
+        ties.map_shape_tree(s, to_plane)
         s._door_tf = (geom.transform_to_list(s.tf), in_file)
 
 
@@ -1287,6 +1295,7 @@ class Document:
         mostrato cambia orientamento e il disegno resta dov'è sulla macchina)."""
         for s in self.all_shapes():
             s.apply(tf)
+            ties.map_shape_tree(s, tf)  # 0.23.0
         if self.guides:  # 0.20.9: anche le guide restano dove sono sulla macchina
             self.guides = _map_guides(self.guides, tf)
 

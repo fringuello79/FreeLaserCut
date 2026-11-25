@@ -10,7 +10,7 @@ from PySide6.QtGui import QTransform
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QLabel,
                                QVBoxLayout)
 
-from ..core import ops
+from ..core import ops, ties
 from freelasercut.i18n import tr  # noqa: E402
 
 MAX_D = 5000.0
@@ -73,6 +73,16 @@ class DistanceDialog(QDialog):
         self.flip = QCheckBox(tr("Dall'altra parte"))
         self.flip.setToolTip(tr("Porta l'oggetto dall'altro lato di quello fermo"))
         f.addRow("", self.flip)
+        # 0.23.0 (in prova, codice delle funzioni in prova): la distanza resta anche dopo, quando le forme cambiano
+        from .. import admin
+
+        self.keep = QCheckBox(tr("Mantieni questa distanza (distanza fissa)"))
+        self.keep.setToolTip(tr("Quando l'oggetto fermo si sposta o cambia misura, l'altro lo segue e tiene la "
+                                "distanza. Doppio clic sulla quota per cambiarla."))
+        qs = getattr(main, "qs", None)
+        self.keep_allowed = bool(qs is not None and admin.unlocked(qs))
+        self.keep.setVisible(self.keep_allowed)
+        f.addRow("", self.keep)
         v.addLayout(f)
         self.lbl_now = QLabel("")
         self.lbl_now.setObjectName("muted")
@@ -81,7 +91,12 @@ class DistanceDialog(QDialog):
         self.lbl_warn.setStyleSheet("color:#d9822b;")
         self.lbl_warn.setWordWrap(True)
         v.addWidget(self.lbl_warn)
+        self.lbl_tie = QLabel("")  # 0.23.0: perché non si può (già legato su quell'asse, giro…)
+        self.lbl_tie.setStyleSheet("color:#d9822b;")
+        self.lbl_tie.setWordWrap(True)
+        v.addWidget(self.lbl_tie)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.ok_btn = bb.button(QDialogButtonBox.Ok)
         bb.button(QDialogButtonBox.Cancel).setText(tr("Annulla"))
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
@@ -92,6 +107,7 @@ class DistanceDialog(QDialog):
         for c in (self.fixed, self.axis, self.mode, self.ef, self.em):
             c.currentIndexChanged.connect(self._changed)
         self.flip.toggled.connect(self._changed)
+        self.keep.toggled.connect(self._changed)
         self.dist.valueChanged.connect(self._dist_edited)
         self._changed()
 
@@ -120,6 +136,34 @@ class DistanceDialog(QDialog):
         f, m = self.roles()
         axis, mode, side, ef, em = self.params()
         return ops.distance_shift(self.orig[f], self.orig[m], axis, mode, side, self.dist.value(), ef, em)
+
+    def tie(self):
+        """La distanza fissa che nasce con «Mantieni» (sulla posizione di arrivo), con la stessa definizione."""
+        f, m = self.roles()
+        axis, mode, side, ef, em = self.params()
+        if mode == "gap":
+            ef, em = ("max", "min") if side > 0 else ("min", "max")
+        elif mode == "center":
+            ef = em = "center"
+        return ties.clean_one({"ref": self.pair[f].id, "axis": axis, "er": ef, "es": em, "side": side,
+                               "d": self.dist.value()})
+
+    def tie_problem(self):
+        """Testo che spiega perché non si può confermare (o non si può mantenere), "" se va bene. -> (testo, blocca OK)."""
+        f, m = self.roles()
+        mov, axis = self.pair[m], self.axis.currentData()
+        shapes = self.ed.doc.shapes
+        for t in ties.active(shapes).get(mov.id, ()):
+            if axis in ties.uses(t):
+                return tr("«{0}» ha già una distanza fissa lungo {1}: segue il suo riferimento. Cambiala con doppio "
+                          "clic sulla quota, oppure toglila (tasto destro sulla quota).", mov.describe(),
+                          axis.upper()), True
+        if self.keep_allowed and self.keep.isChecked():
+            why = ties.check_new(shapes, mov, self.pair[f], axis)
+            if why == "cycle":
+                return tr("Non si può mantenere: «{0}» segue già, anche di seguito, l'oggetto che si sposta (si "
+                          "inseguirebbero).", self.pair[f].describe()), True
+        return "", False
 
     def moved_bounds(self):
         f, m = self.roles()
@@ -171,10 +215,21 @@ class DistanceDialog(QDialog):
         area = QRectF(0, 0, p.bed_x, p.bed_y) if p is not None else None
         out = area is not None and not area.adjusted(-1e-6, -1e-6, 1e-6, 1e-6).contains(self.moved_bounds())
         self.lbl_warn.setVisible(out)
+        txt, block = self.tie_problem()
+        self.lbl_tie.setText(txt)
+        self.lbl_tie.setVisible(bool(txt))
+        self.ok_btn.setEnabled(not block)
         self.ed.preview_changed()
 
     def accept(self):
         self._live()
+        if self.tie_problem()[1]:
+            return
+        if self.keep_allowed and self.keep.isChecked():
+            f, m = self.roles()
+            t = self.tie()
+            if t is not None:
+                ties.add(self.pair[m], t)  # nello stesso passo di «Distanza esatta»
         self.ed.commit()
         super().accept()
 

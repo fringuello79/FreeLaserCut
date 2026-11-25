@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.23.0 — 25/11/2026
+**Configurazione guidata: l'angolo dello 0 che scegli non si perde più** (rapporto di Roberto, Falcon A1). Nella prova delle frecce, dopo ogni freccia si risponde «Sì, è andata lì» o «No, è andata al contrario»: prima bastava premerla perché l'asse risultasse provato, anche senza guardare o se la scheda si fermava a metà. Se la scheda va in allarme o si riavvia durante lo spostamento, la freccia non vale. Se alla fine l'angolo scelto e la prova delle frecce non vanno d'accordo, il programma chiede quale è giusto (prima vinceva in silenzio la prova delle frecce e lo 0 tornava davanti a sinistra).
+
+**Il pulsante Aria funziona anche durante il lavoro** (rapporto di Marcello, Sculpfun S9). Con un lavoro in corso o in pausa, spegnere l'aria dal pulsante la spegneva solo a fine lavoro. Ora si spegne e si riaccende subito, e il pulsante mostra l'aria come la vede la scheda (per esempio si spegne da solo dopo uno Stop). A macchina ferma non cambia niente.
+
+**Per chi prova le funzioni in prova: distanze fisse.** Due oggetti possono restare a una distanza che non cambia mentre si spostano o si modificano: *Disponi → Distanza esatta…* con «Mantieni questa distanza», oppure lo strumento Misura da un angolo, un centro o un bordo di un oggetto a quello di un altro e poi «Fissa questa distanza». Sul piano compare la quota: doppio clic per cambiarla, tasto destro per spegnerla o toglierla. Le quote non si incidono. Per chi non usa le funzioni in prova non cambia niente.
+
+**Interfaccia Banco: la scheda di uno strato non si allarga più** (segnalato da Rino). Togliendo la spunta «Incidi», la scritta «non inciso» allargava la scheda dello strato e faceva uscire dal bordo la modalità (LINEA), Velocità e Potenza. Ora «non inciso» compare sulla riga del nome, accanto a C01, e se i valori non stanno sulla riga sotto finiscono con «…»: passandoci sopra con il mouse si leggono per intero.
+
 ## 0.22.9 — 25/11/2026
 **Free K40 laser software with native M2 Nano controller support. No hardware upgrade required.**
 

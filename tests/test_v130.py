@@ -182,7 +182,7 @@ d.go(1); d.picker.choose("fl"); d.go(2)
 check("con il laser collegato compaiono le frecce", d.arrows_box.isVisibleTo(d))
 sent = []
 w.ctl.line_sent.connect(lambda l: sent.append(l))
-d.jog("right"); d.jog("up")
+d.jog("right"); d._confirm(True); d.jog("up")  # 0.23.0: la freccia vale con «Sì»
 check("le frecce muovono la testa a laser spento, di 10 mm", until(lambda: len(sent) >= 2, 3) and
       all(l.startswith("$J=G91") for l in sent) and "X10.000" in sent[0] and "Y10.000" in sent[1], sent)
 d.fix(1)

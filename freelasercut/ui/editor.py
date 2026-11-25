@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QTransform
 from PySide6.QtCore import QMimeData
 
-from ..core import geom, ops
+from ..core import geom, ops, ties
 from ..core.document import Document, GroupShape, ImageShape, PathShape, TextShape, renew_ids, shape_from_dict
 from freelasercut.i18n import tr  # noqa: E402
 
@@ -69,6 +69,7 @@ class Editor(QObject):
             return
         label, before, sel_before = self._pending
         self._pending = None
+        self.solve_ties(final=True)  # 0.23.0: chi ha una distanza fissa segue, nello stesso passo di Annulla
         after = self.doc.snapshot()
         if after == before:
             return
@@ -85,7 +86,88 @@ class Editor(QObject):
 
     def preview_changed(self):
         """Durante un trascinamento: aggiorna la tela senza registrare nella cronologia."""
+        self.solve_ties()  # 0.23.0: chi segue si sposta dal vivo
         self.live.emit()
+
+    # ================================================================ 0.23.0: distanze fisse (in prova)
+    def solve_ties(self, final=False):
+        """Sposta le forme che seguono una distanza fissa (core/ties.py). final: a fine modifica, con gli avvisi.
+        -> (ids spostati, ids bloccati che non la rispettano, ids nei giri)."""
+        shapes = self.doc.shapes
+        if not any(getattr(s, "ties", None) for s in shapes):
+            return [], [], []
+
+        def tr_(sh, dx, dy):
+            sh.apply(QTransform.fromTranslate(dx, dy))
+
+        moved, stuck, cyc = ties.solve(shapes, tr_)
+        if final:
+            sel = {s.id for s in self.selection}
+            by = {s.id: s for s in shapes}
+            pulled = [i for i in moved if i in sel and not sel.issuperset(ties.ancestors(shapes, i))]
+            if stuck:
+                self.message.emit(tr("Distanza fissa non rispettata: «{0}» è bloccata", by[stuck[0]].describe()))
+            elif pulled:
+                self.message.emit(tr("«{0}» ha una distanza fissa: segue il suo riferimento (doppio clic sulla quota "
+                                     "per cambiarla)", by[pulled[0]].describe()))
+        return moved, stuck, cyc
+
+    def ties_of(self, shape):
+        """Legami accesi di una forma con il riferimento presente sul piano."""
+        return ties.active(self.doc.shapes).get(shape.id, [])
+
+    def add_tie(self, follower, ref, tie):
+        """Aggiunge una distanza fissa (un passo di Annulla). -> "" se fatto, altrimenti il motivo del rifiuto."""
+        why = ties.check_new(self.doc.shapes, follower, ref, tie["axis"]) if tie else "same"
+        if why:
+            return why
+        self.begin(tr("Distanza fissa"))
+        ties.add(follower, tie)
+        self.commit()
+        return ""
+
+    def set_tie_distance(self, follower, index, d):
+        """Nuovo valore di una distanza fissa (doppio clic sulla quota): chi segue si sposta."""
+        if not (0 <= index < len(follower.ties)):
+            return
+        self.begin(tr("Cambia la distanza fissa"))
+        follower.ties[index] = dict(follower.ties[index], d=max(0.0, min(ties.D_MAX, float(d))))
+        self.commit()
+
+    def set_tie_on(self, follower, index, on):
+        """Spegne o riaccende una distanza fissa: spenta resta salvata ma non guida. Riaccendendo si ricontrolla
+        (nel frattempo può essere nato un giro o un altro legame sullo stesso asse). -> "" se fatto, o il motivo."""
+        if not (0 <= index < len(follower.ties)):
+            return "same"
+        t = dict(follower.ties[index])
+        if on:
+            ref = self.doc.find(t["ref"])
+            if ref is not None:
+                why = ties.check_new(self.doc.shapes, follower, ref, t["axis"])
+                if why:
+                    return why
+            t.pop("on", None)
+        else:
+            t["on"] = False
+        self.begin(tr("Riaccendi la distanza fissa") if on else tr("Spegni la distanza fissa"))
+        follower.ties[index] = t
+        self.commit()
+        return ""
+
+    def remove_ties(self, shapes=None, index=None):
+        """Toglie le distanze fisse delle forme (o la sola index della prima). -> quante tolte."""
+        shapes = self.selection if shapes is None else shapes
+        n = sum(len(getattr(s, "ties", None) or ()) for s in shapes) if index is None else 1
+        if not n:
+            return 0
+        self.begin(tr("Togli la distanza fissa"))
+        if index is None:
+            for s in shapes:
+                s.ties = []
+        else:
+            shapes[0].ties = [t for k, t in enumerate(shapes[0].ties) if k != index]
+        self.commit()
+        return n
 
     def _reselect(self, ids):
         by = {s.id: s for s in self.doc.shapes}
@@ -234,6 +316,10 @@ class Editor(QObject):
         copies = []
         for s in src.shapes:
             copies.append(renew_ids(shape_from_dict(s.to_dict(), self.doc.images)))
+        # 0.23.0: le distanze fisse fra le forme del piano passano alle copie, ricollegate fra loro
+        idmap = {s.id: c.id for s, c in zip(src.shapes, copies)}
+        for s, c in zip(src.shapes, copies):
+            c.ties = [ties.clean_one(dict(t, ref=idmap[t["ref"]])) for t in (s.ties or ()) if t["ref"] in idmap]
         from ..core.document import Plate
 
         self.doc.plates.append(Plate(copies, tr("{0} (copia)", self.doc.plate_name(i))))

@@ -1514,10 +1514,50 @@ class MeasureTool(Tool):
         self.a = None
         self.b = None
         self.info = None
+        self.prop = None  # 0.23.0: (riferimento, chi segue, legame | motivo) per «Fissa questa distanza»
+        self.btn = None  # rettangolo del pulsante sulla vista
 
     def press(self, e, p):
+        if self.btn is not None and self.prop is not None and self.btn.contains(e.position()):
+            self.fix()
+            return
+        self.prop = self.btn = None
         self.a = self.cv.snap(p)
         self.b = self.a
+
+    # ---------------------------------------------------------------- 0.23.0: dalla misura alla distanza fissa
+    def _tol(self):
+        sc = abs(self.cv.bed_to_view_tf().m11()) or 1.0
+        return max(0.02, 3.0 / sc)  # 3 pixel sullo schermo, almeno 2 centesimi di mm
+
+    def propose(self):
+        """Dopo la misura: se le due estremità sono su un angolo, un centro o un bordo di due oggetti diversi,
+        prepara la distanza fissa (dal primo punto = riferimento al secondo = chi segue)."""
+        from . import ties_ui
+
+        self.prop = None
+        if not getattr(self.cv, "ties_create", False) or self.a is None or self.b is None:
+            return None
+        ref, fol, t = ties_ui.tie_from_measure(self.cv.editor.doc, self.a, self.b, self._tol())
+        self.prop = (ref, fol, t) if ref is not None else None
+        return self.prop
+
+    def fix(self):
+        """«Fissa questa distanza». -> "" se fatta, altrimenti il motivo (detto anche nella barra di stato)."""
+        from . import ties_ui
+
+        if self.prop is None:
+            return "ends"
+        ref, fol, t = self.prop
+        why = self.cv.editor.add_tie(fol, ref, t)
+        if why:
+            self.cv.editor.message.emit(ties_ui.reason_text(why, fol, ref, t["axis"]))
+            return why
+        self.cv.editor.message.emit(tr("Distanza fissa: «{0}» segue «{1}». Doppio clic sulla quota per cambiarla.",
+                                       fol.describe(), ref.describe()))
+        self.a = self.b = self.prop = self.btn = None
+        self.cv.viewport().update()
+        return ""
 
     def move(self, e, p):
         shift, _, alt = _mods(e)
@@ -1543,11 +1583,11 @@ class MeasureTool(Tool):
                     + tr("  ·  {0} nodi  ·  ", inf['nodes']) + (tr("chiusa") if not inf["open"] else tr("{0} aperte", inf['open'])))
 
     def release(self, e, p):
-        pass
+        self.propose()
 
     def key(self, e):
         if e.key() == Qt.Key_Escape:
-            self.a = self.b = None
+            self.a = self.b = self.prop = self.btn = None
             self.cv.set_tool("select")
             return True
         return False
@@ -1602,6 +1642,16 @@ class MeasureTool(Tool):
         p.setPen(QColor("#D6DEEC"))
         p.setFont(f2)
         p.drawText(QRectF(box.left() + 7, box.top() + 3 + m1.height(), w, m2.height()), Qt.AlignLeft | Qt.AlignVCenter, sub)
+        self.btn = None
+        if self.prop is not None:  # 0.23.0: pulsante sotto l'etichetta
+            bt = tr("Fissa questa distanza")
+            bw, bh = m2.horizontalAdvance(bt) + 16, m2.height() + 8
+            self.btn = QRectF(box.left(), box.bottom() + 4, bw, bh)
+            p.setPen(_pen("#0CA678", 1.2))
+            p.setBrush(QColor("#0CA678"))
+            p.drawRoundedRect(self.btn, 5, 5)
+            p.setPen(QColor("#FFFFFF"))
+            p.drawText(self.btn, Qt.AlignCenter, bt)
         p.restore()
 
 

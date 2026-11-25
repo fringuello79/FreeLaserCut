@@ -191,6 +191,9 @@ class SimSerial:
             elif b == ord("~"):
                 if self.state == "Hold":
                     self.state = "Run" if self._planner else "Idle"
+            elif b in (0xA0, 0xA1):  # 0.23.0: aria subito (M8 / M7), come GRBL 1.1: a macchina ferma, in lavoro, in pausa
+                if self.state in ("Idle", "Run", "Hold"):
+                    self._coolant_set(self._coolant() ^ {"F" if b == 0xA0 else "M"})
             elif b >= 0x80:
                 self._override(b)
             elif b in (10, 13):
@@ -203,6 +206,15 @@ class SimSerial:
             else:
                 self._line.append(b)
         return len(data)
+
+    def _coolant(self):
+        return set(getattr(self, "coolant", set()))
+
+    def _coolant_set(self, acc):
+        """0.23.0: aria accesa (F = M8, M = M7). Come GRBL: dopo un cambio il report dice Ov e A:."""
+        self.coolant = set(acc)
+        if not hasattr(self, "ov"):
+            self.ov = [100, 100, 100]
 
     def _override(self, b):
         """Override realtime GRBL: 0x90-0x94 velocità, 0x99-0x9D potenza."""
@@ -276,7 +288,8 @@ class SimSerial:
         wx, wy, wz = self.wco
         return (f"<{self.state}|MPos:{x:.3f},{y:.3f},{z:.3f}|WPos:{x - wx:.3f},{y - wy:.3f},{z - wz:.3f}"
                 f"|FS:{self.feed:.0f},{self.power:.0f}{self._pins()}"
-                + (f"|Ov:{self.ov[0]},{self.ov[1]},{self.ov[2]}" if hasattr(self, "ov") else "") + ">")
+                + (f"|Ov:{self.ov[0]},{self.ov[1]},{self.ov[2]}" if hasattr(self, "ov") else "")
+                + (f"|A:{''.join(sorted(self._coolant()))}" if self._coolant() and hasattr(self, "ov") else "") + ">")
 
     def _touching(self):
         return self.surface_z is not None and self.pos[2] <= self.surface_z + 1e-6
@@ -348,6 +361,8 @@ class SimSerial:
 
     def _reset(self):
         self._generation += 1
+        if getattr(self, "coolant", None):  # 0.23.0: come GRBL, il reset spegne l'aria
+            self._coolant_set(set())
         self._cancel.set()
         with self._rx_cv:
             self._rx.clear()
@@ -941,6 +956,10 @@ class SimSerial:
                     self.laser = True
                 elif v == 5:
                     self.laser = False
+                elif v in (7, 8):  # 0.23.0: aria
+                    self._coolant_set(self._coolant() | {"M" if v == 7 else "F"})
+                elif v == 9:
+                    self._coolant_set(set())
             elif letter == "S":
                 self.s_word = v
             elif letter == "F":

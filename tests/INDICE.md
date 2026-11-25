@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 293. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 301. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (21)
 
@@ -105,7 +105,7 @@ Suite: 293. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v223_png_trasparenti.py`: Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza
 - `test_v223_png_trasparenti.py` (Banco): Immagini con lo sfondo trasparente nell'interfaccia Banco
 
-## Lavoro e G-code (52)
+## Lavoro e G-code (54)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -159,8 +159,10 @@ Suite: 293. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v227_k40.py`: K40 collegata dopo la prima prova sulla macchina vera: lavori con «I» e senza «C», il quadrato di Evo sulla scheda finta, frecce e contorno con uno spostamento veloce, «Continuo» a pezzi, joystick con la coda corta, attese stimate, diario dei byte
 - `test_v229_k40.py`: K40 collegata: contorno a laser spento come un lavoro solo (niente soste agli angoli), campi della potenza spenti con la potenza sulla manopola, ogni livello inciso accende il laser
 - `test_v229_k40.py` (Banco): K40 collegata: contorno e campi della potenza, nell'interfaccia Banco
+- `test_v230_aria.py`: Macchina, pulsante Aria: con un lavoro in corso o in pausa si spegne e si accende subito (comando immediato di GRBL), il pulsante segue l'aria della scheda (rapporto 8595)
+- `test_v230_aria.py` (Banco): Macchina, pulsante Aria subito anche nel Banco
 
-## Macchina, connessione e profili (61)
+## Macchina, connessione e profili (64)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -223,8 +225,11 @@ Suite: 293. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_k40_giro.py`: Studia la macchina, K40: ritorno a casa senza i 25 s di attesa e con «pronta» confrontato da vicino e da lontano, prova K4 «un solo lavoro» che conta i giri a fine corsa, pulsante «Fai tutte le prove» con i risultati spiegati
 - `test_v225_k40_giro.py` (Banco): Studia la macchina, K40, prove guidate nell'interfaccia Banco
 - `test_v229_hurricane.py`: Atomstack Hurricane (CO2 da 55 W) nel catalogo: area, velocità, porta seriale a 460800, fonte e nota tradotta, riconoscimento
+- `test_v2210_strati_banco.py`: Banco: la scheda di uno strato non si allarga togliendo «Incidi» (Rino): «non inciso» sulla riga del nome, righe accorciate con «…»
+- `test_v230_homing.py`: Configurazione guidata: l'angolo dello 0 scelto non si perde (rapporto BCAB, Falcon A1): la freccia vale con «Sì» o «No», allarme o riavvio a metà spostamento non valgono, contrasto fra angolo e frecce: si chiede
+- `test_v230_homing.py` (Banco): Configurazione guidata: l'angolo dello 0 scelto non si perde, interfaccia Banco
 
-## Disegno e modifica (28)
+## Disegno e modifica (31)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -254,6 +259,9 @@ Suite: 293. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v211_grigio.py` (Banco): Grigio delle forme nell'interfaccia Banco
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
+- `test_v230_distanze_fisse.py`: Disegno, distanze fisse (in prova): chi segue tiene la distanza dal riferimento spostato, ridimensionato, ruotato o cambiato nei nodi; catene; giri e due legami sullo stesso asse rifiutati; un passo di Annulla; copie senza legami; file, piano ruotato e gruppi
+- `test_v230_distanze_fisse_ui.py`: Disegno, distanze fisse nell'interfaccia: Distanza esatta con «Mantieni», Misura → «Fissa questa distanza», quote sul piano, doppio clic e tasto destro, comandi solo con il codice
+- `test_v230_distanze_fisse_ui.py` (Banco): Disegno, distanze fisse nell'interfaccia Banco
 
 ## Interfaccia (54)
 

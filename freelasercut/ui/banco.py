@@ -20,7 +20,7 @@ from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, QSettings, 
 from PySide6.QtGui import QAction, QColor, QFont, QGuiApplication, QKeySequence, QPainter, QPen, QRegion
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QMenu, QPushButton, QScrollArea, QSlider, QSpinBox, QStyledItemDelegate,
+    QListWidgetItem, QMenu, QPushButton, QScrollArea, QSizePolicy, QSlider, QSpinBox, QStyledItemDelegate,
     QTabWidget, QToolBar, QToolButton, QVBoxLayout, QWidget,
 )
 
@@ -51,6 +51,7 @@ QLabel#bcSection {{ color: #94A0B8; font-size: 7.5pt; font-weight: 700; letter-s
 QLabel#bcMuted {{ color: #94A0B8; }}
 QLabel#bcTitle {{ font-weight: 700; }}
 QLabel#bcBig {{ font-size: 30pt; font-weight: 700; }}
+QLabel#bcOff {{ color: #FFB347; font-size: 8pt; font-weight: 600; }}
 QLabel#bcTag {{ color: #C9D3E6; border: 1px solid #2E3A56; border-radius: 6px; padding: 1px 6px; font-size: 7.5pt; font-weight: 700; }}
 QToolButton#bcTool {{ min-width: 40px; min-height: 40px; max-width: 40px; max-height: 40px; border-radius: 11px;
     background: transparent; border: none; padding: 0; }}
@@ -366,6 +367,36 @@ def _label(text, name=None, wrap=False):
         lab.setObjectName(name)
     lab.setWordWrap(wrap)
     return lab
+
+
+class _ElideLabel(QLabel):
+    """0.22.10 (Rino, Ale 25/11): una riga che non allarga mai chi la contiene. Se il testo non ci sta finisce con «…»
+    (il testo intero resta in fulltext, per il suggerimento di chi la usa). Fino alla 0.22.9 la riga sotto il nome di
+    uno strato, con « · non inciso», « · aria» o « · pausa prima», allargava la scheda oltre il bordo del riquadro
+    degli strati e ne faceva uscire le caselle."""
+
+    def __init__(self, text, name=None):
+        super().__init__()
+        heartbeat.beat()
+        if name:
+            self.setObjectName(name)
+        self.fulltext = text
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.setMinimumWidth(0)
+        self._elide()
+
+    def minimumSizeHint(self):
+        return QSize(0, super().minimumSizeHint().height())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._elide()
+
+    def _elide(self):
+        w = self.width() if self.isVisible() or self.width() > 0 else 0
+        t = self.fulltext if w <= 0 else self.fontMetrics().elidedText(self.fulltext, Qt.ElideRight, w)
+        if t != self.text():
+            super().setText(t)
 
 
 def _chip(text, fn=None, tip=None):
@@ -872,14 +903,25 @@ class LayerRail(QWidget):
         bar.setStyleSheet(f"background: {cs.color}; border-radius: 5px;")
         txt = QVBoxLayout()
         txt.setSpacing(0)
-        name = _label(cs.label(), "bcTitle")
-        summ = _label(tr("{0} · {1:g}% · {2}×", units.fmt(cs.speed), cs.power_max, cs.passes)
-                      + (tr(" · aria") if cs.air else "") + ("" if cs.output else tr(" · non inciso"))
-                      + (tr(" · pausa prima") if getattr(cs, "pause_before", False) else ""), "bcMuted")
-        txt.addWidget(name)
+        # 0.22.10 (Rino; Ale 25/11): «non inciso» sta sulla riga del nome, dove c'è spazio, e nessuna delle due righe
+        # può allargare la scheda (prima « · non inciso» in fondo alla riga sotto faceva uscire le caselle)
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(6)
+        name = _ElideLabel(cs.label(), "bcTitle")
+        top.addWidget(name, 1)
+        off = None
+        if not cs.output:
+            off = _label(tr("non inciso"), "bcOff")
+            top.addWidget(off)
+        summ = _ElideLabel(tr("{0} · {1:g}% · {2}×", units.fmt(cs.speed), cs.power_max, cs.passes)
+                           + (tr(" · aria") if cs.air else "")
+                           + (tr(" · pausa prima") if getattr(cs, "pause_before", False) else ""), "bcMuted")
+        txt.addLayout(top)
         txt.addWidget(summ)
+        head.setToolTip(name.fulltext + (" · " + tr("non inciso") if off is not None else "") + "\n" + summ.fulltext)
         tag = _label(MODE_LABELS.get(cs.mode, cs.mode).upper(), "bcTag")
-        for w in (bar, name, summ, tag):
+        for w in (bar, name, summ, tag) + ((off,) if off is not None else ()):
             w.setAttribute(Qt.WA_TransparentForMouseEvents)
         hl.addWidget(bar)
         hl.addLayout(txt, 1)
@@ -1252,7 +1294,8 @@ class ContextBar(QFrame):
         row.addWidget(_menu_button(tr("Allinea"), [a["align_left"], a["align_hcenter"], a["align_right"], None, a["align_top"],
                                                    a["align_vcenter"], a["align_bottom"], None, a["align_center"], None,
                                                    a["dist_h"], a["dist_v"], a["dist_hc"], a["dist_vc"], None,
-                                                   a["same_w"], a["same_h"], None, a["distance"]]))
+                                                   a["same_w"], a["same_h"], None, a["distance"],
+                                                   a["ties_clear"]]))  # 0.23.0 (in prova)
         row.addWidget(_menu_button(tr("Combina"), [a["union"], a["difference"], a["intersection"], a["xor"], None,
                                                    a["crop_shape"], a["crop_bed"], None,  # 0.21.0
                                                    a["photo_clip"], a["photo_unclip"], a["photo_cut_outline"]]))  # 0.20.3

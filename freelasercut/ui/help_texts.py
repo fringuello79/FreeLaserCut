@@ -194,6 +194,12 @@ HELP = {
         "in orizzontale o in verticale: spazio vuoto fra i due, distanza fra i centri o fra due bordi scelti. Si vede "
         "subito sul piano; Annulla lascia tutto com'era. Di solito resta fermo il primo selezionato (o quello bloccato)."),
                  [(tr("Distanza"), tr("da 0 mm, al centesimo")), (tr("Dall'altra parte"), tr("l'oggetto passa dall'altro lato"))]),
+    "ties_clear": (tr("Togli le distanze fisse"), tr(
+        "Gli oggetti selezionati smettono di seguire il loro riferimento e restano dove sono. Una sola distanza si "
+        "toglie anche con il tasto destro sulla sua quota."), []),
+    "ties_show": (tr("Distanze fisse"), tr(
+        "Mostra o nasconde le quote delle distanze fisse sul piano. Le quote non si incidono; doppio clic su una quota "
+        "per cambiarne il valore, tasto destro per spegnerla o toglierla."), []),
     "nest": (tr("Ottimizza lo spazio (nesting)"), tr("Sistema i pezzi sul materiale con il minimo spreco, usando la loro sagoma "
              "vera. Materiale: piano intero, rettangolo su misura o un contorno disegnato sul livello T1 (anche un avanzo "
              "irregolare). Si scelgono distanza tra i pezzi, margine e rotazioni; le forme che si toccano restano unite."),
