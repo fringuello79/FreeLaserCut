@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 301. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 303. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (21)
 
@@ -73,7 +73,7 @@ Suite: 301. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_test_forma.py`: Test materiale con la forma selezionata o con il pezzo di una foto (la zona con più grigi trovata da sola), richiesta di Stefano Modena
 - `test_v225_test_forma.py` (Banco): Test materiale con la forma o la foto nell'interfaccia Banco
 
-## Foto e immagini (29)
+## Foto e immagini (30)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -104,8 +104,9 @@ Suite: 301. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v221_vuoti.py` (Banco): Vuoti nelle righe di foto e riempimenti nell'interfaccia Banco
 - `test_v223_png_trasparenti.py`: Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza
 - `test_v223_png_trasparenti.py` (Banco): Immagini con lo sfondo trasparente nell'interfaccia Banco
+- `test_v231_punto.py`: Lavoro e G-code, punto di partenza (9 pallini): con la partenza dal disegno un clic sposta solo il rombo e non rifà l'anteprima del lavoro (con una foto ci voleva qualche secondo); con la partenza dalla testa o dall'origine, con il rotativo e cambiando partenza si rifà
 
-## Lavoro e G-code (54)
+## Lavoro e G-code (55)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -161,6 +162,7 @@ Suite: 301. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v229_k40.py` (Banco): K40 collegata: contorno e campi della potenza, nell'interfaccia Banco
 - `test_v230_aria.py`: Macchina, pulsante Aria: con un lavoro in corso o in pausa si spegne e si accende subito (comando immediato di GRBL), il pulsante segue l'aria della scheda (rapporto 8595)
 - `test_v230_aria.py` (Banco): Macchina, pulsante Aria subito anche nel Banco
+- `test_v231_punto.py` (Banco): Lavoro e G-code, punto di partenza nell'interfaccia Banco
 
 ## Macchina, connessione e profili (64)
 

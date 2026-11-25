@@ -199,6 +199,7 @@ def count(polys_by_shape, width, tol=0.1):
 # misure esterne della scatola non cambiano.
 
 EDGE_TOL = 0.02  # |seno| ammesso fra i tratti del bordo e il fondo della tacca
+MAX_TAB = 12.0  # 0.23.1: tacche e linguette larghe al massimo 12 volte lo spessore (oltre è un lato del pezzo)
 
 
 def _same_line(a, b, u, tol):
@@ -241,6 +242,8 @@ def features(poly, all_polys, thick, tol):
             continue
         if abs(La - thick) > tol or abs(Lc - thick) > tol:
             continue
+        if Lb > MAX_TAB * thick:  # 0.23.1: un lato lungo 30 volte lo spessore non è una linguetta (striscia di Boxes.py)
+            continue
         edge_in = (poly[i - 2], p_prev)
         edge_out = (p_next, poly[(i + 3) % n])
         if not _same_line(edge_in, edge_out, (ux, uy), tol):
@@ -249,9 +252,135 @@ def features(poly, all_polys, thick, tol):
     return out
 
 
-def _cleaned(polys_by_shape):
-    cleaned = [[(_clean(pts) if closed else [tuple(p) for p in pts], closed) for pts, closed in shape]
-               for shape in polys_by_shape]
+# 0.23.1 (Stefano Modena, 25/11/2026, file «Console2» di Boxes.py con bruciatura 0,1): gli angoli non sono punti ma
+# curvette da 0,1 mm, e negli angoli interni ci sono piccoli occhielli (perché le dita entrino fino in fondo). Spezzate,
+# sono tanti tratti minuscoli: il bordo accanto a una tacca non risultava dritto e tacche e linguette non si trovavano
+# (0 su tutto il file); scrivendo 6 a mano cambiavano solo le larghezze. Ora il calcolo guarda una copia semplificata
+# del contorno, con al posto di ogni gruppetto di tratti minuscoli fra due tratti lunghi l'angolo vero (dove si
+# incontrano i due tratti lunghi). Il pezzo che esce è quello di prima, spostato: ogni curvetta e ogni occhiello segue il
+# suo angolo, i punti lungo un lato seguono il lato.
+SHORT = 0.35  # mm: tratto minuscolo
+STRAIGHT = 0.005  # mm: un punto così vicino alla retta dei due accanto sta sul lato
+RUN_MAX = 0.6  # mm: un gruppetto più grande di così (un raccordo vero, un cerchio) non è un angolo e resta com'è
+
+
+def _simplify(pts):
+    """Contorno chiuso -> (punti originali senza doppi, angoli semplificati, legame). legame[j] per ogni punto originale:
+    ("v", k, dx, dy) = segue l'angolo k; ("e", k, t, dx, dy) = sta sul lato k → k+1 alla frazione t."""
+    P = []
+    for p in pts:
+        if not P or math.dist(p, P[-1]) > 1e-6:
+            P.append((float(p[0]), float(p[1])))
+    if len(P) > 1 and math.dist(P[0], P[-1]) <= 1e-6:
+        P.pop()
+    n = len(P)
+    if n < 4:
+        return P, list(P), [("v", j, 0.0, 0.0) for j in range(n)]
+    seg = [math.dist(P[j], P[(j + 1) % n]) for j in range(n)]
+    longs = [j for j in range(n) if seg[j] >= SHORT]
+    # gruppi di punti consecutivi: ogni gruppo diventa un angolo. Si parte dalla fine di un tratto lungo, così nessun
+    # gruppetto passa dall'ultimo punto al primo.
+    start = (longs[-1] + 1) % n if longs else 0
+    order = [(start + k) % n for k in range(n)]
+    groups = [[order[0]]]
+    for k in range(1, n):
+        j = order[k]
+        if longs and seg[order[k - 1]] < SHORT:
+            groups[-1].append(j)  # il tratto che arriva qui è minuscolo: stesso gruppetto
+        else:
+            groups.append([j])
+    verts = []
+    for g in groups:
+        if len(g) == 1:
+            verts.append([P[g[0]], g])
+            continue
+        first, last = P[g[0]], P[g[-1]]
+        xs, ys = [P[j][0] for j in g], [P[j][1] for j in g]
+        if math.hypot(max(xs) - min(xs), max(ys) - min(ys)) > RUN_MAX:
+            verts += [[P[j], [j]] for j in g]  # troppo grande: non è un angolo
+            continue
+        a, b = P[(g[0] - 1) % n], P[(g[-1] + 1) % n]
+        ux, uy, _l1 = _unit(a, first)
+        vx, vy, _l2 = _unit(last, b)
+        den = ux * vy - uy * vx
+        c = ((first[0] + last[0]) / 2, (first[1] + last[1]) / 2)
+        if abs(den) >= 0.2:
+            t = ((last[0] - first[0]) * vy - (last[1] - first[1]) * vx) / den
+            x = (first[0] + ux * t, first[1] + uy * t)
+            if math.dist(x, first) <= RUN_MAX and math.dist(x, last) <= RUN_MAX:
+                c = x
+        verts.append([c, g])
+    # punti in mezzo a un lato dritto (entro 0,005 mm: i numeri arrotondati di un SVG ruotato non stanno mai proprio
+    # sulla retta): tolti, i loro punti originali seguono il lato
+    alive = [True] * len(verts)
+    changed = True
+    while changed and sum(alive) > 3:
+        changed = False
+        idx = [k for k in range(len(verts)) if alive[k]]
+        for m, k in enumerate(idx):
+            a, b, c = verts[idx[m - 1]][0], verts[k][0], verts[idx[(m + 1) % len(idx)]][0]
+            cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+            lac = math.dist(a, c)
+            # solo fra due tratti lunghi: le curve spezzate fitte restano come sono
+            if min(math.dist(a, b), math.dist(b, c)) >= SHORT and abs(cr) <= STRAIGHT * max(lac, 1e-12) and (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) > 0:
+                alive[k] = False
+                changed = True
+                break
+    pos = {}  # indice in verts -> indice nell'elenco semplificato
+    S = []
+    for k in range(len(verts)):
+        if alive[k]:
+            pos[k] = len(S)
+            S.append(verts[k][0])
+    link = [None] * n
+    nv = len(verts)
+    for k in range(nv):
+        if alive[k]:
+            sx, sy = verts[k][0]
+            for j in verts[k][1]:
+                link[j] = ("v", pos[k], P[j][0] - sx, P[j][1] - sy)
+            continue
+        k0 = next(pos[(k - d) % nv] for d in range(1, nv) if alive[(k - d) % nv])
+        k1 = (k0 + 1) % len(S)
+        a, b = S[k0], S[k1]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L2 = dx * dx + dy * dy or 1.0
+        for j in verts[k][1]:
+            t = ((P[j][0] - a[0]) * dx + (P[j][1] - a[1]) * dy) / L2
+            link[j] = ("e", k0, t, P[j][0] - (a[0] + dx * t), P[j][1] - (a[1] + dy * t))
+    return P, S, link
+
+
+def _rebuild(link, S2):
+    """I punti originali spostati come gli angoli semplificati (S2 = angoli dopo il cambio)."""
+    out = []
+    m = len(S2)
+    for e in link:
+        if e[0] == "v":
+            x, y = S2[e[1]]
+            out.append((x + e[2], y + e[3]))
+        else:
+            a, b = S2[e[1]], S2[(e[1] + 1) % m]
+            t = e[2]
+            out.append((a[0] + (b[0] - a[0]) * t + e[3], a[1] + (b[1] - a[1]) * t + e[4]))
+    return out
+
+
+def _cleaned(polys_by_shape, links=None):
+    """Contorni chiusi semplificati (0.23.1) per il calcolo; se links è una lista, ci finisce per ogni contorno chiuso
+    (forma, indice) -> (punti originali, legame)."""
+    cleaned = []
+    for si, shape in enumerate(polys_by_shape):
+        row = []
+        for ci, (pts, closed) in enumerate(shape):
+            if closed:
+                P, S, link = _simplify(pts)
+                if links is not None:
+                    links[(si, ci)] = (P, link)
+                row.append((S, closed))
+            else:
+                row.append(([tuple(p) for p in pts], closed))
+        cleaned.append(row)
     material = _Material(pts for shape in cleaned for pts, closed in shape if closed and len(pts) >= 3)
     return cleaned, material
 
@@ -278,7 +407,7 @@ def detect(polys_by_shape, lo=0.8, hi=12.0, tol=0.3, progress=None):
                 if min(Lb, La, Lc) < MIN_WALL or abs(ax * ux + ay * uy) > ANGLE_TOL \
                         or abs(cx * ux + cy * uy) > ANGLE_TOL or ax * cx + ay * cy > -1 + ANGLE_TOL:
                     continue
-                if abs(La - Lc) <= tol and lo <= La <= hi and _same_line((pts[i - 2], p_prev),
+                if abs(La - Lc) <= tol and lo <= La <= hi and Lb <= MAX_TAB * La and _same_line((pts[i - 2], p_prev),
                                                                           (p_next, pts[(i + 3) % n]), (ux, uy), tol):
                     found.append(("bordo", (La + Lc) / 2))
                 elif lo <= Lb <= hi:
@@ -472,7 +601,8 @@ def change_thickness(polys_by_shape, old, new, tol=0.3):
         raise ValueError("misure")
     if not (0 <= tol < old / 2):
         raise ValueError("tolleranza")
-    cleaned, material = _cleaned(polys_by_shape)
+    links = {}
+    cleaned, material = _cleaned(polys_by_shape, links)
     # ogni contorno per conto suo, poi un controllo fra contorni: un contorno cambiato che ne tocca un altro (due fori
     # troppo vicini, un foro che arriva al bordo) torna com'era e i suoi incastri si contano fra quelli saltati
     items = []  # (forma, indice, punti di prima, punti nuovi, {tipo: n}, saltate)
@@ -529,6 +659,9 @@ def change_thickness(polys_by_shape, old, new, tol=0.3):
     total = {"fessura": 0, "tacca": 0, "linguetta": 0}
     skipped, changed = [], []
     for si, ci, _p0, q, d, s, closed in items:
+        if (si, ci) in links:  # 0.23.1: il contorno vero (curvette, occhielli) spostato come quello semplificato
+            P, link = links[(si, ci)]
+            q = _rebuild(link, q) if sum(d.values()) else P
         out[si][ci] = (q, closed)
         for k, v in d.items():
             total[k] += v

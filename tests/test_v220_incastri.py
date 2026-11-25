@@ -342,6 +342,134 @@ slots.detect(grid, progress=prog.append)
 check("la misura dice a che punto è, dall'inizio alla fine", prog and prog[0] == 0.0 and prog[-1] == 1.0
       and prog == sorted(prog), (prog[:2], prog[-2:]))
 
+# ============================================================ 0.23.1 file di Boxes.py e pezzi disegnati a mano
+# Stefano Modena (25/11/2026), «Console2» di Boxes.py con bruciatura 0,1: la finestra non trovava incastri e, scrivendo
+# 6 a mano, cambiavano solo le larghezze. Gli angoli erano curvette da 0,1 mm e negli angoli interni c'erano piccoli
+# occhielli: tanti tratti minuscoli, il bordo accanto alle tacche non risultava dritto. Qui un pezzo disegnato allo
+# stesso modo (niente file degli utenti), e residui minuscoli lasciati da nodi uniti a mano.
+print("--- 0.23.1 Boxes.py e disegni a mano")
+
+
+def boxes_path(corners, r=0.1):
+    """Contorno «alla Boxes.py»: angoli sporgenti arrotondati con una curvetta di raggio r, angoli rientranti con un
+    occhiello (curva che parte e torna nello stesso punto). corners in senso orario sul piano (y verso il basso)."""
+    n = len(corners)
+    p = QPainterPath()
+    first = True
+    for k in range(n):
+        a, c, b = corners[k - 1], corners[k], corners[(k + 1) % n]
+        u = ((c[0] - a[0]) / math.dist(a, c), (c[1] - a[1]) / math.dist(a, c))
+        v = ((b[0] - c[0]) / math.dist(c, b), (b[1] - c[1]) / math.dist(c, b))
+        turn = u[0] * v[1] - u[1] * v[0]
+        if turn > 0:  # sporgente: curvetta
+            p0, p1 = (c[0] - u[0] * r, c[1] - u[1] * r), (c[0] + v[0] * r, c[1] + v[1] * r)
+            (p.moveTo if first else p.lineTo)(*p0)
+            p.cubicTo(c[0] - u[0] * r * 0.45, c[1] - u[1] * r * 0.45, c[0] + v[0] * r * 0.55, c[1] + v[1] * r * 0.55, *p1)
+        else:  # rientrante: occhiello
+            (p.moveTo if first else p.lineTo)(*c)
+            p.cubicTo(c[0] + v[0] * r, c[1] + v[1] * r, c[0] - u[0] * r, c[1] - u[1] * r, *c)
+        first = False
+    p.closeSubpath()
+    return p
+
+
+def edge_fingers(x0, y0, n, t=3.0, w=6.0):
+    """Bordo basso a dita da sinistra a destra (orario sul piano: si va verso sinistra in basso, qui restituito al
+    contrario dopo): punte su y0 + t, fondi su y0; n dita, la prima e l'ultima punta agli angoli."""
+    pts = []
+    x = x0
+    for k in range(n):
+        pts += [(x, y0 + t), (x + w, y0 + t), (x + w, y0)] + [(x + 2 * w, y0)]
+        x += 2 * w
+    return pts[:-2]
+
+
+# piastra 3 mm: bordo alto dritto, bordo basso a dita (5 dita, 4 tacche), un foro 2,8 × 6 per una linguetta
+fing = edge_fingers(0, 40, 5)
+plate_corners = [(0, 0), (fing[-1][0], 0)] + list(reversed(fing))
+bx = PathShape(boxes_path(plate_corners), layer=0)
+hole = PathShape(boxes_path([(20, 15), (26, 15), (26, 17.8), (20, 17.8)]), layer=0)
+bpolys = [_shape_polys(bx), _shape_polys(hole)]
+n_pts = [len(c[0]) for sh in bpolys for c in sh]
+found = slots.detect(bpolys)
+check("Boxes.py: spessore 3 trovato da solo, con tacche, linguette e il foro", found and abs(found[0][0] - 3.0) < 0.05
+      and found[0][1]["tacca"] == 4 and found[0][1]["linguetta"] >= 1 and found[0][1]["fessura"] == 1, found)
+bres, bdone, bsk, _bc = slots.change_thickness(bpolys, 3.0, 4.0)
+check("Boxes.py: da 3 a 4 cambiano tacche e foro, nessuno saltato", bdone["tacca"] == 4 and bdone["fessura"] == 1
+      and not bsk, (bdone, bsk))
+new_pl, old_pl = bres[0][0][0], bpolys[0][0][0]
+check("Boxes.py: ogni curvetta e ogni occhiello resta (stessi punti, nello stesso ordine)",
+      [len(c[0]) for sh in bres for c in sh] == n_pts)
+ys_old = sorted({round(p[1], 4) for p in old_pl})
+low_old = max(p[1] for p in old_pl)
+check("Boxes.py: le punte delle dita restano, i fondi delle tacche salgono di 1 mm",
+      abs(max(p[1] for p in new_pl) - low_old) < 1e-6
+      and sum(1 for p in old_pl if abs(p[1] - 40) < 1e-6) == sum(1 for p in new_pl if abs(p[1] - 39) < 1e-6) > 0,
+      ys_old[-5:])
+# un occhiello spostato resta uguale a sé stesso: stesse distanze fra i suoi punti
+moved = [(a, b) for a, b in zip(old_pl, new_pl) if math.dist(a, b) > 1e-6]
+check("Boxes.py: i punti spostati si spostano tutti di 1 mm in verticale",
+      moved and all(abs(abs(b[1] - a[1]) - 1.0) < 1e-6 and abs(b[0] - a[0]) < 1e-6 for a, b in moved), moved[:3])
+hw = [p[0] for p in bres[1][0][0]]
+check("Boxes.py: il foro da 2,8 diventa da 3,8 (il gioco resta)", abs((max(p[1] for p in bres[1][0][0])
+      - min(p[1] for p in bres[1][0][0])) - 3.8) < 1e-6 and abs(max(hw) - min(hw) - 6.0) < 1e-6)
+# striscia lunga con una linguetta per parte: i lati lunghi non sono linguette (Console2, «lips»)
+strip = [(0, 3), (3, 3), (3, 0), (6.2, 0), (6.2, 3), (9.2, 3), (9.2, 97), (6.2, 97), (6.2, 100), (3, 100), (3, 97),
+         (0, 97)]
+sres, sdone, ssk, _sc = slots.change_thickness([[(strip, True)]], 3.0, 4.0)
+sx = [p[0] for p in sres[0][0][0]]
+check("striscia con le linguette in fondo: si allungano le linguette, la striscia resta larga uguale",
+      sdone["linguetta"] == 2 and abs(min(sx)) < 1e-6 and abs(max(sx) - 9.2) < 1e-6, (sdone, min(sx), max(sx)))
+
+
+def hand_plate(micro=0.0, tilt=0.0, x=0.0, y=900.0):
+    """Piastra 40 × 20 con due tacche 6 × 3,04 sul bordo basso; un residuo sui 4 angoli esterni delle tacche."""
+    pts = [(x, y - 20), (x + 40, y - 20), (x + 40, y)]
+    for x0 in (26.3, 14.0):
+        x0, x1 = x + x0, x + x0 - 6
+        pts += ([(x0 + micro, y + micro)] if micro else []) + [(x0, y), (x0 + tilt, y - 3.04), (x1 - tilt, y - 3.04),
+                                                                (x1, y)] + ([(x1 - micro, y - micro)] if micro else [])
+    return pts + [(x, y)]
+
+
+hm_ok = []
+for micro in (0.0, 0.003, 0.02, 0.1):
+    for tilt in (0.0, 0.05):
+        hp = hand_plate(micro, tilt)
+        found = slots.detect([[(hp, True)]])
+        res, done, skipped, _ch = slots.change_thickness([[(hp, True)]], 3.04, 4.0)
+        q = res[0][0][0]
+        deep = [(a, b) for a, b in zip(hp, q) if math.dist(a, b) > 1e-9]
+        hm_ok.append((micro, tilt, bool(found) and abs(found[0][0] - 3.04) < 0.05 and found[0][1]["tacca"] == 2
+                      and done["tacca"] == 2 and not skipped and len(q) == len(hp) and len(deep) == 4
+                      and all(abs(math.dist(a, b) - 0.96) < 1e-6 and b[1] < a[1] for a, b in deep)))
+check("residui sugli angoli (nodi uniti a mano) e pareti storte di 1°: tacche trovate e scavate di 0,96",
+      all(o for *_k, o in hm_ok), [k for *k, o in hm_ok if not o])
+hp = hand_plate(0.003, 0.05)
+_r, done, _s, _c = slots.change_thickness([[(hp, True)]], 6.0, 5.0)
+check("scrivendo 6 (la larghezza) restano fessure aperte sul bordo: cambia la larghezza, come prima", done["fessura"] == 2
+      and not done["tacca"], done)
+# la copia semplificata non tocca le curve vere e i gradini veri
+circle = [(10 + 0.5 * math.cos(k * math.tau / 64), 10 + 0.5 * math.sin(k * math.tau / 64)) for k in range(64)]
+check("cerchio piccolo spezzato fitto (tratti da 0,05): resta com'è", len(slots._simplify(circle)[1]) == 64)
+step = [(0, 0), (30, 0), (30, 10), (15.5, 10), (15.5, 10.5), (0, 10.5)]
+check("gradino vero da 0,5 mm: resta", len(slots._simplify(step)[1]) == 6)
+arc = [(0, 0), (30, 0), (30, 9)] + [(29 + math.cos(k * math.pi / 32), 9 + math.sin(k * math.pi / 32)) for k in
+                                    range(1, 16)] + [(29, 10), (0, 10)]
+check("raccordo vero di raggio 1: resta curvo", len(slots._simplify(arc)[1]) > 10)
+cut = slots._simplify([(0, 0), (30, 0), (30, 9.95), (29.95, 10), (0, 10)])[1]
+check("residuo obliquo su un angolo retto: nel calcolo torna l'angolo vero (30, 10)", len(cut) == 4
+      and any(math.dist(p, (30, 10)) < 1e-9 for p in cut), cut)
+rot = [(math.cos(0.7) * x - math.sin(0.7) * y, math.sin(0.7) * x + math.cos(0.7) * y)
+       for x, y in [(3, 0), (6, 0), (6, 2.8), (0, 2.8), (0, 0)]]
+rot = [(round(x, 3), round(y, 3)) for x, y in rot]
+check("foro ruotato che parte a metà lato, numeri arrotondati: 4 angoli", len(slots._simplify(rot)[1]) == 4)
+rres, rdone, _rs, _rc = slots.change_thickness([[(rect(-20, -20, 50, 50), True), (rot, True)]], 2.8, 3.8, 0.3)
+rq = rres[0][1][0]
+check("foro ruotato da 2,8 a 3,8: il punto a metà lato segue il lato e resta a metà", rdone["fessura"] == 1
+      and len(rq) == 5 and abs(math.dist(rq[0], rq[1]) - math.dist(rq[0], rq[4])) < 0.01
+      and abs(math.dist(rq[1], rq[4]) - 6.0) < 0.01 and abs(math.dist(rq[1], rq[2]) - 3.8) < 0.01, rq)
+
 # ============================================================ nel programma
 print("--- finestra")
 from PySide6.QtTest import QTest  # noqa: E402
@@ -439,6 +567,18 @@ try:
     sd.reject()
 finally:
     sys.excepthook = old_hook
+w.canvas.overlay_paths = []
+# 0.23.1 (Stefano Modena): nel programma, pezzo «alla Boxes.py» con curvette e occhielli
+w.editor.add([PathShape(boxes_path(plate_corners), layer=0)], "prova")
+w.editor.select([w.editor.doc.shapes[-1]])
+hd = ThicknessDialog(w, w.editor.editable())
+check("0.23.1 finestra: pezzo di Boxes.py, spessore 3 trovato e proposto, con le tacche", "3 mm" in hd.found.text()
+      and abs(hd.old.value() - 3.0) < 1e-9 and "4 tacche" in hd.found.text(), hd.found.text())
+hd.new.setValue(4.0)
+settle()
+check("0.23.1 finestra: da 3 a 4 cambiano le tacche", "4 tacche" in hd.result.text() and hd.ok.isEnabled(),
+      hd.result.text())
+hd.reject()
 w.canvas.overlay_paths = []
 w.editor.select([])
 check("senza selezione il comando lo dice", w.thickness_dialog(4, 6) is None

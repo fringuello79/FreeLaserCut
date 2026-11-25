@@ -690,6 +690,8 @@ if __name__ == "__main__":
     run_suite("test_v230_distanze_fisse.py", "Disegno, distanze fisse (in prova): chi segue tiene la distanza dal riferimento spostato, ridimensionato, ruotato o cambiato nei nodi; catene; giri e due legami sullo stesso asse rifiutati; un passo di Annulla; copie senza legami; file, piano ruotato e gruppi")
     run_suite("test_v230_distanze_fisse_ui.py", "Disegno, distanze fisse nell'interfaccia: Distanza esatta con «Mantieni», Misura → «Fissa questa distanza», quote sul piano, doppio clic e tasto destro, comandi solo con il codice")
     run_suite("test_v230_distanze_fisse_ui.py", "Disegno, distanze fisse nell'interfaccia Banco", "banco")
+    run_suite("test_v231_punto.py", "Lavoro e G-code, punto di partenza (9 pallini): con la partenza dal disegno un clic sposta solo il rombo e non rifà l'anteprima del lavoro (con una foto ci voleva qualche secondo); con la partenza dalla testa o dall'origine, con il rotativo e cambiando partenza si rifà")
+    run_suite("test_v231_punto.py", "Lavoro e G-code, punto di partenza nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

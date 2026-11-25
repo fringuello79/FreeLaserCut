@@ -619,6 +619,37 @@ check("B le altre macchine: nessun avviso della manopola", not any("manopola" in
                                                                    gcode.generate(_doc, MachineProfile(),
                                                                                   gcode.JobOptions()).warnings))
 
+# --- 0.23.1 (Evoluzione2): foto in scala di grigi sulla K40. Ogni grigio vale «acceso» e la potenza è quella della
+# manopola: la foto bruciava tutto il riquadro. Ora il lavoro non si prepara e il motivo si legge
+import numpy as np  # noqa: E402
+from PIL import Image  # noqa: E402
+from freelasercut.core.document import ImageShape  # noqa: E402
+
+
+def foto_k40(dither, profile=None):
+    doc = Document()
+    doc.images["g"] = Image.fromarray(np.tile(np.linspace(255, 0, 200), (100, 1)).astype(np.uint8))
+    im = ImageShape("g", 40, 20, layer=0)
+    im.apply(QTransform.fromTranslate(100, 100))
+    doc.add(im)
+    cs = doc.layer(0)
+    cs.mode, cs.dither, cs.dpi = "image", dither, 127
+    return gcode.generate(doc, profile or MachineProfile.k40(), gcode.JobOptions(start_from="absolute", no_g55=True))
+
+
+jg = foto_k40("grayscale")
+check("0.23.1 K40, foto in scala di grigi: il lavoro non si prepara, con il motivo (scegli un retino)",
+      jg.refused and "scala di grigi" in jg.refused and not any(ln.startswith(("G1", "X")) for ln in jg.lines),
+      (jg.refused, len(jg.lines)))
+blk, _w = win.preflight(jg)
+check("0.23.1 …e non si può avviare", any("scala di grigi" in b for b in blk), blk)
+jd = foto_k40("floyd")
+check("0.23.1 K40, foto con un retino: il lavoro si prepara", not jd.refused
+      and any(ln.startswith(("G1", "X")) for ln in jd.lines), jd.refused)
+jo = foto_k40("grayscale", MachineProfile())
+check("0.23.1 le altre macchine: la scala di grigi si prepara come sempre", not jo.refused
+      and any(ln.startswith(("G1", "X")) for ln in jo.lines), jo.refused)
+
 ok = sum(results)
 print(f"{ok}/{len(results)} prove superate")
 sys.exit(0 if ok == len(results) else 1)

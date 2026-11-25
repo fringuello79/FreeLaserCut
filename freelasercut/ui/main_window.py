@@ -1267,8 +1267,9 @@ class MainWindow(QMainWindow):
         self._place_timer.setSingleShot(True)
         self._place_timer.setInterval(150)
         self._place_timer.timeout.connect(self._placement_changed)
-        self.laser.anchor.changed.connect(lambda *_: self._place_timer.start())
-        self.laser.start_from.currentIndexChanged.connect(lambda *_: self._place_timer.start())
+        self._place_anchor_only = False  # 0.23.1: è cambiato solo il punto (non la partenza)
+        self.laser.anchor.changed.connect(lambda *_: self._place_later(True))
+        self.laser.start_from.currentIndexChanged.connect(lambda *_: self._place_later(False))
         self.laser.b_goto_anchor.clicked.connect(self.goto_anchor)
         self.laser.inv_x.toggled.connect(lambda on: self.set_axis_inverted("x", on))
         self.laser.inv_y.toggled.connect(lambda on: self.set_axis_inverted("y", on))
@@ -4037,6 +4038,13 @@ class MainWindow(QMainWindow):
         self.canvas.fit_bed()
         return True
 
+    def _place_later(self, anchor_only):
+        # più cambi prima che scatti il timer: basta che uno sia della partenza per rifare il lavoro
+        if not self._place_timer.isActive():
+            self._place_anchor_only = True
+        self._place_anchor_only = self._place_anchor_only and anchor_only
+        self._place_timer.start()
+
     def _placement_changed(self):
         """Partenza o punto di riferimento cambiati: rifà l'anteprima, così sul piano si vede dove inciderà."""
         if self.ctl.job_active or self.ctl.checking or getattr(self, "_job_is_external", False):
@@ -4044,6 +4052,13 @@ class MainWindow(QMainWindow):
         if not self.editor.doc.shapes:
             return
         mode = self.laser.start_from.currentData()
+        anchor_only, self._place_anchor_only = self._place_anchor_only, False
+        if anchor_only and mode == "absolute" and self.rotary_settings() is None:
+            # 0.23.1 (Evoluzione2): con la partenza dal disegno il punto scelto non cambia il lavoro (serve a «Porta la
+            # testa sul punto» e al rombo): niente lavoro da rifare, che con una foto voleva dire qualche secondo di
+            # «Preparo il lavoro…» a ogni clic sui pallini. Si sposta solo il rombo
+            self._update_anchor_marker()
+            return
         if mode == "current" and self.canvas.head_pos() is None:
             self.statusBar().showMessage(tr("Partenza dalla posizione della testa: connetti la macchina per vedere "
                                             "dove inciderà"), 5000)

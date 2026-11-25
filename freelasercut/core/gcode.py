@@ -1206,8 +1206,12 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         layers = [replace(cs, power_max=100.0, power_min=0.0) for cs in layers]
         grays = [cs.label() for cs in layers if cs.mode == "image" and getattr(cs, "dither", "") == "grayscale"]
         if grays:
-            job.warnings.append(tr("{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): "
-                                   "scegli un retino o una soglia nelle impostazioni dell'immagine", ", ".join(grays)))
+            # 0.23.1 (Evoluzione2): era solo un avviso, e la foto si incideva a laser sempre acceso (ogni grigio vale
+            # «acceso» e la potenza è quella della manopola): bruciava tutto il riquadro. Ora il lavoro non si prepara
+            job.refused = tr("{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): "
+                             "scegli un retino o una soglia nelle impostazioni dell'immagine", ", ".join(grays))
+            job.warnings.append(job.refused)
+            return job
     title = opts.name or doc.name
     w.raw(f"; FreeLaserCut — {title}")
     w.raw(f"; macchina: {profile.name} · {profile.bed_x:g}×{profile.bed_y:g} mm · S max {profile.s_max:g}")

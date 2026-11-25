@@ -1,5 +1,14 @@
 # Novità di FreeLaserCut
 
+## 0.23.1 — 25/11/2026
+**«Adatta gli incastri allo spessore» funziona con i file di Boxes.py** (segnalato da Stefano Modena). Con i file fatti con Boxes.py e con la bruciatura impostata, la finestra diceva di non trovare incastri e, scrivendo lo spessore a mano, cambiava solo la larghezza delle tacche e non la loro profondità. Il motivo: in quei file gli angoli sono piccole curve e negli angoli interni c'è un piccolo occhiello, e il programma non vedeva più il bordo dritto accanto alle tacche. Ora lo spessore si trova da solo, le tacche si scavano, le linguette si allungano e i fori si allargano. Curve e occhielli si spostano insieme al loro angolo. Lo stesso vale per i pezzi disegnati a mano con qualche nodo un po' fuori posto sugli angoli. Ricorda: lo spessore del disegno è la profondità delle tacche e la lunghezza delle linguette; se scrivi la larghezza di una tacca, il programma la tratta come una fessura e la allarga o la stringe.
+
+**Punto di partenza: un clic sui 9 pallini è immediato anche con una foto** (segnalato da Evoluzione2). Con una foto nel disegno, ogni clic faceva comparire per qualche secondo «Preparo il lavoro…», perché si rifaceva tutto il lavoro solo per l'anteprima. Con la partenza dal disegno il punto scelto non cambia il lavoro: ora si sposta solo il rombo sul piano. Con la partenza dalla testa o dall'origine utente il lavoro si sposta davvero, quindi l'anteprima si rifà come prima.
+
+**K40: niente più foto in scala di grigi** (segnalato da Evoluzione2). Sulla K40 la potenza si regola con la manopola e il programma può solo accendere e spegnere: con la scala di grigi ogni punto non bianco accendeva il laser, e la foto bruciava tutto il riquadro. Prima c'era solo un avviso; ora il lavoro non parte e il programma dice di scegliere un retino o una soglia nelle impostazioni dell'immagine.
+
+**Ringraziamenti:** a Stefano Modena, che ha trovato il problema degli incastri preparando la sua live, e a Evoluzione2.
+
 ## 0.23.0 — 25/11/2026
 **Configurazione guidata: l'angolo dello 0 che scegli non si perde più** (rapporto di Roberto, Falcon A1). Nella prova delle frecce, dopo ogni freccia si risponde «Sì, è andata lì» o «No, è andata al contrario»: prima bastava premerla perché l'asse risultasse provato, anche senza guardare o se la scheda si fermava a metà. Se la scheda va in allarme o si riavvia durante lo spostamento, la freccia non vale. Se alla fine l'angolo scelto e la prova delle frecce non vanno d'accordo, il programma chiede quale è giusto (prima vinceva in silenzio la prova delle frecce e lo 0 tornava davanti a sinistra).
 
