@@ -519,16 +519,29 @@ win.show()
 asked = []
 mw.MainWindow.k40_seen = staticmethod(lambda: asked.append(1) or True)
 admin.set_unlocked(win.qs, False)
-check("B funzioni in prova bloccate: nessuna voce «K40» e nessuna ricerca USB", win._k40_ports() == [] and not asked)
+# 0.22.9 (Ale, 25/11): la K40 è per tutti, senza codice e senza dover accendere niente: se la scheda è collegata la voce
+# «K40» compare da sola nell'elenco delle porte, senza «in prova»
+check("B senza funzioni in prova e scheda vista: voce «K40» (per tutti dalla 0.22.9), senza «in prova»",
+      [p[0] for p in win._k40_ports()] == [K40_PORT] and asked and "in prova" not in win._k40_ports()[0][1],
+      win._k40_ports())
 win.refresh_ports() if hasattr(win, "refresh_ports") else None
-check("B …nemmeno nell'elenco delle porte", win.port_combo.findData(K40_PORT) < 0)
+check("B …anche nell'elenco delle porte, senza averla accesa da nessuna parte",
+      win.port_combo.findData(K40_PORT) >= 0 and win.qs.value("k40_enabled") is None)
 admin.set_unlocked(win.qs, True)
-check("B sbloccate e scheda vista: voce «K40»", [p[0] for p in win._k40_ports()] == [K40_PORT] and asked)
-if hasattr(win, "refresh_ports"):
-    win.refresh_ports()
-    check("B …anche nell'elenco delle porte", win.port_combo.findData(K40_PORT) >= 0)
+check("B con le funzioni in prova sbloccate resta com'è", [p[0] for p in win._k40_ports()] == [K40_PORT])
+admin.set_unlocked(win.qs, False)
+QMessageBox.information = staticmethod(lambda *a, **k: QMessageBox.Ok)
+QMessageBox.warning = staticmethod(lambda *a, **k: QMessageBox.Ok)
+ak = win.acts.get("k40_connect")
+check("B 0.22.9: «Collega una K40 (scheda M2 Nano)…» nel menu Laser, con la scheda dell'aiuto",
+      ak is not None and ak in win.m_laser.actions() and bool(__import__("freelasercut.ui.help_texts", fromlist=["x"])
+                                                               .lookup("k40_connect")))
+check("B …trova la scheda e la sceglie nell'elenco delle porte",
+      win.k40_enable() is True and win.port_combo.currentData() == K40_PORT, win.port_combo.currentData())
 mw.MainWindow.k40_seen = staticmethod(lambda: False)
-check("B sbloccate ma scheda non vista: nessuna voce", win._k40_ports() == [])
+check("B scheda non vista: nessuna voce", win._k40_ports() == [])
+check("B «Collega una K40…» senza scheda: lo dice (e non mette niente nell'elenco)", win.k40_enable() is False
+      and win.port_combo.findData(K40_PORT) < 0)
 
 from freelasercut.studio import lihuiyu as _lh  # noqa: E402
 

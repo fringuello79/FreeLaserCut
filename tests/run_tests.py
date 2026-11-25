@@ -676,6 +676,12 @@ if __name__ == "__main__":
     run_suite("test_v226_k40_ponte.py", "K40 (M2 Nano) collegabile nell'interfaccia Banco", "banco")
     run_suite("test_v227_k40.py", "K40 collegata dopo la prima prova sulla macchina vera: lavori con «I» e senza «C», il quadrato di Evo sulla scheda finta, frecce e contorno con uno spostamento veloce, «Continuo» a pezzi, joystick con la coda corta, attese stimate, diario dei byte")
     run_suite("test_v227_k40.py", "K40 collegata dopo la prima prova, nell'interfaccia Banco", "banco")
+    run_suite("test_v229_k40.py", "K40 collegata: contorno a laser spento come un lavoro solo (niente soste agli angoli), campi della potenza spenti con la potenza sulla manopola, ogni livello inciso accende il laser")
+    run_suite("test_v229_k40.py", "K40 collegata: contorno e campi della potenza, nell'interfaccia Banco", "banco")
+    run_suite("test_v229_finestra.py", "Apri un'altra finestra: comando e menu, processo a parte con la sua sigla, salvataggio automatico per finestra, finestre chiuse male riconosciute e riaperte, una finestra vera avviata e uccisa")
+    run_suite("test_v229_finestra.py", "Apri un'altra finestra nell'interfaccia Banco", "banco")
+    run_suite("test_v229_hurricane.py", "Atomstack Hurricane (CO2 da 55 W) nel catalogo: area, velocità, porta seriale a 460800, fonte e nota tradotta, riconoscimento")
+    run_suite("test_v229_avvio.py", "Schermata d'avvio fluida: le librerie pesanti si caricano a parte mentre la schermata si ridisegna di continuo")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

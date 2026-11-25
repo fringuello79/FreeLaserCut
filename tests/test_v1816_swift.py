@@ -58,9 +58,11 @@ for n, watts in ((S7, 7.0), (S12, 12.0)):
           and p.name == n and p.model == n and bool(p.source))
     check(f"{n}: area non ridotta, niente correzione della scansione né G55 tolto",
           n not in machines.AREA_NOTE and not p.scan_offsets and not p.no_g55)
-others = [n for n in names[:-1] if n not in (S7, S12)]
+# 0.22.9: anche l'Atomstack Hurricane (CO2) va a 460800, dalle istruzioni ufficiali Atomstack (test_v229_hurricane)
+HUR = "Atomstack Hurricane 55W CO2"
+others = [n for n in names[:-1] if n not in (S7, S12, HUR)]
 check("tutti gli altri modelli restano a 115200 baud", all(machines.preset_profile(n).baud == 115200 for n in others)
-      and sorted(machines.BAUD) == sorted((S7, S12)), [n for n in others if machines.preset_profile(n).baud != 115200])
+      and sorted(machines.BAUD) == sorted((S7, S12, HUR)), [n for n in others if machines.preset_profile(n).baud != 115200])
 a = machines.preset_profile("Atomstack A5 Pro"), machines.preset_profile("Atomstack A70 Max")
 check("gli altri Atomstack restano com'erano", (a[0].bed_x, a[0].bed_y, a[0].max_rate_x) == (410.0, 400.0, 10000.0)
       and (a[1].bed_x, a[1].bed_y, a[1].max_rate_x) == (800.0, 800.0, 24000.0))

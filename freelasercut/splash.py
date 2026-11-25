@@ -78,6 +78,10 @@ COOL_S = 0.12  # il caldo in fondo alla riga si spegne in questo tempo
 ENGRAVE_S = ROW_S + STAGGER_S * (ROWS - 1) + COOL_S  # tutta l'incisione: circa 3,1 secondi
 MIN_SHOW_S = 4.0  # sui PC veloci la schermata resta almeno così (Ale: 3 s dal 16/11, 4 s dal 24/11 per lo scorrimento)
 FRAME_S = 1 / 40  # non più di 40 ridisegni al secondo
+# 0.22.9 (Ale, 25/11: «l'animazione iniziale è ancora scattosa»): mentre le librerie pesanti si caricano in un thread a
+# parte (Splash.preload) il thread dell'interfaccia è libero e ridisegna a 60 fotogrammi al secondo
+PRELOAD_FRAME_S = 1 / 60
+PRELOAD_SWITCH_S = 0.0005  # cambio di thread di Python durante il caricamento (vedi Splash.preload)
 # 0.22.6: scorrimento dei nomi a incisione finita
 SCROLL_PX_S = 9.0  # pixel al secondo: piano
 SCROLL_EASE_S = 1.2  # parte dolcemente in questo tempo
@@ -468,6 +472,50 @@ class Splash(QSplashScreen):
         finally:
             self._busy = False
         return True
+
+    def preload(self, fn):
+        """0.22.9: chiama fn (gli import delle librerie pesanti: numpy, OpenCV, numba) in un thread a parte e intanto
+        ridisegna la schermata a PRELOAD_FRAME_S. Fino alla 0.22.8 la schermata si ridisegnava solo fra un modulo e
+        l'altro: OpenCV e la libreria di numba si caricano in un pezzo solo (su Windows anche mezzo secondo, con
+        l'antivirus), e l'incisione andava a scatti. Il caricamento delle librerie (le DLL) lascia libero Python, quindi
+        qui si ridisegna davvero mentre si caricano.
+        Un errore in fn non esce da qui: l'import vero, subito dopo nel thread principale, lo ripete e lo mostra con
+        la guardia d'avvio come sempre. A schermata nascosta, su un PC lento (stato finale) o fuori dal thread
+        dell'interfaccia fn si chiama qui, come prima. -> secondi passati."""
+        start = self._clock()
+        if not self.isVisible() or self._final or threading.get_ident() != self._tid:
+            try:
+                fn()
+            except Exception:  # noqa: BLE001 — lo ripete e lo mostra l'import nel thread principale
+                pass
+            return self._clock() - start
+        done = threading.Event()
+
+        def work():
+            try:
+                fn()
+            except BaseException:  # noqa: BLE001 — come sopra
+                pass
+            finally:
+                done.set()
+
+        # Ogni chiamata a Qt lascia libero Python e poi lo deve riprendere: con il thread che carica in Python (numpy)
+        # di solito si aspetta fino a 5 ms ogni volta, e un ridisegno ne fa decine. Durante il caricamento il cambio è
+        # più svelto (0,5 ms), poi torna quello di prima.
+        switch = sys.getswitchinterval()
+        sys.setswitchinterval(min(switch, PRELOAD_SWITCH_S))
+        try:
+            threading.Thread(target=work, name="flc-librerie", daemon=True).start()
+            flags = QEventLoop.ExcludeUserInputEvents | QEventLoop.ExcludeSocketNotifiers
+            while not done.is_set():
+                if self.isVisible() and not self._final and self._clock() - self._last >= PRELOAD_FRAME_S:
+                    self._last = -1.0  # pulse() userebbe il passo più lento: qui il thread dell'interfaccia è libero
+                    self.pulse()
+                QGuiApplication.processEvents(flags)
+                done.wait(0.004)
+        finally:
+            sys.setswitchinterval(switch)
+        return self._clock() - start
 
     def say(self, text):
         self._msg = text

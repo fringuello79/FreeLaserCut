@@ -1201,6 +1201,9 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         # 0.22.6 (K40): la scheda accende e spegne soltanto; la potenza è quella della manopola
         job.warnings.append(tr("Su questa macchina la potenza si regola con la manopola: il lavoro accende e spegne "
                                "soltanto (la potenza dei livelli non conta)"))
+        # 0.22.9: non conta davvero. Fino alla 0.22.8 un livello a potenza 0 % (o una potenza minima sopra lo zero)
+        # arrivava alla scheda come «spento» (o «sempre acceso»): ora ogni livello accende al 100 % e spegne a 0
+        layers = [replace(cs, power_max=100.0, power_min=0.0) for cs in layers]
         grays = [cs.label() for cs in layers if cs.mode == "image" and getattr(cs, "dither", "") == "grayscale"]
         if grays:
             job.warnings.append(tr("{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): "

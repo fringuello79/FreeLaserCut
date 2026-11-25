@@ -1199,6 +1199,13 @@ class LayersPanel(QWidget):
         self._loading = True
         for w in (self.q_mode, self.q_speed, self.q_pmax, self.q_pmin, self.q_passes, self.q_interval):
             w.setEnabled(cs is not None)
+        # 0.22.9 (Evo, K40): con la potenza sulla manopola della macchina i valori di potenza non contano: spenti
+        knob = bool(getattr(self.get_profile(), "power_knob", False))
+        for w in (self.q_pmax, self.q_pmin):
+            if knob:
+                w.setEnabled(False)
+            w.setToolTip(tr("Su questa macchina la potenza si regola con la manopola: il lavoro accende e spegne "
+                            "soltanto (la potenza dei livelli non conta)") if knob else "")
         if cs is not None:
             self.q_mode.setCurrentIndex(MODES.index(cs.mode))
             self.q_speed.setValue(cs.speed)

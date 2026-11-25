@@ -34,6 +34,13 @@ _NODES_D = tr("Con lo strumento Nodi e almeno tre nodi scelti: distanze uguali f
 HELP = {
     # ------------------------------------------------------------------ file
     "new": (tr("Nuovo progetto"), tr("Chiude il progetto aperto (chiede se salvarlo) e ne apre uno vuoto."), None),
+    "new_window": (tr("Apri un'altra finestra"), tr(
+        "Apre un altro FreeLaserCut accanto a questo, per lavorare su due progetti insieme. Ogni finestra ha il suo "
+        "progetto e il suo salvataggio automatico; le impostazioni sono in comune. Il laser si collega a una "
+        "finestra alla volta: la finestra nuova non si collega da sola."), None),
+    "open_in_window": (tr("Apri in un'altra finestra"), tr(
+        "Sceglie un progetto e lo apre in un'altra finestra di FreeLaserCut. Il progetto di questa finestra resta "
+        "aperto com'è."), None),
     "open": (tr("Apri"), tr("Apre un progetto FreeLaserCut (.flcut, anche i vecchi .fbrn di Freeburn) o .lbrn2/.lbrn con forme, livelli e impostazioni."), None),
     "save": (tr("Salva"), tr("Salva il progetto. La prima volta chiede nome e cartella."), None),
     "save_as": (tr("Salva con nome"), tr("Salva una copia del progetto con un altro nome."), None),
@@ -454,6 +461,14 @@ HELP = {
         "Spento di partenza. Se lo accendi, il telefono collegato allo stesso Wi-Fi apre una pagina (codice QR) con "
         "l'avanzamento del lavoro, la camera, Pausa e Stop, e può inviare la foto del test materiale. Dal telefono "
         "non si può avviare né riprendere un lavoro."), None),
+    "k40_connect": (tr("Collega una K40 (scheda M2 Nano)"), tr(
+        "Per le K40 con la scheda originale M2 Nano, collegate con il cavo USB: non serve cambiare la scheda. La K40 "
+        "accesa e collegata compare da sola nell'elenco delle porte; questa voce la cerca subito e, se non la trova, "
+        "dice che cosa controllare. Poi Connetti e Homing, come con gli altri laser. La potenza si regola dalla "
+        "manopola della macchina: il programma accende e spegne il laser (la potenza dei livelli non conta), quindi "
+        "le foto si incidono con un retino, non in scala di grigi. Il Puntino e la Lucciola non ci sono. Su Windows "
+        "serve il driver della scheda (quello del programma originale oppure libusb-win32)."),
+        None),
     "identify": (tr("Riconosci la macchina"), tr("Elenca le porte USB con il chip e il driver, interroga la scheda ($I, $$), "
                  "riconosce firmware, area di lavoro e buffer e prepara il profilo giusto. Da qui puoi anche installare "
                  "un driver USB che hai sul PC."), None),

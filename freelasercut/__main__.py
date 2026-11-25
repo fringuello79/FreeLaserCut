@@ -4,6 +4,19 @@ poi le librerie pesanti e la finestra principale."""
 import sys
 
 
+def _heavy_libs():
+    """0.22.9: le librerie che tengono fermo l'avvio più a lungo. Nessuna crea finestre o oggetti di Qt: si possono
+    caricare fuori dal thread dell'interfaccia (splash.Splash.preload)."""
+    import numpy  # noqa: F401
+
+    import cv2  # noqa: F401
+
+    try:
+        import numba  # noqa: F401
+    except Exception:  # noqa: BLE001 — senza numba il programma va lo stesso (più piano)
+        pass
+
+
 def boot():
     # 0.19.0: prima di tutto, su un processore troppo vecchio per le librerie nuove si mettono davanti quelle
     # compatibili (vedi startup_guard.compat_libs). Sui PC normali non fa niente.
@@ -55,7 +68,8 @@ def boot():
             return
         if state == "stuck" and not single.open_anyway():
             return  # 0.18.16: un FreeLaserCut rimasto vivo senza rispondere: prima si usciva in silenzio
-        app._flc_single = single.Listener(app)
+        if not single.window_token():  # 0.22.9: una finestra in più non prende il posto di quella principale
+            app._flc_single = single.Listener(app)
     except Exception:  # noqa: BLE001 — se il controllo non funziona si parte comunque
         pass
     guard.stage("splash")
@@ -66,6 +80,13 @@ def boot():
         splash = show_splash()
     except Exception:  # noqa: BLE001 — senza schermata d'avvio si parte lo stesso
         splash = None
+    # 0.22.9: le librerie pesanti in un thread a parte, mentre la schermata d'avvio resta fluida (splash.preload)
+    guard.stage("librerie")
+    if splash is not None:
+        try:
+            splash.preload(_heavy_libs)
+        except Exception:  # noqa: BLE001 — si caricano comunque qui sotto
+            pass
     guard.stage("finestra")
     from .ui.main_window import main
 

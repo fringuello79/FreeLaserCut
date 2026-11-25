@@ -166,6 +166,14 @@ CATALOG = (
     # all'avvio. La velocità massima Atomstack non la dichiara: 10.000 è il valore generico, e la nota lo dice.
     ("Atomstack Swift 7W", "Atomstack", 300, 300, "7 W", 10000),
     ("Atomstack Swift 12W", "Atomstack", 300, 300, "12 W", 10000),
+    # 0.22.9: chiesto da Ale. Atomstack Hurricane (K60), laser CO2 chiuso da 55 W. Dalla pagina ufficiale Atomstack
+    # (SOURCES, letta il 25/11/2026): tubo CO2 da 55 W a 10,6 µm, area 500 × 300 mm, fino a 600 mm/s. Dalle istruzioni
+    # ufficiali per i programmi laser (pagina «Product Support» di atomstack.com, PDF «Instructions for Using … on
+    # AtomStack Hurricane»): cavo USB a 460800 baud (BAUD), origine del piano davanti a sinistra, fuoco a 8 mm.
+    # Firmware GRBL (programmi dichiarati dal costruttore, LaserGRBL compreso). L'homing porta la testa in fondo a
+    # sinistra (utenti); il segno delle coordinate dopo l'homing non è documentato: l'angolo non è nel catalogo
+    # (CORNER), lo ricava l'homing. Nessun rapporto da una macchina vera: la nota lo dice.
+    ("Atomstack Hurricane 55W CO2", "Atomstack", 500, 300, "55 W (CO2)", 36000),
     # 0.18.16: chiesto da Ale («una CNC 3018 con laser al posto del mandrino»). Dati dalla pagina ufficiale SainSmart
     # della Genmitsu 3018-PRO (SOURCES, letta l'11/11/2026): area 300 × 180 mm (Z 45), 1200 mm/min, niente finecorsa;
     # dal manuale ufficiale del kit laser: 5,5 W a 445 nm, fuoco regolabile, $32=1 per il laser. Spot non dichiarato.
@@ -265,6 +273,7 @@ SOURCES = {
                        "the-all-new-ray5-40w-ultra-fine-laser-engraver-smarter-control-full-upgrade",
     "Atomstack Swift 7W": "https://atomstack.com/products/atomstack-swift-laser-engraver",
     "Atomstack Swift 12W": "https://atomstack.com/products/atomstack-swift-laser-engraver",
+    "Atomstack Hurricane 55W CO2": "https://atomstack.com/products/atomstack-hurricane",
     "Genmitsu CNC 3018-PRO con modulo laser": "https://www.sainsmart.com/products/sainsmart-genmitsu-cnc-router-3018-pro-diy-kit",
     "Sculpfun E1 12W": "https://www.sculpfun.com/products/sculpfun-e1-enclosed-dual-laser-engraving-machine",
     "Sculpfun E1 Pro 21W": "https://www.sculpfun.com/products/sculpfun-e1-pro-enclosed-laser-engraving-machine",
@@ -319,6 +328,13 @@ for _n in ("Atomstack Swift 7W", "Atomstack Swift 12W"):
                    "impostati scegliendo questo modello. Atomstack non dichiara la velocità massima: qui c'è il valore "
                    "generico di 10.000 mm/min. Collegando la macchina e premendo «Leggi dalla macchina», velocità e area "
                    "vere si leggono dalla scheda (anche con il kit di estensione dell'area).")
+# 0.22.9: Atomstack Hurricane (CO2). Valori dalle fonti ufficiali, nessuna macchina vera provata
+NOTES["Atomstack Hurricane 55W CO2"] = tr(
+    "Atomstack Hurricane (CO2 da 55 W): si collega con il cavo USB a 460800 baud (dalle istruzioni ufficiali "
+    "Atomstack), già impostati scegliendo questo modello. Area 500 × 300 mm, homing in fondo a sinistra, fuoco a "
+    "8 mm. Il raggio di un laser CO2 non si vede: qui il Puntino non serve da puntatore, tienilo spento. I valori "
+    "vengono dalle fonti ufficiali e non sono ancora stati provati su una macchina vera: con il laser collegato usa "
+    "«Leggi dalla macchina» e fai la prova delle frecce prima di incidere.")
 NOTES["VEVOR A7 5W"] = tr(
     "VEVOR A7 da 5 W: è la stessa macchina dell'Atomstack A5 Pro (il modulo è fatto da AtomStack), con area 410 × 400 "
     "mm e 10.000 mm/min. Con il nome A7 VEVOR vende anche versioni da 380 × 400 e, da 10 W, 400 × 400 mm: collegando "
@@ -395,7 +411,7 @@ SPOTS = {"Mecpow X3 5W": (0.05, 0.07), "Mecpow X3 Pro 10W": (0.06, 0.08), "Mecpo
          "Longer Ray5 40W": (0.10, 0.15), "Atomstack Swift 7W": (0.08, 0.04), "Atomstack Swift 12W": (0.08, 0.04),
          "Sculpfun E1 12W": (0.04, 0.06), "Sculpfun E1 Pro 21W": (0.06, 0.08), "Sculpfun E1 3W IR": (0.03, 0.03)}
 # velocità della porta seriale dichiarata dal produttore, dove non è la solita (115200)
-BAUD = {"Atomstack Swift 7W": 460800, "Atomstack Swift 12W": 460800}
+BAUD = {"Atomstack Swift 7W": 460800, "Atomstack Swift 12W": 460800, "Atomstack Hurricane 55W CO2": 460800}
 # correzione della scansione avanti e indietro dichiarata dal produttore: [velocità mm/min, sfasamento mm]
 # (Acmer P3: dai profili ufficiali; nel file è metà dello sfasamento, qui l'intero)
 _P3_SCAN = [[6000.0, 0.14], [12000.0, 0.16], [18000.0, 0.12], [24000.0, 0.12], [30000.0, 0.16], [36000.0, 0.16],

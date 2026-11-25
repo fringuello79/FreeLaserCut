@@ -28,6 +28,7 @@ from .sim import SimSerial
 from . import netport
 
 SIM_PORT = "SIMULATORE"
+K40_FRAME_FEED = 1800.0  # mm/min: contorno della K40 (30 mm/s, la velocità delle prove di Evo con i cambi di verso)
 K40_PORT = "K40"  # 0.22.6, funzione in prova: la K40 con la scheda M2 Nano, attraverso il ponte (k40/ponte.py)
 RX_BUFFER = 127
 # 0.20.6 (rapporto FLC-20261118-1316-895B, Atomstack in Wi-Fi): sulle porte di rete, con schede che non parlano
@@ -870,6 +871,16 @@ class GrblController(QObject):
         a, b = axes[0], axes[1]
         if travel_feed:
             feed = min(feed, travel_feed)
+        if laser_pct <= 0 and self.port == K40_PORT:
+            # 0.22.9 (Evo): sulla K40 ogni freccia è uno spostamento veloce con la sua attesa, e il contorno si fermava a
+            # ogni angolo. Qui: uno spostamento veloce fino al primo punto, poi il giro come un lavoro solo a laser
+            # spento (M5 e S0: la K40 accende solo con M3/M4 e S > 0), senza soste. Velocità provata sulla macchina vera
+            pts = list(points) + ([back] if back is not None else [])
+            self.send_line("M5 S0")
+            self.send_line(f"G53 G0 X{pts[0][0]:.3f} Y{pts[0][1]:.3f}")
+            for x, y in pts[1:]:
+                self.send_line(f"G53 G1 X{x:.3f} Y{y:.3f} S0 F{min(feed, K40_FRAME_FEED):.0f}")
+            return
         if laser_pct <= 0:
             for x, y in list(points) + ([back] if back is not None else []):
                 self.send_line(f"$J=G53 G21 {a}{x:.3f} {b}{y:.3f} F{feed:.0f}")

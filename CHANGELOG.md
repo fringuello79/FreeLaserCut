@@ -1,5 +1,24 @@
 # Novità di FreeLaserCut
 
+## 0.22.9 — 25/11/2026
+**Free K40 laser software with native M2 Nano controller support. No hardware upgrade required.**
+
+**K40 con la scheda originale M2 Nano.** FreeLaserCut ora guida le K40 con la loro scheda originale, attraverso il cavo USB: non serve cambiare la scheda. È per tutti, senza codici.
+- Accesa e collegata, la K40 compare da sola nell'elenco delle porte; poi *Connetti* e *Homing*, come con gli altri laser. *Laser → Collega una K40 (scheda M2 Nano)…* la cerca subito e, se non la trova, dice che cosa controllare. Il profilo diventa «K40 (scheda M2 Nano)», 300 × 200 mm; per tornare a un altro laser c'è *Laser in uso*.
+- Funzionano frecce, contorno (a laser spento, tutto di fila), lavori con pausa e stop, verifica.
+- La potenza si regola dalla manopola della macchina: il programma accende e spegne il laser. Ogni livello da incidere accende il laser, qualunque potenza abbia (anche 0 %): per questo i campi della potenza dei livelli sono spenti. Le foto si incidono con un retino e non in scala di grigi, e il Puntino e la Lucciola non ci sono.
+- La pausa ferma il lavoro nel primo punto in cui il laser è spento. Dopo uno Stop serve l'homing. A fine lavoro la testa resta dov'è.
+- Su Windows serve il driver della scheda: quello del programma originale della macchina oppure libusb-win32.
+- Provata su una K40 vera: le prime volte resta vicino alla macchina, pronto a premere Stop. Chi non ha una K40 non deve fare niente: per lui non cambia nulla.
+
+**Atomstack Hurricane (CO2 da 55 W) nel catalogo** (chiesta da Ale): area 500 × 300 mm, 600 mm/s, cavo USB a 460800 baud già impostati, dalle fonti ufficiali Atomstack. Non è ancora stata provata su una macchina vera: con il laser collegato usa «Leggi dalla macchina» e fai la prova delle frecce prima di incidere.
+
+**Schermata d'avvio più fluida.** I nomi incisi dal laser all'avvio non vanno più a scatti mentre si caricano le librerie più pesanti: ora si caricano a parte, e intanto la schermata si ridisegna di continuo.
+
+**Apri un'altra finestra** (richiesta di Ale). *File → Apri un'altra finestra* apre un altro FreeLaserCut accanto a quello aperto, per lavorare su due progetti insieme; *File → Apri in un'altra finestra…* sceglie subito il progetto. Ogni finestra ha il suo salvataggio automatico; se una finestra si chiude male, al prossimo avvio il programma propone di riaprire il suo progetto. Le impostazioni sono in comune e il laser si collega a una finestra alla volta: la finestra nuova non si collega da sola.
+
+**Ringraziamenti:** a Evoluzione2 (Francesco), co-sviluppatore: la K40 funziona grazie alle sue prove sulla macchina vera, una sera intera di misure, rapporti e pazienza.
+
 ## 0.22.8 — 24/11/2026
 **Per chi prova le funzioni in prova:** altre correzioni alla K40 collegata con la scheda M2 Nano: i lavori ora arrivano interi alla scheda. La pausa ferma il lavoro dove il laser è spento. Per chi non usa le funzioni in prova non cambia niente.
 

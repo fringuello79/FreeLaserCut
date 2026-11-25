@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FreeLaserCut — free laser engraving software</title>
-<meta name="description" content="FreeLaserCut (FLC): free and open-source (GPL-3.0) software to design, nest and send engraving and cutting jobs to GRBL diode lasers. Windows installer, Linux AppImage and macOS preview, 5 languages.">
+<meta name="description" content="FreeLaserCut (FLC): free and open-source (GPL-3.0) software to design, nest and send engraving and cutting jobs to GRBL diode lasers. Free K40 laser software with native M2 Nano controller support, no hardware upgrade required. Windows installer, Linux AppImage and macOS preview, 5 languages.">
 <meta property="og:title" content="FreeLaserCut — free laser engraving software">
 <meta property="og:description" content="Design, nest and engrave with your GRBL diode laser. Free, open source, for Windows and Linux.">
 <meta property="og:image" content="https://fringuello79.github.io/FreeLaserCut/screenshot/banco.png">
@@ -209,12 +209,15 @@ footer p{margin:0 0 8px}
       <h1 class="wordmark">Free<span class="l">Laser</span><span class="c">Cut</span></h1>
       <p class="lead en">Free, open-source software to <b>design, nest and engrave</b> with your GRBL diode laser. No subscription, no account, no tracking: download it and start engraving.</p>
       <p class="lead it">Software <b>libero e gratuito</b> per <b>disegnare, disporre e incidere</b> con il tuo laser a diodo GRBL. Niente abbonamenti, niente account, niente tracciamenti: lo scarichi e incidi.</p>
+      <p class="lead en"><b>Free K40 laser software with native M2 Nano controller support. No hardware upgrade required.</b> New in 0.22.9.</p>
+      <p class="lead it"><b>Software libero per i laser K40, con supporto nativo della scheda M2 Nano. Nessuna modifica all'hardware.</b> Novità della 0.22.9.</p>
       <div class="badges">
         <span class="badge">GPL-3.0</span>
         <span class="badge">Windows 10 / 11</span>
         <span class="badge">Linux · AppImage</span>
         <span class="badge">macOS 14.4+ · <span class="en">preview</span><span class="it">anteprima</span></span>
         <span class="badge">GRBL · grblHAL · FluidNC</span>
+        <span class="badge">K40 · M2 Nano</span>
         <span class="badge">EN · IT · ES · FR · PT</span>
       </div>
       <div class="cta">
@@ -299,6 +302,9 @@ footer p{margin:0 0 8px}
     <p class="lead en">A complete engraving and cutting workflow, designed around the job instead of around menus.</p>
     <p class="lead it">Un flusso completo di incisione e taglio, pensato attorno al lavoro invece che attorno ai menu.</p>
     <div class="grid">
+      <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M7 21h10M12 17v4M8 11h8"/></svg></span><span class="en">K40 with the stock M2 Nano board</span><span class="it">K40 con la scheda originale M2 Nano</span><span class="tag">0.22.9</span></h3>
+        <p class="en"><b>Free K40 laser software with native M2 Nano controller support. No hardware upgrade required.</b> FreeLaserCut talks straight to the stock board over the USB cable: plug it in and the K40 shows up in the list of ports (or use <i>Laser → Connect a K40 (M2 Nano board)…</i>), then Connect and Homing, like any other laser. Design, frame and run your jobs with pause and stop. Power stays on the machine's knob: the program switches the laser on and off, so photos are engraved with a dither, not in greyscale. On Windows the board needs its driver (the one from the machine's original program, or libusb-win32). Tested on a real K40 by co-developer Evoluzione2; the first few times stay near the machine, ready to press Stop.</p>
+        <p class="it"><b>Software libero per i laser K40, con supporto nativo della scheda M2 Nano. Nessuna modifica all'hardware.</b> FreeLaserCut parla direttamente con la scheda originale attraverso il cavo USB: collegata, la K40 compare nell'elenco delle porte (oppure <i>Laser → Collega una K40 (scheda M2 Nano)…</i>), poi Connetti e Homing, come con gli altri laser. Disegni, fai il contorno e avvii i lavori, con pausa e stop. La potenza resta sulla manopola della macchina: il programma accende e spegne il laser, quindi le foto si incidono con un retino, non in scala di grigi. Su Windows serve il driver della scheda (quello del programma originale della macchina oppure libusb-win32). Provata su una K40 vera dal co-sviluppatore Evoluzione2; le prime volte resta vicino alla macchina, pronto a premere Stop.</p></div>
       <div class="card new"><h3><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg></span><span class="en">FreeLaserCut Gallery</span><span class="it">Galleria FreeLaserCut</span><span class="tag">0.22</span></h3>
         <p class="en">Share your jobs and download other people's straight from the program: <i>File → Share to the Gallery…</i> and <i>File → FreeLaserCut Gallery…</i>. Every job has its preview, material and thickness, the author's laser and settings, stars and «I made it too»; it opens as a new project with a reminder to check power and speed on your laser. No account and no e-mail: only the cleaned project, the preview, the photos you choose (without EXIF data) and the form leave your computer. Automatic checks, and jobs reported by several people hide themselves. <a href="privacy.html#gallery">What is sent</a></p>
         <p class="it">Condividi i tuoi lavori e scarica quelli degli altri direttamente dal programma: <i>File → Condividi nella Galleria…</i> e <i>File → Galleria FreeLaserCut…</i>. Ogni lavoro ha l'anteprima, materiale e spessore, laser e parametri dell'autore, le stelle e «L'ho fatto anch'io»; si apre come progetto nuovo, con il promemoria di controllare potenza e velocità sul tuo laser. Niente account e niente email: dal tuo computer escono solo il progetto ripulito, l'anteprima, le foto che scegli (senza i dati EXIF) e il modulo. Controlli automatici, e i lavori segnalati da più persone si nascondono da soli. <a href="privacy.html#galleria">Che cosa viene inviato</a></p></div>

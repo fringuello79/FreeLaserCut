@@ -35,6 +35,91 @@ def disabled():
     return os.environ.get("FLC_MULTI") == "1"
 
 
+# ------------------------------------------------------------------ 0.22.9: «Apri un'altra finestra»
+WINDOW_ENV = "FLC_WINDOW"  # sigla della finestra in più (la mette chi la apre): salvataggio automatico a parte
+RECOVER_ENV = "FLC_RECOVER"  # il file passato è un salvataggio automatico rimasto: si apre come «recuperato»
+
+
+def window_token(env=None):
+    """La sigla di questa finestra, se è una finestra in più (solo lettere e cifre); altrimenti ""."""
+    tok = (os.environ if env is None else env).get(WINDOW_ENV, "")
+    return "".join(c for c in tok if c.isalnum())[:24]
+
+
+def window_command(paths=(), recover=False, token=None, env=None, executable=None):
+    """(comando, ambiente, cartella) per aprire un altro FreeLaserCut accanto a questo: un processo a parte (se una
+    finestra si blocca l'altra va avanti), che non passa la mano alla finestra già aperta e ha la sua sigla."""
+    import uuid
+
+    from . import linux
+
+    cmd, e = linux.relaunch_command([os.path.abspath(p) for p in paths], env, executable)
+    e = dict(os.environ if e is None else e)
+    e["FLC_MULTI"] = "1"
+    e[WINDOW_ENV] = token or uuid.uuid4().hex[:10]
+    e["FLC_NO_UPDATE"] = "1"  # gli aggiornamenti li cerca (e li propone) la finestra principale
+    if recover:
+        e[RECOVER_ENV] = "1"
+    else:
+        e.pop(RECOVER_ENV, None)
+    cwd = None
+    if "-m" in cmd:  # avvio con Python: dalla cartella che contiene il programma, così «-m freelasercut» lo trova
+        cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return cmd, e, cwd
+
+
+def open_window(paths=(), recover=False, popen=None):
+    """Apre un'altra finestra di FreeLaserCut (processo nuovo, staccato da questo). OSError se non parte."""
+    import subprocess
+
+    cmd, env, cwd = window_command(paths, recover)
+    kw = {"env": env, "cwd": cwd, "close_fds": True, "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+          "stderr": subprocess.DEVNULL}
+    if sys.platform == "win32":
+        kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+    else:
+        kw["start_new_session"] = True
+    return (popen or subprocess.Popen)(cmd, **kw)
+
+
+def autosave_path(folder, token=""):
+    return os.path.join(folder, f"autosave-{token}.flcut" if token else "autosave.flcut")
+
+
+def _lock(path):
+    from PySide6.QtCore import QLockFile
+
+    lock = QLockFile(path)
+    lock.setStaleLockTime(0)  # «rimasto» solo se il processo che lo teneva non c'è più (mai per l'età)
+    return lock
+
+
+def hold_window(folder, token):
+    """La finestra in più segna che è viva (finché il processo vive). -> il segno, da tenere; None se non serve."""
+    if not token:
+        return None
+    lock = _lock(os.path.join(folder, f"autosave-{token}.lock"))
+    lock.tryLock(0)
+    return lock
+
+
+def orphans(folder):
+    """Salvataggi automatici di finestre in più che non ci sono più (chiuse male): elenco dei file."""
+    out = []
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return out
+    for n in names:
+        if not (n.startswith("autosave-") and n.endswith(".flcut")):
+            continue
+        lock = _lock(os.path.join(folder, n[:-len(".flcut")] + ".lock"))
+        if lock.tryLock(0):  # nessuno la tiene: la finestra non c'è più
+            lock.unlock()
+            out.append(os.path.join(folder, n))
+    return out
+
+
 def payload(paths):
     files = [os.path.abspath(p) for p in paths if p and os.path.exists(p)]
     return ("\n".join([MAGIC, *files, END]) + "\n").encode("utf-8")

@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 293. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (21)
 
@@ -105,7 +105,7 @@ Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v223_png_trasparenti.py`: Immagini con lo sfondo trasparente: sulla tela si vede solo la parte piena, il clic sul trasparente prende quello che c'è sotto, il trasparente non si incide mai (negativo, luminosità, contrasto); stesso G-code di prima senza trasparenza
 - `test_v223_png_trasparenti.py` (Banco): Immagini con lo sfondo trasparente nell'interfaccia Banco
 
-## Lavoro e G-code (49)
+## Lavoro e G-code (52)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -156,8 +156,11 @@ Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v226_rotativo_z.py`: Rotativo sul motore della Z (interruttore della macchina): Y che diventa Z, prova del giro con il passo piccolo, conferme, passi della Z controllati, homing, contorno in X e Z, autofocus e frecce della Z spenti; simulatore con le impostazioni del rotativo di Giuseppe
 - `test_v226_rotativo_z.py` (Banco): Rotativo sul motore della Z nell'interfaccia Banco
 - `test_v226_k40_ponte.py`: K40 (M2 Nano) collegabile, funzione in prova: il ponte che parla GRBL alla scheda, con la scheda finta che segna ogni pericolo (laser acceso senza dati, D fuori dal lavoro, fuori dal piano): casa, frecce a pezzetti, lavori, pausa, stop, cavo staccato, verifica, verso degli assi
+- `test_v227_k40.py`: K40 collegata dopo la prima prova sulla macchina vera: lavori con «I» e senza «C», il quadrato di Evo sulla scheda finta, frecce e contorno con uno spostamento veloce, «Continuo» a pezzi, joystick con la coda corta, attese stimate, diario dei byte
+- `test_v229_k40.py`: K40 collegata: contorno a laser spento come un lavoro solo (niente soste agli angoli), campi della potenza spenti con la potenza sulla manopola, ogni livello inciso accende il laser
+- `test_v229_k40.py` (Banco): K40 collegata: contorno e campi della potenza, nell'interfaccia Banco
 
-## Macchina, connessione e profili (60)
+## Macchina, connessione e profili (61)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -219,6 +222,7 @@ Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_k40_libusb.py` (Banco): Studia la macchina, K40 con il driver libusb-win32, nell'interfaccia Banco
 - `test_v225_k40_giro.py`: Studia la macchina, K40: ritorno a casa senza i 25 s di attesa e con «pronta» confrontato da vicino e da lontano, prova K4 «un solo lavoro» che conta i giri a fine corsa, pulsante «Fai tutte le prove» con i risultati spiegati
 - `test_v225_k40_giro.py` (Banco): Studia la macchina, K40, prove guidate nell'interfaccia Banco
+- `test_v229_hurricane.py`: Atomstack Hurricane (CO2 da 55 W) nel catalogo: area, velocità, porta seriale a 460800, fonte e nota tradotta, riconoscimento
 
 ## Disegno e modifica (28)
 
@@ -251,7 +255,7 @@ Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v202_linee_piatte.py`: Linee orizzontali, verticali e punti dentro la selezione col rettangolo e negli ingombri
 - `test_v202_linee_piatte.py` (Banco): Linee piatte nella selezione nell'interfaccia Banco
 
-## Interfaccia (51)
+## Interfaccia (54)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -304,8 +308,11 @@ Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v226_veste_grafica.py` (Banco): Nuova veste grafica nell'interfaccia Banco
 - `test_v226_rapporti.py` (Banco): Dai rapporti del 24/11 nell'interfaccia Banco
 - `test_v226_k40_ponte.py` (Banco): K40 (M2 Nano) collegabile nell'interfaccia Banco
+- `test_v227_k40.py` (Banco): K40 collegata dopo la prima prova, nell'interfaccia Banco
+- `test_v229_finestra.py`: Apri un'altra finestra: comando e menu, processo a parte con la sua sigla, salvataggio automatico per finestra, finestre chiuse male riconosciute e riaperte, una finestra vera avviata e uccisa
+- `test_v229_finestra.py` (Banco): Apri un'altra finestra nell'interfaccia Banco
 
-## Avvio, installazione, aggiornamenti e assistenza (10)
+## Avvio, installazione, aggiornamenti e assistenza (11)
 
 - `test_v104_aggiorna.py`: Aggiornamento dal programma: Release di GitHub, SHA-256, installatore /AGGIORNA
 - `test_v178.py`: Ricevitore dei rapporti attivo: pulsante Invia
@@ -317,3 +324,4 @@ Suite: 285. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v1816_avvio.py`: Guardia d'avvio: gli errori prima della finestra vengono scritti e mostrati, anche senza Qt
 - `test_v190_cpu.py`: Processori vecchi: istruzioni lette all'avvio e librerie compatibili
 - `test_v226_veste_grafica.py`: Nuova veste grafica: icona con una misura per ogni uso e angoli trasparenti, logo nuovo in finestra, sito e installatori, schermata di avvio blu e arancio con il motto nella lingua del programma, almeno 4 secondi, nomi che scorrono a righe alternate
+- `test_v229_avvio.py`: Schermata d'avvio fluida: le librerie pesanti si caricano a parte mentre la schermata si ridisegna di continuo

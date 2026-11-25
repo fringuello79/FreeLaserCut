@@ -945,6 +945,12 @@ class LayerRail(QWidget):
             sp.valueChanged.connect(lambda x: (sl.blockSignals(True), sl.setValue(x), sl.blockSignals(False),
                                                self._apply(cs.index, {key: float(x)}, undo_label)))
             box.addWidget(sl)
+            if key == "power_max" and getattr(self.win.profile, "power_knob", False):
+                # 0.22.9 (Evo, K40): la potenza è sulla manopola della macchina
+                for wdg in (sp, sl):
+                    wdg.setEnabled(False)
+                    wdg.setToolTip(tr("Su questa macchina la potenza si regola con la manopola: il lavoro accende e "
+                                      "spegne soltanto (la potenza dei livelli non conta)"))
             return box
 
         g.addLayout(slider_row(tr("Velocità"), 10, 36000, cs.speed, 60 if units.per_s() else 100, units.suffix(), "speed",

@@ -213,13 +213,19 @@ class MainWindow(QMainWindow):
         heartbeat.beat()
         self.on_connection(False, "")
         self._update_title()
-        if self.qs.value("auto_connect", "true") in (True, "true"):
+        # 0.22.9: una finestra in più non si collega da sola (il laser è di una finestra alla volta) e segna che è viva
+        from .. import single as _single
+
+        self._window_token = _single.window_token()
+        self._window_lock = _single.hold_window(config_dir(), self._window_token)
+        if self.qs.value("auto_connect", "true") in (True, "true") and not self._window_token:
             QTimer.singleShot(900, self._auto_connect)
         self._autosave = QTimer(self)
         self._autosave.timeout.connect(self.autosave)
         self._autosave.start(90_000)
         QTimer.singleShot(400, self._offer_recovery)
-        QTimer.singleShot(600, self._offer_saved_job)  # 0.21.0: lavoro rimasto a metà, salvato sul disco
+        if not self._window_token:
+            QTimer.singleShot(600, self._offer_saved_job)  # 0.21.0: lavoro rimasto a metà, salvato sul disco
         QTimer.singleShot(200, self._first_run_notice)
         QTimer.singleShot(2200, self._offer_setup)
         QTimer.singleShot(4000, self.updates.startup)
@@ -240,6 +246,9 @@ class MainWindow(QMainWindow):
                 self.restoreGeometry(geom)  # posizione, misure ed eventuale "a tutto schermo" dell'ultima volta
             except TypeError:
                 pass
+        if self._window_token and not (self.isMaximized() or self.isFullScreen()):
+            # 0.22.9: la finestra in più non nasce proprio sopra l'altra (self.move qui è il pannello Movimento)
+            self.setGeometry(self.geometry().translated(36, 36))
         self._default_state = self.saveState(5)  # disposizione iniziale, per "Ripristina la disposizione"
         state = self.qs.value("win_state_v5")
         if state is not None:
@@ -295,6 +304,11 @@ class MainWindow(QMainWindow):
         self.acts = {
             "new": A(tr("Nuovo"), self.file_new, "Ctrl+N", "new"),
             "open": A(tr("Apri…"), self.file_open, "Ctrl+O", "open"),
+            # 0.22.9 (Ale): due progetti insieme, ognuno nella sua finestra
+            "new_window": A(tr("Apri un'altra finestra"), lambda: self.new_window(), None, None,
+                            tr("Apre un altro FreeLaserCut accanto a questo, per lavorare su due progetti insieme")),
+            "open_in_window": A(tr("Apri in un'altra finestra…"), self.open_in_new_window, None, None,
+                                tr("Sceglie un progetto e lo apre in un'altra finestra: questa resta com'è")),
             "save": A(tr("Salva"), self.file_save, "Ctrl+S", "save"),
             "save_as": A(tr("Salva con nome…"), self.file_save_as, "Ctrl+Shift+S"),
             # 0.22.0: la Galleria dei lavori condivisi (in prova finché le regole non sono definitive)
@@ -552,6 +566,11 @@ class MainWindow(QMainWindow):
                                            "punto dove hai fatto clic")),
             "rotary": A(tr("Rotativo (bicchieri, cilindri)…"), self.rotary_dialog, None, "rotary",
                         tr("Accessorio rotativo a rulli o a mandrino al posto dell'asse Y"), checkable=True),
+            # 0.22.9: la K40 con la scheda M2 Nano per tutti. La voce cerca la scheda e dice com'è andata: chi non
+            # ha una K40 non la usa (la K40 collegata compare comunque da sola nell'elenco delle porte)
+            "k40_connect": A(tr("Collega una K40 (scheda M2 Nano)…"), self.k40_enable, None, "usb",
+                             tr("Cerca una K40 con la scheda originale M2 Nano collegata con il cavo USB e la mette "
+                                "nell'elenco delle porte")),
             "identify": A(tr("Riconosci la macchina…"), self.identify_machine, None, "usb",
                           tr("Porte USB, chip e driver, lettura della scheda e profilo adattato in automatico")),
             "autofocus": A(tr("Asse Z e autofocus…"), self.autofocus_dialog, None, None,
@@ -730,7 +749,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "-", "save", "save_as", "gallery_share", "gallery_open", "-", "import", "import_rot", "export", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "new_window", "open_in_window", "-", "save", "save_as", "gallery_share", "gallery_open", "-", "import", "import_rot", "export", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -796,8 +815,8 @@ class MainWindow(QMainWindow):
         self.m_laser = menu(tr("&Laser"), [
             "connect", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
             "materials", "material_test", "learned", "-", "fire_guard", "head_cam", "phone", "rotary",
-            ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "scan_offset", "autofocus",
-            "board_backup", "profile_export", "profile_import"])
+            ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "k40_connect", "scan_offset",
+            "autofocus", "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
                                            "snap_grid", "snap_obj", "dither_prev", "show_trail", "-", "guides_show",
                                            "guides_snap", "guides_add", "guides_clear", "-", "clear_mosaic"])
@@ -2135,13 +2154,86 @@ class MainWindow(QMainWindow):
         try:
             d = self.editor.doc
             path0, name0 = d.path, d.name
-            d.save(os.path.join(config_dir(), "autosave.flcut"))
+            d.save(self._autosave_path())
             d.path, d.name = path0, name0
-            self.qs.setValue("autosave_pending", True)
+            if not self._window_token:  # il segno «da recuperare» è della finestra principale
+                self.qs.setValue("autosave_pending", True)
         except Exception:  # noqa: BLE001
             _diag.ignored("salvataggio automatico")
 
+    def _autosave_path(self):
+        """0.22.9: ogni finestra ha il suo salvataggio automatico (prima era uno solo: due finestre se lo
+        sovrascrivevano)."""
+        from .. import single
+
+        return single.autosave_path(config_dir(), getattr(self, "_window_token", ""))
+
+    # ---------------------------------------------------------------- 0.22.9: un'altra finestra
+    def new_window(self, paths=(), recover=False):
+        """Apre un altro FreeLaserCut accanto a questo (processo a parte). -> True se è partito."""
+        from .. import single
+
+        try:
+            single.open_window(list(paths), recover)
+        except OSError as ex:
+            QMessageBox.warning(self, tr("Apri un'altra finestra"), tr("Non riesco ad aprire un'altra finestra:\n{0}", ex))
+            return False
+        self.statusBar().showMessage(tr("Si sta aprendo un'altra finestra di FreeLaserCut: il laser resta collegato a "
+                                        "una finestra alla volta"), 8000)
+        return True
+
+    def open_in_new_window(self):
+        path, _ = QFileDialog.getOpenFileName(self, tr("Apri in un'altra finestra"),
+                                              self.qs.value("last_dir", os.path.expanduser("~")),
+                                              OPEN_FILTER + ";;" + tr("Tutti i file (*)"))
+        if path:
+            self.qs.setValue("last_dir", os.path.dirname(path))
+            self.new_window([path])
+
+    def _offer_window_recovery(self):
+        """Progetti di altre finestre chiuse male (salvataggi automatici rimasti): si riaprono, ognuno nella sua
+        finestra, oppure si buttano."""
+        from .. import single
+
+        files = single.orphans(config_dir())
+        if not files:
+            return
+        r = QMessageBox.question(self, tr("Ripristino"), tr(
+            "Ci sono {0} progetti di altre finestre di FreeLaserCut che non erano state chiuse correttamente.\n"
+            "Vuoi riaprirli, ognuno nella sua finestra?", len(files)) if len(files) != 1 else tr(
+            "C'è il progetto di un'altra finestra di FreeLaserCut che non era stata chiusa correttamente.\n"
+            "Vuoi riaprirlo in un'altra finestra?"))
+        for f in files:
+            if r == QMessageBox.Yes:
+                self.new_window([f], recover=True)  # la finestra nuova lo carica e poi toglie il file
+            else:
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+
+    def open_recovered(self, path):
+        """Finestra aperta per un progetto recuperato: lo carica senza nome di file e toglie il salvataggio rimasto."""
+        try:
+            doc = Document.load(path)
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, tr("Ripristino"), tr("Impossibile aprire il file:\n{0}", exc))
+            return False
+        doc.path = None
+        doc.name = tr("Progetto recuperato")
+        self.editor.set_document(doc)
+        self.editor.dirty = True
+        self._update_title()
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        return True
+
     def _offer_recovery(self):
+        if getattr(self, "_window_token", ""):
+            return  # una finestra in più non recupera: lo fa la finestra principale
+        QTimer.singleShot(0, self._offer_window_recovery)
         p = os.path.join(config_dir(), "autosave.flcut")
         if self.qs.value("autosave_pending", False) in (True, "true") and os.path.exists(p):
             r = QMessageBox.question(self, tr("Ripristino"), tr("FreeLaserCut non è stato chiuso correttamente l'ultima volta.\n"
@@ -2836,12 +2928,9 @@ class MainWindow(QMainWindow):
     k40_seen = None  # prove: funzione che dice se la K40 è collegata (al posto di studio.lihuiyu.trova)
 
     def _k40_ports(self):
-        """0.22.6, funzione in prova: la voce «K40» solo con le funzioni in prova sbloccate e la scheda 1a86:5512
-        vista. Senza sblocco non si cerca nemmeno (niente chiamate USB)."""
-        from .. import admin
-
-        if not admin.unlocked(self.qs):
-            return []
+        """La voce «K40» nell'elenco delle porte, quando la scheda 1a86:5512 è vista. 0.22.9: per tutti, senza dover
+        accendere niente (fino alla 0.22.8 solo con le funzioni in prova sbloccate). La ricerca dura pochi millesimi
+        e non fa domande alla scheda; se qualcosa va storto la voce semplicemente non c'è."""
         try:
             if self.k40_seen is not None:
                 seen = self.k40_seen()
@@ -2851,7 +2940,28 @@ class MainWindow(QMainWindow):
                 seen = lihuiyu.vista_veloce()  # senza PowerShell: l'elenco delle porte si rifà spesso
         except Exception:  # noqa: BLE001
             seen = False
-        return [(K40_PORT, tr("K40 (scheda M2 Nano, USB) — in prova"), True)] if seen else []
+        return [(K40_PORT, tr("K40 (scheda M2 Nano, USB)"), True)] if seen else []
+
+    def k40_enable(self, *_):
+        """0.22.9: Laser → «Collega una K40 (scheda M2 Nano)…». Cerca subito la scheda e dice com'è andata (la K40
+        collegata compare comunque da sola nell'elenco delle porte). -> True se la K40 è nell'elenco."""
+        self.refresh_ports()
+        i = self.port_combo.findData(K40_PORT)
+        title = tr("K40 (scheda M2 Nano)")
+        if i >= 0:
+            if not self.ctl.connected:
+                self.port_combo.setCurrentIndex(i)
+            QMessageBox.information(self, title, tr(
+                "K40 trovata: è nell'elenco delle porte. Premi Connetti, poi Homing.\n\n"
+                "La potenza si regola dalla manopola della macchina: il programma accende e spegne il laser. "
+                "Le prime volte resta vicino alla macchina, pronto a premere Stop."))
+            return True
+        QMessageBox.warning(self, title, tr(
+            "Non vedo nessuna K40 con la scheda M2 Nano.\n\nControlla che sia accesa e collegata con il cavo USB, e "
+            "che nessun altro programma la stia usando. Su Windows serve il driver della scheda: quello del "
+            "programma originale della macchina oppure libusb-win32.\n\nQuando è collegata premi «Cerca di nuovo le "
+            "porte USB»: la K40 comparirà nell'elenco."))
+        return False
 
     def _k40_profile(self):
         """0.22.6: collegando la K40 il profilo diventa quello della K40 (salvato fra i profili, come gli altri)."""
@@ -3804,6 +3914,12 @@ class MainWindow(QMainWindow):
         self.laser.set_glow_limits(*glow_limits(p.optical_power))  # 0.18.7: tetto della Lucciola per questo laser
         if hasattr(self.laser, "set_power_knob"):
             self.laser.set_power_knob(bool(getattr(p, "power_knob", False)))  # 0.22.6: K40
+        # 0.22.9: i campi della potenza (impostazioni rapide, strati del Banco) seguono la manopola del profilo
+        if getattr(self, "layers", None) is not None and hasattr(self.layers, "_load_quick"):
+            self.layers._load_quick()
+        rail = getattr(getattr(self, "banco", None), "rail", None)
+        if rail is not None:
+            rail.schedule()
         if getattr(self, "acts", None) and hasattr(self, "move"):
             self.update_rotary_state()  # 0.22.6: il rotativo sulla Z vale solo con la Z motorizzata del profilo
         self._sync_axes()
@@ -5740,7 +5856,16 @@ class MainWindow(QMainWindow):
         else:
             self.banco.shutdown()
         self.qs.setValue("win_geom", self.saveGeometry())
-        self.qs.setValue("autosave_pending", False)
+        if getattr(self, "_window_token", ""):
+            # 0.22.9: finestra in più chiusa bene: via il suo salvataggio automatico e il segno «sono viva»
+            try:
+                os.remove(self._autosave_path())
+            except OSError:
+                pass
+            if self._window_lock is not None:
+                self._window_lock.unlock()
+        else:
+            self.qs.setValue("autosave_pending", False)
         self.camera.shutdown()
         self.ctl.disconnect_port()
         if self.remote is not None:
@@ -5941,6 +6066,10 @@ def main(app=None, splash=None):
 
 def open_paths(win, paths):
     """Apre i file passati all'avvio (o da un secondo avvio): progetti con Apri, il resto con Importa."""
+    recover = os.environ.get("FLC_RECOVER") == "1"  # 0.22.9: finestra aperta per un progetto recuperato
     for p in paths:
         if os.path.exists(p):
+            if recover and p.lower().endswith(".flcut"):
+                win.open_recovered(p)
+                continue
             win.import_files([p]) if not p.lower().endswith((".flcut", ".fbrn")) else win.file_open(p)
