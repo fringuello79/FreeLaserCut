@@ -15,6 +15,25 @@ from ..core.document import Document, GroupShape, ImageShape, PathShape, TextSha
 from freelasercut.i18n import tr  # noqa: E402
 
 MIME = "application/x-freelasercut-shapes"
+_APPUNTI_A_FINE = []  # 0.23.3: vedi _svuota_appunti
+
+
+def _svuota_appunti():
+    """0.23.3: alla fine del processo (atexit, con Python ancora in piedi) toglie dagli appunti le forme copiate da qui.
+    Gli appunti di Qt prendono il QMimeData creato in Python e lo cancellano solo nei distruttori statici di Qt, dopo la
+    fine dell'interprete: il collegamento di PySide a quell'oggetto chiamava allora Python già chiuso e il processo
+    finiva con un errore di segmentazione (prove: test_v230_distanze_fisse, che copia e incolla). Il programma vero
+    esce con os._exit (app.finish_exit), che non esegue né atexit né i distruttori: lì non cambia niente."""
+    try:
+        app = QGuiApplication.instance()
+        if app is None:
+            return
+        cb = QGuiApplication.clipboard()
+        md = cb.mimeData()
+        if md is not None and md.hasFormat(MIME):
+            cb.clear()
+    except Exception:  # noqa: BLE001 — a fine processo non deve fermare niente
+        pass
 TOOL_LAYER = 30  # livello strumenti: mai inciso (guide, contorni del materiale)
 
 
@@ -513,6 +532,11 @@ class Editor(QObject):
         self.clipboard = (data, {iid: self.doc.images.get(iid) for iid in data["images"]})
         md = QMimeData()
         md.setData(MIME, json.dumps(data).encode())
+        if not _APPUNTI_A_FINE:
+            import atexit
+
+            atexit.register(_svuota_appunti)
+            _APPUNTI_A_FINE.append(True)
         try:
             QGuiApplication.clipboard().setMimeData(md)
         except Exception:  # noqa: BLE001

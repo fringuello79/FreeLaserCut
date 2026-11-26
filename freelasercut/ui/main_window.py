@@ -4263,15 +4263,15 @@ class MainWindow(QMainWindow):
                                 current_pos=(head.x(), head.y()) if head is not None else (0.0, 0.0),
                                 work_origin=self.work_origin_on_bed(), laser_cmd="M4",
                                 no_g55=bool(getattr(self.profile, "no_g55", False)), g54_offset=self.ctl.wco,
-                                finish="origin" if lp.finish_origin.isChecked() and not self._k40_attiva() else "stay",
+                                finish="origin" if lp.finish_origin.isChecked() else "stay",
                                 optimize=lp.optimize.isChecked(), inner_first=lp.optimize.isChecked(),
                                 only_ids={s.id for s in self.editor.selection} if lp.only_sel.isChecked() else None,
                                 name=self.editor.doc.name, rotary=self.rotary_settings())
         return opts
 
     def _k40_attiva(self):
-        """0.22.7: K40 collegata (funzione in prova): a fine lavoro la testa resta dov'è. Il ritorno automatico vicino a
-        casa è uno spostamento veloce calcolato: se la posizione non è quella giusta va a sbattere (rapporto C71A)."""
+        """0.22.7: K40 collegata (funzione in prova). 0.23.3: il ritorno a fine lavoro vale di nuovo anche per la K40
+        (era tolto per il rapporto C71A, quando la posizione si perdeva; dalla 0.22.8 la posizione è giusta)."""
         return bool(getattr(self.profile, "k40_board", "")) or self.ctl.port == K40_PORT
 
     def rotary_settings(self):
@@ -4282,7 +4282,7 @@ class MainWindow(QMainWindow):
         axis = "Z" if str(qs.value("rotary_axis", "Y")) == "Z" and getattr(self.profile, "z_motor", False) else "Y"
         return {"kind": qs.value("rotary_kind", "roller"), "mm_per_rev": float(qs.value("rotary_mm_rev", 100.0)),
                 "roller_d": float(qs.value("rotary_roller_d", 25.0)), "object_d": float(qs.value("rotary_object_d", 70.0)),
-                "axis": axis}
+                "axis": axis, "invert": qs.value("rotary_invert", "false") in (True, "true")}
 
     def rotary_on_z(self):
         r = self.rotary_settings()
@@ -4347,6 +4347,10 @@ class MainWindow(QMainWindow):
         r = self.rotary_settings()
         rz = bool(r) and r.get("axis") == "Z"
         self.ctl.rotary_z = rz
+        # 0.23.3: senso di rotazione invertito. Frecce, joystick e «Prova: un giro» muovono il rotativo nel verso del
+        # disegno (il lavoro e il contorno lo prendono dal segno del fattore, gcode.rotary_scale)
+        self.ctl.rotary_sign = -1.0 if r and r.get("invert") else 1.0
+        self.ctl.rotary_y = bool(r) and not rz
         if not rz:
             self.rotary_z_tested = False
         if hasattr(self, "sb_rotary"):

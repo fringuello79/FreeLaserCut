@@ -203,7 +203,22 @@ class SchedaFinta:
 
     @staticmethod
     def _distanza(t, i):
-        """-> (passi, indice dopo) oppure (None, i) se il testo finisce a metà."""
+        """-> (passi, indice dopo) oppure (None, i) se il testo finisce a metà. 0.23.3: più distanze di seguito si
+        sommano («zzc», ma anche «ccc»: come nell'emulatore di MeerK40t, dove ogni lettera esegue quella prima)."""
+        n, i = SchedaFinta._una_distanza(t, i)
+        while n is not None and i < len(t) and (t[i] in "abcdefghijklmnopqrstuvwxyz|" or t[i].isdigit()):
+            if t[i].isdigit() and not t[i:i + 3].isdigit():
+                break
+            m, j = SchedaFinta._una_distanza(t, i)
+            if m is None:
+                return None, i
+            if j == i:
+                break
+            n, i = n + m, j
+        return n, i
+
+    @staticmethod
+    def _una_distanza(t, i):
         n = 0
         while i < len(t) and t[i] == "z":
             n += 255
@@ -234,6 +249,7 @@ class SchedaFinta:
             if c == "F":
                 if resto.startswith("FNSE"):
                     self.comandi.append("FNSE")
+                    self._moto = None
                     self.lavoro = self.laser = False
                     self.passo = 0
                     self._mode = None
@@ -341,10 +357,16 @@ class SchedaFinta:
                 self.comandi.append(c)
                 i += 1
                 continue
-            if c in "BTLRM":
-                n, j = self._distanza(t, i + 1)
+            nudo = (c in "abcdefghijklmnopqrstuvwxyz|" or c.isdigit()) and getattr(self, "_moto", None) and self.lavoro
+            if c in "BTLRM" or nudo:
+                if nudo:  # 0.23.3: distanza senza lettera (nel lavoro): continua l'ultimo movimento, come in MeerK40t
+                    c = self._moto
+                    n, j = self._distanza(t, i)
+                else:
+                    n, j = self._distanza(t, i + 1)
                 if n is None:
                     break
+                self._moto = c
                 if c in "BT" and self.lavoro and (1 if c == "B" else -1) != self.vx:
                     if self.passo:  # modo raster: la scheda scende di una riga, a laser spento
                         if self.laser:

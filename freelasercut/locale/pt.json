@@ -4365,7 +4365,7 @@
  "lavoro grande: i trasferimenti possono rallentare": "trabalho grande: as deslocações podem tornar lento",
  "nessun collegamento con la K40": "nenhuma ligação com a K40",
  "{0}: con il rotativo sulla Z lo Z non si abbassa fra le passate (il motore della Z gira l'oggetto)": "{0}: com o rotativo no Z o Z não desce entre passagens (o motor Z roda o objeto)",
- "{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): scegli un retino o una soglia nelle impostazioni dell'immagine": "{0}: aqui a escala de cinzentos não é possível (a potência não muda a partir do programa): escolha uma trama ou um limiar nas definições da imagem",
+ "{0}: su questa macchina la scala di grigi non si può fare (la potenza non cambia da programma): la foto si incide con il retino {1}": "{0}: nesta máquina a escala de cinzentos não é possível (a potência não muda pelo programa): a foto é gravada com o pontilhado {1}",
  "⟳ Rotativo sulla Z": "⟳ Rotativo no Z",
  "Avvio annullato": "Início cancelado",
  "Collega": "Ligar",
@@ -4433,5 +4433,11 @@
  "Dov'è lo 0?": "Onde está o 0?",
  "Hai scelto lo 0 <b>{0}</b>, ma la prova delle frecce lo mette <b>{1}</b>.<br>Dove va la testa quando fai l'homing?": "Escolheste o 0 <b>{0}</b>, mas o teste das setas põe-no <b>{1}</b>.<br>Para onde vai a cabeça quando fazes o homing?",
  "{0} (come ho scelto)": "{0} (como escolhi)",
- "{0} (come dicono le frecce)": "{0} (como dizem as setas)"
+ "{0} (come dicono le frecce)": "{0} (como dizem as setas)",
+ "Inverti il senso di rotazione": "Inverter o sentido de rotação",
+ "Spunta se l'incisione esce specchiata (motore del rotativo montato al contrario). Prova prima su carta.": "Marque se a gravação sair espelhada (motor do rotativo montado ao contrário). Experimente primeiro em papel.",
+ "senso di rotazione invertito": "sentido de rotação invertido",
+ "se l'incisione esce specchiata (motore montato al contrario)": "se a gravação sair espelhada (motor montado ao contrário)",
+ "Scala la selezione in percentuale: 150 = una volta e mezza, 50 = metà, poi Invio. Resta fermo il punto scelto nel quadratino a 9 punti.": "Escala a seleção em percentagem: 150 = uma vez e meia, 50 = metade, depois Enter. O ponto escolhido no quadrado de 9 pontos fica fixo.",
+ "La percentuale deve essere maggiore di zero": "A percentagem deve ser maior que zero"
 }

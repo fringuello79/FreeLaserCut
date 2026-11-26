@@ -638,11 +638,14 @@ def foto_k40(dither, profile=None):
 
 
 jg = foto_k40("grayscale")
-check("0.23.1 K40, foto in scala di grigi: il lavoro non si prepara, con il motivo (scegli un retino)",
-      jg.refused and "scala di grigi" in jg.refused and not any(ln.startswith(("G1", "X")) for ln in jg.lines),
-      (jg.refused, len(jg.lines)))
+js = foto_k40("stucki")
+check("0.23.3 K40, foto in scala di grigi: il lavoro si prepara con il retino Stucki (prima non partiva), e lo dice",
+      not jg.refused and jg.lines == js.lines and any("retino" in w and "scala di grigi" in w for w in jg.warnings),
+      (jg.refused, len(jg.lines), len(js.lines), jg.warnings))
+check("0.23.3 …solo acceso e spento (nessun grigio di mezzo)", all(
+    not m or m.group(1) in ("0", "1000") for m in (re.search(r"S([\d.]+)", ln) for ln in jg.lines)))
 blk, _w = win.preflight(jg)
-check("0.23.1 …e non si può avviare", any("scala di grigi" in b for b in blk), blk)
+check("0.23.3 …e si può avviare", not any("scala di grigi" in b for b in blk), blk)
 jd = foto_k40("floyd")
 check("0.23.1 K40, foto con un retino: il lavoro si prepara", not jd.refused
       and any(ln.startswith(("G1", "X")) for ln in jd.lines), jd.refused)

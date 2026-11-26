@@ -91,6 +91,12 @@ class RotaryDialog(QDialog):
         self.obj = _spin(1, 1000, float(qs.value("rotary_object_d", 70.0)))
         self.obj.setToolTip(tr("Misuralo col calibro nel punto da incidere"))
         f.addRow(tr("Diametro dell'oggetto"), self.obj)
+        # 0.23.3 (Ale): motore del rotativo montato al contrario. Solo nel programma: sulla scheda non si scrive niente
+        self.invert = QCheckBox(tr("Inverti il senso di rotazione"))
+        self.invert.setToolTip(tr("Spunta se l'incisione esce specchiata (motore del rotativo montato al contrario). "
+                                  "Prova prima su carta."))
+        self.invert.setChecked(qs.value("rotary_invert", "false") in (True, "true"))
+        f.addRow("", self.invert)
         v.addLayout(f)
         self.info = QLabel()
         self.info.setWordWrap(True)
@@ -110,11 +116,12 @@ class RotaryDialog(QDialog):
         self.kind.currentIndexChanged.connect(self.update_info)
         self.axis.currentIndexChanged.connect(self.update_info)
         self.on.toggled.connect(self.update_info)
+        self.invert.toggled.connect(self.update_info)
         self.update_info()
 
     def settings(self):
         return {"kind": self.kind.currentData(), "mm_per_rev": self.mm_rev.value(), "roller_d": self.roller.value(),
-                "object_d": self.obj.value(), "axis": self.axis.currentData()}
+                "object_d": self.obj.value(), "axis": self.axis.currentData(), "invert": self.invert.isChecked()}
 
     def update_info(self, *_):
         roller = self.kind.currentData() == "roller"
@@ -124,7 +131,9 @@ class RotaryDialog(QDialog):
         ax = self.axis.currentData()
         self.rev_label.setText(tr("Asse Z per un giro") if ax == "Z" else tr("Asse Y per un giro"))
         txt = tr("Circonferenza dell'oggetto: {0:.1f} mm (altezza massima del disegno che fa il giro "
-                 "completo) · asse {2} × {1:.4f}", circ, k, ax)
+                 "completo) · asse {2} × {1:.4f}", circ, abs(k), ax)
+        if self.invert.isChecked():
+            txt += " · " + tr("senso di rotazione invertito")
         if ax == "Z":
             txt += "<br>" + tr("Sulla Z: partenza dalla posizione della testa; autofocus e frecce della Z spenti; l'asse "
                                "Y resta libero per centrare la testa sull'oggetto. Prima di incidere serve «Prova: un "
@@ -198,4 +207,5 @@ class RotaryDialog(QDialog):
         qs.setValue("rotary_mm_rev", s["mm_per_rev"])
         qs.setValue("rotary_roller_d", s["roller_d"])
         qs.setValue("rotary_object_d", s["object_d"])
+        qs.setValue("rotary_invert", bool(s["invert"]))
         super().accept()

@@ -4365,7 +4365,7 @@
  "lavoro grande: i trasferimenti possono rallentare": "travail grand : les déplacements peuvent ralentir",
  "nessun collegamento con la K40": "aucune connexion avec la K40",
  "{0}: con il rotativo sulla Z lo Z non si abbassa fra le passate (il motore della Z gira l'oggetto)": "{0} : avec le rotatif sur Z, Z ne descend pas entre les passes (le moteur Z fait tourner l'objet)",
- "{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): scegli un retino o una soglia nelle impostazioni dell'immagine": "{0} : les niveaux de gris ne sont pas possibles ici (la puissance ne change pas depuis le programme) : choisissez une trame ou un seuil dans les réglages de l'image",
+ "{0}: su questa macchina la scala di grigi non si può fare (la potenza non cambia da programma): la foto si incide con il retino {1}": "{0} : sur cette machine, les niveaux de gris ne sont pas possibles (la puissance ne change pas depuis le programme) : la photo est gravée avec la trame {1}",
  "⟳ Rotativo sulla Z": "⟳ Rotatif sur Z",
  "Avvio annullato": "Démarrage annulé",
  "Collega": "Relier",
@@ -4433,5 +4433,11 @@
  "Dov'è lo 0?": "Où est le 0 ?",
  "Hai scelto lo 0 <b>{0}</b>, ma la prova delle frecce lo mette <b>{1}</b>.<br>Dove va la testa quando fai l'homing?": "Tu as choisi le 0 <b>{0}</b>, mais le test des flèches le met <b>{1}</b>.<br>Où va la tête quand tu fais le homing ?",
  "{0} (come ho scelto)": "{0} (comme j'ai choisi)",
- "{0} (come dicono le frecce)": "{0} (comme disent les flèches)"
+ "{0} (come dicono le frecce)": "{0} (comme disent les flèches)",
+ "Inverti il senso di rotazione": "Inverser le sens de rotation",
+ "Spunta se l'incisione esce specchiata (motore del rotativo montato al contrario). Prova prima su carta.": "Cochez si la gravure sort en miroir (moteur du rotatif monté à l'envers). Essayez d'abord sur du papier.",
+ "senso di rotazione invertito": "sens de rotation inversé",
+ "se l'incisione esce specchiata (motore montato al contrario)": "si la gravure sort en miroir (moteur monté à l'envers)",
+ "Scala la selezione in percentuale: 150 = una volta e mezza, 50 = metà, poi Invio. Resta fermo il punto scelto nel quadratino a 9 punti.": "Met la sélection à l'échelle en pourcentage : 150 = une fois et demie, 50 = moitié, puis Entrée. Le point choisi dans le carré à 9 points reste fixe.",
+ "La percentuale deve essere maggiore di zero": "Le pourcentage doit être supérieur à zéro"
 }

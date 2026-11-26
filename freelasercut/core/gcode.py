@@ -19,7 +19,7 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QTransform
 
 from . import burn_curve, geom, imaging
-from .document import Document, ImageShape, gray_power
+from .document import DITHER_LABELS, Document, ImageShape, gray_power
 from freelasercut.i18n import tr  # noqa: E402
 
 ANCHOR_NAMES = ["basso-sinistra", "basso-centro", "basso-destra", "centro-sinistra", "centro",
@@ -140,6 +140,7 @@ class LayerStats:
 # riesce a mandarne in un secondo, la scheda svuota la coda e la testa va a scatti (segnalato a 10000 mm/min con il
 # dithering). La stima è prudente ma semplice: byte al secondo della porta (10 bit per byte, il 90% utile, meno i
 # rapporti di stato) diviso i byte di un comando, per la lunghezza dei comandi nelle righe più fitte della foto.
+K40_GRAY_DITHER = "stucki"  # 0.23.3: retino usato da solo al posto della scala di grigi sulla K40
 STREAM_BYTES = 13  # byte di un comando tipico di una foto a toni di grigio («X118.3 S512.5» + a capo)
 STREAM_BYTES_DOTS = 10  # con il dithering la potenza è una sola: comandi più corti («X118.3 S0»)
 STREAM_MIN_CMDS = 8  # righe con meno comandi non contano (bordi, righe quasi vuote)
@@ -295,7 +296,9 @@ def rotary_scale(r):
     mm = float(r.get("mm_per_rev", 0))
     if d <= 0 or mm <= 0:
         return 1.0
-    return mm / (math.pi * d)
+    # 0.23.3: «Inverti il senso di rotazione» (motore montato al contrario): fattore negativo, cioè l'asse del rotativo
+    # si specchia attorno all'ancoraggio del disegno. La X non cambia; la velocità si corregge sulle distanze
+    return -mm / (math.pi * d) if r.get("invert") else mm / (math.pi * d)
 
 
 def rotary_axis(r):
@@ -1191,7 +1194,8 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         job.rotary_k, job.rotary_ref = rot_k, ref
         job.rotary_axis = "Z" if rot_z else "Y"
         job.warnings.append(tr("Rotativo attivo: asse {1} × {0:.4f} (in anteprima il disegno resta com'è sul piano)",
-                               rot_k, job.rotary_axis))
+                               abs(rot_k), job.rotary_axis)
+                            + (" · " + tr("senso di rotazione invertito") if rot_k < 0 else ""))
     w = _Writer(placed_map, profile.s_max)
     w.travel_feed = profile.travel_speed() if hasattr(profile, "travel_speed") else None
     if getattr(profile, "scan_offsets", None):
@@ -1207,11 +1211,15 @@ def _generate(doc: Document, profile, opts: JobOptions = None) -> GcodeJob:
         grays = [cs.label() for cs in layers if cs.mode == "image" and getattr(cs, "dither", "") == "grayscale"]
         if grays:
             # 0.23.1 (Evoluzione2): era solo un avviso, e la foto si incideva a laser sempre acceso (ogni grigio vale
-            # «acceso» e la potenza è quella della manopola): bruciava tutto il riquadro. Ora il lavoro non si prepara
-            job.refused = tr("{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): "
-                             "scegli un retino o una soglia nelle impostazioni dell'immagine", ", ".join(grays))
-            job.warnings.append(job.refused)
-            return job
+            # «acceso» e la potenza è quella della manopola): bruciava tutto il riquadro. Il lavoro non partiva.
+            # 0.23.3 (Ale: «riusciamo a sbloccare anche quelle?»): il grigio diventa da solo un retino (Stucki, quello
+            # che Evo usa sulla sua K40). Anche MeerK40t sulla K40 il grigio lo fa a impulsi da un passo, che il tubo
+            # non segue (file di Evo del 25/11): brucia tutto lo stesso.
+            layers = [replace(cs, dither=K40_GRAY_DITHER) if cs.mode == "image" and cs.dither == "grayscale" else cs
+                      for cs in layers]
+            job.warnings.append(tr("{0}: su questa macchina la scala di grigi non si può fare (la potenza non cambia "
+                                   "da programma): la foto si incide con il retino {1}", ", ".join(grays),
+                                   DITHER_LABELS.get(K40_GRAY_DITHER, K40_GRAY_DITHER)))
     title = opts.name or doc.name
     w.raw(f"; FreeLaserCut — {title}")
     w.raw(f"; macchina: {profile.name} · {profile.bed_x:g}×{profile.bed_y:g} mm · S max {profile.s_max:g}")

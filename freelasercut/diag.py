@@ -386,6 +386,14 @@ def job_text(win):
             out.append(f"Partenza: {lp.start_from.currentData()} · punto {lp.anchor.value}")
         except Exception:  # noqa: BLE001
             pass
+        try:  # 0.23.3: impostazioni del rotativo, compresa «Inverti il senso di rotazione»
+            r = win.rotary_settings()
+            out.append("Rotativo: spento" if not r else
+                       f"Rotativo: asse {r.get('axis')} · {r.get('kind')} · {r.get('mm_per_rev'):g} mm per giro · rullo "
+                       f"{r.get('roller_d'):g} · oggetto {r.get('object_d'):g} · senso invertito "
+                       f"{'sì' if r.get('invert') else 'no'}")
+        except Exception:  # noqa: BLE001
+            pass
         out.append("")
         out.append("Prime righe del G-code:")
         out += job.lines[:40]

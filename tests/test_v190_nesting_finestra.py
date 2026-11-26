@@ -567,9 +567,16 @@ until(lambda: w.ctl.homed and w.ctl.last_status.get("state") == "Idle", 30)
 until(lambda: False, 0.3)
 check("…e se poi l'homing finisce lo stesso, il laser NON si accende da solo", not w.ctl.fire_active
       and not panel.laser.isChecked())
+# 0.23.3: qui la testa era già a casa, e nel simulatore un homing da casa finisce subito (strada zero): con il PC
+# carico (giro completo, tre prove insieme) l'«homing finito» arrivava prima che scattasse l'attesa di 50 ms e la prova
+# falliva una volta su due. Qui conta solo l'attesa che scade: la testa si allontana da casa e il simulatore va 50 volte
+# più piano, così l'homing non può finire in tempo
+w.ctl.send_line("$J=G91 G21 X40 Y40 F6000")
+until(lambda: w.ctl.last_status.get("state") == "Jog", 5)
+until(lambda: w.ctl.last_status.get("state") == "Idle", 30)
 w.ctl.homed = False
 nest_manual.HOMING_WAIT_S = 0.05
-w.ctl.sim.speedup = 1
+w.ctl.sim.speedup = 0.02
 panel.laser.setChecked(True)
 until(lambda: not panel.laser.isChecked(), 3)
 check("homing che non finisce in tempo: la spunta si spegne e lo dice", not panel.laser.isChecked()

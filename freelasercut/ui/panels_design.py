@@ -84,6 +84,20 @@ def save_anchor(v):
     app_settings().setValue("num_anchor", int(v))
 
 
+class _PctField(NumField):
+    """0.23.3: casella della scala in percentuale. Solo testo scritto + Invio: frecce della tastiera e rotella non
+    cambiano niente (sulle altre caselle cambiano la misura di un passo, qui scalerebbero la forma a ogni scatto)."""
+
+    def keyPressEvent(self, e):
+        if e.key() in (Qt.Key_Up, Qt.Key_Down):
+            e.accept()
+            return
+        super().keyPressEvent(e)
+
+    def wheelEvent(self, e):
+        e.ignore()
+
+
 class NumericBar(QToolBar):
     """Posizione, misure e rotazione della selezione, più i comandi rapidi sulla selezione.
 
@@ -125,6 +139,10 @@ class NumericBar(QToolBar):
         self._lock_icon(True)
         self.addWidget(self.lock)
         self.fh = self._field("A", suffix=" mm", minimum=0.001, help_key="num:h", fit=("8888.88 mm",), tight=("888.88 mm",))
+        # 0.23.3: scala in percentuale (domanda di un utente: «scalare tutto il progetto di una percentuale»). Subito dopo
+        # L 🔒 A, dove si cercano le misure. Stretta, senza etichetta e senza freccette, mostra sempre «100 %».
+        self.fpct = self._pct_field()
+        self.fw.percent_ok = self.fh.percent_ok = True  # anche in L e A: «150%» = una volta e mezza la misura attuale
         # 0.18.2: raggio degli angoli accanto alle misure (rettangoli, poligoni e stelle), più i quattro angoli
         # 0.20.5: per i rettangoli anche negativo = angoli raccordati verso l'interno (il limite lo dà set_radius)
         self.frad = self._field("R", suffix=" mm", width=66, minimum=-1000.0, step=0.5, help_key="num:radius",
@@ -209,6 +227,48 @@ class NumericBar(QToolBar):
             lab.setProperty("help_key", help_key)
         self.addWidget(f)
         return f
+
+    PCT_MIN, PCT_MAX = 1.0, 10000.0  # 0.23.3: scala da 1 % a 10 000 %; zero e negativi non valgono
+
+    def _pct_field(self):
+        """0.23.3: casella della scala in percentuale. Senza etichetta (il « %» è già scritto dentro) e larga quanto
+        «888 %», niente freccette: è la casella più stretta della barra. Stessa altezza delle altre. Si scrive un
+        numero e Invio: la selezione si scala di quel fattore e la casella torna a 100. Frecce della tastiera e rotella
+        non fanno niente (una rotella per sbaglio scalerebbe di continuo)."""
+        f = _PctField(100.0, 0, 10.0, " %", 40, None)
+        f.setObjectName("numbar")
+        f.setFixedHeight(self.FIELD_H)
+        f.percent_ok = True  # «150%» e «+10%» valgono sul 100 della casella
+        f.fit_text("888 %")
+        f.setToolTip(tr("Scala la selezione in percentuale: 150 = una volta e mezza, 50 = metà, poi Invio. Resta fermo il "
+                        "punto scelto nel quadratino a 9 punti."))
+        f.setProperty("help_key", "num:scale")
+        f.committed.connect(self._scale_pct)
+        self.addWidget(f)
+        return f
+
+    def _scale_pct(self, v):
+        """Scala uniforme della selezione modificabile attorno al punto di riferimento, un passo di Annulla «Scala».
+        Il lucchetto delle proporzioni non conta: per un asse solo ci sono L e A."""
+        try:
+            if v <= 0 or v != v:
+                from PySide6.QtWidgets import QToolTip
+
+                QToolTip.showText(self.fpct.mapToGlobal(self.fpct.rect().bottomLeft()),
+                                  tr("La percentuale deve essere maggiore di zero"), self.fpct)
+                return
+            v = min(self.PCT_MAX, max(self.PCT_MIN, v))
+            if abs(v - 100.0) < 1e-9 or not self.ed.editable():
+                return
+            b = self.ed.selection_bounds()
+            a = self._anchor_pt(b)
+            k = v / 100.0
+            self.ed.transform(ops.about(QTransform.fromScale(k, k), a.x(), a.y()), tr("Scala"))
+        finally:
+            # anche con la casella ancora attiva (dopo Invio il cursore resta lì): se restasse scritto «150 %», uscendo
+            # dalla casella il valore varrebbe di nuovo e la selezione si scalerebbe una seconda volta
+            self.fpct.setValue(100.0)
+            self.fpct._show()
 
     def _anchor_pt(self, b):
         from ..core import geom
@@ -330,8 +390,9 @@ class NumericBar(QToolBar):
     def refresh(self):
         sel = self.ed.selection
         on = bool(sel)
-        for f in (self.fx, self.fy, self.fw, self.fh, self.fr):
+        for f in (self.fx, self.fy, self.fw, self.fh, self.fr, self.fpct):
             f.setEnabled(on and bool(self.ed.editable()))
+        self.fpct.setValue(100.0)  # 0.23.3: la casella della scala torna sempre a 100 %
         self.btn_center.setEnabled(on and bool(self.ed.editable()))
         self._sync_layer()
         self._refresh_radius()

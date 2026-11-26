@@ -96,6 +96,15 @@ def true_err(m, truth, size=SIZE, n=600):
     return float(np.nanmax(e))
 
 
+def grid_err(m, truth, size=SIZE, edge=0.0):
+    """0.23.3: errore vero massimo su una griglia fissa (129 × 97 punti, angoli compresi), lasciando fuori una striscia
+    di `edge` pixel lungo i bordi. A differenza di true_err non dipende dai punti presi a caso."""
+    gx, gy = np.meshgrid(np.linspace(0, size[0], 129), np.linspace(0, size[1], 97))
+    px = np.c_[gx.ravel(), gy.ravel()]
+    px = px[(np.minimum(px[:, 0], size[0] - px[:, 0]) >= edge) & (np.minimum(px[:, 1], size[1] - px[:, 1]) >= edge)]
+    return float(np.nanmax(np.hypot(*(m.img_to_bed(Z, px) - truth.img_to_bed(Z, px)).T)))
+
+
 if not BANCO and "A" in PARTI:
     # ================================================================== A1. modello
     t1 = hg.camera_model((1280, 720), 0.079, angle=8, offset=(5, 35), tilt=4, tilt_dir=30, k1=-0.18, k2=0.05,
@@ -567,8 +576,16 @@ if not BANCO and "B" in PARTI and caso("capovolta"):
 if not BANCO and "B" in PARTI and caso("difficile"):
     m, msg, cal, cam = run_cal(tC, occlude=[(0, 360, 180, 480, 90)], corrupt_every=5, grain=0.5, gradient=0.3,
                                spots=[(215, 205, 1.5), (190, 195, 2.5)])
-    check("pezzo della macchina davanti, fotogrammi rovinati, venatura, macchie e luce non uniforme: riuscita",
-          m is not None and true_err(m, tC) < 0.15, (msg, m is not None and true_err(m, tC)))
+    # 0.23.3: prima «true_err < 0,15» su 600 punti a caso. Misurato su 12 calibrazioni (da sole e quattro insieme):
+    # l'errore massimo è sempre nell'angolo in alto a sinistra, fuori dalla zona dei puntini, fra 0,125 e 0,174 mm
+    # (circa un pixel, 0,16 mm), e cambia da una calibrazione all'altra perché la camera simulata va a tempo vero;
+    # a 64 pixel dai bordi resta sotto 0,025 mm. Con la soglia nel mezzo dei valori misurati e i punti a caso, nel
+    # giro completo la prova falliva ogni tanto. Ora: griglia fissa, angoli compresi, e due soglie
+    check("pezzo della macchina davanti, fotogrammi rovinati, venatura, macchie e luce non uniforme: riuscita, entro "
+          "0,2 mm su tutta l'immagine (1,25 pixel: negli angoli estremi, fuori dai puntini, il modello si allunga)",
+          m is not None and grid_err(m, tC) < 0.2, (msg, m is not None and grid_err(m, tC)))
+    check("…e a 64 pixel dai bordi entro 0,05 mm (dove ci sono i puntini)", m is not None and grid_err(m, tC, edge=64) < 0.05,
+          m is not None and grid_err(m, tC, edge=64))
     check("…la zona coperta è trovata e salvata (il mosaico non la userà)", m is not None and m.occluded
           and all(r[1] >= 340 and r[0] < 200 for r in m.occluded) and "coperta" in msg, m is not None and m.occluded)
 

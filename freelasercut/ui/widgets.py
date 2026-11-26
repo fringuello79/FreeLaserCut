@@ -40,11 +40,22 @@ def _ev(node):
     raise ValueError(tr("espressione non valida"))
 
 
-def evaluate(text, current=None):
-    """'120/3' -> 40 · '2in' -> 50.8 · '+5' / '*2' / '/4' agiscono sul valore attuale · '10cm + 5' -> 105."""
+def evaluate(text, current=None, percent=False):
+    """'120/3' -> 40 · '2in' -> 50.8 · '+5' / '*2' / '/4' agiscono sul valore attuale · '10cm + 5' -> 105.
+
+    0.23.3: con percent=True (campi L, A e «%» della barra delle misure) una percentuale in fondo vale sul valore
+    attuale: '150%' -> una volta e mezza, '+10%' -> un decimo in più, '-10%' -> un decimo in meno. Negli altri campi
+    (per esempio la potenza, che ha « %» come unità) il simbolo resta un errore come prima."""
     t = text.strip().replace(",", ".")
     if not t:
         raise ValueError("vuoto")
+    if percent and current is not None and t.endswith("%"):
+        body = t[:-1].strip()
+        if not body or "%" in body:
+            raise ValueError(tr("espressione non valida"))
+        if body[0] in "+-":
+            return current * (1.0 + _ev(ast.parse(body, mode="eval")) / 100.0)
+        return current * _ev(ast.parse(body, mode="eval")) / 100.0
     if current is not None and t[0] in "+*/" and len(t) > 1:
         t = f"({current}){t}"
     # unità in fondo a tutta l'espressione: "1/2in" = mezzo pollice
@@ -99,7 +110,7 @@ class NumField(QLineEdit):
     def _commit(self):
         txt = self.text().replace(self.suffix, "") if self.suffix else self.text()
         try:
-            v = self._clamp(evaluate(txt, self._value))
+            v = self._clamp(evaluate(txt, self._value, getattr(self, "percent_ok", False)))
         except (ValueError, SyntaxError, ZeroDivisionError, TypeError):
             self._show()
             return

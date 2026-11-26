@@ -1,24 +1,23 @@
 # Novità di FreeLaserCut
 
+## 0.23.3 — 26/11/2026
+- **K40, joystick:** movimento continuo finché il joystick è tenuto, arresto al rilascio; con un cambio di direzione oltre i 60° il movimento riparte. Velocità massima 50 mm/s. Per tornare al comportamento precedente: variabile d'ambiente `FLC_K40_JOY=0`. Segnalazione: Evoluzione2.
+- **K40, fine lavoro:** la testa torna al punto di partenza quando l'opzione è attiva. Segnalazione: Evoluzione2.
+- **K40, scala di grigi:** la foto si incide con il retino Stucki, con un avviso (prima il lavoro non partiva).
+- **K40, prova degli impulsi:** `tools/k40/k40_prova_impulsi.py` crea un file di prova per misurare l'impulso più breve che il tubo riesce a seguire.
+- **Scala in percentuale:** nella barra delle misure, subito dopo L e A, una casella **%**: scrivi per esempio 150 (una volta e mezza) o 50 (metà) e premi Invio. La selezione si scala in proporzione attorno al punto scelto nel quadratino a 9 punti, con un solo Annulla; poi la casella torna a 100. Per scalare tutto il piano, prima Ctrl+A. Anche nei campi L e A si può scrivere una percentuale (`150%`).
+- **Rotativo:** nuova opzione «Inverti il senso di rotazione», per i motori montati al contrario. Agisce solo sull'asse del rotativo (lavoro, contorno, frecce, joystick, «Prova: un giro») e resta memorizzata.
+- **Interno:** corretto un errore alla chiusura del processo dopo «Copia», visto nelle prove automatiche; più stabile il controllo automatico della calibrazione della camera.
+
 ## 0.23.2 — 25/11/2026
-**K40: le foto non fanno più sbattere la testa a fine riga** (segnalato da Evoluzione2, con i video). Le foto e i riempimenti andavano alla scheda M2 Nano come tante linee, e a ogni fine riga la testa invertiva il verso a piena velocità: si sentiva un colpo per riga. Ora usano il modo raster della scheda, quello fatto apposta per le foto: a fine riga è la scheda a rallentare, girare e scendere di una riga. I punti bruciati sono gli stessi di prima. Spariscono anche gli spostamenti strani a «L» fra una riga e l'altra quando le righe hanno lunghezze molto diverse (prima, per ogni riga che ripartiva a più di 8 mm, il lavoro si chiudeva e si riapriva).
-- A meno di 5 mm dal bordo sinistro o destro del piano le righe restano come prima, per prudenza: la rampa della scheda potrebbe portare la testa oltre la fine della riga.
-- Le foto incise in un verso solo (non avanti e indietro) restano come prima.
-- Confronto con MeerK40t: con le impostazioni di partenza MeerK40t fa andare la K40 al 92 % della velocità scritta, FreeLaserCut alla velocità scritta. Per avere lo stesso risultato, in MeerK40t scrivi una velocità più alta del 9 % circa (o accendi la correzione della velocità nelle sue impostazioni).
-- Velocità massima della K40 portata a 250 mm/s (15 000 mm/min): prima il programma non faceva scrivere più di 100 mm/s. Le foto, ora nel modo raster, possono andare più veloci. Le linee la scheda non le fa oltre i 240 mm/s: lì il programma si ferma a 240. Per linee e tagli restano consigliate velocità basse (K40 Whisperer propone 10 mm/s per tagliare e 20 per incidere a linee).
-
-**La finestra non si blocca più dopo «Avvia» con le foto grandi** (segnalato da Evoluzione2). «Avvia» fa prima la verifica, e le sue righe finivano una per una nella console: con una foto da 27 000 righe la finestra restava ferma anche 30 secondi. Ora della verifica si vedono l'avanzamento, gli errori e il risultato, come per il lavoro.
-
-**Ringraziamenti:** a Evoluzione2, per le prove sulla sua K40, i video e i rapporti.
+- **K40, foto e riempimenti:** incisi nel modo raster della scheda. A fine riga la testa non sbatte più e non ci sono più spostamenti a «L» fra righe di lunghezza diversa. Le righe a meno di 5 mm dai bordi laterali e le foto incise in un solo verso restano come prima. Segnalazione: Evoluzione2.
+- **K40, velocità:** massimo 250 mm/s (prima 100); nel modo a linee al massimo 240 mm/s.
+- **Verifica prima dell'avvio:** con le foto grandi la finestra non si blocca più. Segnalazione: Evoluzione2.
 
 ## 0.23.1 — 25/11/2026
-**«Adatta gli incastri allo spessore» funziona con i file di Boxes.py** (segnalato da Stefano Modena). Con i file fatti con Boxes.py e con la bruciatura impostata, la finestra diceva di non trovare incastri e, scrivendo lo spessore a mano, cambiava solo la larghezza delle tacche e non la loro profondità. Il motivo: in quei file gli angoli sono piccole curve e negli angoli interni c'è un piccolo occhiello, e il programma non vedeva più il bordo dritto accanto alle tacche. Ora lo spessore si trova da solo, le tacche si scavano, le linguette si allungano e i fori si allargano. Curve e occhielli si spostano insieme al loro angolo. Lo stesso vale per i pezzi disegnati a mano con qualche nodo un po' fuori posto sugli angoli. Ricorda: lo spessore del disegno è la profondità delle tacche e la lunghezza delle linguette; se scrivi la larghezza di una tacca, il programma la tratta come una fessura e la allarga o la stringe.
-
-**Punto di partenza: un clic sui 9 pallini è immediato anche con una foto** (segnalato da Evoluzione2). Con una foto nel disegno, ogni clic faceva comparire per qualche secondo «Preparo il lavoro…», perché si rifaceva tutto il lavoro solo per l'anteprima. Con la partenza dal disegno il punto scelto non cambia il lavoro: ora si sposta solo il rombo sul piano. Con la partenza dalla testa o dall'origine utente il lavoro si sposta davvero, quindi l'anteprima si rifà come prima.
-
-**K40: niente più foto in scala di grigi** (segnalato da Evoluzione2). Sulla K40 la potenza si regola con la manopola e il programma può solo accendere e spegnere: con la scala di grigi ogni punto non bianco accendeva il laser, e la foto bruciava tutto il riquadro. Prima c'era solo un avviso; ora il lavoro non parte e il programma dice di scegliere un retino o una soglia nelle impostazioni dell'immagine.
-
-**Ringraziamenti:** a Stefano Modena, che ha trovato il problema degli incastri preparando la sua live, e a Evoluzione2.
+- **«Adatta gli incastri allo spessore»:** funziona con i file di Boxes.py (angoli arrotondati, occhielli negli angoli interni) e con i pezzi disegnati a mano; cambia la profondità delle tacche e la lunghezza delle linguette. Segnalazione: Stefano Modena.
+- **Punto di partenza:** il clic sui 9 pallini è immediato anche con una foto nel disegno. Segnalazione: Evoluzione2.
+- **K40, scala di grigi:** il lavoro non parte; va scelto un retino o una soglia. Segnalazione: Evoluzione2.
 
 ## 0.23.0 — 25/11/2026
 **Configurazione guidata: l'angolo dello 0 che scegli non si perde più** (rapporto di Roberto, Falcon A1). Nella prova delle frecce, dopo ogni freccia si risponde «Sì, è andata lì» o «No, è andata al contrario»: prima bastava premerla perché l'asse risultasse provato, anche senza guardare o se la scheda si fermava a metà. Se la scheda va in allarme o si riavvia durante lo spostamento, la freccia non vale. Se alla fine l'angolo scelto e la prova delle frecce non vanno d'accordo, il programma chiede quale è giusto (prima vinceva in silenzio la prova delle frecce e lo 0 tornava davanti a sinistra).

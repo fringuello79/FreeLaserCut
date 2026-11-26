@@ -1,7 +1,7 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
 ## Wi-Fi, rete e telefono (21)
 
@@ -73,7 +73,7 @@ Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_test_forma.py`: Test materiale con la forma selezionata o con il pezzo di una foto (la zona con più grigi trovata da sola), richiesta di Stefano Modena
 - `test_v225_test_forma.py` (Banco): Test materiale con la forma o la foto nell'interfaccia Banco
 
-## Foto e immagini (32)
+## Foto e immagini (33)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -107,8 +107,9 @@ Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v231_punto.py`: Lavoro e G-code, punto di partenza (9 pallini): con la partenza dal disegno un clic sposta solo il rombo e non rifà l'anteprima del lavoro (con una foto ci voleva qualche secondo); con la partenza dalla testa o dall'origine, con il rotativo e cambiando partenza si rifà
 - `test_v232_k40_raster.py`: Macchina K40 (scheda M2 Nano): foto e riempimenti nel modo raster della scheda, niente colpi a fine riga; stessi punti bruciati del lavoro normale (foto, riempimenti, casi apposta, 300 G-code a caso), uscita dal modo raster quando serve, ponte con stop, passo fra le righe
 - `test_v232_verifica_console.py`: Lavoro e G-code, verifica ($C): le righe e i loro «ok» non vanno uno per uno nella console (la finestra restava ferma con le foto grandi)
+- `test_v233_k40.py`: Macchina K40 (scheda M2 Nano): joystick come un movimento continuo a laser spento (niente scatti; chiuso al rilascio, dopo un silenzio, a un cambio di direzione o di velocità), ritorno al punto di partenza a fine lavoro, scala di grigi che diventa un retino, file di prova degli impulsi
 
-## Lavoro e G-code (55)
+## Lavoro e G-code (57)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -165,6 +166,8 @@ Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v230_aria.py`: Macchina, pulsante Aria: con un lavoro in corso o in pausa si spegne e si accende subito (comando immediato di GRBL), il pulsante segue l'aria della scheda (rapporto 8595)
 - `test_v230_aria.py` (Banco): Macchina, pulsante Aria subito anche nel Banco
 - `test_v231_punto.py` (Banco): Lavoro e G-code, punto di partenza nell'interfaccia Banco
+- `test_v233_rotativo_inverti.py`: Rotativo, «Inverti il senso di rotazione»: G-code con il solo asse del rotativo specchiato (Y e Z), contorno, frecce, «Continuo», joystick, «Prova: un giro», preferenze e rapporto; spunta spenta = G-code di prima
+- `test_v233_rotativo_inverti.py` (Banco): Rotativo, «Inverti il senso di rotazione» nell'interfaccia Banco
 
 ## Macchina, connessione e profili (64)
 
@@ -233,7 +236,7 @@ Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v230_homing.py`: Configurazione guidata: l'angolo dello 0 scelto non si perde (rapporto BCAB, Falcon A1): la freccia vale con «Sì» o «No», allarme o riavvio a metà spostamento non valgono, contrasto fra angolo e frecce: si chiede
 - `test_v230_homing.py` (Banco): Configurazione guidata: l'angolo dello 0 scelto non si perde, interfaccia Banco
 
-## Disegno e modifica (31)
+## Disegno e modifica (33)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -266,8 +269,10 @@ Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v230_distanze_fisse.py`: Disegno, distanze fisse (in prova): chi segue tiene la distanza dal riferimento spostato, ridimensionato, ruotato o cambiato nei nodi; catene; giri e due legami sullo stesso asse rifiutati; un passo di Annulla; copie senza legami; file, piano ruotato e gruppi
 - `test_v230_distanze_fisse_ui.py`: Disegno, distanze fisse nell'interfaccia: Distanza esatta con «Mantieni», Misura → «Fissa questa distanza», quote sul piano, doppio clic e tasto destro, comandi solo con il codice
 - `test_v230_distanze_fisse_ui.py` (Banco): Disegno, distanze fisse nell'interfaccia Banco
+- `test_v233_appunti.py`: Copia e Incolla: dopo «Copia» il processo finisce senza errore (le forme copiate escono dagli appunti a fine processo)
+- `test_v233_scala_percento.py`: Barra delle misure, casella della scala in percentuale: scala uniforme attorno al punto di riferimento, un passo di Annulla, di nuovo 100 % (anche con il cursore dentro), limiti, «150%» in L e A ma non negli altri campi, posto nella barra
 
-## Interfaccia (54)
+## Interfaccia (55)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -323,6 +328,7 @@ Suite: 305. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v227_k40.py` (Banco): K40 collegata dopo la prima prova, nell'interfaccia Banco
 - `test_v229_finestra.py`: Apri un'altra finestra: comando e menu, processo a parte con la sua sigla, salvataggio automatico per finestra, finestre chiuse male riconosciute e riaperte, una finestra vera avviata e uccisa
 - `test_v229_finestra.py` (Banco): Apri un'altra finestra nell'interfaccia Banco
+- `test_v233_scala_percento.py` (Banco): Barra delle misure, casella della scala in percentuale nell'interfaccia Banco
 
 ## Avvio, installazione, aggiornamenti e assistenza (11)
 

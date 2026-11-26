@@ -26,6 +26,12 @@ STEPS = (0.1, 1, 10, 50, 100)
 TAG = "joy"
 
 
+def rotary_sign(ctl):
+    """0.23.3: -1 se il rotativo è al posto della Y con «Inverti il senso di rotazione»: un comando in su fa scendere la
+    Y della macchina (ctl.jog), così il pezzo gira nel verso del disegno. 1 altrimenti."""
+    return -1.0 if getattr(ctl, "rotary_y", False) and getattr(ctl, "rotary_sign", 1.0) < 0 else 1.0
+
+
 # ======================================================================= joystick: la logica (senza finestra)
 class JoyJog(QObject):
     """Movimento continuo dal joystick. set_vector(ux, uy): vettore nel cerchio unitario (y verso l'alto del piano,
@@ -45,6 +51,7 @@ class JoyJog(QObject):
     MARGIN = 0.5  # mm dal bordo dell'area
     LEAD_MIN = 0.10  # s di movimento al massimo davanti alla testa (di solito)
     LEAD_MAX = 0.40  # s: tetto anche per le macchine con accelerazione molto bassa
+    LEAD_K40 = 0.20  # s, 0.23.3: anticipo minimo sulla K40 (vedi lead)
     POS_SLACK = 0.30  # s: ritardo della posizione letta (lo stato arriva ogni 0,2 s) per il controllo sulla testa
     SETTLE = 0.35  # s dopo la fine prevista: la posizione letta è quella vera e si riparte da lì
 
@@ -127,7 +134,10 @@ class JoyJog(QObject):
         entro il movimento che ha in coda: per arrivare a v servono almeno v²/(2a) mm, cioè v/(2a) secondi."""
         v = self.speed() if v is None else v
         need = 1.2 * (v / 60.0) / (2.0 * self.accel()) + self.SEG_T  # + un pezzetto: si manda a metà pezzetto
-        return min(self.LEAD_MAX, max(self.LEAD_MIN, need))
+        # 0.23.3: sulla K40 i pezzetti diventano un movimento continuo nel ponte; un po' più di anticipo evita che la
+        # scheda resti senza comandi fra un pezzetto e l'altro (al rilascio il ponte butta quelli non ancora mandati)
+        lo = self.LEAD_K40 if getattr(self.ctl, "port", None) == "K40" else self.LEAD_MIN
+        return min(self.LEAD_MAX, max(lo, need))
 
     def _head(self):
         h = self.get_head()
@@ -159,7 +169,10 @@ class JoyJog(QObject):
         m = self.magnitude()
         seg = self.SEG_T
         d = v / 60.0 * seg
-        dx, dy = self.vec[0] / m * d, self.vec[1] / m * d
+        # 0.23.3: rotativo con il senso invertito: la testa (asse del rotativo) va al contrario del comando; si conta
+        # dove va davvero, per i bordi e per il controllo sulla posizione letta
+        s = rotary_sign(self.ctl)
+        dx, dy = self.vec[0] / m * d, self.vec[1] / m * d * s
         x0, y0, x1, y1 = reach_box(self.ctl, self.get_profile())
         x, y = self.pos
         nx, ny = self._limit(x, dx, x0, x1), self._limit(y, dy, y0, y1)
@@ -167,7 +180,7 @@ class JoyJog(QObject):
         dist = math.hypot(ddx, ddy)
         if dist < 0.005:
             return  # al bordo: fermo finché non cambi direzione
-        self.ctl.jog(ddx, ddy, v, tag=TAG)
+        self.ctl.jog(ddx, ddy * s, v, tag=TAG)
         self.pos = (nx, ny)
         self.plan_end = max(self.plan_end, now) + dist / (v / 60.0)
         self.sent += 1
@@ -557,6 +570,7 @@ class JogPad(QWidget):
             return
         if self.cont.isChecked():
             # con i soft limits GRBL rifiuta un jog oltre l'area: punto esattamente al bordo del piano
+            dy = dy * rotary_sign(self.ctl)  # 0.23.3: rotativo invertito: il bordo verso cui va davvero la testa
             prof = self.get_profile()
             head = self.get_head()
             if head is None:

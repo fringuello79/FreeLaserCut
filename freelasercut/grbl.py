@@ -251,6 +251,8 @@ class GrblController(QObject):
         # 0.22.6: rotativo sul motore della Z (lo imposta la finestra principale). Con True l'autofocus e le frecce
         # della Z non partono (girerebbero l'oggetto o, con l'interruttore sbagliato, il piano)
         self.rotary_z = False
+        self.rotary_y = False  # 0.23.3: rotativo al posto della Y (le frecce della Y lo fanno girare)
+        self.rotary_sign = 1.0  # 0.23.3: -1 con «Inverti il senso di rotazione» (vale per il solo asse del rotativo)
         self.home_guard = None  # 0.22.6: funzione chiamata prima dell'homing; se ritorna False l'homing non parte
         self.reset_count = 0  # 0.22.6: reset chiesti da noi (Stop compreso): chi aspetta di partire se ne accorge
         self.board_info = []  # ultimo $I
@@ -591,13 +593,17 @@ class GrblController(QObject):
         elif k == 3:
             dx, dy = -dy, dx
         dx, dy = dx * sx, dy * sy
+        if self.rotary_y and self.rotary_sign < 0:  # 0.23.3: rotativo con il senso invertito, solo il suo asse
+            dy = -dy
         parts = []
         if dx:
             parts.append(f"X{dx:.3f}")
         if dy:
             parts.append(f"Y{dy:.3f}")
         if parts:
-            self.send_line(f"$J=G91 G21 {' '.join(parts)} F{feed:.0f}", tag=tag)
+            # 0.23.3: sulla K40 i pezzetti del joystick si riconoscono («;JOY»): il ponte ne fa un movimento continuo
+            joy = " ;JOY" if tag == "joy" and self.port == K40_PORT else ""
+            self.send_line(f"$J=G91 G21 {' '.join(parts)} F{feed:.0f}{joy}", tag=tag)
 
     def jog_to(self, x, y, feed=6000):
         """Va a una posizione assoluta di lavoro (doppio clic sul piano)."""
@@ -949,6 +955,8 @@ class GrblController(QObject):
         """force: la «Prova: un giro» del rotativo sulla Z (le frecce della Z invece con il rotativo non partono)."""
         if self.rotary_z and not force:
             return
+        if self.rotary_z and self.rotary_sign < 0:  # 0.23.3: «Prova: un giro» nel verso del disegno
+            dz = -dz
         if dz:
             self.send_line(f"$J=G91 G21 Z{dz:.3f} F{feed:.0f}")
 

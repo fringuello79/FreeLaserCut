@@ -303,8 +303,11 @@ w = MainWindow()
 w.laser.finish_origin.setChecked(True)
 check("E laser normale con «torna all'origine»: il lavoro torna", w.job_options().finish == "origin")
 w.on_profile(MachineProfile.k40())
-check("E con il profilo K40: il lavoro finisce dov'è (niente spostamento veloce calcolato a fine lavoro)",
-      w.job_options().finish == "stay")
+check("E 0.23.3: con il profilo K40 il lavoro torna anche lui (Evo: «non torna all'inizio anche se è abilitato»)",
+      w.job_options().finish == "origin")
+w.laser.finish_origin.setChecked(False)
+check("E …e se il ritorno è spento resta dov'è", w.job_options().finish == "stay")
+w.laser.finish_origin.setChecked(True)
 check("E (la porta K40 vale anche da sola)", K40_PORT == "K40")
 w.close()
 

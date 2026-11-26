@@ -694,6 +694,12 @@ if __name__ == "__main__":
     run_suite("test_v231_punto.py", "Lavoro e G-code, punto di partenza nell'interfaccia Banco", "banco")
     run_suite("test_v232_k40_raster.py", "Macchina K40 (scheda M2 Nano): foto e riempimenti nel modo raster della scheda, niente colpi a fine riga; stessi punti bruciati del lavoro normale (foto, riempimenti, casi apposta, 300 G-code a caso), uscita dal modo raster quando serve, ponte con stop, passo fra le righe")
     run_suite("test_v232_verifica_console.py", "Lavoro e G-code, verifica ($C): le righe e i loro «ok» non vanno uno per uno nella console (la finestra restava ferma con le foto grandi)")
+    run_suite("test_v233_k40.py", "Macchina K40 (scheda M2 Nano): joystick come un movimento continuo a laser spento (niente scatti; chiuso al rilascio, dopo un silenzio, a un cambio di direzione o di velocità), ritorno al punto di partenza a fine lavoro, scala di grigi che diventa un retino, file di prova degli impulsi")
+    run_suite("test_v233_appunti.py", "Copia e Incolla: dopo «Copia» il processo finisce senza errore (le forme copiate escono dagli appunti a fine processo)")
+    run_suite("test_v233_rotativo_inverti.py", "Rotativo, «Inverti il senso di rotazione»: G-code con il solo asse del rotativo specchiato (Y e Z), contorno, frecce, «Continuo», joystick, «Prova: un giro», preferenze e rapporto; spunta spenta = G-code di prima")
+    run_suite("test_v233_rotativo_inverti.py", "Rotativo, «Inverti il senso di rotazione» nell'interfaccia Banco", "banco")
+    run_suite("test_v233_scala_percento.py", "Barra delle misure, casella della scala in percentuale: scala uniforme attorno al punto di riferimento, un passo di Annulla, di nuovo 100 % (anche con il cursore dentro), limiti, «150%» in L e A ma non negli altri campi, posto nella barra")
+    run_suite("test_v233_scala_percento.py", "Barra delle misure, casella della scala in percentuale nell'interfaccia Banco", "banco")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

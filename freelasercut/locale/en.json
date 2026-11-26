@@ -4365,7 +4365,7 @@
  "lavoro grande: i trasferimenti possono rallentare": "large job: travel moves can slow things down",
  "nessun collegamento con la K40": "no connection with the K40",
  "{0}: con il rotativo sulla Z lo Z non si abbassa fra le passate (il motore della Z gira l'oggetto)": "{0}: with the rotary on Z, Z does not go down between passes (the Z motor turns the object)",
- "{0}: la scala di grigi qui non si può fare (la potenza non cambia da programma): scegli un retino o una soglia nelle impostazioni dell'immagine": "{0}: grayscale is not possible here (the power does not change from the program): choose a halftone or a threshold in the image settings",
+ "{0}: su questa macchina la scala di grigi non si può fare (la potenza non cambia da programma): la foto si incide con il retino {1}": "{0}: grayscale is not possible on this machine (the power does not change from the program): the photo is engraved with the {1} dither",
  "⟳ Rotativo sulla Z": "⟳ Rotary on Z",
  "Avvio annullato": "Start cancelled",
  "Collega": "Connect",
@@ -4433,5 +4433,11 @@
  "Dov'è lo 0?": "Where is zero?",
  "Hai scelto lo 0 <b>{0}</b>, ma la prova delle frecce lo mette <b>{1}</b>.<br>Dove va la testa quando fai l'homing?": "You chose zero <b>{0}</b>, but the arrow test puts it <b>{1}</b>.<br>Where does the head go when you run homing?",
  "{0} (come ho scelto)": "{0} (as I chose)",
- "{0} (come dicono le frecce)": "{0} (as the arrows say)"
+ "{0} (come dicono le frecce)": "{0} (as the arrows say)",
+ "Inverti il senso di rotazione": "Reverse the direction of rotation",
+ "Spunta se l'incisione esce specchiata (motore del rotativo montato al contrario). Prova prima su carta.": "Tick if the engraving comes out mirrored (rotary motor mounted the other way round). Try it on paper first.",
+ "senso di rotazione invertito": "direction of rotation reversed",
+ "se l'incisione esce specchiata (motore montato al contrario)": "if the engraving comes out mirrored (motor mounted the other way round)",
+ "Scala la selezione in percentuale: 150 = una volta e mezza, 50 = metà, poi Invio. Resta fermo il punto scelto nel quadratino a 9 punti.": "Scale the selection by a percentage: 150 = one and a half times, 50 = half, then Enter. The point chosen in the 9-point square stays still.",
+ "La percentuale deve essere maggiore di zero": "The percentage must be greater than zero"
 }

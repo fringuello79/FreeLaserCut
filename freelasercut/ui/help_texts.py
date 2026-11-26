@@ -233,7 +233,8 @@ HELP = {
                [(tr("Asse Y per un giro"), tr("si trova con la prova di un giro")),
                 (tr("Sulla Z"), tr("per le macchine con l'interruttore che passa il motore del piano al rotativo: partenza "
                                    "dalla testa, prova del giro a ogni collegamento, autofocus e frecce della Z spenti")),
-                (tr("Diametro"), tr("del rullo (rulli) o dell'oggetto (mandrino)"))]),
+                (tr("Diametro"), tr("del rullo (rulli) o dell'oggetto (mandrino)")),
+                (tr("Inverti il senso di rotazione"), tr("se l'incisione esce specchiata (motore montato al contrario)"))]),
     "grid_array": (tr("Serie a griglia"), tr("Copie in righe e colonne, con spaziatura, sfalsamento e numerazione automatica "
                    "dei testi variabili."), None),
     "circ_array": (tr("Serie circolare"), "Copie disposte in cerchio, ruotate o no.", None),
@@ -597,6 +598,9 @@ HELP = {
               "Accetta calcoli: *2 raddoppia, /3 divide."), None),
     "num:h": (tr("Altezza (mm)"), tr("Altezza della selezione. Con il lucchetto chiuso anche la larghezza cambia in proporzione."), None),
     "num:lock": (tr("Blocca proporzioni"), tr("Chiuso: larghezza e altezza cambiano insieme. Aperto: si cambiano separatamente."), None),
+    "num:scale": (tr("Scala (%)"), tr("Ingrandisce o riduce la selezione in proporzione, attorno al punto di riferimento: "
+                  "150 = una volta e mezza, 50 = metà, +10% = un decimo in più. Dopo Invio torna a 100. Ctrl+A prima, per "
+                  "scalare tutto il piano. Anche in L e A si può scrivere una percentuale (150%)."), None),
     "num:radius": (tr("Raggio degli angoli (mm)"), tr("Arrotonda gli angoli di rettangoli, poligoni e stelle selezionati, "
                    "in mm veri anche dopo averli ridimensionati. Un valore oltre il massimo diventa il massimo; 0 = "
                    "spigoli vivi. Con più forme vale per tutte. Lo stesso raggio è anche nel pannello Proprietà."),

@@ -22,6 +22,7 @@ Limite noto: un blocco del PC a metà di un tratto acceso già partito non si pu
 guida questa scheda).
 """
 import collections
+import math
 import os
 import re
 import threading
@@ -43,6 +44,19 @@ TETTO_SOSPESO = 4 * 1024 * 1024
 PEZZETTO_FRECCE = 10.0  # mm, solo per «Continuo»
 BORDO_CONTINUO = 1.0  # mm: una freccia che arriva a meno di così dal bordo del piano è «Continuo»
 DIARIO_BYTE = 300  # byte di ogni lavoro (e delle prime frecce) scritti nel diario
+# 0.23.3 (Evoluzione2: «il joystick segue la direzione ma va tutto a scatti con spostamenti di pochi mm»): ogni pezzetto
+# del joystick era uno spostamento veloce a sé (partenza, frenata, attesa di «ferma»). Ora i pezzetti del joystick
+# (marcati «;JOY» da grbl.jog) diventano UN lavoro a laser spento («scorrimento») che si allunga mentre arrivano: dentro
+# un lavoro la scheda passa da un comando all'altro senza fermarsi. Si chiude (FNSE) al rilascio (0x85), dopo
+# JOY_SILENZIO senza pezzetti, a un cambio di direzione oltre JOY_ANGOLO o di velocità oltre JOY_SALTO_V (nel lavoro a
+# linee la scheda non frena: un'inversione a velocità piena farebbe sbattere la testa, come le foto prima della 0.23.2).
+# FLC_K40_JOY=0 torna al modo di prima (uno spostamento veloce per pezzetto).
+JOY_V_MAX = 50.0  # mm/s
+JOY_ANGOLO = 60.0  # gradi
+JOY_SALTO_V = 1.5  # rapporto fra le velocità oltre cui si chiude e si riapre
+JOY_SILENZIO = 0.3  # s
+JOY_ANTICIPO = 0.2  # s di movimento al massimo già mandato davanti alla testa: oltre, l'«ok» aspetta
+JOY_BYTE_S = 1000.0  # byte al secondo nel lavoro: i pacchetti (30 byte, sempre pieni dentro un lavoro) partono spesso
 
 # Tabella dei comandi (documento di chiusura). emulato | ok (senza effetto) | errore
 COMANDI = {
@@ -72,6 +86,20 @@ COMANDI = {
 }
 
 _JOG = re.compile(r"([XYZF])\s*([-+]?(?:\d+\.?\d*|\.\d+))")
+
+
+def _e_joy(riga):
+    """0.23.3: un pezzetto del joystick (grbl.jog lo marca «;JOY» solo sulla porta della K40)."""
+    up = riga.upper().replace(" ", "")
+    return up.startswith("$J=") and ";JOY" in up and "G91" in up
+
+
+def _lettere(n, ch):
+    """n passi in lettere da un passo-«ch» l'una (a…y = 1…25): tanti byte, così i pacchetti pieni partono spesso."""
+    out = chr(96 + ch) * (n // ch)
+    if n % ch:
+        out += chr(96 + n % ch)
+    return out.encode()
 
 
 class _Fermato(Exception):
@@ -126,6 +154,10 @@ class K40Serial:
         self._frecce_scritte = 0
         self._annulli = 0  # 0.22.7: cresce a ogni 0x85 / «!» sulle frecce: una freccia in attesa non parte più
         self._resto = b""  # 0.22.8: comandi del lavoro in corso che non riempiono ancora un pacchetto (vedi _manda)
+        self._sc = None  # 0.23.3: scorrimento del joystick in corso (dict), vedi _scorri
+        self._sc_tempi = collections.deque()  # (quando sarà finito, x, y in mm) dei pezzetti già alla scheda
+        self._sc_inviato = None  # (x, y) in passi: dove arriva la testa con i pezzetti già passati all'alimentatore
+        self.joy_fluido = os.environ.get("FLC_K40_JOY", "1") != "0"
         link.apri()
         try:
             link.inizia()
@@ -220,7 +252,7 @@ class K40Serial:
     def _solo_frecce(self):
         """In coda e in corso ci sono solo frecce (e almeno una)."""
         tipi = [p[0] for p in self._coda] + ([self._tipo_in_volo()] if self._in_volo is not None else [])
-        return bool(tipi) and all(t == "freccia" for t in tipi)
+        return bool(tipi) and all(t in ("freccia", "scorri", "scorri_fine") for t in tipi)
 
     def _lavoro_aperto(self):
         """C'è un lavoro: aperto nel traduttore, in coda o in corso (le frecce e la casa non sono un lavoro)."""
@@ -231,8 +263,13 @@ class K40Serial:
         tipi = [p[0] for p in self._coda] + [self._tipo_in_volo()]
         return any(t in (DATI, ATTENDI_FINE, ATTENDI_FERMA) for t in tipi)
 
+    def _scorre(self):
+        """0.23.3: c'è uno scorrimento del joystick aperto, in coda o in corso."""
+        tipi = [p[0] for p in self._coda] + [self._tipo_in_volo()]
+        return self._sc is not None or any(t in ("scorri", "scorri_fine") for t in tipi)
+
     def _fermo_del_tutto(self):
-        return not (self._coda or self._in_volo is not None or self._lavoro_aperto())
+        return not (self._coda or self._in_volo is not None or self._lavoro_aperto() or self._sc is not None)
 
     def _stato_testo(self):
         with self._cv:
@@ -240,13 +277,19 @@ class K40Serial:
             if st not in ("Alarm", "Check", "Home"):
                 if self.hold:
                     st = "Hold:0"
-                elif self._solo_frecce():
+                elif self._solo_frecce() or self._sc is not None:
                     st = "Jog"
                 elif not self._fermo_del_tutto():
                     st = "Run"
                 else:
                     st = "Idle"
             x, y = self.pos
+            if self._scorre():  # 0.23.3: durante il joystick la posizione stimata dal tempo (la scheda non la dice)
+                now = self.orologio()
+                while len(self._sc_tempi) > 1 and self._sc_tempi[1][0] <= now:
+                    self._sc_tempi.popleft()
+                if self._sc_tempi and self._sc_tempi[0][0] <= now:
+                    x, y = self._sc_tempi[0][1], self._sc_tempi[0][2]
             g = self.t.offset if self.t is not None else tuple(self._g54)
         return f"<{st}|MPos:{x:.3f},{y:.3f},0.000|FS:0,0|WCO:{g[0]:.3f},{g[1]:.3f},0.000>\r\n"
 
@@ -285,6 +328,8 @@ class K40Serial:
         self._rx.clear()
         self._urgente.clear()
         self._resto = b""
+        self._sc = None
+        self._sc_tempi.clear()
         self._gen += 1
         self._stop_chiesti += 1
         self.hold = False
@@ -326,11 +371,16 @@ class K40Serial:
 
     def _ferma_frecce(self):
         with self._cv:
-            if self._solo_frecce():
+            if self._sc is not None:
+                self._chiudi_scorrimento(togli=True)
+            elif self._solo_frecce():
                 self._togli_frecce()
 
     def _pausa(self, on):
         with self._cv:
+            if on and self._sc is not None:  # 0.23.3: «!» durante il joystick lo ferma, come le frecce
+                self._chiudi_scorrimento(togli=True)
+                return
             if on:
                 if self.hold:
                     return
@@ -356,6 +406,10 @@ class K40Serial:
             if riga is None:
                 self._a_riposo()
                 continue
+            if self._sc is not None and not _e_joy(riga):
+                with self._cv:  # 0.23.3: qualunque altra riga chiude prima lo scorrimento del joystick
+                    if self._sc is not None:
+                        self._chiudi_scorrimento()
             try:
                 self._esegui(riga)
             except Exception as ex:  # noqa: BLE001 — una riga che rompe il ponte: ferma tutto
@@ -367,6 +421,8 @@ class K40Serial:
     def _a_riposo(self):
         """Niente righe da un po': chiude il tratto acceso in sospeso (1 s) o il lavoro aperto (0,5 s)."""
         with self._cv:
+            if self._sc is not None and self.orologio() - self._sc["t"] > JOY_SILENZIO * self.q:
+                self._chiudi_scorrimento()
             t = self.t
             if t is None or not t.in_lavoro() or self.check or self._rx:
                 return
@@ -532,7 +588,15 @@ class K40Serial:
         self._ok()
 
     def _freccia(self, testo):
+        if self.joy_fluido and ";JOY" in testo and "G91" in testo:
+            return self._scorri(testo)
         with self._cv:
+            if self._scorre():  # 0.23.3: una freccia vera dopo il joystick: prima finisce lo scorrimento
+                if self._sc is not None:
+                    self._chiudi_scorrimento()
+                gen = self._gen
+                while self.is_open and gen == self._gen and self._scorre():
+                    self._cv.wait(timeout=0.02)
             if self.stato == "Alarm" or not self.pos_nota:
                 return self._err(9)
             if self.check or self.stato == "Home" or self._lavoro_aperto():
@@ -575,6 +639,101 @@ class K40Serial:
             self._risincronizza = True
             self._cv.notify_all()
         self._ok()
+
+    # ================================================================ 0.23.3: joystick come un lavoro a laser spento
+    def _scorri(self, testo):
+        from .codici import codice
+        from .da_gcode import V_MIN_LAVORO
+        from .scrittore import passi_retta
+
+        with self._cv:
+            if self.stato == "Alarm" or not self.pos_nota:
+                return self._err(9)
+            if self.check or self.stato == "Home" or self._lavoro_aperto():
+                return self._err(8)
+            vals = dict((k, float(v)) for k, v in _JOG.findall(testo))
+            if "X" not in vals and "Y" not in vals:
+                return self._err(16)
+            u = 25.4 if "G20" in testo else 1.0
+            dxm, dym = vals.get("X", 0.0) * u, vals.get("Y", 0.0) * u
+            lungo = (dxm * dxm + dym * dym) ** 0.5
+            if lungo < 1e-6:
+                return self._ok()
+            v = min(max(vals.get("F", 600.0) / 60.0, V_MIN_LAVORO), JOY_V_MAX)
+            ux, uy = dxm / lungo, dym / lungo
+            sc = self._sc
+            if sc is not None:
+                coseno = max(-1.0, min(1.0, ux * sc["ux"] + uy * sc["uy"]))
+                angolo = math.degrees(math.acos(coseno))
+                if angolo > JOY_ANGOLO or max(v / sc["v"], sc["v"] / v) > JOY_SALTO_V:
+                    self._chiudi_scorrimento()
+                    sc = None
+            testa = b""
+            if sc is None:
+                gen = self._gen
+                while self.is_open and gen == self._gen and (self._coda or self._in_volo is not None):
+                    self._cv.wait(timeout=0.01)  # frecce e scorrimenti di prima finiti: si parte dalla posizione vera
+                if gen != self._gen or not self.is_open:
+                    return None
+                if self.stato == "Alarm" or not self.pos_nota:
+                    return self._err(9)
+                now = self.orologio()
+                vx, vy = (1 if dxm >= 0 else -1), (1 if dym >= 0 else -1)
+                sc = {"v": v, "x": round(self.pos[0] * MIL_PER_MM), "y": round(self.pos[1] * MIL_PER_MM),
+                      "vx": vx, "vy": vy, "t": now, "fine": now, "pezzetti": 0,
+                      "ch": max(1, min(25, int(v * MIL_PER_MM / JOY_BYTE_S)))}
+                testa = (b"I" + codice(self.scheda, v).encode() + b"N" + (b"T" if vx < 0 else b"B")
+                         + (b"L" if vy < 0 else b"R") + b"S1E")
+                self._sc_tempi.clear()
+                self._sc_inviato = None
+            tx = round(sc["x"] + dxm * MIL_PER_MM)
+            ty = round(sc["y"] + dym * MIL_PER_MM)
+            if not self.dentro(tx / MIL_PER_MM, ty / MIL_PER_MM):
+                return self._err(15)
+            out = bytearray(testa)
+            for sx, sy, n in passi_retta(tx - sc["x"], ty - sc["y"]):
+                if sx and sy:
+                    if sx != sc["vx"]:
+                        out += b"T" if sx < 0 else b"B"
+                        sc["vx"] = sx
+                    if sy != sc["vy"]:
+                        out += b"L" if sy < 0 else b"R"
+                        sc["vy"] = sy
+                    out += b"M" + _lettere(n, sc["ch"])
+                elif sx:
+                    out += (b"T" if sx < 0 else b"B") + _lettere(n, sc["ch"])
+                    sc["vx"] = sx
+                else:
+                    out += (b"L" if sy < 0 else b"R") + _lettere(n, sc["ch"])
+                    sc["vy"] = sy
+            if not out:
+                return self._ok()
+            now = self.orologio()
+            durata = lungo / v * self.k
+            self._coda.append(("scorri", bytes(out), durata, tx, ty, bool(testa)))
+            sc.update(x=tx, y=ty, ux=ux, uy=uy, t=now, fine=max(sc["fine"], now) + durata)
+            sc["pezzetti"] += 1
+            self._sc = sc
+            self._dest = (tx / MIL_PER_MM, ty / MIL_PER_MM)
+            self._risincronizza = True
+            self._cv.notify_all()
+            gen = self._gen
+            while (self.is_open and gen == self._gen and self._sc is sc
+                   and sc["fine"] - self.orologio() > JOY_ANTICIPO * self.k):
+                self._cv.wait(timeout=0.01)  # non più di JOY_ANTICIPO di movimento davanti alla testa
+        self._ok()
+
+    def _chiudi_scorrimento(self, togli=False):
+        """(con il lucchetto) Fine dello scorrimento: FNSE dopo l'ultimo pezzetto. togli (rilascio, «!»): i pezzetti
+        non ancora passati all'alimentatore non partono (resta quello col comando d'inizio del lavoro)."""
+        sc = self._sc
+        if sc is None:
+            return
+        if togli:
+            self._coda = collections.deque(p for p in self._coda if p[0] != "scorri" or p[5])
+        self._coda.append(("scorri_fine", sc["pezzetti"]))
+        self._sc = None
+        self._cv.notify_all()
 
     def _continuo(self, x0, y0, x, y):
         """La freccia va fino al bordo del piano su un asse che si muove: è «Continuo» (si ferma con 0x85)."""
@@ -761,6 +920,36 @@ class K40Serial:
             self._conta["veloci"] += 1
             if self._conta["veloci"] <= 5:  # i primi di ogni lavoro: bastano per capire come risponde la scheda
                 self._diario("ferma", s=round(self.orologio() - t0, 3), stati=visti[:20])
+        elif tipo == "scorri":  # 0.23.3: un pezzetto del joystick dentro il suo lavoro
+            self._manda(pezzo[1], gen)
+            with self._cv:
+                now = self.orologio()
+                prima = self._sc_tempi[-1][0] if self._sc_tempi else now
+                self._sc_tempi.append((max(prima, now) + pezzo[2], pezzo[3] / MIL_PER_MM, pezzo[4] / MIL_PER_MM))
+                self._sc_inviato = (pezzo[3], pezzo[4])
+            if self.registro is not None:
+                self.registro.append(pezzo[1])
+            if len(self._inizio) < DIARIO_BYTE:
+                self._inizio += pezzo[1][:DIARIO_BYTE - len(self._inizio)]
+        elif tipo == "scorri_fine":
+            self._manda(b"FNSE", gen)
+            if self.registro is not None:
+                self.registro.append(b"FNSE")
+            with self._cv:
+                fine = self._sc_tempi[-1][0] if self._sc_tempi else t0
+            visti = self._attendi_fine(max(0.0, fine - t0) / max(self.k, 1e-9) * 3 + 15.0, gen)
+            with self._cv:
+                self._fermo(gen)
+                if self._sc_inviato is not None:
+                    self.pos = [self._sc_inviato[0] / MIL_PER_MM, self._sc_inviato[1] / MIL_PER_MM]
+                self._sc_tempi.clear()
+                self._sc_inviato = None
+                self._dest = None
+            if self._frecce_scritte < 5:
+                self._frecce_scritte += 1
+                self._diario("joystick", dati=self._inizio.decode("ascii", "replace"), stati=visti[:20],
+                             s=round(self.orologio() - t0, 3), pezzetti=pezzo[1])
+            self._inizio = bytearray()
         elif tipo == "pos":
             with self._cv:
                 self.pos = [pezzo[1] / MIL_PER_MM, pezzo[2] / MIL_PER_MM]
