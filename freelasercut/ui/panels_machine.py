@@ -217,6 +217,7 @@ class LaserPanel(QWidget):
         self.glow_note.hide()
         self._glow_on = False
         self._glow_warned = False  # l'avviso si mostra alla prima accensione di ogni sessione
+        self.glow_owner = None  # 0.23.4: chi l'ha accesa, «pc» o «phone» (Controllo dal telefono); None = spenta
         self._glow_deadline = 0.0
         self._glow_pos = None
         self._glow_phase = False
@@ -395,12 +396,21 @@ class LaserPanel(QWidget):
         else:
             self.glow_stop()
 
-    def glow_start_on(self):
-        """Accende la Lucciola. False (e pulsante spento) se non si può o se l'avviso non viene accettato."""
+    @property
+    def glow_warned(self):
+        """0.23.4: l'avviso della Lucciola è già stato accettato sul PC in questa sessione."""
+        return bool(self._glow_warned)
+
+    def glow_start_on(self, from_phone=False):
+        """Accende la Lucciola. False (e pulsante spento) se non si può o se l'avviso non viene accettato.
+        0.23.4: from_phone=True (Controllo dal telefono): nessun avviso da qui (sul telefono nessuno lo leggerebbe);
+        senza l'avviso già accettato sul PC in questa sessione non si accende."""
         c = self.ctl
         ok = c.connected and not c.job_active and not c.checking and c.last_status.get("state") not in ("Alarm", "Door")
         ok = ok and not getattr(self, "_power_knob", False)  # 0.22.6 (K40): niente laser acceso da fermo
-        if ok and not self._glow_warned:
+        if from_phone:
+            ok = ok and self._glow_warned and not self._glow_on and not c.fire_active
+        elif ok and not self._glow_warned:
             ok = confirm_glow(self, self.glow_pct.value())
             self._glow_warned = self._glow_warned or ok
         if ok:
@@ -410,6 +420,7 @@ class LaserPanel(QWidget):
             self.b_glow.setChecked(False)
             return False
         self._glow_on = True
+        self.glow_owner = "phone" if from_phone else "pc"
         self._glow_deadline = time.time() + GLOW_S
         self._glow_pos = self._head_xy()
         self.b_glow.setChecked(True)
@@ -423,6 +434,7 @@ class LaserPanel(QWidget):
         disconnessione): non va mandato niente alla scheda."""
         was = self._glow_on
         self._glow_on = False
+        self.glow_owner = None
         self._glow_timer.stop()
         if was and send and self.ctl.connected and self.ctl.fire_active:
             self.ctl.fire(False)

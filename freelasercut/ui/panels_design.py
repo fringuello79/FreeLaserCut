@@ -1033,6 +1033,7 @@ class _LayerDelegate(QStyledItemDelegate):
 
 class LayersPanel(QWidget):
     material_requested = Signal()
+    defaults_requested = Signal()  # 0.23.4: «Usa questi livelli per i progetti nuovi»
 
     def __init__(self, editor, get_profile):
         super().__init__()
@@ -1243,6 +1244,7 @@ class LayersPanel(QWidget):
         m.addSeparator()
         m.addAction(style.icon("select_all"), tr("Seleziona le forme del livello"), self.select_shapes)
         m.addAction(style.icon("library"), tr("Applica un materiale…"), self.material_requested.emit)
+        m.addAction(tr("Usa questi livelli per i progetti nuovi"), self.defaults_requested.emit)
         m.exec(self.tree.viewport().mapToGlobal(pos))
 
     def _solo(self, layer_index):

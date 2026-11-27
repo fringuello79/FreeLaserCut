@@ -25,10 +25,14 @@ class PhoneControl(QObject):
     step_requested = Signal(float, float, float)  # 0.22.5: freccia dal telefono (dx, dy, passo in mm)
     joy_requested = Signal(float, float)  # 0.22.5: joystick dal telefono (x, y fra -1 e 1; 0, 0 = fermo)
     halt_requested = Signal()  # 0.22.5: «■» dal telefono: ferma la testa
+    glow_requested = Signal(bool)  # 0.23.4: Lucciola accesa / spenta dal telefono
     changed = Signal()
 
     STEPS = (0.1, 1.0, 10.0, 50.0)
     JOY_TIMEOUT_MS = 600  # senza notizie dal telefono per più di così (rete persa, pagina chiusa) il joystick si ferma
+    # 0.23.4: la pagina chiede lo stato ogni secondo. Se per più di così non arriva niente (pagina chiusa, rete persa,
+    # schermo spento) la Lucciola accesa dal telefono si spegne
+    GLOW_SILENCE_S = 2.5
 
     def __init__(self, win):
         super().__init__(win)
@@ -45,6 +49,11 @@ class PhoneControl(QObject):
         self.step_requested.connect(self._do_step)
         self.joy_requested.connect(self._do_joy)
         self.halt_requested.connect(lambda: self._do_halt(cancel=True))
+        self.glow_requested.connect(self._do_glow)
+        self._glow_perm = False  # 0.23.4: «Lucciola dal telefono»: spenta di partenza e mai ricordata (solo la sessione)
+        self.glow_watch = QTimer(self)
+        self.glow_watch.setInterval(250)
+        self.glow_watch.timeout.connect(self._glow_watchdog)
         self.joy = None  # JoyJog tutto suo (creato alla prima richiesta)
         self._plan = None  # frecce: (x, y, fine prevista) dell'ultimo spostamento mandato, finché la testa non è ferma
         self._hold_until = 0.0  # dopo «■» la posizione letta è vecchia per un attimo: le frecce aspettano
@@ -74,6 +83,7 @@ class PhoneControl(QObject):
         return True
 
     def stop(self):
+        self._phone_glow_off("Lucciola spenta: controllo dal telefono spento")
         if self.server is not None:
             self.server.close()
         self.timer.stop()
@@ -94,7 +104,74 @@ class PhoneControl(QObject):
             qs.setValue("phone_move", bool(on))
         if not on and self.joy is not None and self.joy.active:
             self._do_halt()
+        if not on:  # 0.23.4: la Lucciola dal telefono vive solo insieme ai movimenti dal telefono
+            self.set_glow_enabled(False)
         self.refresh()
+        self.changed.emit()
+
+    # ---------------------------------------------------------------- 0.23.4: la Lucciola dal telefono
+    def _laser(self):
+        return getattr(self.win, "laser", None)
+
+    def glow_enabled(self):
+        """Permesso sul PC, solo per questa sessione: spento di partenza, si spegne con i movimenti dal telefono."""
+        return bool(self._glow_perm and self.move_enabled())
+
+    def set_glow_enabled(self, on):
+        self._glow_perm = bool(on) and self.move_enabled()
+        if not self._glow_perm:
+            self._phone_glow_off("Lucciola spenta: non è più permessa dal telefono")
+        self.refresh()
+        self.changed.emit()
+
+    def phone_glow_on(self):
+        lz = self._laser()
+        return bool(lz is not None and getattr(lz, "_glow_on", False) and getattr(lz, "glow_owner", None) == "phone")
+
+    def glow_check(self):
+        """-> (si può accendere la Lucciola dal telefono?, perché no). Solo nel thread principale."""
+        ctl, lz = self.ctl, self._laser()
+        st = str(ctl.last_status.get("state", "") or "")
+        if lz is None:
+            return False, tr("Macchina non pronta")
+        if not self.glow_enabled():
+            return False, tr("La Lucciola dal telefono è spenta: si permette sul PC, in Controllo dal telefono.")
+        if not ctl.connected:
+            return False, tr("Macchina non connessa")
+        if getattr(lz, "_power_knob", False):
+            return False, tr("Su questa macchina la Lucciola non c'è: la potenza si regola con la manopola.")
+        if ctl.job_active or getattr(ctl, "checking", False):
+            return False, tr("Durante un lavoro la Lucciola non si accende.")
+        if st.split(":")[0] in ("Alarm", "Door", "Hold", "Sleep"):
+            return False, tr("Macchina non pronta: sbloccala o aspetta dal PC ({0}).", st)
+        if getattr(lz, "_glow_on", False):
+            if self.phone_glow_on():
+                return True, ""
+            return False, tr("La Lucciola è accesa dal PC: si spegne da lì.")
+        if getattr(ctl, "fire_active", False):
+            return False, tr("Sul PC è acceso il Puntino: spegnilo prima.")
+        if not lz.glow_warned:
+            return False, tr("La prima volta, in ogni sessione, la Lucciola si accende dal PC: lì c'è l'avviso da leggere.")
+        return True, ""
+
+    def _phone_glow_off(self, reason=""):
+        """Spegne la Lucciola solo se l'ha accesa il telefono. Quella accesa dal PC resta com'è."""
+        self.glow_watch.stop()
+        if self.phone_glow_on():
+            self._laser().glow_stop()
+            if reason:
+                self._log(reason)
+            return True
+        return False
+
+    def _glow_watchdog(self):
+        if not self.phone_glow_on():
+            self.glow_watch.stop()
+            return
+        seen = list(getattr(self.server, "last_seen", {}).values()) if self.server is not None else []
+        if not self.running or not seen or time.time() - max(seen) > self.GLOW_SILENCE_S:
+            self._phone_glow_off("Lucciola spenta: il telefono non risponde")
+            self.refresh()
 
     def move_check(self):
         """-> (si può muovere?, perché no). Solo nel thread principale."""
@@ -106,8 +183,9 @@ class PhoneControl(QObject):
             return False, tr("Macchina non connessa")
         if ctl.job_active:
             return False, tr("Durante un lavoro la testa non si muove dal telefono.")
-        if getattr(ctl, "fire_active", False):
+        if getattr(ctl, "fire_active", False) and not (self.phone_glow_on() and self.glow_enabled()):
             # Puntino o Lucciola accesi dal PC: il raggio c'è, anche se debole. Dal telefono non lo si porta in giro.
+            # 0.23.4: la Lucciola accesa dal telefono sì (serve proprio a vedere dove punta mentre si sistema il pezzo)
             return False, tr("Sul PC è acceso il Puntino o la Lucciola: spegnilo per muovere la testa dal telefono.")
         if getattr(ctl, "checking", False) or st.split(":")[0] in ("Alarm", "Door", "Hold", "Sleep"):
             return False, tr("Macchina non pronta: sbloccala o aspetta dal PC ({0}).", st)
@@ -167,11 +245,16 @@ class PhoneControl(QObject):
             move_ok, move_note = False, tr("Posizione della testa non ancora nota: aspetta un attimo o fai l'homing")
         if not move_ok and self.joy is not None and self.joy.active:
             self._do_halt(tr("Joystick fermato: la macchina non è più pronta"))
+        glow_ok, glow_note = self.glow_check()
+        lz = self._laser()
+        glow = {"perm": self.glow_enabled(), "ok": glow_ok, "note": glow_note,
+                "on": bool(lz is not None and getattr(lz, "_glow_on", False)), "mine": self.phone_glow_on(),
+                "left": round(lz.glow_seconds_left()) if lz is not None and self.phone_glow_on() else 0}
         self.snapshot = {"title": title, "detail": detail, "state": st, "connected": bool(ctl.connected),
                          "job_active": active, "paused": paused, "done": done if active else 0,
                          "total": total if active else 0, "elapsed": elapsed, "left": left, "alarm": alarm,
                          "camera": bool(cam), "fire": fire or "", "move_ok": move_ok, "move_note": move_note,
-                         "pos": head}
+                         "pos": head, "glow": glow}
 
     # ---------------------------------------------------------------- chiamate dal thread del server
     def _frame(self):
@@ -205,6 +288,18 @@ class PhoneControl(QObject):
     def _move(self, kind, data):
         """Dal thread del server: controlla la richiesta e la passa al thread principale. Laser mai acceso."""
         s = self.snapshot
+        if kind == "lucciola":  # 0.23.4
+            on = data.get("on") if isinstance(data, dict) else None
+            if on is False:  # spegnere si può sempre (spegne solo quella accesa dal telefono)
+                self.glow_requested.emit(False)
+                return True, tr("Lucciola spenta.")
+            g = s.get("glow") or {}
+            if on is not True:
+                return False, tr("Richiesta non valida")
+            if not g.get("ok"):
+                return False, g.get("note") or tr("Macchina non pronta")
+            self.glow_requested.emit(True)
+            return True, ""
         if kind == "ferma":
             if not self.move_enabled():  # funzione spenta sul PC: dal telefono non parte nessun comando, nemmeno questo
                 return False, s.get("move_note") or tr("Macchina non pronta")
@@ -249,6 +344,7 @@ class PhoneControl(QObject):
             self._log("pausa dal telefono")
 
     def _do_stop(self):
+        self._phone_glow_off("Lucciola spenta dal telefono (Stop)")
         if self.ctl.job_active:
             self.ctl.stop_job()
             self._log("stop dal telefono")
@@ -327,6 +423,26 @@ class PhoneControl(QObject):
             self._hold_until = time.monotonic() + 0.6
         if reason:
             self._log(reason)
+        if cancel:  # 0.23.4: «■» dal telefono spegne anche la Lucciola accesa dal telefono
+            self._phone_glow_off("Lucciola spenta dal telefono («■»)")
+
+    def _do_glow(self, on):
+        """Thread principale. Accende (dopo un nuovo controllo: fra la richiesta e adesso può essere cambiato tutto) o
+        spegne la Lucciola dal telefono, con la potenza scelta sul PC e tutti i suoi limiti (LaserPanel)."""
+        lz = self._laser()
+        if not on:
+            if self._phone_glow_off("Lucciola spenta dal telefono"):
+                self.refresh()
+            return
+        ok, why = self.glow_check()
+        if not ok or lz is None or self.phone_glow_on():
+            if why:
+                self._log("Lucciola dal telefono non accesa: " + why)
+            return
+        if lz.glow_start_on(from_phone=True):
+            self._log("Lucciola accesa dal telefono")
+            self.glow_watch.start()
+        self.refresh()
 
     def _do_photo(self, data):
         self._log(f"foto del test dal telefono ({len(data) // 1024} kB)")
@@ -373,7 +489,12 @@ def guide_html():
         "<p><b>Muovere la testa</b> (0.22.5): se spunti <i>Permetti di muovere la testa dal telefono</i>, sulla pagina "
         "compaiono le frecce (un passo per tocco: 0,1, 1, 10 o 50 mm) e un joystick (la testa si muove finché lo "
         "tieni). Il laser resta sempre spento, durante un lavoro non funziona, e se il telefono perde la rete la "
-        "testa si ferma da sola. Usalo solo se vedi la macchina.</p>")  # con Puntino o Lucciola accesi non si muove
+        "testa si ferma da sola. Usalo solo se vedi la macchina.</p>") + tr(  # con Puntino o Lucciola del PC non si muove
+        "<p><b>Lucciola dal telefono</b> (0.23.4): con <i>Permetti di accendere la Lucciola dal telefono</i> sulla "
+        "pagina compare il pulsante per accenderla e spegnerla, con la potenza scelta sul PC. La prima volta in ogni "
+        "sessione va accesa dal PC. Accesa dal telefono, la testa si può muovere per vedere dove punta. Si spegne "
+        "da sola dopo 5 minuti senza movimenti, se chiudi la pagina o il telefono perde la rete, con «■» e quando "
+        "parte un lavoro. Il permesso non resta: va rispuntato a ogni avvio.</p>")
 
 
 class PhoneDialog(QDialog):
@@ -393,6 +514,17 @@ class PhoneDialog(QDialog):
         self.chk_move.setChecked(ctrl.move_enabled())
         self.chk_move.toggled.connect(ctrl.set_move_enabled)
         v.addWidget(self.chk_move)
+        # 0.23.4: Lucciola dal telefono. Solo con i movimenti permessi, mai ricordata: si rispunta a ogni avvio
+        self.chk_glow = QCheckBox(tr("Permetti di accendere la Lucciola dal telefono (solo fino alla chiusura)"))
+        self.chk_glow.setToolTip(tr(
+            "Il pulsante Lucciola compare sulla pagina del telefono. Stessa potenza e stessi limiti del PC; la prima "
+            "volta in ogni sessione va accesa dal PC, per leggere l'avviso. Si spegne da sola dopo 5 minuti senza "
+            "movimenti, se il telefono perde la rete o chiude la pagina, e quando parte un lavoro. Chi tiene il "
+            "telefono deve vedere la macchina e portare gli occhiali protettivi."))
+        self.chk_glow.setStyleSheet("QCheckBox { margin-left: 18px; }")
+        self.chk_glow.setChecked(ctrl.glow_enabled())
+        self.chk_glow.toggled.connect(ctrl.set_glow_enabled)
+        v.addWidget(self.chk_glow)
         h = QHBoxLayout()
         self.qr = QLabel()
         self.qr.setFixedSize(230, 230)
@@ -452,6 +584,12 @@ class PhoneDialog(QDialog):
         self.ctrl.new_code()
 
     def update_view(self):
+        if hasattr(self, "chk_glow"):  # 0.23.4: la Lucciola dal telefono segue i movimenti dal telefono
+            self.chk_glow.setEnabled(self.ctrl.move_enabled())
+            if self.chk_glow.isChecked() != self.ctrl.glow_enabled():
+                self.chk_glow.blockSignals(True)
+                self.chk_glow.setChecked(self.ctrl.glow_enabled())
+                self.chk_glow.blockSignals(False)
         urls = self.ctrl.urls()
         on = bool(urls)
         self.b_copy.setEnabled(on)

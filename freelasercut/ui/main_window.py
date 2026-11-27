@@ -138,6 +138,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.qs = migrate_qsettings()
+        self._load_layer_defaults()  # 0.23.4: livelli di partenza dei progetti nuovi (prima di creare il documento)
         try:  # 0.22.1: punti per pollice degli SVG senza unità (0 = li capisce da solo)
             io_formats.SVG_PPI = int(self.qs.value("svg_ppi", 0) or 0)
         except (TypeError, ValueError):
@@ -541,6 +542,12 @@ class MainWindow(QMainWindow):
             "materials": A(tr("Libreria materiali…"), self.material_library, "Ctrl+M", "library"),
             "material_test": A(tr("Test materiale…"), self.material_test, None, "grid",
                                tr("Griglia potenza × velocità per trovare i valori giusti di un materiale")),
+            # 0.23.4 (Richmond): i livelli di questo progetto diventano quelli di partenza dei progetti nuovi
+            "layers_as_default": A(tr("Usa questi livelli per i progetti nuovi"), self.layers_as_default, None, None,
+                                   tr("I progetti nuovi e i file importati partono con le impostazioni dei livelli di "
+                                      "questo progetto (per esempio blu = contorno, rosso = taglio)")),
+            "layers_factory": A(tr("Livelli dei progetti nuovi come di fabbrica"), self.layers_factory, None, None,
+                                tr("I progetti nuovi tornano a partire dai valori di fabbrica dei livelli")),
             "learned": A(tr("Materiali imparati…"), self.learned_materials, None, "learn",
                          tr("FreeLaserCut impara il tuo materiale dalle foto dei test: anteprima sul tuo legno, potenza "
                             "per il tono che vuoi, toni delle foto corretti")),
@@ -819,7 +826,8 @@ class MainWindow(QMainWindow):
         # fanno una volta; «Salva G-code» ed «Esegui un file G-code» restano solo nel menu File (erano in due menu)
         self.m_laser = menu(tr("&Laser"), [
             "connect", "-", "home", "unlock_m", "-", "frame", "verify", "preview", "-", "start", "pause", "stop", "-",
-            "materials", "material_test", "learned", "-", "fire_guard", "head_cam", "phone", "rotary",
+            "materials", "material_test", "learned", "layers_as_default", "layers_factory", "-",
+            "fire_guard", "head_cam", "phone", "rotary",
             ("§", tr("Configurazione della macchina")), "identify", "serial_speed", "k40_connect", "scan_offset",
             "autofocus", "board_backup", "profile_export", "profile_import"])
         self.m_view = menu(tr("&Visualizza"), ["zoom_in", "zoom_out", "fit", "fit_sel", "-", "filled", "grid", "light_bed",
@@ -1518,6 +1526,7 @@ class MainWindow(QMainWindow):
         ctl.autofocus_done.connect(self._autofocus_done)
         self.laser.start_requested.connect(self.start_job)
         self.layers.material_requested.connect(self.material_library)
+        self.layers.defaults_requested.connect(self.layers_as_default)
         self.props.trace_requested.connect(self.trace_dialog)
         self.props.photo_requested.connect(self.photo_dialog)
         self.props.variables_requested.connect(self.variables_dialog)
@@ -5292,6 +5301,76 @@ class MainWindow(QMainWindow):
             dlg.apply()
 
     # ================================================================ materiali
+    # -- livelli di partenza dei progetti nuovi (0.23.4, Richmond)
+    LAYER_DEFAULTS_KEY = "layer_defaults"
+
+    def _load_layer_defaults(self):
+        """Legge dalle preferenze i livelli di partenza dei progetti nuovi. Preferenza rovinata: valori di fabbrica."""
+        import json
+
+        from ..core import document as _doc
+
+        raw = self.qs.value(self.LAYER_DEFAULTS_KEY, "")
+        try:
+            data = json.loads(raw) if isinstance(raw, str) and raw else {}
+        except ValueError:
+            data = {}
+        _doc.set_user_layers(data if isinstance(data, dict) else {})
+
+    def _layers_to_remember(self):
+        """-> {indice: dict} dei livelli di questo progetto diversi da quelli di fabbrica (strumenti esclusi)."""
+        from ..core.document import USER_LAYER_MAX, default_layer
+
+        out = {}
+        for i, cs in sorted(self.editor.doc.layers.items()):
+            if not 0 <= i < USER_LAYER_MAX:
+                continue
+            d = {k: v for k, v in cs.to_dict().items() if k != "index"}
+            if d != {k: v for k, v in default_layer(i).to_dict().items() if k != "index"}:
+                out[i] = d
+        return out
+
+    def layers_as_default(self, *_):
+        """«Usa questi livelli per i progetti nuovi»: le impostazioni dei livelli di questo progetto (quelle cambiate
+        rispetto alla fabbrica) diventano quelle di partenza. Gli altri livelli già ricordati restano. -> livelli salvati."""
+        import json
+
+        from ..core import document as _doc
+
+        new = self._layers_to_remember()
+        title = tr("Livelli dei progetti nuovi")
+        if not new:
+            self._info(title, tr("I livelli di questo progetto hanno ancora i valori di fabbrica: cambia velocità, "
+                                 "potenza o modalità dei livelli che usi, poi ripeti."))
+            return []
+        merged = _doc.user_layers()
+        merged.update(new)
+        self.qs.setValue(self.LAYER_DEFAULTS_KEY, json.dumps({str(k): v for k, v in merged.items()}))
+        _doc.set_user_layers(merged)
+        names = ", ".join(_doc.default_layer(i, user=True).label() for i in sorted(new))
+        self._info(title, tr("I progetti nuovi e i file importati partono con questi livelli: {0}.\n\n"
+                             "I livelli di questo progetto non cambiano. Per tornare ai valori di fabbrica: "
+                             "Laser → «Livelli dei progetti nuovi come di fabbrica».", names))
+        return sorted(new)
+
+    def layers_factory(self, *_):
+        """I progetti nuovi tornano a partire dai valori di fabbrica dei livelli."""
+        from ..core import document as _doc
+
+        had = bool(_doc.user_layers())
+        self.qs.remove(self.LAYER_DEFAULTS_KEY)
+        _doc.set_user_layers({})
+        self._info(tr("Livelli dei progetti nuovi"),
+                   tr("I progetti nuovi partono di nuovo con i valori di fabbrica dei livelli.") if had else
+                   tr("I progetti nuovi partono già con i valori di fabbrica dei livelli."))
+        return had
+
+    def _info(self, title, text):
+        """Messaggio informativo; nelle prove senza finestre (FLC_NO_DIALOGS) va solo nella barra di stato."""
+        self.statusBar().showMessage(text.split("\n")[0], 8000)
+        if not os.environ.get("FLC_NO_DIALOGS"):
+            QMessageBox.information(self, title, text)
+
     def material_library(self, *_):
         cs = self.layers._current_cs()
         dlg = MaterialLibraryDialog(cs, self)

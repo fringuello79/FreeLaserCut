@@ -185,7 +185,11 @@ check("B …il taglio resta un lavoro normale (dopo quello raster)", fr.lavori_r
 print("--- C. casi senza modo raster")
 fn, fr = stessa_cosa("foto in un verso solo (unidirezionale)", lavoro(lambda d: occhio(d, bidir=False, w=30, h=20)),
                      raster_atteso=False)
-check("C …nessun lavoro raster (le righe vanno tutte nello stesso verso)", fr.lavori_raster == 0)
+# 0.23.4 (rapporto 0FFD): ora anche le righe in un verso solo vanno nel modo raster (codice «V…G»
+# con due «G» come MeerK40t), così la scheda non fa il giro a ogni riga; le prove sono in test_v234_k40_righe_un_verso.py
+check("C …0.23.4: anche in un verso solo un lavoro raster, nessun lavoro con il giro della scheda",
+      fr.lavori_raster == 1 and fr.lavori_con_giro == 0 and fn.lavori_con_giro > 10,
+      (fr.lavori_raster, fr.lavori_con_giro, fn.lavori_con_giro))
 fn, fr = stessa_cosa("foto attaccata al bordo sinistro", lavoro(lambda d: occhio(d, x=1.0, overscan=0.5, w=40, h=40)),
                      raster_atteso=False)
 vicini = [s for s in fr.accesi_raster if min(s[0], s[2]) < 5.0 * MIL_PER_MM - 1]

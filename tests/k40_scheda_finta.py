@@ -82,10 +82,16 @@ class SchedaFinta:
         # 0.23.2: modo raster («V…G…»): a ogni inversione del verso orizzontale la scheda scende di `passo` passi
         # (come l'emulatore di MeerK40t). Nel lavoro normale un'inversione sopra i 15 mm/s è un colpo (`colpi`)
         self._passo_codice = 0
+        self._passi_codice, self._passi, self._altalena = (0,), (0,), 0
         self.passo = 0
         self.colpi = []
         self.inversioni_raster = 0
         self.lavori_raster = 0
+        # 0.23.4 (rapporto 0FFD): ogni lavoro vettoriale con un codice senza «C» fa il twitch (il «giro») all'inizio e
+        # alla fine: circa 4 mm oltre in X e 4 mm in Y, misurato da Evo il 23/11. Le prove li contano
+        self.lavori_con_giro = 0
+        self.secondi = 0.0  # 0.23.4: tempo di movimento stimato (senza i giri della scheda), per i confronti
+        self._con_c = False
         self.accesi_raster = []  # i tratti bruciati dentro un lavoro raster
         self.accesi_v = []
         self.aperta = False
@@ -174,6 +180,7 @@ class SchedaFinta:
     def _occupa(self, secondi):
         now = time.monotonic()
         base = max(self.fino, self.t_pausa if self.pausa else now)
+        self.secondi += secondi
         self.fino = base + secondi * self.scala
 
     def _guarda(self):
@@ -310,7 +317,7 @@ class SchedaFinta:
                 i += 1
                 continue
             if c == "C" or (c == "V" and not self.lavoro):
-                m = re.match(r"C?V\d{7}(?:\d{9})?C?(?=N)|V\d{7}G\d{3}", resto)
+                m = re.match(r"C?V\d{7}(?:\d{9})?C?(?=N)|V\d{7}G\d{3}(?:G\d{3})?", resto)
                 if not m:
                     if "N" not in resto:
                         break
@@ -318,8 +325,12 @@ class SchedaFinta:
                     i += 1
                     continue
                 self.v = velocita(m.group(0))
-                g = re.search(r"G(\d{3})$", m.group(0))
-                self._passo_codice = int(g.group(1)) if g and m.group(0).startswith("V") else 0
+                self._con_c = m.group(0).endswith("C")
+                g = re.findall(r"G(\d{3})", m.group(0)) if m.group(0).startswith("V") else []
+                # 0.23.4: due valori «G» (come MeerK40t per il raster in un verso solo): la scheda scende del primo
+                # all'inversione dispari e del secondo alla pari, contando dall'inizio del lavoro
+                self._passo_codice = int(g[0]) if g else 0
+                self._passi_codice = tuple(int(x) for x in g) if g else (0,)
                 self.comandi.append(m.group(0))
                 i += len(m.group(0))
                 continue
@@ -332,7 +343,9 @@ class SchedaFinta:
                 if resto.startswith("S1E"):
                     self.lavoro, self._mode = True, "lavoro"
                     self.passo = self._passo_codice
+                    self._passi, self._altalena = self._passi_codice, 0
                     self.lavori_raster += 1 if self.passo else 0
+                    self.lavori_con_giro += 0 if (self.passo or self._con_c) else 1
                     self.comandi.append("S1E")
                     if self.occupata_per:
                         self.occupata_fino = time.monotonic() + self.occupata_per
@@ -373,7 +386,10 @@ class SchedaFinta:
                             self.pericoli.append(f"laser acceso nell'inversione raster a {self.x},{self.y}")
                         acceso, self.laser = self.laser, False
                         self.inversioni_raster += 1
-                        self._muovi(0, self.vy, self.passo, self.v)
+                        g = self._passi[self._altalena % len(self._passi)]
+                        self._altalena += 1
+                        if g:
+                            self._muovi(0, self.vy, g, self.v)
                         self.laser = acceso
                     elif self.v > 15.0:
                         self.colpi.append((self.x, self.y, round(self.v, 1)))

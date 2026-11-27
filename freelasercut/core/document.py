@@ -249,7 +249,39 @@ def clean_pause_msg(text):
     return t[:80]
 
 
-def default_layer(index):
+# 0.23.4 (Richmond, Ale 26/11): i livelli scelti con «Usa questi livelli per i progetti nuovi». {indice: impostazioni
+# (CutSettings.to_dict senza l'indice)}. Li riempie la finestra all'avvio, dalle preferenze; vuoto = valori di fabbrica.
+_USER_LAYERS = {}
+USER_LAYER_MAX = 30  # il livello strumenti (30) non si incide e non ha impostazioni da ricordare
+
+
+def set_user_layers(layers):
+    """Imposta i livelli di partenza dei progetti nuovi ({indice: dict}); quelli rovinati si saltano."""
+    _USER_LAYERS.clear()
+    for k, d in (layers or {}).items():
+        try:
+            i = int(k)
+            if 0 <= i < USER_LAYER_MAX and isinstance(d, dict):
+                CutSettings.from_dict({**d, "index": i})  # controllo: se non si legge, non entra
+                _USER_LAYERS[i] = {kk: vv for kk, vv in d.items() if kk != "index"}
+        except Exception:  # noqa: BLE001 — preferenze di una versione futura o rovinate
+            continue
+
+
+def user_layers():
+    """-> copia dei livelli di partenza dei progetti nuovi ({indice: dict})."""
+    return {i: dict(d) for i, d in _USER_LAYERS.items()}
+
+
+def default_layer(index, user=False):
+    """Impostazioni di partenza di un livello. user=True: quelle scelte dall'utente per i progetti nuovi, se ci sono
+    (0.23.4); altrimenti, e per chi chiede quelle di fabbrica (file aperti, pezzi del puzzle, foto spostate su un
+    livello libero), i valori di sempre."""
+    if user and index in _USER_LAYERS:
+        try:
+            return CutSettings.from_dict({**_USER_LAYERS[index], "index": index})
+        except Exception:  # noqa: BLE001
+            pass
     cs = CutSettings(index=index)
     if index == 0:
         cs.mode, cs.speed, cs.power_max = "fill", 3000.0, 25.0
@@ -1116,7 +1148,8 @@ class Document:
     # ---- livelli
     def layer(self, index):
         if index not in self.layers:
-            self.layers[index] = default_layer(index)
+            # 0.23.4: un livello nuovo parte dalle impostazioni scelte per i progetti nuovi, se ci sono
+            self.layers[index] = default_layer(index, user=True)
         return self.layers[index]
 
     def used_layers(self):

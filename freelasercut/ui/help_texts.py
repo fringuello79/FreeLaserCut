@@ -291,6 +291,15 @@ HELP = {
     "snap_obj": (tr("Aggancia agli oggetti"), tr("I punti si attaccano a nodi, centri e punti medi delle altre forme."), None),
     "light_bed": (tr("Piano chiaro"), tr("Sfondo del piano chiaro o scuro."), None),
     "dither_prev": (tr("Mostra il dithering"), tr("Sulla tela le immagini appaiono già retinate come verranno incise."), None),
+    # ------------------------------------------------------------------ livelli dei progetti nuovi (0.23.4)
+    "layers_as_default": (tr("Usa questi livelli per i progetti nuovi"), tr(
+        "Le impostazioni dei livelli di questo progetto (velocità, potenza, modalità, passate, nome) diventano quelle "
+        "di partenza: ogni progetto nuovo e ogni file importato le usa per i suoi colori. Esempio: blu = contorno "
+        "leggero, rosso = taglio, salvati una volta sola. Si ricordano solo i livelli che hai cambiato; quelli già "
+        "ricordati prima restano. I progetti già salvati non cambiano: ognuno tiene i suoi livelli."), None),
+    "layers_factory": (tr("Livelli dei progetti nuovi come di fabbrica"), tr(
+        "Dimentica i livelli scelti con «Usa questi livelli per i progetti nuovi»: i progetti nuovi tornano a partire "
+        "dai valori di fabbrica. I progetti già salvati non cambiano."), None),
     "show_trail": (tr("Scia dell'incisione"), tr("Durante il lavoro il piano mostra in arancione quello che il laser ha "
                    "già inciso. Spegnila se il programma rallenta su lavori lunghi (foto, riempimenti grandi): il "
                    "lavoro non cambia. Mentre guardi un altro piano, con «Mostra gli altri piani» spento, l'anteprima "

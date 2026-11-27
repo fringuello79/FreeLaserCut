@@ -700,6 +700,11 @@ if __name__ == "__main__":
     run_suite("test_v233_rotativo_inverti.py", "Rotativo, «Inverti il senso di rotazione» nell'interfaccia Banco", "banco")
     run_suite("test_v233_scala_percento.py", "Barra delle misure, casella della scala in percentuale: scala uniforme attorno al punto di riferimento, un passo di Annulla, di nuovo 100 % (anche con il cursore dentro), limiti, «150%» in L e A ma non negli altri campi, posto nella barra")
     run_suite("test_v233_scala_percento.py", "Barra delle misure, casella della scala in percentuale nell'interfaccia Banco", "banco")
+    run_suite("test_v234_telefono_lucciola.py", "Controllo dal telefono, Lucciola: permesso solo per la sessione e con i movimenti, prima accensione dal PC, potenza sotto il tetto, spenta se il telefono tace, con «■», togliendo i permessi, con lavoro, allarme, Puntino, K40 e cavo staccato; frecce con la Lucciola del telefono")
+    run_suite("test_v234_telefono_lucciola.py", "Controllo dal telefono, Lucciola, nell'interfaccia Banco", "banco")
+    run_suite("test_v234_livelli_predefiniti.py", "Livelli dei progetti nuovi (Richmond): Usa questi livelli per i progetti nuovi, file importati, dopo la riapertura, progetti salvati, ritorno alla fabbrica")
+    run_suite("test_v234_livelli_predefiniti.py", "Livelli dei progetti nuovi nell'interfaccia Banco", "banco")
+    run_suite("test_v234_k40_righe_un_verso.py", "Macchina K40 (scheda M2 Nano): righe in un verso solo (file degli impulsi, riempimenti e foto non bidirezionali) nel modo raster con due «G» come MeerK40t, niente giro della scheda a ogni riga; stessi punti bruciati, guasti messi apposta, 300 G-code a caso, ponte con FLC_K40_SENZA_GIRI e FLC_K40_RASTER")
     if "--camera" in sys.argv:
         print("Camera AutoCam (circa 6 minuti)");  test_camera()
     flush()

@@ -13,6 +13,10 @@ La «C» finale (codici «1/12 con tempi diversi»): solo sotto i 7 mm/s su B2, 
 impostazioni di partenza. 0.22.7: con la «C» a ogni velocità (senza_giri=True, l'idea era togliere la rincorsa a
 inizio e fine lavoro) la K40 di Evo andava a circa 2,6 mm/s qualunque velocità si chiedesse e perdeva la posizione
 (rapporto FLC-20261124-2055-C71A): senza_giri resta solo per le prove e non si usa. Sul raster la «C» non esiste.
+0.23.4 (rapporto 0FFD): quella prova del 24/11 aveva anche l'errore delle «F» di riempimento nei pacchetti, corretto
+nella 0.22.8, quindi non dice niente sulla «C» da sola. MeerK40t con le impostazioni di partenza («Twitch Vectors»
+spento) mette la «C» a tutti i lavori normali con la stessa formula di qui. Nel ponte FLC_K40_SENZA_GIRI=1 la accende
+per provarla sulla macchina vera; di solito resta spenta.
 """
 import math
 
@@ -58,12 +62,16 @@ def _sedici(valore):
 
 
 def codice(scheda, v, passo_raster=0, correggi=True, senza_giri=False, orizzontale=True):
-    """Codice di velocità (stringa ASCII). v in mm/s; passo_raster in passi (0 = taglio)."""
+    """Codice di velocità (stringa ASCII). v in mm/s; passo_raster in passi (0 = taglio). 0.23.4: passo_raster può
+    essere una coppia (g0, g1), raster in un verso solo come in MeerK40t: «V…G{g0}G{g1}», la scheda scende di g0
+    alla prima inversione, g1 alla seconda e così via (MeerK40t usa (passo, 0): giù a fine riga, ritorno sulla riga
+    nuova a laser spento)."""
     if scheda not in SCHEDE:
         raise ValueError(f"scheda sconosciuta: {scheda}")
     if not (V_MIN <= v <= V_MAX) or not math.isfinite(v):
         raise ValueError("velocità fuori misura")
-    raster = passo_raster != 0
+    coppia = isinstance(passo_raster, tuple)
+    raster = any(passo_raster) if coppia else passo_raster != 0
     acc = accelerazione(v, raster, orizzontale, correggi)
     lenta = scheda in ("B2", "M2", "M3") and v < 7  # sotto i 7 mm/s la «C» serve comunque
     con_c = (not raster) and (lenta or (senza_giri and scheda not in ("A", "B", "B1")))
@@ -71,6 +79,8 @@ def codice(scheda, v, passo_raster=0, correggi=True, senza_giri=False, orizzonta
     t = 25.4 / v
     valore = max(0, int(65536 - (b + m * t)))
     s = _sedici(valore)
+    if raster and coppia:
+        return "V%s%d" % (s, acc) + "".join("G%03d" % min(abs(int(g)), 999) for g in passo_raster)
     if raster:
         return "V%s%dG%03d" % (s, acc, min(abs(int(passo_raster)), 999))
     if scheda not in CON_DIAGONALE:

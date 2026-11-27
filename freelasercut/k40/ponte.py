@@ -310,8 +310,12 @@ class K40Serial:
         old = self.t
         # 0.23.2: le righe delle foto nel modo raster della scheda; FLC_K40_RASTER=0 lo spegne (per le prove)
         raster = os.environ.get("FLC_K40_RASTER", "1").strip() != "0"
-        t = Traduttore(tr_, self.scheda, dentro=self.dentro, x=self.pos[0], y=self.pos[1], piano=self.piano,
-                       raster=raster)
+        # 0.23.4 (rapporto 0FFD): FLC_K40_SENZA_GIRI=1 mette la «C» a tutti i lavori normali, come fa MeerK40t con
+        # «Twitch Vectors» spento (niente giro di 4 mm a ogni lavoro). Solo per le prove sulla macchina vera di Evo:
+        # spento di solito, perché sulla M2 Nano la «C» da sola non è ancora provata.
+        senza_giri = os.environ.get("FLC_K40_SENZA_GIRI", "0").strip() == "1"
+        t = Traduttore(tr_, self.scheda, senza_giri=senza_giri, dentro=self.dentro, x=self.pos[0], y=self.pos[1],
+                       piano=self.piano, raster=raster)
         t.g54 = list(self._g54)
         if old is not None:  # spostamenti delle coordinate e modi restano (come in GRBL)
             t.g92, t.g54 = list(old.g92), list(old.g54)

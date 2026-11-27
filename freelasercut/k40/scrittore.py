@@ -107,6 +107,7 @@ class Scrittore:
         self._sicuro = 0
         self._sicuro_xy = (0, 0)
         self.passo = 0  # 0.23.2: passo fra le righe del lavoro raster in corso (0 = lavoro normale)
+        self._passi, self._altalena = (0,), 0  # 0.23.4: passi a ogni inversione, a turno; inversioni fatte
         self._durata = 0.0  # secondi previsti del lavoro in corso
         self.durate = []  # secondi previsti di ogni lavoro chiuso, in ordine
 
@@ -203,13 +204,18 @@ class Scrittore:
     # sua rampa. Comandi come li scrivono i programmi che guidano la K40 da anni (fonti in RICONOSCIMENTI-TECNICI.md):
     # «I» + «V…G…» + «N» + verso verticale + verso orizzontale + «S1E» (prima il verticale: l'asse dichiarato per
     # ultimo è quello delle righe), poi solo righe orizzontali; il laser è sempre spento quando il verso si inverte.
-    def inizia_raster(self, v, passo, vy, vx):
+    def inizia_raster(self, v, passo, vy, vx, un_verso=False):
         """Entra nel lavoro raster: righe orizzontali a v (mm/s), la scheda scende di `passo` passi (verso vy = ±1) a
-        ogni inversione; la prima riga va nel verso vx (±1)."""
+        ogni inversione; la prima riga va nel verso vx (±1). 0.23.4, un_verso: codice con due «G» (passo, 0) come
+        MeerK40t per il raster in un verso solo: giù di `passo` alla prima inversione (fine della riga incisa), fermo
+        alla seconda (fine del ritorno a laser spento), e così via."""
         from .codici import codice
 
         self.fine_lavoro()
-        self._scrivi(b"I" + codice(self.scheda, v, passo_raster=passo, correggi=self.correggi).encode())
+        self._passi = (int(passo), 0) if un_verso else (int(passo),)
+        self._altalena = 0
+        pr = self._passi if un_verso else passo
+        self._scrivi(b"I" + codice(self.scheda, v, passo_raster=pr, correggi=self.correggi).encode())
         self._vx, self._vy = (1 if vx >= 0 else -1), (1 if vy >= 0 else -1)
         self._scrivi(b"N" + (b"L" if self._vy < 0 else b"R") + (b"T" if self._vx < 0 else b"B") + b"S1E")
         self.in_lavoro, self.v, self.laser = True, v, False
@@ -229,8 +235,10 @@ class Scrittore:
         if sx != self._vx:
             self._laser(False)
             self._vx = sx
-            self.y += self._vy * self.passo
-            self._durata += self.passo / MIL_PER_MM / max(float(self.v), 0.1) + DURATA_INVERSIONE
+            g = self._passi[self._altalena % len(self._passi)]
+            self._altalena += 1
+            self.y += self._vy * g
+            self._durata += g / MIL_PER_MM / max(float(self.v), 0.1) + DURATA_INVERSIONE
             if laser:
                 self._scrivi(lettera)  # inversione (e discesa di una riga) senza strada, poi il laser
         self._laser(bool(laser))

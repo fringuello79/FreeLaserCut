@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (21)
+## Wi-Fi, rete e telefono (23)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -26,6 +26,8 @@ Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_telefono.py`: Telefono: frecce e joystick per muovere la testa (solo se permesso sul PC, a macchina ferma, laser spento, arresto da solo se il telefono tace), pagina con comandi in rilievo
 - `test_v225_telefono.py` (Banco): Telefono: frecce e joystick nell'interfaccia Banco
 - `test_v226_ruida_estesa.py`: Studia la macchina, Ruida: la lettura estesa legge anche le impostazioni note fuori dalle zone (numero dell'impostazione e byte sul cavo), solo letture, in rete e su USB
+- `test_v234_telefono_lucciola.py`: Controllo dal telefono, Lucciola: permesso solo per la sessione e con i movimenti, prima accensione dal PC, potenza sotto il tetto, spenta se il telefono tace, con «■», togliendo i permessi, con lavoro, allarme, Puntino, K40 e cavo staccato; frecce con la Lucciola del telefono
+- `test_v234_telefono_lucciola.py` (Banco): Controllo dal telefono, Lucciola, nell'interfaccia Banco
 
 ## Telecamera e guardia fiamme (15)
 
@@ -73,7 +75,7 @@ Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_test_forma.py`: Test materiale con la forma selezionata o con il pezzo di una foto (la zona con più grigi trovata da sola), richiesta di Stefano Modena
 - `test_v225_test_forma.py` (Banco): Test materiale con la forma o la foto nell'interfaccia Banco
 
-## Foto e immagini (33)
+## Foto e immagini (34)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -108,6 +110,7 @@ Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v232_k40_raster.py`: Macchina K40 (scheda M2 Nano): foto e riempimenti nel modo raster della scheda, niente colpi a fine riga; stessi punti bruciati del lavoro normale (foto, riempimenti, casi apposta, 300 G-code a caso), uscita dal modo raster quando serve, ponte con stop, passo fra le righe
 - `test_v232_verifica_console.py`: Lavoro e G-code, verifica ($C): le righe e i loro «ok» non vanno uno per uno nella console (la finestra restava ferma con le foto grandi)
 - `test_v233_k40.py`: Macchina K40 (scheda M2 Nano): joystick come un movimento continuo a laser spento (niente scatti; chiuso al rilascio, dopo un silenzio, a un cambio di direzione o di velocità), ritorno al punto di partenza a fine lavoro, scala di grigi che diventa un retino, file di prova degli impulsi
+- `test_v234_k40_righe_un_verso.py`: Macchina K40 (scheda M2 Nano): righe in un verso solo (file degli impulsi, riempimenti e foto non bidirezionali) nel modo raster con due «G» come MeerK40t, niente giro della scheda a ogni riga; stessi punti bruciati, guasti messi apposta, 300 G-code a caso, ponte con FLC_K40_SENZA_GIRI e FLC_K40_RASTER
 
 ## Lavoro e G-code (57)
 
@@ -169,7 +172,7 @@ Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v233_rotativo_inverti.py`: Rotativo, «Inverti il senso di rotazione»: G-code con il solo asse del rotativo specchiato (Y e Z), contorno, frecce, «Continuo», joystick, «Prova: un giro», preferenze e rapporto; spunta spenta = G-code di prima
 - `test_v233_rotativo_inverti.py` (Banco): Rotativo, «Inverti il senso di rotazione» nell'interfaccia Banco
 
-## Macchina, connessione e profili (64)
+## Macchina, connessione e profili (65)
 
 - `test_v104.py`: Rapporto per l'assistenza, registro della comunicazione, installatore
 - `test_v122.py`: Assi invertibili, velocità in mm/s, MKS DLC32
@@ -235,6 +238,7 @@ Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v2210_strati_banco.py`: Banco: la scheda di uno strato non si allarga togliendo «Incidi» (Rino): «non inciso» sulla riga del nome, righe accorciate con «…»
 - `test_v230_homing.py`: Configurazione guidata: l'angolo dello 0 scelto non si perde (rapporto BCAB, Falcon A1): la freccia vale con «Sì» o «No», allarme o riavvio a metà spostamento non valgono, contrasto fra angolo e frecce: si chiede
 - `test_v230_homing.py` (Banco): Configurazione guidata: l'angolo dello 0 scelto non si perde, interfaccia Banco
+- `test_v234_livelli_predefiniti.py`: Livelli dei progetti nuovi (Richmond): Usa questi livelli per i progetti nuovi, file importati, dopo la riapertura, progetti salvati, ritorno alla fabbrica
 
 ## Disegno e modifica (33)
 
@@ -272,7 +276,7 @@ Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v233_appunti.py`: Copia e Incolla: dopo «Copia» il processo finisce senza errore (le forme copiate escono dagli appunti a fine processo)
 - `test_v233_scala_percento.py`: Barra delle misure, casella della scala in percentuale: scala uniforme attorno al punto di riferimento, un passo di Annulla, di nuovo 100 % (anche con il cursore dentro), limiti, «150%» in L e A ma non negli altri campi, posto nella barra
 
-## Interfaccia (55)
+## Interfaccia (56)
 
 - `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
@@ -329,6 +333,7 @@ Suite: 311. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v229_finestra.py`: Apri un'altra finestra: comando e menu, processo a parte con la sua sigla, salvataggio automatico per finestra, finestre chiuse male riconosciute e riaperte, una finestra vera avviata e uccisa
 - `test_v229_finestra.py` (Banco): Apri un'altra finestra nell'interfaccia Banco
 - `test_v233_scala_percento.py` (Banco): Barra delle misure, casella della scala in percentuale nell'interfaccia Banco
+- `test_v234_livelli_predefiniti.py` (Banco): Livelli dei progetti nuovi nell'interfaccia Banco
 
 ## Avvio, installazione, aggiornamenti e assistenza (11)
 

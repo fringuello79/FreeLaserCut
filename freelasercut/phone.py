@@ -69,6 +69,7 @@ class PhoneServer:
         self.state, self.frame, self.pause, self.stop_job, self.photo = state, frame, pause, stop, photo
         self.plate = plate  # 0.19.0: plate(bytes) → messaggio; la foto del piano di lavoro fatta con il telefono
         self.move = move  # 0.22.5: move(tipo, dati) → (ok, messaggio); tipo «passo», «joystick» o «ferma»
+        # (0.23.4: anche «lucciola», dati {"on": true/false})
         self.token = token or new_token()
         self.want_port = port
         self.host = host
@@ -217,7 +218,7 @@ def _make_handler(srv):
                     self.rfile.read(min(n, 4096))
                 ok, msg = (srv.pause if r == "pausa" else srv.stop_job)()
                 self._send(200, {"ok": bool(ok), "msg": msg})
-            elif r in ("muovi", "joystick", "ferma-testa"):
+            elif r in ("muovi", "joystick", "ferma-testa", "lucciola"):
                 if srv.move is None:
                     self._send(404, {"ok": False, "msg": "non trovato"})
                     return
@@ -231,7 +232,7 @@ def _make_handler(srv):
                 except (ValueError, UnicodeDecodeError, RecursionError):
                     self._send(400, {"ok": False, "msg": tr("Richiesta non valida")})
                     return
-                kind = {"muovi": "passo", "joystick": "joystick", "ferma-testa": "ferma"}[r]
+                kind = {"muovi": "passo", "joystick": "joystick", "ferma-testa": "ferma", "lucciola": "lucciola"}[r]
                 ok, msg = srv.move(kind, data)
                 self._send(200, {"ok": bool(ok), "msg": msg})
             elif r in ("foto-test", "foto-piano"):
@@ -329,6 +330,10 @@ background:radial-gradient(circle at 35% 30%,var(--ac2),var(--ac) 60%,#1B4FA8);b
 inset 0 2px 0 rgba(255,255,255,.35)}
 #pos{font-variant-numeric:tabular-nums;text-align:center;margin-top:8px}
 .hide{display:none}
+#glowrow{margin:2px 0 10px}#glow{width:100%}
+#glow.on{background:radial-gradient(circle at 50% 35%,#ff9a8c,#ff2a22 45%,#c80000);color:#fff;border-color:#7a0000;
+box-shadow:0 0 18px rgba(255,42,34,.6);animation:gl 1s infinite alternate}
+@keyframes gl{to{box-shadow:0 0 4px rgba(255,42,34,.3)}}
 </style></head><body>
 <h1><span class="brand"><img src="logo.svg" alt="">FreeLaserCut</span> <small>v{{VER}}</small></h1>
 <div class="card" id="st">
@@ -344,6 +349,7 @@ inset 0 2px 0 rgba(255,255,255,.35)}
 </div>
 <div class="card" id="mv">
   <div class="ctitle"><span>[[Muovi la testa]]</span><span class="mu" id="mvlaser">[[laser spento]]</span></div>
+  <div id="glowrow" class="hide"><button id="glow" class="glow">[[Lucciola]]</button><div class="mu" id="glownote"></div></div>
   <div class="seg"><button id="t_ar" class="on">[[Frecce]]</button><button id="t_joy">[[Joystick]]</button></div>
   <div id="arrows">
     <div class="pad">
@@ -414,9 +420,23 @@ function moveState(s){
   $('joy').style.opacity = moveOk ? 1 : .35;
   if(!moveOk && joyOn) joyEnd();
   $('pos').textContent = s && s.pos ? 'X ' + s.pos[0].toFixed(1) + '   Y ' + s.pos[1].toFixed(1) + ' mm' : '';
+  glowState(s);
   if(!moveOk) $('mvmsg').textContent = (s && s.move_note) || T.offline;
   else if($('mvmsg').dataset.keep !== '1') $('mvmsg').textContent = '';
 }
+// 0.23.4: Lucciola dal telefono (permessa sul PC solo per la sessione; spegnere si può sempre)
+let glowMine = false;
+function glowState(s){
+  const g = (s && s.glow) || {}; glowMine = !!g.mine;
+  $('glowrow').classList.toggle('hide', !(g.perm || g.mine));
+  $('glow').classList.toggle('on', glowMine);
+  $('glow').textContent = glowMine ? T.glowon + ' · ' + fmt(g.left) : T.glow;
+  $('glow').disabled = !glowMine && !g.ok;
+  $('glownote').textContent = glowMine ? T.glowsafe : (g.ok ? '' : (g.note || ''));
+  $('mvlaser').textContent = glowMine ? T.laseron : T.laseroff;
+}
+$('glow').onclick = async () => { buzz(); say(await post('lucciola', JSON.stringify({on: !glowMine}), 'application/json')); tick(); };
+document.addEventListener('visibilitychange', () => { if(document.hidden && glowMine) post('lucciola', '{"on":false}', 'application/json').catch(()=>{}); });
 function say(r){ $('mvmsg').textContent = (r && r.msg) || ''; $('mvmsg').dataset.keep = r && !r.ok ? '1' : ''; }
 document.querySelectorAll('#mv .key[data-d]').forEach(b => b.onclick = async () => {
   if(!moveOk) return; buzz(); const [dx,dy] = b.dataset.d.split(',').map(Number);
@@ -496,7 +516,10 @@ def _js_strings():
             "stale": tr("La camera non manda immagini nuove da qualche secondo."),
             "fireon": tr("Guardia fiamme attiva: la camera sorveglia il lavoro."),
             "hidecam": tr("Nascondi la camera"), "showcam": tr("Mostra la camera"), "sending": tr("Invio in corso…"),
-            "sent": tr("Inviata."), "failed": tr("Invio non riuscito:")}
+            "sent": tr("Inviata."), "failed": tr("Invio non riuscito:"), "glow": tr("Accendi la Lucciola"),
+            "glowon": tr("LASER ACCESO"), "laseron": tr("laser acceso al minimo"), "laseroff": tr("laser spento"),
+            "glowsafe": tr("Occhiali protettivi. Si spegne da sola dopo 5 minuti senza movimenti, se chiudi questa "
+                           "pagina o se il telefono perde la rete.")}
 
 
 def _html_strings():
@@ -504,7 +527,7 @@ def _html_strings():
     return {"telefono": tr("telefono"), "Pausa": tr("Pausa"), "Stop": tr("Stop"),
             "Mostra la camera": tr("Mostra la camera"), "Controllo attività": tr("Controllo attività"),
             "Muovi la testa": tr("Muovi la testa"), "laser spento": tr("laser spento"), "Frecce": tr("Frecce"),
-            "Joystick": tr("Joystick"),
+            "Joystick": tr("Joystick"), "Lucciola": tr("Accendi la Lucciola"),
             "Invia la foto del test materiale": tr("Invia la foto del test materiale"),
             "Foto del piano di lavoro": tr("Foto del piano di lavoro"),
             "Foto dall'alto, con tutta l'area di lavoro dentro. Sul PC indicherai i 4 angoli dell'area e la foto "

@@ -31,6 +31,13 @@ SALTO_RIGHE_MAX = 15  # passi in più del passo fra le righe che si fanno in dia
 MARGINE_RASTER_MM = 5.0  # le righe raster stanno ad almeno questa distanza dai bordi sinistro e destro del piano
 TENUTI_MAX = 60000  # movimenti tenuti da parte al massimo, mentre si capisce se sono righe
 RIGHE_PER_ENTRARE = 2  # inversioni con cambio di riga viste prima di entrare nel modo raster
+# 0.23.4 (rapporto 0FFD, Evoluzione2: «movimento strano in Y» con le righe in un verso solo): righe incise tutte nello
+# stesso verso, con il ritorno a laser spento (riempimenti e foto con «Bidirezionale» spento, il file degli impulsi).
+# Prima ogni ritorno chiudeva il lavoro: un lavoro per riga, e a ogni lavoro la scheda fa il suo twitch (4 mm oltre in
+# X, 4 mm in Y e ritorno). Ora vanno nel modo raster della scheda con gli stessi comandi di MeerK40t (driver
+# lihuiyu, raster «unidirectional»): codice «V…G{passo}G000», la scheda scende di un passo alla fine della riga incisa
+# e resta sulla riga nuova alla fine del ritorno a laser spento. Il lavoro resta uno.
+RIGHE_PER_ENTRARE_UNI = 4  # inversioni viste (due righe e due ritorni) prima di entrare con le righe in un verso solo
 
 
 class _Mossa:
@@ -44,8 +51,10 @@ class _Mossa:
 
 class _Righe:
     """Stato del modo raster: dove è la testa davvero (x, y, passi), dove il G-code crede che sia (gx, gy), verso della
-    riga (vx), cambio di riga ricevuto e non ancora fatto (pend: y voluta, o None)."""
-    __slots__ = ("v", "passo", "vy", "x", "y", "gx", "gy", "vx", "pend", "gy_mm")
+    riga (vx), cambio di riga ricevuto e non ancora fatto (pend: y voluta, o None).
+    0.23.4, righe in un verso solo (uni): vinc = verso delle righe incise; debito = 1 durante il ritorno (la scheda è
+    già scesa alla riga nuova, all'inversione dopo non scende)."""
+    __slots__ = ("v", "passo", "vy", "x", "y", "gx", "gy", "vx", "pend", "gy_mm", "uni", "vinc", "debito")
 
     def copia(self):
         r = _Righe()
@@ -273,8 +282,10 @@ class Traduttore:
             return "no"
         m = cand[-1]
         if len(cand) == 1:
-            self._cs = {"v": m.v, "vx": 1 if m.tx > self._g[0] else -1, "pend": False, "inv": 0, "dy_mm": None,
-                        "dy_passi": 0, "px": m.tx, "py": m.ty, "my0": m.my}
+            vx0 = 1 if m.tx > self._g[0] else -1
+            self._cs = {"v": m.v, "vx": vx0, "pend": False, "inv": 0, "dy_mm": None,
+                        "dy_passi": 0, "px": m.tx, "py": m.ty, "my0": m.my,
+                        "vinc": vx0, "uni": None, "acceso_tratto": bool(m.laser)}
             return "attendi"
         cs = self._cs
         if m.modo == 1 and m.v != cs["v"]:
@@ -291,23 +302,38 @@ class Traduttore:
             if (dx > 0) == (cs["vx"] > 0):
                 if cs["pend"] and m.laser:
                     return "no"
+                cs["acceso_tratto"] = cs["acceso_tratto"] or bool(m.laser)
             else:
-                if not cs["pend"]:
-                    return "no"
+                # 0.23.4: inversione con cambio di riga (dal verso inciso, o in tutte e due le righe avanti e indietro)
+                # oppure, nelle righe in un verso solo, ritorno a laser spento e poi inversione senza cambio di riga
+                ritorno = cs["vx"] != cs["vinc"]  # sto finendo il tratto nel verso opposto a quello inciso
+                if cs["pend"]:
+                    if cs["uni"] is True and ritorno:
+                        return "no"  # in un verso solo il cambio di riga arriva solo dopo la riga incisa
+                    if cs["uni"] is None and ritorno and cs["inv"] >= 1:
+                        cs["uni"] = False  # secondo cambio di riga nel verso opposto: righe avanti e indietro
+                else:
+                    if not ritorno or cs["uni"] is False or cs["acceso_tratto"] or cs["inv"] < 1:
+                        return "no"
+                    cs["uni"] = True
                 cs["pend"], cs["vx"] = False, -cs["vx"]
                 cs["inv"] += 1
+                cs["acceso_tratto"] = bool(m.laser)
         cs["px"], cs["py"] = m.tx, m.ty
         inversioni, v, dy_mm, dy_passi = cs["inv"], cs["v"], cs["dy_mm"], cs["dy_passi"]
-        if inversioni < RIGHE_PER_ENTRARE:
+        uni = cs["uni"] is True
+        if inversioni < (RIGHE_PER_ENTRARE_UNI if uni else RIGHE_PER_ENTRARE) or (cs["uni"] is None and inversioni > 1):
             return "attendi"
         passo = self._passo_da(dy_mm)
         if passo < 1:
             return "no"
         r = _Righe()
         r.v, r.passo, r.vy = v, passo, (1 if dy_passi > 0 else -1)
+        r.uni, r.debito = uni, 0
         r.x, r.y = self.sc.x, self.sc.y
         r.gx, r.gy = self._g
         r.vx = 1 if cand[0].tx > self._g[0] else -1
+        r.vinc = r.vx
         r.pend, r.gy_mm = None, None
         prova = r.copia()
         for m in cand:  # prova a secco: tutto quello che è tenuto deve andare nel modo raster
@@ -317,7 +343,7 @@ class Traduttore:
             prova = piano[1]
         # si entra: la testa è dove era prima delle righe tenute (niente è ancora partito)
         self._cand = None
-        self.sc.inizia_raster(v, passo, r.vy, r.vx)
+        self.sc.inizia_raster(v, passo, r.vy, r.vx, un_verso=r.uni)
         self._ras = r
         self.diario_raster.append(("entra", {"v": round(v, 2), "passo": passo, "righe_tenute": len(cand)}))
         for m in cand:
@@ -350,6 +376,8 @@ class Traduttore:
         """-> (operazioni, nuovo stato) o None se nel modo raster non si può fare. Non tocca né r né la scheda."""
         if m.modo == 1 and m.v != r.v:
             return None
+        if r.uni:
+            return self._piano_righe_uni(r, m)
         pend = r.pend
         if m.ty != r.gy:  # cambio di riga: si fa all'inversione
             if m.laser:
@@ -397,6 +425,71 @@ class Traduttore:
         n.gx, n.gy = m.tx, m.ty
         return ops, n
 
+    def _piano_righe_uni(self, r, m):
+        """0.23.4: come _piano_righe, per le righe in un verso solo (r.uni), come MeerK40t. Righe incise nel verso
+        r.vinc; alla fine di una riga il G-code cambia riga e torna indietro a laser spento: la scheda scende di r.passo
+        a questa inversione (prima, in diagonale, gli eventuali passi in più) e non scende all'inversione alla fine del
+        ritorno. Il ritorno è sempre a laser spento; un cambio di riga durante il ritorno, o un'inversione che non segue
+        questo schema, fa uscire."""
+        pend = r.pend
+        ritorno = r.vx != r.vinc
+        if m.ty != r.gy:  # cambio di riga: solo nel verso inciso, si fa alle due inversioni che seguono
+            if m.laser or ritorno or r.debito:
+                return None
+            pend = m.ty
+            bisogno = (pend - r.y) * r.vy
+            if bisogno < r.passo or bisogno - r.passo > SALTO_RIGHE_MAX:
+                return None
+        n = r.copia()
+        ops = []
+        dx = m.tx - r.x
+        if not dx:
+            n.pend = pend
+            n.gx, n.gy = m.tx, m.ty
+            return ops, n
+        sx = 1 if dx > 0 else -1
+        if sx == r.vx:
+            if m.laser and (ritorno or pend is not None):
+                return None  # niente laser nel ritorno, né prima di aver fatto il cambio di riga
+        elif not ritorno:
+            # fine della riga incisa: si scende di un passo (prima, in diagonale, gli eventuali passi in più)
+            if pend is None:
+                return None
+            bisogno = (pend - r.y) * r.vy
+            extra = bisogno - r.passo
+            if extra < 0 or extra > SALTO_RIGHE_MAX:
+                return None
+            if extra:
+                n.x += r.vx * extra
+                n.y += r.vy * extra
+                if not self._dentro_passi(n.x, n.y, MARGINE_RASTER_MM):
+                    return None
+                ops.append(("diagonale", extra))
+            n.y += r.vy * r.passo
+            n.vx = sx
+            n.debito = 1
+            pend = None
+            if m.laser:
+                return None
+        else:
+            # fine del ritorno: la scheda non scende (secondo «G» = 000) e si riparte nel verso inciso
+            if pend is not None or r.debito != 1:
+                return None
+            n.vx = sx
+            n.debito = 0
+            if m.laser and n.x != r.gx:
+                if (r.gx - n.x) * sx <= 0 or not self._dentro_passi(r.gx, n.y, MARGINE_RASTER_MM):
+                    return None
+                ops.append(("riga", r.gx, False))
+                n.x = r.gx
+        if not self._dentro_passi(m.tx, n.y, MARGINE_RASTER_MM):
+            return None
+        ops.append(("riga", m.tx, m.laser))
+        n.x = m.tx
+        n.pend = pend
+        n.gx, n.gy = m.tx, m.ty
+        return ops, n
+
     def _esegui_righe(self, ops, nuovo):
         sc = self.sc
         for op in ops:
@@ -418,7 +511,12 @@ class Traduttore:
             sc._laser(False)
         sc.fine_lavoro()
         if (sc.x, sc.y) != (r.gx, r.gy):
-            sc.vai(r.gx, r.gy, r.v, laser=False)
+            if r.uni:
+                # 0.23.4: righe in un verso solo, di solito l'uscita è nel ritorno: uno spostamento veloce, come
+                # avrebbe fatto il G-code fuori dal modo raster (niente lavoro, niente giro)
+                sc.veloce(r.gx, r.gy)
+            else:
+                sc.vai(r.gx, r.gy, r.v, laser=False)
         self._g = (r.gx, r.gy)
         self.diario_raster.append(("esce", {"perche": perche}))
 
