@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..grbl import GLOW_S, GLOW_UNKNOWN, POINTER_MAX, POINTER_WARN
+from ..job_clock import round_left
 from ..theme import C, css
 from . import style
 from .widgets import AnchorPicker, NumField, row, section
@@ -524,6 +525,8 @@ class LaserPanel(QWidget):
 
     def _status(self, st):
         s = st.get("state", "")
+        if self.ctl.job_active and self.eta.isVisible():
+            self._show_eta()
         ov = st.get("ov")
         if ov and not self.ov_speed.isSliderDown():
             self.ov_speed.blockSignals(True)
@@ -544,6 +547,7 @@ class LaserPanel(QWidget):
 
     def start_progress(self, kind):
         self._t0 = time.time()
+        self._prog = (0, 0)
         self.progress.setValue(0)
         self.progress.show()
         self.eta.show()
@@ -558,11 +562,23 @@ class LaserPanel(QWidget):
     def _progress(self, done, total):
         self.progress.setMaximum(max(total, 1))
         self.progress.setValue(done)
-        if done:
-            el = time.time() - self._t0
-            rest = el / done * (total - done)
-            self.eta.setText(tr("{0}/{1} righe · trascorso {2} · restante ~{3}", done, total, _hms(el), _hms(rest)))
+        self._prog = (done, total)
+        self._show_eta()
         self.update_running()
+
+    def _show_eta(self):
+        """0.23.5 (Deborah K.): il tempo che manca viene dal controllo (pesato riga per riga, senza le pause, che
+        scende piano invece di saltare); si aggiorna anche con i report di stato, non solo con le righe."""
+        done, total = getattr(self, "_prog", (0, 0))
+        if not done or not self.ctl.job_active:
+            return
+        el = time.time() - self._t0
+        rest = self.ctl.job_time_left()
+        if rest is None:
+            self.eta.setText(tr("{0}/{1} righe · trascorso {2}", done, total, _hms(el)))
+        else:
+            self.eta.setText(tr("{0}/{1} righe · trascorso {2} · restante ~{3}", done, total, _hms(el),
+                                _hms(round_left(rest))))
 
     def _finished(self, ok, msg):
         self.eta.setText(msg)
@@ -731,6 +747,12 @@ class MovePanel(QWidget):
         b_del = _btn(tr("Elimina"), "delete")
         b_del.clicked.connect(self._del_saved)
         v.addWidget(row(b_add, b_go2, b_del))
+        # 0.23.5: macro, pulsanti personali con poche righe di G-code (idea di Mauro D.)
+        from .macro_ui import MacroBox
+
+        v.addWidget(section(tr("Macro")))
+        self.macros = MacroBox(ctl, settings, self)
+        v.addWidget(self.macros)
         hint = QLabel(tr("Sulla tela: frecce = jog del passo scelto quando nessun oggetto è selezionato · "
                       "doppio clic con lo strumento «Posiziona laser» porta la testa lì."))
         hint.setWordWrap(True)
@@ -770,6 +792,7 @@ class MovePanel(QWidget):
                   self.b_af]:
             w.setEnabled(ok)
         self.pad.set_connected(ok)
+        self.macros.set_connected(ok)
         self._z_visible()  # 0.22.6: le frecce della Z restano spente con il rotativo sulla Z
 
     def _z_visible(self, *_):

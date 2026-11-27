@@ -24,6 +24,7 @@ except ImportError:  # pragma: no cover
     list_ports = None
 
 from .grbl_codes import ALARMS, ERRORS, bad_travel
+from .job_clock import JobClock, cumulative_from_preview
 from .sim import SimSerial
 from . import netport
 
@@ -229,6 +230,10 @@ class GrblController(QObject):
         self.status_time = 0.0
         self.rx_buffer = RX_BUFFER
         self.homed = False
+        # 0.23.5 (rapporto 4A62, Falcon A1): homing fatto almeno una volta da quando la porta è aperta. A differenza di
+        # «homed» non si azzera con gli allarmi né con i riavvii da soli della scheda: dice solo che le coordinate
+        # macchina sono quelle dell'homing (lo 0 è l'angolo dell'homing), non che la posizione sia ancora garantita
+        self.homed_once = False
         self.negative_space = None
         self.sim_travel = None  # 0.21.2: corsa del simulatore (X, Y) in mm; la mette la finestra principale
         self.reboots = 0  # 0.21.2: riavvii della scheda non chiesti, da quando FreeLaserCut è aperto
@@ -242,6 +247,9 @@ class GrblController(QObject):
         self._job_idle = 0  # report "Idle" di fila dopo l'ultima riga confermata
         self.job_lines = []  # righe del lavoro in corso (per la ripresa)
         self.job_acked = 0  # righe confermate dalla scheda
+        # 0.23.5 (Deborah K.): tempo che manca, pesato con la stima di ogni riga e senza le pause (job_clock.py)
+        self.job_clock = None
+        self._job_raw_index = None  # per ogni riga mandata, la sua posizione fra le righe ricevute
         self.pause_on_error = True
         self._g55_told = False  # 0.19.2: il rifiuto di G55 in questo lavoro è già stato segnalato
         self.user_paused = False  # 0.20.2: lavoro fermo a una pausa M0, in attesa di Riprendi
@@ -316,6 +324,7 @@ class GrblController(QObject):
         self._travel_retry = False
         self.rx_buffer = RX_BUFFER  # prudente finché $I non dice quanto è grande
         self.homed = False
+        self.homed_once = False
         self._check_space = False
         self.board_settings = {}
         self.board_info = []
@@ -696,6 +705,7 @@ class GrblController(QObject):
                 and 0 < time.time() - self._check_end_t < CHECK_SETTLE_S and self.status_time <= self._check_end_t)
 
     def stream_job(self, lines):
+        self.job_clock = None  # 0.23.5: il tempo che manca è del lavoro che parte adesso
         if self.check_settling():
             # 0.22.6: niente $C in più (rimetterebbe la scheda in prova): si aspetta che la scheda sia ripartita
             self.job_finished.emit(False, tr("La scheda sta ancora ripartendo dopo la verifica: riprova tra qualche "
@@ -706,7 +716,7 @@ class GrblController(QObject):
             self.job_finished.emit(False, tr("La scheda era ancora in modalità di prova: la sto facendo uscire. "
                                              "Riprova tra qualche secondo."))
             return
-        clean = _clean_lines(lines)
+        clean, raw_index = _clean_lines_index(lines)
         if not clean:
             self.job_finished.emit(False, tr("Il file non contiene comandi G-code"))
             return
@@ -719,6 +729,8 @@ class GrblController(QObject):
         self._job_total = len(clean)
         self._job_done = 0
         self._job_idle = 0
+        self.job_clock = JobClock(len(clean))
+        self._job_raw_index = raw_index
         self._job_active = True
         self.job_lines = clean
         self.job_acked = 0
@@ -739,6 +751,22 @@ class GrblController(QObject):
                 self._pending.append(c)
         self.job_progress.emit(0, self._job_total)
         self._pump()
+
+    def set_job_estimate(self, preview):
+        """0.23.5: la stima dei tempi delle righe del lavoro appena partito (`gcode_preview.parse` delle stesse righe
+        date a stream_job). Senza, il tempo che manca si calcola contando le righe."""
+        clk, idx = self.job_clock, self._job_raw_index
+        if clk is None or idx is None or preview is None:
+            return False
+        return clk.set_estimate(cumulative_from_preview(preview, idx))
+
+    def job_time_left(self):
+        """0.23.5: secondi che mancano alla fine del lavoro in corso (levigati, senza le pause), o None."""
+        clk = self.job_clock
+        if clk is None or not self._job_active:
+            return None
+        clk.progress(self._job_done)
+        return clk.left()
 
     def _maybe_user_pause(self):
         """La pausa M0 è la prossima riga, tutte le righe prima sono confermate e la macchina è ferma: si ferma qui."""
@@ -1196,6 +1224,10 @@ class GrblController(QObject):
             st = parse_status(line, self._wco)
             self._wco = st["WCO"]
             self.last_status = st
+            clk = self.job_clock
+            if clk is not None and self._job_active:  # 0.23.5: il tempo in pausa non conta nel tempo che manca
+                s = str(st.get("state", ""))
+                clk.tick(paused=s.startswith("Hold") or s.startswith("Door") or bool(self.user_paused))
             if ("acc" in st or "ov" in st) and time.time() - getattr(self, "_air_rt_t", 0.0) > 0.4:
                 # 0.23.0: GRBL dice gli accessori insieme a Ov (senza A: = tutto spento)
                 acc = st.get("acc") or ""
@@ -1214,6 +1246,7 @@ class GrblController(QObject):
                 mx, my = st["MPos"][0], st["MPos"][1]
                 self.negative_space = mx < -1.0 or my < -1.0
                 self.homed = True
+                self.homed_once = True
                 self.homed_changed.emit(True, self.negative_space)
             if self._job_active and self._job_done >= self._job_total:
                 # tutte le righe sono nella scheda, ma gli ultimi movimenti sono ancora nel suo buffer:
@@ -1516,13 +1549,22 @@ def _pause_messages(lines):
 
 
 def _clean_lines(lines):
-    out = []
-    for raw in lines:
+    return _clean_lines_index(lines)[0]
+
+
+def _clean_lines_index(lines):
+    """Righe senza commenti e vuote, e per ognuna la sua posizione fra quelle ricevute (0.23.5: tempo che manca)."""
+    from array import array
+
+    out, idx = [], array("q")
+    for i, raw in enumerate(lines):
         line = raw.split(";")[0].strip()
-        line = re.sub(r"\(.*?\)", "", line).strip()
+        if "(" in line:
+            line = re.sub(r"\(.*?\)", "", line).strip()
         if line:
             out.append(line)
-    return out
+            idx.append(i)
+    return out, idx
 
 
 def _is_g55(line):

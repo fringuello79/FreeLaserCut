@@ -21,6 +21,7 @@ from . import geom, text as textmod, ties, variables
 from freelasercut.i18n import tr  # noqa: E402
 
 FORMAT_VERSION = 1
+NOTES_MAX = 100000  # 0.23.5: caratteri delle note del progetto (ui/notes_tab.py), circa 15 000 parole
 
 
 def _path_elements_slow(path):
@@ -1098,6 +1099,7 @@ class Document:
         self.name_auto = False
         self.import_order = []  # 0.20.1: i file importati, nell'ordine (nomi come in Shape.origin)
         self.path = None
+        self.notes = ""  # 0.23.5: note del progetto (testo libero, mai inciso; ui/notes_tab.py)
         self.guides = []  # 0.20.9: guide del piano [("h", y) | ("v", x)] in mm sul piano come si vede (core/guides.py)
 
     # ---- piani di lavoro
@@ -1355,6 +1357,9 @@ class Document:
         if self.guides:  # 0.20.9: solo se ci sono (i file senza guide restano come prima)
             gl = _map_guides(self.guides, to_frame) if to_frame is not None else self.guides
             meta["guides"] = [[k, p] for k, p in gl]
+        notes = getattr(self, "notes", "") or ""
+        if notes.strip():  # 0.23.5: solo se c'è (le versioni precedenti ignorano la chiave)
+            meta["notes"] = notes[:NOTES_MAX]
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr("project.json", json.dumps(meta, indent=1))
             used = {i for s in self.all_shapes() for leaf, _ in s.leaves() if isinstance(leaf, ImageShape)
@@ -1393,6 +1398,8 @@ class Document:
         from . import guides as gd
 
         doc.guides = gd.clean(meta.get("guides") if isinstance(meta.get("guides"), list) else [])
+        notes = meta.get("notes")
+        doc.notes = notes[:NOTES_MAX] if isinstance(notes, str) else ""
         doc.from_frame()  # 0.19.3: il file è nelle coordinate della macchina; con il piano ruotato si gira qui
         doc.path = path
         return doc

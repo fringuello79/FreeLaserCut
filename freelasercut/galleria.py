@@ -605,6 +605,7 @@ def progetto_ripulito(doc, titolo):
             pass
     meta["name"] = str(titolo)
     meta.pop("current", None)
+    meta.pop("notes", None)  # 0.23.5: le note del progetto sono di chi lo ha fatto, non si pubblicano
     _ripulisci(meta.get("shapes"))
     _ripulisci(meta.get("plates"))
     for lay in (meta.get("layers") or {}).values():

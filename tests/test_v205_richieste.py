@@ -744,8 +744,8 @@ check("G licenza della libreria aggiunta (GLib, LGPL 2.1)", "glib-LGPL-2.1.txt" 
 # ====================================================================== H. ringraziamenti
 print("--- H. ringraziamenti")
 N = len(thanks.NAMES)
-check("H un solo elenco: 28 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1, Daniel Z. e solboricua dalla 0.21.2, universalecinema-boop e Paul H. dalla 0.22.2, Michele S. e LaserJack dalla 0.22.4, andreacanti e istevenep dalla 0.22.5, pier dalla 0.22.6, Richmond dalla 0.23.4), nessun doppione, «Roberto C.» senza "
-      "cognome, Deborah", N == 28 and thanks.NAMES[-16:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir", "Daniel Z.", "solboricua", "universalecinema-boop", "Paul H.", "Michele S.", "LaserJack", "andreacanti", "istevenep", "pier", "Richmond") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
+check("H un solo elenco: 33 nomi (Paolo1968 e DolomiticHunter dalla 0.20.6, Mauro C., Gianni e marcello dalla 0.20.9, Sengir dalla 0.21.1, Daniel Z. e solboricua dalla 0.21.2, universalecinema-boop e Paul H. dalla 0.22.2, Michele S. e LaserJack dalla 0.22.4, andreacanti e istevenep dalla 0.22.5, pier dalla 0.22.6, Richmond dalla 0.23.4, lucatambu, Costanzo, maurodani76, PeterZ e Modesto dalla 0.23.5), nessun doppione, «Roberto C.» senza "
+      "cognome, Deborah", N == 33 and thanks.NAMES[-21:] == ("Paolo1968", "DolomiticHunter", "Mauro C.", "Gianni", "marcello", "Sengir", "Daniel Z.", "solboricua", "universalecinema-boop", "Paul H.", "Michele S.", "LaserJack", "andreacanti", "istevenep", "pier", "Richmond", "lucatambu", "Costanzo", "maurodani76", "PeterZ", "Modesto") and len(set(thanks.NAMES)) == N and "Roberto C." in thanks.NAMES and "Deborah" in thanks.NAMES
       and not any("cappellero" in n.lower() for n in thanks.NAMES) and thanks.NAMES[0] == "Stefano Modena")
 it = thanks.endless()
 seq = [next(it) for _ in range(N * 6)]
@@ -854,8 +854,9 @@ def slack(rows_):
 sl_ = slack(rr)
 check("H 0.20.7 righe fitte, senza grandi spazi vuoti fra un nome e l'altro (spazio in più al massimo il 20% della riga)",
       sl_ and max(sl_) <= 0.20, [round(f, 2) for f in sl_])
-check("H 0.20.7 le ripetizioni ci sono: l'elenco ricomincia più volte",
-      sum(len(r.names()) for r in rr) >= 2 * len(thanks.NAMES), sum(len(r.names()) for r in rr))
+# 0.23.5: con 32 nomi le 12 righe ne tengono meno di due giri interi: le ripetizioni vanno bene, non sono obbligatorie
+check("H 0.20.7 le ripetizioni ci sono: l'elenco ricomincia almeno una volta (trama piena)",
+      sum(len(r.names()) for r in rr) > len(thanks.NAMES), sum(len(r.names()) for r in rr))
 rn = splash.name_rows(stretch=NORM)
 sizes_ = [r.px for r in rn]
 # 0.20.7: conta prima che le righe siano piene (richiesta di Ale): due righe vicine possono avere la stessa grandezza

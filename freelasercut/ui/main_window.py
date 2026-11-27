@@ -190,6 +190,9 @@ class MainWindow(QMainWindow):
         from .plates import PlateOverview
 
         self.plate_overview = PlateOverview(self)  # tutti i piani affiancati (si apre dalle linguette)
+        from .notes_tab import NotesTab
+
+        self.notes_tab = NotesTab(self)  # 0.23.5: linguetta «Note» in basso a destra del piano (Costanzo)
         cv.addWidget(self.canvas, 1)
         self.setCentralWidget(central)
 
@@ -322,6 +325,9 @@ class MainWindow(QMainWindow):
                             tr("Come «Importa», ma il disegno entra girato di un quarto di giro: per i file disegnati "
                                "nell'altro verso (per esempio in verticale, se il tuo piano è mostrato ruotato)")),
             "export": A(tr("Esporta SVG…"), self.file_export, "Ctrl+Shift+E", "export"),
+            # 0.23.5 (Modesto): anche in DXF, per i programmi CAD
+            "export_dxf": A(tr("Esporta DXF…"), self.file_export_dxf, None, "export",
+                            tr("Salva il disegno come DXF, da aprire nei programmi CAD: un layer per ogni livello")),
             "save_gcode": A(tr("Salva G-code…"), self.save_gcode, "Ctrl+Shift+G", "gcode"),
             "run_file": A(tr("Esegui un file G-code…"), self.run_gcode_file, None, "open"),
             "quit": A(tr("Esci"), self.close, "Ctrl+Q"),
@@ -761,7 +767,7 @@ class MainWindow(QMainWindow):
                     m.addAction(a[k])
             return m
 
-        self.m_file = menu(tr("&File"), ["new", "open", "new_window", "open_in_window", "-", "save", "save_as", "gallery_share", "gallery_open", "-", "import", "import_rot", "export", "-", "save_gcode",
+        self.m_file = menu(tr("&File"), ["new", "open", "new_window", "open_in_window", "-", "save", "save_as", "gallery_share", "gallery_open", "-", "import", "import_rot", "export", "export_dxf", "-", "save_gcode",
                                      "run_file", "-", "quit"])
         self.m_recent = QMenu(tr("File recenti"), self)
         self.m_file.insertMenu(a["save"], self.m_recent)
@@ -2163,6 +2169,33 @@ class MainWindow(QMainWindow):
             self.qs.value("last_dir", os.path.expanduser("~")), name + ".svg"), tr("SVG (*.svg)"))
         if path:
             io_formats.export_svg(shapes, self.editor.doc, path)
+            self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)
+
+    def file_export_dxf(self, *_, path=None):
+        """0.23.5: File → Esporta DXF (le forme selezionate, o tutte). Le foto nel DXF non ci vanno: si avvisa."""
+        shapes = self.editor.selection or self.editor.doc.shapes
+        if not shapes:
+            return
+        if all(isinstance(leaf, ImageShape) for s in shapes for leaf, _tf in s.leaves()):
+            QMessageBox.information(self, tr("Esporta DXF"), tr(
+                "Il DXF contiene solo linee e forme, non le foto. Per salvare le foto usa «Esporta SVG»."))
+            return
+        if path is None:
+            name = self.project_stem() or "disegno"
+            path, _ = QFileDialog.getSaveFileName(self, tr("Esporta DXF"), os.path.join(
+                self.qs.value("last_dir", os.path.expanduser("~")), name + ".dxf"), tr("DXF (*.dxf)"))
+        if not path:
+            return
+        if not path.lower().endswith(".dxf"):
+            path += ".dxf"
+        try:
+            _n, photos = io_formats.export_dxf(shapes, self.editor.doc, path)
+        except Exception as ex:  # noqa: BLE001  disco pieno, cartella protetta…
+            QMessageBox.warning(self, tr("Esporta DXF"), tr("Non riesco a salvare il file:\n{0}", ex))
+            return
+        if photos:
+            self.statusBar().showMessage(tr("Esportato: {0} · le foto non vanno nel DXF ({1} saltate)", path, photos), 8000)
+        else:
             self.statusBar().showMessage(tr("Esportato: {0}", path), 4000)
 
     def autosave(self):
@@ -4665,13 +4698,21 @@ class MainWindow(QMainWindow):
         ctl.request_settings()
         QTimer.singleShot(wait_ms, lambda: finish(False))
 
-    def _run(self, lines, plate=None):
-        """plate: uid del piano di lavoro da cui viene il lavoro (None: G-code esterno, prove)."""
+    def _run(self, lines, plate=None, preview=None):
+        """plate: uid del piano di lavoro da cui viene il lavoro (None: G-code esterno, prove).
+        preview: stima delle stesse righe (gcode_preview.parse); se manca si usa quella del lavoro preparato, quando
+        le righe sono proprio le sue (0.23.5: tempo che manca pesato riga per riga)."""
         self._job_plate = plate
         self.canvas.clear_trail()
         self.canvas.set_job_overlay(True)  # 0.20.7: si parte dal piano che si sta guardando
         self.laser.start_progress("job")
         self.ctl.stream_job(lines)
+        if preview is None:
+            job = getattr(self, "job", None)
+            if job is not None and getattr(job, "lines", None) is lines:
+                preview = getattr(job, "preview", None)
+        if preview is not None:
+            self.ctl.set_job_estimate(preview)
         self.laser.update_running()
         self.plate_bar.job_started()
         self._job_save_start(plate)
@@ -5203,7 +5244,7 @@ class MainWindow(QMainWindow):
         r = QMessageBox.question(self, tr("Esegui file G-code"), tr("{0}\n{1} righe · tempo stimato {2}\n\nOcchiali indossati, materiale fissato e a fuoco?\nAvvio?", os.path.basename(path), len(lines), _hms(pv.seconds))
                                  + (("\n\n" + plane_note) if plane_note else ""))
         if r == QMessageBox.Yes:
-            self._run(lines)
+            self._run(lines, preview=pv)
         return lines
 
     def _plane_gcode(self, lines, name):

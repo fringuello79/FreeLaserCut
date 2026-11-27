@@ -645,6 +645,12 @@ def clip_selection(shapes):
         # (che può essere più largo, con lo scostamento) né altro aggiunto al gruppo
         outl = [(leaf, tf) for leaf, tf in others if outline_layer(leaf) is not None]
         others = outl or others
+    elif len(shapes) > 1 and any(is_clip_group(s) for s in shapes):
+        # 0.23.5 (rapporto 3536, Daniel Z.): foto già ritagliata (per esempio da Prepara foto con una forma) + una forma
+        # nuova: vale solo la forma nuova. Prima la sagoma di prima contava insieme alla nuova e, sommate, la foto
+        # restava com'era («rimane tutto»)
+        old = {id(leaf) for s in shapes if is_clip_group(s) for leaf, _ in s.leaves()}
+        others = [(leaf, tf) for leaf, tf in others if id(leaf) not in old]
     if len(imgs) != 1 or not others:
         return None, None, [], tr("Ritaglia la foto con la forma: seleziona una foto sola e la forma chiusa che le sta "
                                   "sopra (cuore, stella, testo…)")

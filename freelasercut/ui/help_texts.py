@@ -83,9 +83,14 @@ HELP = {
     "kb_step_3": (tr("Passo del jog: {0:g} mm", 10), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
     "kb_step_4": (tr("Passo del jog: {0:g} mm", 50), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
     "kb_step_5": (tr("Passo del jog: {0:g} mm", 100), tr("Sceglie il passo delle frecce e della tastiera, anche nella finestra Stampa e taglia."), None),
-    "crop_shape": (tr("Ritaglia con la forma"), tr("Seleziona i disegni da ritagliare e, sopra a tutti, una forma chiusa: di ogni disegno resta solo la parte dentro la forma, e la forma sparisce. Sui livelli Linea restano solo i tratti dentro; sui riempimenti le forme restano chiuse e il bordo del ritaglio diventa un loro lato. Le foto non si toccano: per quelle c'è «Ritaglia la foto con la forma». Ctrl+Z rimette tutto com'era."), None),
+    "crop_shape": (tr("Ritaglia con la forma"), tr("Seleziona i disegni da ritagliare e, sopra a tutti, una forma chiusa: di ogni disegno resta solo la parte dentro la forma, e la forma sparisce. Sui livelli Linea restano solo i tratti dentro; sui riempimenti le forme restano chiuse e il bordo del ritaglio diventa un loro lato. Con una foto e una forma sola ritaglia la foto, come «Ritaglia la foto con la forma»; in mezzo ai disegni le foto non si toccano. Ctrl+Z rimette tutto com'era."), None),
     "crop_bed": (tr("Ritaglia al piano"), tr("Toglie le parti dei disegni che escono dal piano di lavoro: quelle selezionate, o tutte se non c'è niente selezionato. Quello che è già tutto dentro resta identico."), None),
-    "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape, Illustrator o altri programmi."), None),
+    "export": (tr("Esporta SVG"), tr("Salva il disegno come SVG, da aprire in Inkscape o in altri programmi di disegno."), None),
+    "export_dxf": (tr("Esporta DXF"), tr("Salva il disegno come DXF, in millimetri e con le coordinate del piano, da aprire "
+                   "nei programmi CAD. Ogni livello diventa un layer del DXF con il suo colore; le curve restano curve "
+                   "(spline), i tratti dritti diventano polilinee. Si esportano le forme selezionate, o tutte se non c'è "
+                   "niente selezionato. Le foto nel DXF non ci vanno: per quelle usa «Esporta SVG». Il formato DWG non "
+                   "c'è perché è chiuso, ma i programmi CAD aprono il DXF."), None),
     "save_gcode": (tr("Salva G-code"), tr("Scrive il lavoro in un file G-code (.gcode/.nc) da eseguire dopo o su un'altra macchina."), None),
     "run_file": (tr("Esegui un file G-code"), tr("Invia alla macchina un file G-code già pronto, con anteprima e verifica."), None),
     "quit": (tr("Esci"), tr("Chiude FreeLaserCut. Se c'è un lavoro in corso chiede conferma."), None),
@@ -278,6 +283,12 @@ HELP = {
                      "doppio clic sulla sua scheda."), None),
     "plate_delete": (tr("Elimina il piano"), tr("Toglie il piano attivo con i suoi oggetti (chiede conferma; non si "
                      "può annullare). Il piano che il laser sta incidendo non si elimina."), None),
+    "project_notes": (tr("Note del progetto"), tr("La linguetta «Note» in basso a destra del piano apre un foglietto per "
+                      "scrivere appunti su questo progetto (materiale, impostazioni, per chi è). Si salvano con il "
+                      "progetto e non vengono mai incise. «Note ●» quando c'è scritto qualcosa; passando il mouse "
+                      "sulla linguetta si leggono le prime righe."),
+                      [(tr("Chiudere"), tr("di nuovo clic sulla linguetta, oppure Esc")),
+                       (tr("Galleria"), tr("le note non vengono pubblicate"))]),
     "plate_overview": (tr("Vista d'insieme dei piani"), tr("Mostra tutti i piani di lavoro affiancati, nell'ordine "
                        "(Piano 1, Piano 2…), ognuno con il suo piano, il nome, il numero di oggetti e, se è in "
                        "incisione, l'avanzamento e il punto in cui passa il laser. Serve per guardarli insieme: rotella "

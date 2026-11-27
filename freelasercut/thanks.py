@@ -36,6 +36,11 @@ NAMES = (
     "istevenep",  # 0.22.5: pacchetto per i Mac Intel con macOS 13 Ventura (pull request #29)
     "pier",  # 0.22.6: rapporto 08D5 (verifica del G-code con la Ortur, GrblHAL)
     "Richmond",  # 0.23.4: livelli dei progetti nuovi (gruppo WhatsApp, Ale 26/11)
+    "lucatambu",  # 0.23.5: rapporto 9917 (Creality Falcon A1 Pro in Wi-Fi)
+    "Costanzo",  # 0.23.5: note del progetto
+    "maurodani76",  # 0.23.5: macro (issue #25), pannello Strati su Ubuntu, PNG trasparenti
+    "PeterZ",  # 0.23.5: traduzione tedesca
+    "Modesto",  # 0.23.5: esportazione DXF
 )
 # 0.22.2 (Ale, 22/11): i co-sviluppatori. L'UNICO posto in cui stanno; li mostrano Aiuto → Informazioni, la targa dei
 # ringraziamenti, il README e il sito (una prova controlla che siano gli stessi). Restano anche nell'elenco qui sopra.

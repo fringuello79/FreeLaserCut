@@ -329,6 +329,8 @@ QToolButton#plateGhosts:checked, QToolButton#plateOverviewBtn:checked {{ backgro
         if hasattr(self.win, "_plates_menu_state"):
             self.win._plates_menu_state()
         self.place()
+        if getattr(self.win, "notes_tab", None) is not None:  # 0.23.5: la linguetta delle note sparisce con la vista
+            self.win.notes_tab.place()
 
     def new_plate(self):
         self.win.editor.add_plate()

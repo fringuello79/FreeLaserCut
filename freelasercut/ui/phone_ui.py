@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout
 from .. import phone
 from ..camera import PHONE_CAMERA, SIM_CAMERA
 from ..i18n import tr
+from ..job_clock import round_left
 from ..theme import css
 
 
@@ -230,7 +231,9 @@ class PhoneControl(QObject):
         src = getattr(getattr(self.win, "camera", None), "src", None)
         cam = src is not None and getattr(src, "index", None) not in (SIM_CAMERA, PHONE_CAMERA)
         elapsed = time.time() - self.job_t0 if active and self.job_t0 else 0.0
-        left = elapsed * (total - done) / done if active and done > 20 and total else None
+        # 0.23.5: tempo che manca pesato riga per riga, senza le pause, levigato (job_clock.py)
+        left = getattr(ctl, "job_time_left", lambda: None)() if active else None
+        left = round_left(left) if left is not None else None
         detail = tr("Stato della scheda: {0}", st) if ctl.connected and st else ""
         if active and fire == "attiva":
             detail += ("  ·  " if detail else "") + tr("guardia fiamme attiva")

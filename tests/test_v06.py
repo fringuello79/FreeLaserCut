@@ -23,7 +23,7 @@ def check(name, cond, info=""):
 
 
 # ------------------------------------------------------------ meccanismo
-check("lingue disponibili", list(i18n.LANGUAGES) == ["en", "it", "es", "fr", "pt"])
+check("lingue disponibili", list(i18n.LANGUAGES) == ["en", "it", "es", "fr", "pt", "de"])  # 0.23.5: tedesco
 i18n.set_language("it")
 check("italiano = testo originale", i18n.tr("Apri…") == "Apri…" and i18n.tr("Porta {0}", "COM3") == "Porta COM3")
 i18n.set_language("en")
@@ -41,12 +41,12 @@ src = set()
 pkg = os.path.join(ROOT, "freelasercut")
 for root, _, fs in os.walk(pkg):
     for f in fs:
-        if f.endswith(".py") and not f == "help_texts.py":
+        if f.endswith(".py"):  # 0.23.5: anche le schede d'aiuto (help_texts.py), tradotte in tutte le lingue
             for n in ast.walk(ast.parse(open(os.path.join(root, f), encoding="utf-8").read())):
                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "tr" and n.args \
                         and isinstance(n.args[0], ast.Constant):
                     src.add(n.args[0].value)
-for lang in ("en", "es", "fr", "pt"):
+for lang in [l for l in i18n.LANGUAGES if l != i18n.SOURCE]:  # 0.23.5: tutte le lingue, tedesco compreso
     cat = json.load(open(os.path.join(pkg, "locale", f"{lang}.json"), encoding="utf-8"))
     i18n.set_language(lang)
     missing = [s for s in src if s not in cat and (any(c.isalpha() and c.islower() for c in s)
@@ -76,7 +76,7 @@ print("FINE")
 sys.stdout.flush()
 os._exit(0)
 """
-for lang, first_menu in (("en", "&File"), ("it", "&File"), ("es", None), ("fr", None), ("pt", None)):
+for lang in i18n.LANGUAGES:
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", APPDATA=tempfile.mkdtemp(prefix="flc_test_"), PYTHONUTF8="1")
     r = subprocess.run([sys.executable, "-c", code, ROOT, lang], capture_output=True, text=True, encoding="utf-8",
                        errors="replace", env=env, timeout=240)
@@ -84,7 +84,7 @@ for lang, first_menu in (("en", "&File"), ("it", "&File"), ("es", None), ("fr", 
     # su Windows (server di GitHub) os._exit a volte termina con 0xC0000005 dopo che tutto è stato scritto:
     # conta che la finestra si sia aperta con i menu nella lingua giusta
     done = r.returncode == 0 or (sys.platform == "win32" and "SOSTIENI" in out)
-    ok = done and "MENU" in out and len(out.get("LINGUE", "").split("|")) == 5
+    ok = done and "MENU" in out and len(out.get("LINGUE", "").split("|")) == len(i18n.LANGUAGES)
     if ok and lang != "it":
         ok = out["MENU"] != "&File|&Modifica|&Disponi|&Visualizza|&Laser|&Strumenti|&Aiuto"
     check(f"finestra in {lang}", ok, out.get("MENU", "") + " · " + out.get("SOSTIENI", "") +

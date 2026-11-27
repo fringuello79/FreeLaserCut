@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from freelasercut.i18n import tr  # noqa: E402
 from freelasercut import fontscale  # noqa: E402
 from .. import units
+from ..job_clock import round_left
 from .. import heartbeat
 
 from . import style
@@ -1507,10 +1508,16 @@ class Cockpit:
         where = doc.plate_name(i) + " · " if i is not None and len(doc.plates) > 1 else ""  # quale piano di lavoro
         self.detail.setText(where + tr("{0:.0f}% · riga {1} di {2}", pct, done, total))
         self._place_top(self.win.canvas)
-        if done:
-            el = time.time() - self._t0
-            rest = el / done * (total - done)
-            self.left.setText(_hms(rest))
+        self.tick()
+
+    def tick(self):
+        """0.23.5 (Deborah K.): tempo che manca dal controllo (pesato riga per riga, senza le pause, che scende piano
+        invece di saltare); lo chiamano le righe confermate e i report di stato."""
+        if not self._t0:
+            return
+        rest = self.win.ctl.job_time_left() if self.win.ctl.job_active else None
+        if rest is not None:
+            self.left.setText(_hms(round_left(rest)))
             self.eta.setText(tr("finisce verso le {0}", time.strftime("%H:%M", time.localtime(time.time() + rest))))
         self.lines.setText(tr("trascorso {0}", _hms(time.time() - self._t0)))
 
@@ -1854,6 +1861,8 @@ class Banco(QObject):
         from .main_window import STATE_IT
 
         ctl = self.win.ctl
+        if self.cockpit_on and ctl.job_active:  # 0.23.5: il tempo che manca scende anche fra una riga e l'altra
+            self.cockpit.tick()
         if not ctl.connected:
             self.pill.setText(tr("○  Laser non connesso"))
             self.pill.setStyleSheet(css("QPushButton#bcPill { background: #161B26; border: 1px solid #2A3550; color: #C9D3E6; }"))
@@ -2016,6 +2025,8 @@ class Banco(QObject):
         cv.fit_insets = (rail_w + 24, 0, (OFF_W if drawer else right_w) + 24, 110)
         if getattr(self.win, "plate_bar", None) is not None:
             QTimer.singleShot(0, self.win.plate_bar, self.win.plate_bar.place)  # linguette dei piani fuori dai pannelli
+        if getattr(self.win, "notes_tab", None) is not None:  # 0.23.5: anche la linguetta delle note
+            QTimer.singleShot(0, self.win.notes_tab, self.win.notes_tab.place)
         if not getattr(cv, "_user_zoomed", False):
             cv.fit_bed()
         if self.cockpit_on:

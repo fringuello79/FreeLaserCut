@@ -636,6 +636,7 @@ class Editor(QObject):
                                  "riprova"))
             return False
         again = len(sel) == 1 and ops.is_clip_group(sel[0])
+        old_groups = [] if again else [s for s in sel if ops.is_clip_group(s)]
 
         def do():
             if again:
@@ -643,10 +644,39 @@ class Editor(QObject):
                 img.invalidate()
                 self.selection = [sel[0]]
                 return
-            self.clip_into_group(sel, img, outl, pieces)
+            group_sel = sel
+            if old_groups:  # 0.23.5: foto già ritagliata + forma nuova: il ritaglio di prima si scioglie
+                freed = self._open_clip_groups(old_groups)
+                group_sel = ([k for k in freed if any(leaf is img for leaf, _ in k.leaves())]
+                             + [s for s in sel if s not in old_groups])
+            self.clip_into_group(group_sel, img, outl, pieces)
         self.run(tr("Ritaglia la foto con la forma"), do)
         self.selection_changed.emit()
         return True
+
+    def _open_clip_groups(self, groups):
+        """0.23.5: scioglie i gruppi «foto ritagliata» prima di un ritaglio con una forma nuova (dentro un'azione già
+        aperta). La sagoma messa da Prepara foto sparisce (la sostituisce la forma nuova); una sagoma disegnata dalla
+        persona torna sul suo livello, come con «Togli il ritaglio». -> le forme rimaste sul piano."""
+        out = []
+        for g in groups:
+            idx = self.doc.shapes.index(g)
+            keep = []
+            for k in ops.ungroup(g):
+                if not isinstance(k, GroupShape) and ops.is_form_outline(k):
+                    continue
+                for leaf, _ in k.leaves():
+                    lay = ops.outline_layer(leaf)
+                    if lay is not None:
+                        leaf.layer, leaf.role = lay, ""
+                        leaf.invalidate()
+                        self.doc.layer(lay)
+                if isinstance(k, GroupShape) and k.children:
+                    k.layer = k.children[0].layer
+                keep.append(k)
+            self.doc.shapes[idx:idx + 1] = keep
+            out += keep
+        return out
 
     def clip_into_group(self, sel, img, outl, pieces):
         """La foto ritagliata con le sagome `outl` e il gruppo del ritaglio (dentro un'azione già aperta: clip_photo e,
@@ -804,7 +834,14 @@ class Editor(QObject):
     # ------------------------------------------------------------------ 0.21.0: ritaglio dei vettori
     def crop_with_shape(self):
         """«Ritaglia con la forma»: la forma chiusa più in alto fra quelle selezionate ritaglia le altre e sparisce."""
-        sel = [s for s in self.editable() if not isinstance(s, ImageShape)]
+        every = self.editable()
+        photos = [leaf for s in every for leaf, _ in s.leaves() if isinstance(leaf, ImageShape) and not leaf.hidden]
+        drawings = [s for s in every if not isinstance(s, ImageShape) and not ops.is_clip_group(s)]
+        if len(every) == 2 and len(photos) == 1 and len(drawings) == 1:
+            # 0.23.5: una foto e una forma sola: è il ritaglio della foto («Ritaglia la foto con la forma»). Prima
+            # qui non succedeva niente, perché questo comando le foto non le tocca
+            return [self.selection[0]] if self.clip_photo() else None
+        sel = [s for s in every if not isinstance(s, ImageShape)]
         if len(sel) < 2:
             self.message.emit(tr("Ritaglia con la forma: seleziona i disegni da ritagliare e, sopra, la forma chiusa "
                                  "che fa da ritaglio"))

@@ -644,7 +644,11 @@ class SetupWizard(QDialog):
         sia il verso degli assi: una freccia verso il finecorsa non è una prova (la testa non si muove, o scatta
         l'allarme) e ha portato a «correggere» un asse giusto."""
         ctl, p = self.main.ctl, self.main.profile
-        if not ctl.homed or not self._same_model() or not d:
+        # 0.23.5 (rapporto 4A62, Falcon A1): basta un homing fatto da quando la porta è aperta. Il Falcon si riavvia da
+        # solo (coperchio, a volte durante uno spostamento) e ogni riavvio azzerava «homed": la freccia ← partiva dal
+        # bordo sinistro, la scheda andava in allarme e l'asse X sembrava al contrario. Le coordinate restano quelle
+        # dell'homing; al peggio si blocca una freccia vicino allo 0 e si usa quella opposta.
+        if not (ctl.homed or getattr(ctl, "homed_once", False)) or not self._same_model() or not d:
             return False
         mpos = ctl.last_status.get("MPos")
         hm = p.home_machine()
@@ -758,6 +762,7 @@ class SetupWizard(QDialog):
             return
         self._apply_sign()
         self._last_axis = 0 if dx else 1
+        self._jog_start = self._edge_start(self._last_axis, dx or dy)  # 0.23.5: per spiegare un allarme al bordo
         self.main.ctl.jog(dx, dy, JOG_FEED)
         # 0.23.0: non vale ancora come prova: serve la risposta (Sì / No)
         self._pending = self._last_axis
@@ -780,6 +785,20 @@ class SetupWizard(QDialog):
         else:
             self.fix(axis)
 
+    def _edge_start(self, axis, d):
+        """0.23.5: la freccia appena premuta parte con la testa sullo 0 della macchina (entro 1 mm) e va verso il
+        meno? Con le coordinate positive lì c'è il finecorsa dell'homing: un allarme subito dopo vuol dire che la testa
+        ha toccato il bordo, non che l'asse è al contrario (rapporto 4A62: «devo invertire l'asse X»)."""
+        ctl, p = self.main.ctl, self.main.profile
+        mpos = ctl.last_status.get("MPos")
+        if p.negative_space or not mpos or len(mpos) <= axis:
+            return False
+        md = d * (-1.0 if self.inv[axis] else 1.0)
+        try:
+            return md < 0 and abs(float(mpos[axis])) <= 1.0
+        except (TypeError, ValueError):
+            return False
+
     def _jog_broken(self, *_args):
         """0.23.0: allarme o riavvio della scheda con una freccia in attesa di risposta: non è una prova."""
         if self.stack.currentIndex() != 2 or self._pending is None:
@@ -787,6 +806,12 @@ class SetupWizard(QDialog):
         self._pending = None
         self.confirm_box.setVisible(False)
         self.b_home.setVisible(True)
+        if getattr(self, "_jog_start", False):
+            self._jog_start = False
+            return self.arrows_lab.setText(tr(
+                "La scheda si è fermata appena la testa è partita dallo 0 verso il bordo: di solito vuol dire che era "
+                "già contro il finecorsa dell'homing. <b>Non vuol dire che l'asse è al contrario.</b> Fai l'<b>Homing</b>, "
+                "poi usa la freccia opposta, che allontana la testa dal bordo."))
         self.arrows_lab.setText(tr("La scheda si è fermata durante lo spostamento (allarme o riavvio): la testa non ha "
                                    "fatto il passo intero, quindi non vale come prova. Su alcune macchine succede quando "
                                    "la testa tocca un finecorsa: fai l'<b>Homing</b>, poi usa la freccia che la "

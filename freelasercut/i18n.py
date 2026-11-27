@@ -17,6 +17,7 @@ LANGUAGES = {  # codice: nome nella propria lingua
     "es": "Español",
     "fr": "Français",
     "pt": "Português",
+    "de": "Deutsch",  # 0.23.5 (traduzione di PeterZ)
 }
 DEFAULT = "en"
 QT_FILES = {"pt": "pt_BR"}  # Qt ha solo il portoghese brasiliano per i pulsanti standard

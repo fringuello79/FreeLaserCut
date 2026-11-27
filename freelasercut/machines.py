@@ -51,7 +51,8 @@ VENDORS = (
     ("Sculpfun", ("SCULPFUN",)),
     ("Atomstack", ("ATOMSTACK",)),
     ("Two Trees", ("TWOTREES", "TWO TREES")),
-    ("Creality", ("CREALITY", "CV40-MASTER", "CV40PRO", "CV40MINI", "FALCON A1")),  # CV40 = Falcon A1 ($I)
+    # CV40 = Falcon A1 ($I); 0.23.5 (rapporto 9917): il Falcon A1 Pro (grblHAL) scrive «[BOARD:A1 Pro Laser Master]»
+    ("Creality", ("CREALITY", "CV40-MASTER", "CV40PRO", "CV40MINI", "FALCON A1", "A1 PRO LASER MASTER")),
     ("NEJE", ("NEJE",)),
     ("Comgrow", ("COMGROW",)),
     ("Acmer", ("ACMER",)),
@@ -696,6 +697,14 @@ def identify(banner=(), info=(), settings=None, port=None, baud=115200):
         if bx and by and not any(abs(bx - a) <= 2 and abs(by - b) <= 2 for a, b in ((400, 320), (320, 400))):
             ident.notes.append(("warn", tr("La scheda dice {0:g} × {1:g} mm di area di lavoro, la E1 di fabbrica "
                                            "400 × 320: controlla $130 e $131 nella scheda Macchina.", bx, by)))
+    # 0.23.5 (rapporto 9917, Falcon A1 Pro 20W, firmware grblHAL v1.0.4): in $I c'è «[BOARD:A1 Pro Laser Master]» e
+    # l'area della scheda è 363 × 273 ($130/$131, un po' più del piano di targa 358 × 268): il modello si sceglie dalla
+    # scheda, non dall'area. In Wi-Fi questa macchina non parla GRBL (vedi wifi_setup.creality_net)
+    if not ident.model and "A1 PRO LASER MASTER" in up:
+        ident.vendor = "Creality"
+        ident.model = "Creality Falcon A1 Pro 20W"
+        ident.notes.append(("info", tr("Creality Falcon A1 Pro riconosciuto dalla scheda. Con FreeLaserCut si usa con "
+                                       "il cavo USB: in Wi-Fi questa macchina usa un sistema suo di Creality.")))
     # 0.22.4: scheda Atomstack che non dice la marca (vedi ATOM_400)
     by_firmware = False
     if (not ident.vendor and not ident.model and bx and by and abs(bx - 400) <= 2 and abs(by - 400) <= 2

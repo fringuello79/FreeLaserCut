@@ -133,7 +133,7 @@ def router_guide():
 
 
 # i passi in cui la procedura è arrivata in fondo, bene o male: lì si salva il registro (0.19.0)
-END_STATES = ("ok", "failed", "not_tried", "not_found", "unknown", "no_port", "other_subnet", "find_none", "mute", "serial_lost",
+END_STATES = ("creality", "ok", "failed", "not_tried", "not_found", "unknown", "no_port", "other_subnet", "find_none", "mute", "serial_lost",
               "E2_fail", "off_done")
 NOT_TRIED_S = 5.0  # la rete propria ripartita entro tanti secondi dal riavvio, senza «Connecting»: non ha provato
 
@@ -330,11 +330,28 @@ class WifiWizard(QDialog):
             return self._page(tr("Sei collegato al simulatore"),
                               tr("Il simulatore non ha un Wi-Fi da impostare: serve un laser vero. Scollega il "
                                  "simulatore, collega il laser con il cavo USB e riapri questa finestra."), btn)
+        if self._creality_net():
+            return self._case_creality()
         if ctl.connected and netport.is_net(ctl.port or ""):
             return self._case_a()
         if ctl.connected:
             return self._probe()
         return self._case_e()
+
+    def _creality_net(self):
+        """0.23.5: Falcon A1 Pro, A1C o T1 (dalla scheda collegata o dal modello del profilo): in Wi-Fi non parlano GRBL."""
+        info = self.info() if self.ctl.connected else ()
+        return wifi_setup.creality_net(info, getattr(self.main.profile, "model", ""))
+
+    def _case_creality(self):
+        self._set("creality")
+        self._page(tr("Questo laser in Wi-Fi usa il sistema di Creality"),
+                   tr("I Creality Falcon A1 Pro, A1C e T1 in Wi-Fi si comandano solo con il programma di Creality, "
+                      "che usa un collegamento tutto suo. FreeLaserCut, come gli altri programmi per laser GRBL, per "
+                      "ora non lo sa usare: per questo «Trova il laser in rete» non lo trova.<br><br>"
+                      "<b>Con il cavo USB funziona:</b> collegalo, premi <i>Connetti</i> e scegli la porta del laser. "
+                      "Con il cavo funziona anche la telecamera della macchina."),
+                   [self._close_btn()])
 
     def _unlock(self):
         self.ctl.unlock()
@@ -1186,6 +1203,9 @@ class WifiWizard(QDialog):
                          "passaggio <b>serve il cavo USB</b>.")
             if not self.ctl.connected:
                 btn.append(("cable", tr("Uso il cavo USB"), self._e1))
+            # 0.23.5 (rapporto 9917): chi ha un Falcon A1 Pro, A1C o T1 lo cerca qui e non lo trova mai
+            txt += "<br><br>" + tr("Se è un Creality Falcon A1 Pro, A1C o T1: in Wi-Fi usa un sistema suo di "
+                                   "Creality e FreeLaserCut non lo può trovare. Usalo con il cavo USB.")
             return self._page(tr("Nessun laser trovato"), txt, btn)
         self._set("find_many")
         self.choice.clear()

@@ -191,6 +191,21 @@ def is_lgt(info_lines):
     return "LGT" in up or "LS_ESP32" in up
 
 
+# 0.23.5 (rapporto 9917): i Creality Falcon A1 Pro (scheda «A1 Pro Laser Master», firmware CV40Pro), A1C (CV40mini) e
+# T1 (CV60) in Wi-Fi non aprono una porta GRBL (telnet): il programma di Creality li comanda con i WebSocket. Fonte: lo
+# staff di LightBurn sul suo forum, 12/01/2026: «LightBurn supports WiFi connection over Telnet… the A1 Pro doesn't offer
+# this option (yet). Falcon Design Space uses WebSockets» (forum.lightburnsoftware.com/t/186657). Con il cavo USB invece
+# sono GRBL normali. Per questi «Trova il laser in rete» non può trovare niente: va detto subito.
+CREALITY_NET_BOARD = ("A1 PRO LASER MASTER", "CV40PRO", "CV40MINI", "CV60")
+CREALITY_NET_MODELS = ("FALCON A1 PRO", "FALCON A1C", "FALCON T1")
+
+
+def creality_net(info_lines=(), model=""):
+    """-> True se è un Creality che in Wi-Fi non parla GRBL (vedi CREALITY_NET_BOARD), dalla scheda o dal modello."""
+    up = " ".join(str(l) for l in info_lines or ()).upper()
+    return any(t in up for t in CREALITY_NET_BOARD) or any(t in str(model or "").upper() for t in CREALITY_NET_MODELS)
+
+
 def is_mks_like(info_lines):
     up = " ".join(str(l) for l in info_lines or ()).upper()
     return any(t in up for t in ("LGT", "LS_ESP32", "MKS", "DLC32"))

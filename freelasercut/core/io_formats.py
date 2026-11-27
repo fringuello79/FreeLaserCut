@@ -1,5 +1,5 @@
 # FreeLaserCut — © 2026 fringuello79 — GPL-3.0-or-later
-"""Importazione ed esportazione: SVG, DXF, immagini raster; esportazione SVG.
+"""Importazione ed esportazione: SVG, DXF, immagini raster; esportazione SVG e DXF (0.23.5).
 
 Le forme importate tornano con l'ingombro che parte da (0,0): l'editor le posiziona
 (centro della vista o posizione originale). I colori di linea/riempimento scelgono il
@@ -677,3 +677,133 @@ def export_svg(shapes, doc, path, bed=None):
     out.append("</svg>")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(out))
+
+
+# ======================================================================= esportazione DXF
+# 0.23.5 (Modesto): i disegni si salvano anche in DXF, da aprire nei programmi CAD. Millimetri, coordinate del piano
+# (l'asse Y verso l'alto, come nel DXF), un layer DXF per ogni livello con il suo colore vero (più il colore numerato
+# più vicino, per i programmi vecchi). Ogni tratto diventa una polilinea se ha solo segmenti dritti, una spline se ha
+# curve (le curve restano esatte, non spezzettate). Le foto non hanno un equivalente nel DXF: si saltano e si contano.
+_DXF_BAD = re.compile(r'[<>/\\":;?*|=`]')
+
+
+def _dxf_layer_name(doc, idx):
+    base = f"C{idx:02d}"
+    cs = getattr(doc, "layers", {}).get(idx) if doc is not None else None
+    name = (getattr(cs, "name", "") or "").strip()
+    if name and name != base:
+        base += " " + name
+    return _DXF_BAD.sub("_", base)[:200]
+
+
+def _nearest_aci(rgb):
+    from ezdxf.colors import aci2rgb
+
+    best, bd = 1, math.inf
+    for n in range(1, 256):
+        if n == 7:
+            continue
+        c = aci2rgb(n)
+        d = sum((a - b) ** 2 for a, b in zip(rgb, c))
+        if d < bd:
+            best, bd = n, d
+    return best
+
+
+def _qpath_subpaths(qp):
+    """QPainterPath -> lista di tratti; ogni tratto è (punto iniziale, [("L", p) | ("C", c1, c2, p)])."""
+    out = []
+    cur = None
+    i, n = 0, qp.elementCount()
+    while i < n:
+        e = qp.elementAt(i)
+        t = e.type
+        if t == QPainterPath.ElementType.MoveToElement:
+            cur = ((e.x, e.y), [])
+            out.append(cur)
+            i += 1
+        elif t == QPainterPath.ElementType.LineToElement:
+            if cur is None:
+                cur = ((e.x, e.y), [])
+                out.append(cur)
+            else:
+                cur[1].append(("L", (e.x, e.y)))
+            i += 1
+        elif t == QPainterPath.ElementType.CurveToElement and i + 2 < n:
+            e2, e3 = qp.elementAt(i + 1), qp.elementAt(i + 2)
+            if cur is None:
+                cur = ((e.x, e.y), [])
+                out.append(cur)
+            cur[1].append(("C", (e.x, e.y), (e2.x, e2.y), (e3.x, e3.y)))
+            i += 3
+        else:
+            i += 1
+    return out
+
+
+def export_dxf(shapes, doc, path):
+    """Scrive le forme in un file DXF (R2010, millimetri). -> (tratti scritti, foto saltate)."""
+    import ezdxf
+    from ezdxf.math import Bezier4P, Vec3, bezier_to_bspline
+
+    dwg = ezdxf.new("R2010", setup=False)
+    dwg.header["$INSUNITS"] = 4  # millimetri
+    dwg.header["$MEASUREMENT"] = 1
+    msp = dwg.modelspace()
+    made = {}
+
+    def layer_for(idx):
+        if idx not in made:
+            name = _dxf_layer_name(doc, idx)
+            rgb = _hex_to_rgb(LAYER_COLORS[idx % len(LAYER_COLORS)])
+            if name in dwg.layers:
+                name = f"{name} {idx}"
+            lay = dwg.layers.add(name)
+            lay.color = _nearest_aci(rgb)
+            lay.rgb = rgb
+            made[idx] = name
+        return made[idx]
+
+    n_ent = n_img = 0
+    eps = 1e-6
+    for s in shapes:
+        for leaf, tf in s.leaves():
+            if isinstance(leaf, ImageShape):
+                n_img += 1
+                continue
+            qp = tf.map(leaf.local_path())
+            attrs = {"layer": layer_for(leaf.layer)}
+            for start, segs in _qpath_subpaths(qp):
+                if not segs:
+                    continue
+                if not any(sg[0] == "C" for sg in segs):
+                    pts = [start] + [sg[1] for sg in segs]
+                    closed = len(pts) > 2 and math.dist(pts[0], pts[-1]) < eps
+                    if closed:
+                        pts = pts[:-1]
+                    if len(pts) < 2:
+                        continue
+                    msp.add_lwpolyline(pts, format="xy", close=closed, dxfattribs=attrs)
+                    n_ent += 1
+                    continue
+                curves = []
+                p0 = start
+                for sg in segs:
+                    if sg[0] == "L":
+                        p1 = sg[1]
+                        if math.dist(p0, p1) < eps:
+                            continue
+                        dx, dy = (p1[0] - p0[0]) / 3.0, (p1[1] - p0[1]) / 3.0
+                        cps = (p0, (p0[0] + dx, p0[1] + dy), (p1[0] - dx, p1[1] - dy), p1)
+                    else:
+                        p1 = sg[3]
+                        cps = (p0, sg[1], sg[2], p1)
+                    curves.append(Bezier4P([Vec3(x, y, 0) for x, y in cps]))
+                    p0 = p1
+                if not curves:
+                    continue
+                sp = msp.add_spline(dxfattribs=attrs)
+                sp.apply_construction_tool(bezier_to_bspline(curves))
+                n_ent += 1
+    dwg.saveas(path)
+    return n_ent, n_img

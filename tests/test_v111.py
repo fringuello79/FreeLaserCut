@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QToolBar
 app = QApplication([])
 QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)
 QMessageBox.information = staticmethod(lambda *a, **k: QMessageBox.Ok)
-from freelasercut import fire_guard as fg, diag
+from freelasercut import fire_guard as fg, diag, i18n
 
 results = []
 def check(name, cond, info=""):
@@ -108,7 +108,7 @@ check("livello normale di nuovo: solo icone, come prima", main.toolButtonStyle()
 
 # ------------------------------------------------------------------ tabella dei nomi
 names_ok = all(len(v) == len(cmd_labels.LANGS) and all(0 < len(x) <= 12 for x in v) for v in cmd_labels.SHORT.values())
-check("nomi corti in tutte e 5 le lingue (al massimo 12 lettere)", names_ok)
+check("nomi corti in tutte le lingue (al massimo 12 lettere)", names_ok and set(cmd_labels.LANGS) == set(i18n.LANGUAGES))
 known = set(w.acts) | set(w.tool_actions)
 check("ogni nome corrisponde a un comando vero", set(cmd_labels.SHORT) <= known, set(cmd_labels.SHORT) - known)
 need = {a for t in (main, tools) for a in t.actions() if not a.isSeparator() and not a.icon().isNull()}
@@ -161,7 +161,7 @@ widths = {l: probe(l).get("main") for l in cmd_labels.LANGS}
 lim = 1900 if sys.platform != "win32" else 2400
 check("Classica: con i nomi la barra in alto sta in 1920 pixel, in tutte le lingue",
       all(v and v <= lim for v in widths.values()), widths)
-for l in ("it", "fr"):
+for l in ("it", "fr", "de"):  # 0.23.5: anche il tedesco, il più lungo
     b = probe(l, "banco")
     check(f"Banco ({l}): nomi interi sotto gli strumenti, nessuno tagliato", b.get("cut") == [] and b.get("rect") and
           b.get("island", 9999) < 1500, b)

@@ -1,9 +1,9 @@
 # Prove automatiche di FreeLaserCut, per area
 
 Generato da `tests/run_tests.py` (non modificare a mano): ogni suite sta nell'area della sua descrizione.
-Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
+Suite: 328. Lancio completo: `python tests/run_tests.py`; una sola: `python tests/<file> [banco]`.
 
-## Wi-Fi, rete e telefono (23)
+## Wi-Fi, rete e telefono (24)
 
 - `test_v110.py`: Guardia fiamme, taratura da foto del test, controllo dal telefono
 - `test_v120.py`: Laser in Wi-Fi, copie delle impostazioni della scheda, 39 modelli pronti
@@ -26,6 +26,7 @@ Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_telefono.py`: Telefono: frecce e joystick per muovere la testa (solo se permesso sul PC, a macchina ferma, laser spento, arresto da solo se il telefono tace), pagina con comandi in rilievo
 - `test_v225_telefono.py` (Banco): Telefono: frecce e joystick nell'interfaccia Banco
 - `test_v226_ruida_estesa.py`: Studia la macchina, Ruida: la lettura estesa legge anche le impostazioni note fuori dalle zone (numero dell'impostazione e byte sul cavo), solo letture, in rete e su USB
+- `test_v235_falcon.py`: Creality Falcon (rapporti 4A62 e 9917): homing ricordato dopo i riavvii della scheda, freccia verso il finecorsa bloccata anche dopo un riavvio, allarme al bordo spiegato; Falcon A1 Pro riconosciuto dalla scheda e Wi-Fi guidato che dice di usare il cavo
 - `test_v234_telefono_lucciola.py`: Controllo dal telefono, Lucciola: permesso solo per la sessione e con i movimenti, prima accensione dal PC, potenza sotto il tetto, spenta se il telefono tace, con «■», togliendo i permessi, con lavoro, allarme, Puntino, K40 e cavo staccato; frecce con la Lucciola del telefono
 - `test_v234_telefono_lucciola.py` (Banco): Controllo dal telefono, Lucciola, nell'interfaccia Banco
 
@@ -75,7 +76,7 @@ Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v225_test_forma.py`: Test materiale con la forma selezionata o con il pezzo di una foto (la zona con più grigi trovata da sola), richiesta di Stefano Modena
 - `test_v225_test_forma.py` (Banco): Test materiale con la forma o la foto nell'interfaccia Banco
 
-## Foto e immagini (34)
+## Foto e immagini (36)
 
 - `test_v10.py`: Foto veloci, Prepara foto, foto in linee e riempimento, prova foto
 - `test_v102.py`: Anteprima che non copre la foto, zoom a punti veri in Prepara foto
@@ -111,8 +112,10 @@ Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v232_verifica_console.py`: Lavoro e G-code, verifica ($C): le righe e i loro «ok» non vanno uno per uno nella console (la finestra restava ferma con le foto grandi)
 - `test_v233_k40.py`: Macchina K40 (scheda M2 Nano): joystick come un movimento continuo a laser spento (niente scatti; chiuso al rilascio, dopo un silenzio, a un cambio di direzione o di velocità), ritorno al punto di partenza a fine lavoro, scala di grigi che diventa un retino, file di prova degli impulsi
 - `test_v234_k40_righe_un_verso.py`: Macchina K40 (scheda M2 Nano): righe in un verso solo (file degli impulsi, riempimenti e foto non bidirezionali) nel modo raster con due «G» come MeerK40t, niente giro della scheda a ogni riga; stessi punti bruciati, guasti messi apposta, 300 G-code a caso, ponte con FLC_K40_SENZA_GIRI e FLC_K40_RASTER
+- `test_v235_ritaglio_foto.py`: Foto ritagliata a forma (rapporto 3536, Daniel Z.): una foto già ritagliata più una forma nuova prende la forma nuova e non la somma delle due; «Ritaglia con la forma» con una foto e una forma ritaglia la foto; Annulla, Togli il ritaglio, disegni come prima, guasti messi apposta
+- `test_v235_ritaglio_foto.py` (Banco): Foto ritagliata a forma, una forma nuova su una foto già ritagliata, nell'interfaccia Banco
 
-## Lavoro e G-code (57)
+## Lavoro e G-code (59)
 
 - `test_gcode.py`: Generatore G-code (eseguito sul simulatore)
 - `test_controller.py`: Controller: verifica, errori, override, ripresa, fire
@@ -171,6 +174,8 @@ Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v231_punto.py` (Banco): Lavoro e G-code, punto di partenza nell'interfaccia Banco
 - `test_v233_rotativo_inverti.py`: Rotativo, «Inverti il senso di rotazione»: G-code con il solo asse del rotativo specchiato (Y e Z), contorno, frecce, «Continuo», joystick, «Prova: un giro», preferenze e rapporto; spunta spenta = G-code di prima
 - `test_v233_rotativo_inverti.py` (Banco): Rotativo, «Inverti il senso di rotazione» nell'interfaccia Banco
+- `test_v235_tempo_restante.py`: Lavoro e G-code, tempo rimanente (Deborah K.): pesato riga per riga con la stima, senza le pause e senza le righe ancora nel buffer della scheda, levigato e mai in risalita; lavori simulati, simulatore e finestra
+- `test_v235_macro.py`: Movimento, macro (idea di Mauro D.): pulsanti personali con poche righe di G-code; commenti e righe sbagliate, conferma per laser acceso e impostazioni della scheda, M5 aggiunto alla fine, solo con la macchina ferma e pronta, mai con la K40, finestra per scriverle, pannello che non si allarga
 
 ## Macchina, connessione e profili (65)
 
@@ -240,7 +245,7 @@ Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v230_homing.py` (Banco): Configurazione guidata: l'angolo dello 0 scelto non si perde, interfaccia Banco
 - `test_v234_livelli_predefiniti.py`: Livelli dei progetti nuovi (Richmond): Usa questi livelli per i progetti nuovi, file importati, dopo la riapertura, progetti salvati, ritorno alla fabbrica
 
-## Disegno e modifica (33)
+## Disegno e modifica (34)
 
 - `test_editor_ui.py`: Editor: mouse e tastiera sulla tela
 - `test_v04.py`: Progetti .lbrn2, galleria forme, comandi da Claude (MCP)
@@ -275,10 +280,11 @@ Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v230_distanze_fisse_ui.py` (Banco): Disegno, distanze fisse nell'interfaccia Banco
 - `test_v233_appunti.py`: Copia e Incolla: dopo «Copia» il processo finisce senza errore (le forme copiate escono dagli appunti a fine processo)
 - `test_v233_scala_percento.py`: Barra delle misure, casella della scala in percentuale: scala uniforme attorno al punto di riferimento, un passo di Annulla, di nuovo 100 % (anche con il cursore dentro), limiti, «150%» in L e A ma non negli altri campi, posto nella barra
+- `test_v235_salva_dxf.py`: Salvare il disegno in DXF (Modesto): forme in polilinee e spline esatte, un layer per livello con il suo colore, millimetri e coordinate del piano; andata e ritorno, menu File, nomi dei layer, guasti messi apposta
 
-## Interfaccia (56)
+## Interfaccia (62)
 
-- `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese
+- `test_v06.py`: Lingue: inglese, italiano, spagnolo, francese, portoghese, tedesco
 - `test_v07.py`: Interfaccia Banco: ricerca comandi, strati, percorso, menu radiale, cabina, Officina
 - `test_v101.py`: Avvio robusto: errori visibili, istanza unica, scelta interfaccia, installatore
 - `test_v106.py`: Aspetto: tema scuro, chiaro o come Windows, colore principale
@@ -332,8 +338,14 @@ Suite: 316. Lancio completo: `python tests/run_tests.py`; una sola: `python test
 - `test_v227_k40.py` (Banco): K40 collegata dopo la prima prova, nell'interfaccia Banco
 - `test_v229_finestra.py`: Apri un'altra finestra: comando e menu, processo a parte con la sua sigla, salvataggio automatico per finestra, finestre chiuse male riconosciute e riaperte, una finestra vera avviata e uccisa
 - `test_v229_finestra.py` (Banco): Apri un'altra finestra nell'interfaccia Banco
+- `test_v235_falcon.py` (Banco): Creality Falcon (rapporti 4A62 e 9917) nell'interfaccia Banco
 - `test_v233_scala_percento.py` (Banco): Barra delle misure, casella della scala in percentuale nell'interfaccia Banco
 - `test_v234_livelli_predefiniti.py` (Banco): Livelli dei progetti nuovi nell'interfaccia Banco
+- `test_v235_tempo_restante.py` (Banco): Tempo rimanente nell'interfaccia Banco
+- `test_v235_note_progetto.py`: Note del progetto (Costanzo): linguetta «Note» in basso a destra del piano, foglietto che si apre e si chiude, salvate nel progetto e mai pubblicate nella Galleria; non disturba disegno, scorciatoie, vista d'insieme
+- `test_v235_note_progetto.py` (Banco): Note del progetto nell'interfaccia Banco: senza coprire pannelli e isole
+- `test_v235_salva_dxf.py` (Banco): Salvare il disegno in DXF nell'interfaccia Banco
+- `test_v235_macro.py` (Banco): Movimento, macro nell'interfaccia Banco (Officina)
 
 ## Avvio, installazione, aggiornamenti e assistenza (11)
 
